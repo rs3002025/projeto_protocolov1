@@ -2,7 +2,6 @@ const express = require('express');
 const path = require('path');
 const cors = require('cors');
 const pool = require('./db');
-
 const protocoloRoutes = require('./routes/protocolos');
 
 const app = express();
@@ -11,9 +10,12 @@ const port = process.env.PORT || 3000;
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
-app.use('/protocolos', protocoloRoutes);
 
+// Serve arquivos estáticos da pasta public
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Rotas de API
+app.use('/protocolos', protocoloRoutes);
 
 // Rota de login
 app.post('/login', async (req, res) => {
@@ -23,12 +25,6 @@ app.post('/login', async (req, res) => {
       'SELECT nome, tipo, email FROM usuarios WHERE login = $1 AND senha = $2',
       [login, senha]
     );
-
-
-
-
-
-
 
     if (result.rows.length > 0) {
       res.json({ sucesso: true, usuario: result.rows[0] });
@@ -56,12 +52,7 @@ app.post('/usuarios', async (req, res) => {
   }
 });
 
-
-// Rota raiz
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-// Rota para listar todos os usuários
+// Rota para listar usuários
 app.get('/usuarios', async (req, res) => {
   try {
     const result = await pool.query('SELECT id, nome, login, tipo, email FROM usuarios');
@@ -72,6 +63,12 @@ app.get('/usuarios', async (req, res) => {
   }
 });
 
+// Rota raiz para carregar o frontend
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Inicia o servidor
 app.listen(port, () => {
-  console.log(`Servidor rodando em http://localhost:${port}`);
+  console.log(`Servidor rodando na porta ${port}`);
 });
