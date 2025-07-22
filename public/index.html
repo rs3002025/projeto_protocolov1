@@ -11,7 +11,7 @@
       background: #f5f5f5;
     }
     .container {
-      max-width: 1000px;
+      max-width: 1500px;
       margin: 40px auto;
       background: #fff;
       border-radius: 16px;
@@ -19,12 +19,37 @@
       overflow: hidden;
       padding-bottom: 30px;
     }
-    .header {
-      background: #2e7d32;
-      color: white;
-      padding: 20px;
-      text-align: center;
-    }
+.header {
+  background: #2e7d32;
+  color: white;
+  padding: 20px;
+  text-align: center; /* Centraliza tudo */
+}
+.content {
+  display: none;
+}
+
+.content.active {
+  display: block;
+}
+
+
+.logo {
+  height: 80px; /* Ajuste o tamanho da sua logo aqui */
+  margin-bottom: 5 px; /* Espaço entre a logo e os títulos */
+}
+
+.header h2, .header h3 {
+  margin: 5px 0; /* Espaçamento entre os títulos */
+}
+.header {
+  border-radius: 0 0 15px 15px; /* Bordas arredondadas na parte de baixo */
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1); /* Sombra sutil */
+}
+.header img {
+  height: 60px; /* Altura fixa para a logo */
+  width: auto;  /* Mantém a proporção */
+}
     .content {
       padding: 20px 30px;
     }
@@ -56,7 +81,7 @@
       font-size: 1em;
     }
     button {
-      padding: 10px 20px;
+      padding: 10px 12px;
       border: none;
       background: #2e7d32;
       color: white;
@@ -95,16 +120,59 @@
       font-weight: bold;
       color: #2e7d32;
     }
+/* Estilo da tela de relatórios */
+.relatorios-screen {
+  display: none;
+}
+
+.filtros {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.filtros input, .filtros select {
+  padding: 8px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+}
+
+.relatorios-screen {
+  display: none;
+  padding: 20px;
+}
+
+.filtros {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-bottom: 20px;
+  background: #f5f5f5;
+  padding: 15px;
+  border-radius: 8px;
+}
+
+#resultadosPesquisa {
+  background: white;
+}
 
     /* Estilo para o documento PDF / impressão */
-    #modeloProtocolo {
-      display: none;
-      padding: 40px;
-      width: 800px;
-      margin: auto;
-      font-family: serif;
-      color: #000;
-    }
+  #modeloProtocolo {
+  display: none;
+  width: 730px;
+  margin: 0 auto;
+  font-family: 'Times New Roman', serif;
+  color: #000;
+  background: #fff;
+  padding: 30px 50px;
+  border: 1px solid #333;
+  box-shadow: 0 0 15px rgba(0,0,0,0.3);
+  box-sizing: border-box;
+  position: static;
+}
+
+
     #modeloProtocolo h2, #modeloProtocolo h3, #modeloProtocolo h4 {
       margin: 0;
       padding: 0;
@@ -118,10 +186,11 @@
 </head>
 <body>
   <div class="container">
-    <div class="header">
-      <h2>Prefeitura de Morada Nova</h2>
-      <h3>Sistema de Protocolo</h3>
-    </div>
+<div class="header">
+  <img src="/img/logo.png" alt="Logo" class="logo">
+  <h2>Prefeitura de Morada Nova</h2>
+  <h3>Sistema de Protocolo</h3>
+</div>
 
     <div id="login" class="login-screen active content">
       <label>Usuário</label>
@@ -135,6 +204,7 @@
     <div id="menu" class="menu content">
       <button id="btnNovo" onclick="mostrarTela('form')">Novo Protocolo</button>
       <button onclick="mostrarTela('protocolos')">Todos os Protocolos</button>
+<button onclick="mostrarTela('relatorios')" id="btnRelatorios">Relatórios</button>
       <button onclick="mostrarTela('meusProtocolos')">Meus Protocolos</button>
       <button id="btnConfig" onclick="mostrarTela('config')">⚙️ Configurações</button>
       <button onclick="sair()">Sair</button>
@@ -144,7 +214,7 @@
       <form class="formulario" onsubmit="return false;">
         <div class="form-group span-3"><label>Número do Protocolo</label><input type="text" id="numeroProtocolo" readonly></div>
         <div class="form-group span-3"><label>Matrícula</label><input type="text" id="matricula"></div>
-        <div class="form-group span-9"><label>Nome Completo</label><input type="text" id="nome"></div>
+        <div class="form-group span-6"><label>Nome Completo</label><input type="text" id="nome"></div>
         <div class="form-group span-6"><label>Endereço</label><input type="text" id="endereco"></div>
         <div class="form-group span-3"><label>Município</label><input type="text" id="municipio"></div>
         <div class="form-group span-3"><label>Bairro</label><input type="text" id="bairro"></div>
@@ -154,18 +224,102 @@
         <div class="form-group span-3"><label>RG</label><input type="text" id="rg"></div>
         <div class="form-group span-3"><label>Data de Expedição</label><input type="date" id="dataExpedicao"></div>
         <div class="form-group span-3"><label>Cargo/Função</label><input type="text" id="cargo"></div>
-        <div class="form-group span-3"><label>Lotação</label><input type="text" id="lotacao"></div>
+        <div class="form-group span-6"><label>Lotação</label><input type="text" id="lotacao"></div>
         <div class="form-group span-6"><label>Unidade de Exercício</label><input type="text" id="unidade"></div>
-        <div class="form-group span-6"><label>Tipo de Requerimento</label><input type="text" id="tipo"></div>
+       <div class="form-group span-6">
+  <label>Tipo de Requerimento</label>
+  <select id="tipo">
+    <option value="">Selecione...</option>
+    <option value="Adicional de tempo de serviços">Adicional de tempo de serviços</option>
+    <option value="Adicional de insalubridade">Adicional de insalubridade</option>
+    <option value="Adicional de periculosidade">Adicional de periculosidade</option>
+    <option value="Adicional de atividades penosas">Adicional de atividades penosas</option>
+    <option value="Adicional por serviços extraordinários">Adicional por serviços extraordinários</option>
+    <option value="Adicional noturno">Adicional noturno</option>
+    <option value="Adicional de férias">Adicional de férias</option>
+    <option value="Afastamento p. servir a outro órgão ou entidade">Afastamento p. servir a outro órgão ou entidade</option>
+    <option value="Afastamento para exercício de mandato eletivo">Afastamento para exercício de mandato eletivo</option>
+    <option value="Afastamento para estudo fora do município">Afastamento para estudo fora do município</option>
+    <option value="Alteração do cadastro funcional/pessoal">Alteração do cadastro funcional/pessoal</option>
+    <option value="Aposentadoria">Aposentadoria</option>
+    <option value="Certidão por tempo de contribuição">Certidão por tempo de contribuição</option>
+    <option value="Cópia de Documentação">Cópia de Documentação</option>
+    <option value="Declaração">Declaração</option>
+    <option value="Exoneração de cargo/função">Exoneração de cargo/função</option>
+    <option value="Férias">Férias</option>
+    <option value="Ficha financeira">Ficha financeira</option>
+    <option value="Gratificação natalina">Gratificação natalina</option>
+    <option value="Gratificação de incentivo profissional">Gratificação de incentivo profissional</option>
+    <option value="Gratificação pós-graduação">Gratificação pós-graduação</option>
+    <option value="Gratificação retribuição pecuniária">Gratificação retribuição pecuniária</option>
+    <option value="Gratificação de difícil acesso">Gratificação de difícil acesso</option>
+    <option value="Licença para atividades políticas">Licença para atividades políticas</option>
+    <option value="Licença para capacitação">Licença para capacitação</option>
+    <option value="Licença para desempenho de mandato classista">Licença para desempenho de mandato classista</option>
+    <option value="Licença por motivo de doença na família">Licença por motivo de doença na família</option>
+    <option value="Licença por motivo de afastamento do cônjuge">Licença por motivo de afastamento do cônjuge</option>
+    <option value="Licença para serviço militar">Licença para serviço militar</option>
+    <option value="Licença para tratar de interesse particular">Licença para tratar de interesse particular</option>
+    <option value="Licença Especial">Licença Especial</option>
+    <option value="Reposição de faltas">Reposição de faltas</option>
+    <option value="Outros">Outros</option>
+  </select>
+</div>
+
         <div class="form-group span-6"><label>Requer ao</label><input type="text" id="requerAo"></div>
         <div class="form-group span-3"><label>Data Solicitação</label><input type="date" id="dataSolicitacao"></div>
-        <div class="form-group full-row"><label>Informações Complementares</label><textarea id="complemento"></textarea></div>
+       <div class="form-group full-row">
+  <label>Informações Complementares</label>
+  <textarea id="complemento" rows="8"></textarea>
+</div>
+
       </form>
       <button onclick="enviarRequerimento()">Enviar Requerimento</button>
       <button onclick="window.print()">Imprimir</button>
       <button onclick="mostrarTela('menu')">Voltar</button>
       <div id="log" class="log-area"></div>
     </div>
+
+
+
+
+<!-- Adicione isso junto com as outras telas (perto de <div id="protocolos">) -->
+<div id="relatorios" class="relatorios-screen content">
+  <h3>🔍 Pesquisar Protocolos</h3>
+  
+  <!-- Filtros de Pesquisa -->
+  <div class="filtros">
+    <input type="text" id="filtroNumero" placeholder="Número do Protocolo">
+    <input type="text" id="filtroNome" placeholder="Nome do Requerente">
+    <select id="filtroStatus">
+      <option value="">Todos os status</option>
+      <option value="Aberto">Aberto</option>
+      <option value="Em análise">Em análise</option>
+      <option value="Concluído">Concluído</option>
+    </select>
+    <button onclick="pesquisarProtocolos()">Pesquisar</button>
+    <button onclick="gerarRelatorio()">📊 Gerar Relatório</button>
+    <button onclick="voltarDeRelatorios()">🔙 Voltar</button>
+  </div>
+
+  <!-- Resultados -->
+  <table>
+    <thead>
+      <tr>
+        <th>Número</th>
+        <th>Nome</th>
+        <th>Status</th>
+        <th>Data Solicitação</th>
+        <th>Tipo</th>
+        <th>CPF</th>
+      </tr>
+    </thead>
+    <tbody id="resultadosPesquisa"></tbody>
+  </table>
+</div>
+
+
+
 
     <div id="protocolos" class="protocolos-screen content">
       <h3>📋 Lista de Protocolos Enviados</h3>
@@ -209,16 +363,25 @@
         <button onclick="salvarEmailSistema()">Salvar Email</button>
       </div>
       <div class="form-group full-row">
-        <label>Adicionar Novo Usuário:</label>
-        <input type="text" id="novoUsuario" placeholder="Nome do usuário" />
-        <input type="password" id="novaSenha" placeholder="Senha" />
-        <select id="nivelUsuario">
-          <option value="comum">Comum</option>
-          <option value="padrao">Padrão</option>
-          <option value="admin">Administrador</option>
-        </select>
-        <button onclick="cadastrarUsuario()">Cadastrar Usuário</button>
-      </div>
+  <label>Adicionar Novo Usuário:</label>
+  <input type="text" id="novoUsuario" placeholder="Nome do usuário" />
+  <input type="password" id="novaSenha" placeholder="Senha" />
+  <input type="email" id="novoEmail" placeholder="E-mail do usuário" />
+  <select id="nivelUsuario">
+    <option value="comum">Comum</option>
+    <option value="padrao">Padrão</option>
+    <option value="admin">Administrador</option>
+  </select>
+  <button onclick="cadastrarUsuario()">Cadastrar Usuário</button>
+</div>
+
+	<h4>Gerar Backup de Protocolos</h4>
+<label>Data Início:</label>
+<input type="date" id="backupDataInicio" />
+<label>Data Fim:</label>
+<input type="date" id="backupDataFim" />
+<button onclick="gerarBackup()">Gerar Backup</button>
+
       <h4>Usuários Cadastrados:</h4>
       <ul id="listaUsuarios"></ul>
       <button onclick="mostrarTela('menu')">Voltar</button>
@@ -226,324 +389,862 @@
   </div>
 
  <!-- Modelo padrão do protocolo para impressão/PDF -->
-<div id="modeloProtocolo" style="display:none; width: 800px; margin: auto; font-family: 'Times New Roman', serif; color: #000; background: #fff; padding: 40px; border: 1px solid #333; box-shadow: 0 0 15px rgba(0,0,0,0.3);">
+<!-- Modelo completo do PDF -->
+<div id="modeloProtocolo" style="display: none;">
   <style>
-    #modeloProtocolo h2, #modeloProtocolo h3, #modeloProtocolo h4 {
-      margin: 0;
-      padding: 0;
-      font-weight: normal;
+    .doc-container {
+      width: 100%;
+      max-width: 700px;
+      margin: 0 auto;
+      font-family: 'Arial', sans-serif;
+      padding: 20px;
+      color: #000;
     }
-    #modeloProtocolo h2 {
-      font-size: 26px;
-      font-weight: bold;
-      color: #2e7d32;
-      margin-bottom: 5px;
+    .header-pdf {
+      text-align: center;
+      margin-bottom: 20px;
+      border-bottom: 3px solid #2e7d32;
+      padding-bottom: 15px;
     }
-    #modeloProtocolo h3 {
-      font-size: 20px;
-      margin-top: 10px;
-      margin-bottom: 25px;
-      font-weight: bold;
-      text-decoration: underline;
-    }
-    #modeloProtocolo h4 {
-      font-size: 16px;
-      margin-top: 20px;
+    .header-pdf img {
+      height: 80px;
       margin-bottom: 10px;
+    }
+    .titulo-pdf {
+      font-size: 24px;
+      font-weight: bold;
+      margin: 10px 0;
+      color: #2e7d32;
+    }
+    .dados-protocolo p {
+      margin: 8px 0;
+    }
+    .dados-section {
+      margin: 20px 0;
+    }
+    .dados-section h4 {
       color: #2e7d32;
       border-bottom: 1px solid #2e7d32;
       padding-bottom: 5px;
+      margin-bottom: 10px;
     }
-    #modeloProtocolo p {
-      font-size: 14px;
-      margin: 5px 0;
-      line-height: 1.5;
-    }
-    #modeloProtocolo strong {
-      color: #2e7d32;
-    }
-    #modeloProtocolo #doc_complemento {
-      border: 1px solid #ccc;
-      min-height: 80px;
-      padding: 10px;
-      margin-top: 5px;
-      font-size: 13px;
-      white-space: pre-wrap;
-      background-color: #f9f9f9;
-    }
-    #modeloProtocolo .assinaturas {
+    .assinaturas {
       display: flex;
       justify-content: space-between;
       margin-top: 80px;
     }
-    #modeloProtocolo .assinatura {
+    .assinatura {
       text-align: center;
-      width: 40%;
-      font-size: 14px;
+      width: 45%;
       border-top: 1px solid #000;
-      padding-top: 8px;
-      color: #444;
+      padding-top: 10px;
+      font-size: 14px;
+    }
+    #doc_complemento {
+      background: #f9f9f9;
+      border: 1px solid #ddd;
+      padding: 10px;
+      margin-top: 5px;
     }
   </style>
-  <div style="text-align: center; border-bottom: 3px solid #2e7d32; padding-bottom: 15px; margin-bottom: 30px;">
-    <h2>Prefeitura Municipal de Morada Nova</h2>
-    <h4>Setor de Protocolo</h4>
-    <h3>PROTOCOLO DE REQUERIMENTO</h3>
-  </div>
-  <p><strong>Número do Protocolo:</strong> <span id="doc_numero"></span></p>
-  <p><strong>Data de Solicitação:</strong> <span id="doc_dataSolicitacao"></span></p>
 
-  <h4>Dados do Requerente</h4>
-  <p><strong>Nome:</strong> <span id="doc_nome"></span></p>
-  <p><strong>Matrícula:</strong> <span id="doc_matricula"></span></p>
-  <p><strong>CPF:</strong> <span id="doc_cpf"></span> | <strong>RG:</strong> <span id="doc_rg"></span></p>
-  <p><strong>Endereço:</strong> <span id="doc_endereco"></span>, <span id="doc_bairro"></span> - <span id="doc_municipio"></span> - CEP: <span id="doc_cep"></span></p>
-  <p><strong>Telefone:</strong> <span id="doc_telefone"></span></p>
-  <p><strong>Cargo/Função:</strong> <span id="doc_cargo"></span></p>
-  <p><strong>Lotação:</strong> <span id="doc_lotacao"></span></p>
-  <p><strong>Unidade de Exercício:</strong> <span id="doc_unidade"></span></p>
-
-  <h4>Dados do Requerimento</h4>
-  <p><strong>Tipo de Requerimento:</strong> <span id="doc_tipo"></span></p>
-  <p><strong>Requer ao:</strong> <span id="doc_requerAo"></span></p>
-
-  <p><strong>Informações Complementares:</strong></p>
-  <div id="doc_complemento"></div>
-
-  <div class="assinaturas">
-    <div class="assinatura">
-      Assinatura do Requerente
+  <div class="doc-container">
+    <!-- Cabeçalho com Logo -->
+    <div class="header-pdf">
+      <img src="/img/logo.png" alt="Logo">
+      <h2>Secretaria da Administração</h2>
+      <h3 class="titulo-pdf">PROTOCOLO DE REQUERIMENTO</h3>
     </div>
-    <div class="assinatura">
-      Responsável pelo Protocolo
+
+    <!-- Dados Básicos -->
+    <div class="dados-protocolo">
+      <p><strong>Número do Protocolo:</strong> <span id="doc_numero"></span></p>
+      <p><strong>Data de Solicitação:</strong> <span id="doc_dataSolicitacao"></span></p>
+    </div>
+
+    <!-- Dados do Requerente -->
+    <div class="dados-section">
+      <h4>DADOS DO REQUERENTE</h4>
+      <div class="dados-protocolo">
+        <p><strong>Nome:</strong> <span id="doc_nome"></span></p>
+        <p><strong>Matrícula:</strong> <span id="doc_matricula"></span></p>
+        <p><strong>CPF:</strong> <span id="doc_cpf"></span></p>
+        <p><strong>RG:</strong> <span id="doc_rg"></span></p>
+        <p><strong>Endereço:</strong> <span id="doc_endereco"></span></p>
+        <p><strong>Bairro:</strong> <span id="doc_bairro"></span></p>
+        <p><strong>Município:</strong> <span id="doc_municipio"></span></p>
+        <p><strong>CEP:</strong> <span id="doc_cep"></span></p>
+        <p><strong>Telefone:</strong> <span id="doc_telefone"></span></p>
+        <p><strong>Cargo/Função:</strong> <span id="doc_cargo"></span></p>
+        <p><strong>Lotação:</strong> <span id="doc_lotacao"></span></p>
+        <p><strong>Unidade de Exercício:</strong> <span id="doc_unidade"></span></p>
+      </div>
+    </div>
+
+    <!-- Dados do Requerimento -->
+    <div class="dados-section">
+      <h4>DADOS DO REQUERIMENTO</h4>
+      <div class="dados-protocolo">
+        <p><strong>Tipo de Requerimento:</strong> <span id="doc_tipo"></span></p>
+        <p><strong>Requer ao:</strong> <span id="doc_requerAo"></span></p>
+        <p><strong>Informações Complementares:</strong></p>
+        <div id="doc_complemento"></div>
+      </div>
+    </div>
+
+    <!-- Assinaturas -->
+    <div class="assinaturas">
+      <div class="assinatura">
+        Assinatura do Requerente
+      </div>
+      <div class="assinatura">
+        Responsável pelo Protocolo
+      </div>
     </div>
   </div>
 </div>
 
 
-  <script>
-    let usuarios = JSON.parse(localStorage.getItem('usuarios')) || [];
-    if (!usuarios.length) {
-      usuarios = [
-        { nome: "admin", senha: "123", nivel: "admin" },
-        { nome: "user", senha: "123", nivel: "comum" }
-      ];
-    }
+ <script defer>
+    let usuarios = []; // Não usa mais localStorage, os usuários vêm do backend
+
 
     let emailSistema = localStorage.getItem('emailSistema') || "";
-    let dadosEnviados = JSON.parse(localStorage.getItem('protocolos')) || [];
+    
     let usuarioLogado = "";
     let nivelUsuario = "";
 
-    function logar() {
-      const user = document.getElementById('usuario').value;
-      const senha = document.getElementById('senha').value;
-      const msg = document.getElementById('loginMsg');
-      const usuarioValido = usuarios.find(u => u.nome === user && u.senha === senha);
-      if (usuarioValido) {
-        usuarioLogado = user;
-        nivelUsuario = usuarioValido.nivel || "comum";
-
-        document.getElementById('btnConfig').style.display = nivelUsuario === "admin" ? "inline-block" : "none";
-        document.getElementById('btnNovo').style.display = (nivelUsuario === "admin" || nivelUsuario === "padrao") ? "inline-block" : "none";
-
-        if (nivelUsuario === "comum") {
-          mostrarTela('meusProtocolos');
-        } else {
-          mostrarTela('menu');
-        }
-
-        msg.textContent = "";
-        document.getElementById('usuario').value = "";
-        document.getElementById('senha').value = "";
-        atualizarListaUsuarios();
+ document.addEventListener('DOMContentLoaded', () => {
+    usuarioLogado = localStorage.getItem('usuarioLogado') || "";
+    nivelUsuario = localStorage.getItem('nivelUsuario') || "";
+    
+    console.log("Verificando sessão:", usuarioLogado, nivelUsuario); // Debug
+    
+    if (usuarioLogado) {
+      // Atualiza a interface
+      document.getElementById('btnConfig').style.display = nivelUsuario === "admin" ? "inline-block" : "none";
+      document.getElementById('btnNovo').style.display = (nivelUsuario === "admin" || nivelUsuario === "padrao") ? "inline-block" : "none";
+      document.getElementById('btnRelatorios').style.display = (nivelUsuario === "admin" || nivelUsuario === "padrao") ? "inline-block" : "none";
+      
+      // Redireciona
+      if (nivelUsuario === "comum") {
+        mostrarTela('meusProtocolos');
       } else {
-        msg.textContent = "Usuário ou senha incorretos.";
+        mostrarTela('menu');
+      }
+    } else {
+      mostrarTela('login');
+    }
+  });
+
+  window.logar = function() {
+  const user = document.getElementById('usuario').value;
+  const senha = document.getElementById('senha').value;
+  const msg = document.getElementById('loginMsg');
+
+  fetch('http://localhost:3000/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ login: user, senha: senha })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.sucesso && data.usuario) {
+      // Armazena no localStorage
+      localStorage.setItem('usuarioLogado', data.usuario.nome);
+      localStorage.setItem('nivelUsuario', data.usuario.tipo);
+      
+      // Atualiza as variáveis
+      usuarioLogado = data.usuario.nome;
+      nivelUsuario = data.usuario.tipo;
+
+      // Atualiza a interface
+      document.getElementById('btnConfig').style.display = nivelUsuario === "admin" ? "inline-block" : "none";
+      document.getElementById('btnNovo').style.display = (nivelUsuario === "admin" || nivelUsuario === "padrao") ? "inline-block" : "none";
+      document.getElementById('btnRelatorios').style.display = (nivelUsuario === "admin" || nivelUsuario === "padrao") ? "inline-block" : "none";
+
+      // Redireciona
+      if (nivelUsuario === "comum") {
+        mostrarTela('meusProtocolos');
+      } else {
+        mostrarTela('menu');
+      }
+
+      msg.textContent = "";
+    } else {
+      msg.textContent = "Usuário ou senha incorretos.";
+    }
+  })
+  .catch(err => {
+    console.error("Erro no login:", err);
+    msg.textContent = "Erro ao conectar ao servidor.";
+  });
+}
+
+
+  function mostrarTela(tela) {
+  ['login','menu','form','config','protocolos','meusProtocolos','relatorios'].forEach(id => {
+    document.getElementById(id).classList.remove('active');
+  });
+
+  if (tela === 'relatorios' && nivelUsuario === 'comum') {
+    alert('Acesso restrito!');
+    return;
+  }
+
+  document.getElementById(tela).classList.add('active');
+
+  // Executa as ações específicas de cada tela
+  if (tela === 'protocolos') listarProtocolos();
+  if (tela === 'meusProtocolos') listarMeusProtocolos();
+  if (tela === 'form') gerarNumeroProtocolo();
+  if (tela === 'config') atualizarListaUsuarios();
+  if (tela === 'relatorios') pesquisarProtocolos();
+}
+
+
+function sair() {
+  // Limpa tudo
+  localStorage.removeItem('usuarioLogado');
+  localStorage.removeItem('nivelUsuario');
+  usuarioLogado = "";
+  nivelUsuario = "";
+  
+  // Reseta a interface
+  document.getElementById('usuario').value = "";
+  document.getElementById('senha').value = "";
+  
+  // Esconde todos os botões restritos
+  document.getElementById('btnConfig').style.display = 'none';
+  document.getElementById('btnNovo').style.display = 'none';
+  document.getElementById('btnRelatorios').style.display = 'none';
+  
+  // Força mostrar a tela de login
+  mostrarTela('login');
+  
+  // Adicione este redirecionamento para garantir
+  window.location.href = window.location.href.split('?')[0];
+}
+
+  async function gerarNumeroProtocolo() {
+  const anoAtual = new Date().getFullYear();
+
+  try {
+    const res = await fetch(`http://localhost:3000/protocolos/ultimoNumero/${anoAtual}`);
+    const data = await res.json();
+    const ultimo = data.ultimo || 0;
+
+    const novoNumero = `${anoAtual}-${String(ultimo + 1).padStart(4, '0')}`;
+    document.getElementById('numeroProtocolo').value = novoNumero;
+    document.getElementById('log').innerText = '📄 Número gerado: ' + novoNumero;
+  } catch (error) {
+    console.error("Erro ao gerar número:", error);
+    document.getElementById('numeroProtocolo').value = `${anoAtual}-0001`;
+    document.getElementById('log').innerText = '⚠️ Número gerado localmente: ' + `${anoAtual}-0001`;
+  }
+}
+
+
+
+
+
+   function enviarRequerimento() {
+  const numeroProtocolo = document.getElementById('numeroProtocolo').value;
+  if (!numeroProtocolo) {
+    alert("❗Número de protocolo não gerado.");
+    return;
+  }
+
+  const dataAgora = new Date().toLocaleString();
+  const protocolo = {
+    numero: numeroProtocolo,
+    matricula: document.getElementById('matricula').value,
+    nome: document.getElementById('nome').value,
+    endereco: document.getElementById('endereco').value,
+    municipio: document.getElementById('municipio').value,
+    bairro: document.getElementById('bairro').value,
+    cep: document.getElementById('cep').value,
+    telefone: document.getElementById('telefone').value,
+    cpf: document.getElementById('cpf').value,
+    rg: document.getElementById('rg').value,
+    dataExpedicao: document.getElementById('dataExpedicao').value,
+    cargo: document.getElementById('cargo').value,
+    lotacao: document.getElementById('lotacao').value,
+    unidade: document.getElementById('unidade').value,
+    tipo: document.getElementById('tipo').value,
+    requerAo: document.getElementById('requerAo').value,
+    dataSolicitacao: document.getElementById('dataSolicitacao').value,
+    complemento: document.getElementById('complemento').value,
+    dataEnvio: dataAgora,
+    status: "Enviado",
+    responsavel: usuarioLogado,
+    movimentacoes: [
+      { data: dataAgora, acao: "Criado e enviado", autor: usuarioLogado }
+    ]
+  };
+
+  fetch('http://localhost:3000/protocolos', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(protocolo)
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.sucesso) {
+      alert('✅ Protocolo enviado e salvo no banco com sucesso!');
+      document.querySelector('.formulario').reset();
+      gerarNumeroProtocolo(); // Gera o próximo número para novo envio
+    } else {
+      alert('❌ Erro ao enviar protocolo: ' + (data.mensagem || 'Erro desconhecido'));
+    }
+  })
+  .catch(err => {
+    alert('❌ Erro na conexão: ' + err.message);
+  });
+}
+
+
+  
+
+ async function listarProtocolos() {
+  const tbody = document.getElementById('tabelaProtocolos');
+  tbody.innerHTML = "";
+
+  try {
+    const res = await fetch('http://localhost:3000/protocolos');
+    const data = await res.json();
+
+    data.protocolos.forEach((p, i) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${p.matricula}</td>
+        <td>${p.nome}</td>
+        <td>${p.tipo_requerimento}</td>
+        <td>${p.status}</td>
+        <td>${p.responsavel}</td>
+        <td>
+          <button onclick="abrirAtualizar(${p.id})">Atualizar</button>
+          <button onclick="abrirEncaminhar(${p.id})">Encaminhar</button>
+          <button onclick="verDetalhes(${p.id})">Ver Detalhes</button>
+          <button onclick="gerarPDFPorId(${p.id})">📄 Documento</button>
+
+          <details id="hist_${p.id}">
+            <summary>Histórico</summary>
+          </details>
+        </td>`;
+      tbody.appendChild(tr);
+
+      setTimeout(() => {
+  carregarHistorico(p.id);
+}, 100);
+    });
+  } catch (error) {
+    console.error("Erro ao listar protocolos:", error);
+    alert("Erro ao buscar protocolos do banco.");
+  }
+}
+
+
+
+async function listarMeusProtocolos() {
+  const tbody = document.getElementById('meusProtocolosTabela');
+  tbody.innerHTML = "";
+
+  try {
+    const res = await fetch('http://localhost:3000/protocolos');
+    const data = await res.json();
+
+    const protocolosFiltrados = data.protocolos.filter(p => p.responsavel === usuarioLogado);
+
+    for (const p of protocolosFiltrados) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${p.numero}</td>
+        <td>${p.nome}</td>
+        <td>${p.status}</td>
+        <td>
+          <button onclick="abrirAtualizar(${p.id})">Atualizar</button>
+          <button onclick="abrirEncaminhar(${p.id})">Encaminhar</button>
+          <button onclick="verDetalhes(${p.id})">Ver Detalhes</button>
+          <button onclick="gerarPDFPorId(${p.id})">📄 Documento</button>
+          <details id="hist_${p.id}">
+            <summary>Histórico</summary>
+          </details>
+        </td>`;
+      
+      tbody.appendChild(tr);
+
+      // ✅ Dá tempo do banco salvar o histórico antes de tentar buscá-lo
+      setTimeout(() => {
+        carregarHistorico(p.id);
+      }, 100);
+    }
+
+  } catch (error) {
+    console.error("Erro ao listar meus protocolos:", error);
+    alert("Erro ao buscar dados.");
+  }
+}
+
+
+
+
+  async function abrirEncaminhar(id) {
+  const novoResp = prompt("Para qual usuário deseja encaminhar?");
+  if (novoResp) {
+    try {
+      const response = await fetch(`http://localhost:3000/protocolos/atualizar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          protocoloId: id,
+          novoStatus: "Encaminhado",
+          novoResponsavel: novoResp,
+          observacao: `Encaminhado por ${usuarioLogado} para ${novoResp}`, // 👈 Mostra QUEM encaminhou
+          usuarioLogado: usuarioLogado // 👈 Envia quem está fazendo a ação
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.sucesso) {
+        alert("✅ Protocolo encaminhado com sucesso!");
+        await carregarHistorico(id);
+        
+        // Atualiza as listas se estiverem visíveis
+        if (document.getElementById('protocolos').classList.contains('active')) {
+          await listarProtocolos();
+        }
+        if (document.getElementById('meusProtocolos').classList.contains('active')) {
+          await listarMeusProtocolos();
+        }
+      } else {
+        alert("Erro ao encaminhar protocolo.");
+      }
+    } catch (error) {
+      console.error("Erro no encaminhamento:", error);
+    }
+  }
+}
+
+
+
+
+async function abrirAtualizar(id) {
+  const novoStatus = prompt("Digite o novo status:");
+  if (novoStatus) {
+    try {
+      const response = await fetch(`http://localhost:3000/protocolos/atualizar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          protocoloId: id,
+          novoStatus,
+          novoResponsavel: usuarioLogado, // Garante que o responsável é o usuário atual
+          observacao: `Status atualizado por ${usuarioLogado} para ${novoStatus}`,
+          usuarioLogado: usuarioLogado
+        })
+      });
+      
+        const data = await response.json();
+      
+      if (data.sucesso) {
+        alert("✅ Status atualizado!");
+        // Recarrega o histórico imediatamente após a atualização
+        await carregarHistorico(id);
+        
+        // Atualiza ambas as listas
+        if (document.getElementById('protocolos').classList.contains('active')) {
+          await listarProtocolos();
+        }
+        if (document.getElementById('meusProtocolos').classList.contains('active')) {
+          await listarMeusProtocolos();
+        }
+      } else {
+        alert("Erro ao atualizar.");
+      }
+    } catch (error) {
+      console.error("Erro na atualização:", error);
+      }
+  }
+}
+
+
+
+async function carregarHistorico(protocoloId) {
+  try {
+    const res = await fetch(`http://localhost:3000/protocolos/historico/${protocoloId}`);
+    const data = await res.json();
+
+    // Tenta encontrar o elemento em ambas as telas
+    let details = document.getElementById('hist_' + protocoloId);
+    if (!details) {
+      // Se não encontrou na tela atual, tenta na outra tabela
+      const otherTable = document.getElementById('tabelaProtocolos') || 
+                         document.getElementById('meusProtocolosTabela');
+      if (otherTable) {
+        details = otherTable.querySelector('#hist_' + protocoloId);
       }
     }
 
-    function mostrarTela(tela) {
-      ['login','menu','form','config','protocolos','meusProtocolos'].forEach(id => document.getElementById(id).classList.remove('active'));
-      document.getElementById(tela).classList.add('active');
-      if (tela === 'protocolos') listarProtocolos();
-      if (tela === 'meusProtocolos') listarMeusProtocolos();
-      if (tela === 'form') gerarNumeroProtocolo();
+    if (details) {
+      details.innerHTML = `<summary>Histórico</summary>`;
+      data.historico.forEach(h => {
+        const div = document.createElement('div');
+        div.textContent = `📌 ${h.status} - 👤 ${h.responsavel} - 🕒 ${new Date(h.data_movimentacao).toLocaleString()}${h.observacao ? ` - 📝 ${h.observacao}` : ''}`;
+        details.appendChild(div);
+      });
+    }
+  } catch (error) {
+    console.error("Erro ao carregar histórico:", error);
+  }
+}
+
+
+async function gerarDocumentoPorId(id) {
+  try {
+    const res = await fetch(`http://localhost:3000/protocolos/${id}`);
+    const { protocolo } = await res.json();
+    if (!protocolo) return alert("Protocolo não encontrado");
+
+    gerarDocumentoCompleto(protocolo); // sua função já existente para gerar o documento
+  } catch (err) {
+    console.error("Erro ao gerar documento:", err);
+    alert("Erro ao gerar documento.");
+  }
+}
+
+async function gerarPDFPorId(id) {
+  try {
+    // Busca os dados do protocolo
+    const res = await fetch(`http://localhost:3000/protocolos/${id}`);
+    const { protocolo } = await res.json();
+    
+    if (!protocolo) {
+      alert("Protocolo não encontrado");
+      return;
     }
 
-    function sair() {
-      mostrarTela('login');
-      usuarioLogado = "";
-      nivelUsuario = "";
-      document.getElementById('usuario').value = "";
-      document.getElementById('senha').value = "";
-    }
+    // Preenche os dados no modelo
+    document.getElementById('doc_numero').textContent = protocolo.numero || 'Não informado';
+    document.getElementById('doc_dataSolicitacao').textContent = protocolo.data_solicitacao || 'Não informada';
+    document.getElementById('doc_nome').textContent = protocolo.nome || 'Não informado';
+    document.getElementById('doc_matricula').textContent = protocolo.matricula || 'Não informada';
+    document.getElementById('doc_cpf').textContent = protocolo.cpf || 'Não informado';
+    document.getElementById('doc_rg').textContent = protocolo.rg || 'Não informado';
+    document.getElementById('doc_endereco').textContent = protocolo.endereco || 'Não informado';
+    document.getElementById('doc_bairro').textContent = protocolo.bairro || 'Não informado';
+    document.getElementById('doc_municipio').textContent = protocolo.municipio || 'Não informado';
+    document.getElementById('doc_cep').textContent = protocolo.cep || 'Não informado';
+    document.getElementById('doc_telefone').textContent = protocolo.telefone || 'Não informado';
+    document.getElementById('doc_cargo').textContent = protocolo.cargo || 'Não informado';
+    document.getElementById('doc_lotacao').textContent = protocolo.lotacao || 'Não informado';
+    document.getElementById('doc_unidade').textContent = protocolo.unidade_exercicio || 'Não informado';
+    document.getElementById('doc_tipo').textContent = protocolo.tipo_requerimento || 'Não informado';
+    document.getElementById('doc_requerAo').textContent = protocolo.requer_ao || 'Não informado';
+    document.getElementById('doc_complemento').innerHTML = protocolo.observacoes 
+      ? protocolo.observacoes.replace(/\n/g, '<br>') 
+      : 'Nenhuma informação adicional';
 
-    function gerarNumeroProtocolo() {
-      const now = new Date();
-      const pad = n => String(n).padStart(2, '0');
-      const numero = `PROTO-${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
-      document.getElementById('numeroProtocolo').value = numero;
-      document.getElementById('log').innerText = '📄 Número gerado: ' + numero;
-    }
+     // Configurações do PDF
+    const opt = {
+      margin: 7, // Margem uniforme de 10mm
+      filename: `Protocolo_${protocolo.numero}.pdf`,
+      image: {
+        type: 'jpeg',
+        quality: 1 // Máxima qualidade
+      },
+      html2canvas: {
+        scale: 3, // Aumenta a qualidade
+        useCORS: true,
+        scrollX: 0,
+        scrollY: 0,
+        windowWidth: 1510 // Largura maior para renderização
+      },
+      jsPDF: {
+        unit: 'mm',
+        format: 'a4',
+        orientation: 'portrait',
+        hotfixes: ['px_scaling'] // Corrige problemas de escala
+      },
+      pagebreak: {
+        mode: ['avoid-all', 'css', 'legacy'] // Evita quebras indesejadas
+      }
+    };
 
-    function enviarRequerimento() {
-      const dataAgora = new Date().toLocaleString();
-      const protocolo = {
-        numero: document.getElementById('numeroProtocolo').value,
-        matricula: document.getElementById('matricula').value,
-        nome: document.getElementById('nome').value,
-        endereco: document.getElementById('endereco').value,
-        municipio: document.getElementById('municipio').value,
-        bairro: document.getElementById('bairro').value,
-        cep: document.getElementById('cep').value,
-        telefone: document.getElementById('telefone').value,
-        cpf: document.getElementById('cpf').value,
-        rg: document.getElementById('rg').value,
-        dataExpedicao: document.getElementById('dataExpedicao').value,
-        cargo: document.getElementById('cargo').value,
-        lotacao: document.getElementById('lotacao').value,
-        unidade: document.getElementById('unidade').value,
-        tipo: document.getElementById('tipo').value,
-        requerAo: document.getElementById('requerAo').value,
-        dataSolicitacao: document.getElementById('dataSolicitacao').value,
-        complemento: document.getElementById('complemento').value,
-        dataEnvio: dataAgora,
-        status: "Enviado",
-        responsavel: usuarioLogado,
-        movimentacoes: [
-          { data: dataAgora, acao: "Criado e enviado", autor: usuarioLogado }
-        ]
-      };
-      dadosEnviados.push(protocolo);
-      localStorage.setItem('protocolos', JSON.stringify(dadosEnviados));
-      document.getElementById('log').innerText = '✅ Protocolo enviado em ' + dataAgora;
+    // Geração do PDF
+    const element = document.getElementById('modeloProtocolo');
+    element.style.display = 'block';
+    
+    await html2pdf()
+      .set(opt)
+      .from(element)
+      .toPdf()
+      .get('pdf')
+      .then((pdf) => {
+        // Centraliza verticalmente
+        const totalPages = pdf.internal.getNumberOfPages();
+        for (let i = 1; i <= totalPages; i++) {
+          pdf.setPage(i);
+          pdf.text('', 10, 10); // Ajuste fino de posição
+        }
+      })
+      .save();
+    
+    element.style.display = 'none';
 
-      document.querySelector('.formulario').reset();
-    }
+  } catch (err) {
+    console.error("Erro ao gerar PDF:", err);
+    alert("Erro ao gerar PDF. Verifique o console para detalhes.");
+  }
+}
 
-    function listarProtocolos() {
-      const tbody = document.getElementById('tabelaProtocolos');
-      tbody.innerHTML = "";
-      dadosEnviados.forEach((p, i) => {
+
+async function pesquisarProtocolos() {
+  try {
+    const numero = document.getElementById('filtroNumero').value;
+    const nome = document.getElementById('filtroNome').value;
+    const status = document.getElementById('filtroStatus').value;
+
+    const res = await fetch(`http://localhost:3000/protocolos/pesquisa?numero=${numero}&nome=${nome}&status=${status}`);
+    const data = await res.json();
+
+    const tbody = document.getElementById('resultadosPesquisa');
+    tbody.innerHTML = '';
+
+    if (data.protocolos && data.protocolos.length > 0) {
+      data.protocolos.forEach(p => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
-          <td>${p.matricula}</td>
-          <td>${p.nome}</td>
-          <td>${p.tipo}</td>
-          <td>${p.status}</td>
-          <td>${p.responsavel}</td>
-          <td><button onclick="encaminharProtocolo(${i})">Encaminhar</button></td>`;
+          <td>${p.numero || ''}</td>
+          <td>${p.nome || ''}</td>
+          <td>${p.status || ''}</td>
+          <td>${p.data_solicitacao ? new Date(p.data_solicitacao).toLocaleDateString() : ''}</td>
+          <td>${p.tipo || ''}</td>
+          <td>${p.cpf || ''}</td>
+        `;
         tbody.appendChild(tr);
       });
+    } else {
+      tbody.innerHTML = '<tr><td colspan="6">Nenhum protocolo encontrado</td></tr>';
+    }
+  } catch (error) {
+    console.error("Erro ao pesquisar protocolos:", error);
+  }
+}
+
+
+
+// Função para gerar relatório em PDF
+async function gerarRelatorio() {
+  try {
+    const numero = document.getElementById('filtroNumero').value;
+    const nome = document.getElementById('filtroNome').value;
+    const status = document.getElementById('filtroStatus').value;
+
+    const res = await fetch(`http://localhost:3000/protocolos/pesquisa?numero=${numero}&nome=${nome}&status=${status}`);
+    const data = await res.json();
+
+    if (!data.protocolos || data.protocolos.length === 0) {
+      alert("Relatório não encontrado!");
+      return;
     }
 
-    function listarMeusProtocolos() {
-      const tbody = document.getElementById('meusProtocolosTabela');
-      tbody.innerHTML = "";
-      dadosEnviados.forEach((p, i) => {
-        if (p.responsavel === usuarioLogado) {
-          const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td>${p.numero || (i+1)}</td>
-            <td>${p.nome}</td>
-            <td>${p.status}</td>
-            <td>
-              <button onclick="atualizarStatus(${i})">Atualizar</button>
-              <button onclick="encaminharProtocolo(${i})">Encaminhar</button>
-              <button onclick="mostrarDetalhes(${i})">Ver Detalhes</button>
-              <button onclick="gerarDocumento(${i})">📄 Documento</button>
-              <details>
-                <summary>Histórico</summary>
-                ${p.movimentacoes?.map(m => `<div>${m.data} - ${m.acao} por ${m.autor}</div>`).join('') || ''}
-              </details>
-            </td>`;
-          tbody.appendChild(tr);
-        }
-      });
-    }
+    let html = `<h2>Relatório de Protocolos</h2>`;
+    html += `<table border="1" cellpadding="5" cellspacing="0" style="border-collapse: collapse; width: 100%;">`;
+    html += `<thead><tr>
+      <th>Número</th>
+      <th>Nome</th>
+      <th>Status</th>
+      <th>Data Solicitação</th>
+      <th>Tipo</th>
+      <th>CPF</th>
+    </tr></thead><tbody>`;
 
-    function encaminharProtocolo(index) {
-      const novoResp = prompt("Para qual usuário deseja encaminhar?");
-      if (novoResp) {
-        const dataAgora = new Date().toLocaleString();
-        dadosEnviados[index].responsavel = novoResp;
-        dadosEnviados[index].status = "Encaminhado";
-        dadosEnviados[index].movimentacoes.push({ data: dataAgora, acao: "Encaminhado", autor: usuarioLogado });
-        localStorage.setItem('protocolos', JSON.stringify(dadosEnviados));
-        listarProtocolos();
-        if (nivelUsuario === "comum") {
-          listarMeusProtocolos();
-        }
-      }
-    }
+    data.protocolos.forEach(p => {
+      html += `<tr>
+        <td>${p.numero || ''}</td>
+        <td>${p.nome || ''}</td>
+        <td>${p.status || ''}</td>
+        <td>${p.data_solicitacao ? new Date(p.data_solicitacao).toLocaleDateString() : ''}</td>
+        <td>${p.tipo || ''}</td>
+        <td>${p.cpf || ''}</td>
+      </tr>`;
+    });
 
-    function atualizarStatus(index) {
-      const novoStatus = prompt("Digite o novo status:", dadosEnviados[index].status);
-      if (novoStatus) {
-        const dataAgora = new Date().toLocaleString();
-        dadosEnviados[index].status = novoStatus;
-        dadosEnviados[index].movimentacoes.push({ data: dataAgora, acao: "Status atualizado para " + novoStatus, autor: usuarioLogado });
-        localStorage.setItem('protocolos', JSON.stringify(dadosEnviados));
-        listarMeusProtocolos();
-      }
-    }
+    html += `</tbody></table>`;
 
-    function mostrarDetalhes(index) {
-      const p = dadosEnviados[index];
-      const campos = [
-        ['Número', p.numero],
-        ['Matrícula', p.matricula],
-        ['Nome Completo', p.nome],
-        ['Endereço', p.endereco],
-        ['Município', p.municipio],
-        ['Bairro', p.bairro],
-        ['CEP', p.cep],
-        ['Telefone', p.telefone],
-        ['CPF', p.cpf],
-        ['RG', p.rg],
-        ['Data de Expedição', p.dataExpedicao],
-        ['Cargo/Função', p.cargo],
-        ['Lotação', p.lotacao],
-        ['Unidade de Exercício', p.unidade],
-        ['Tipo de Requerimento', p.tipo],
-        ['Requer ao', p.requerAo],
-        ['Data Solicitação', p.dataSolicitacao],
-        ['Informações Complementares', p.complemento]
-      ];
-      let detalhes = "Detalhes do Protocolo:\n\n";
-      campos.forEach(c => {
-        detalhes += `${c[0]}: ${c[1] || ''}\n`;
-      });
-      alert(detalhes);
-    }
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = html;
+    document.body.appendChild(tempDiv);
 
+    const opt = {
+      margin: 1,
+      filename: 'relatorio_protocolos.pdf',
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+    };
+
+    await html2pdf().set(opt).from(tempDiv).save();
+    document.body.removeChild(tempDiv);
+
+  } catch (err) {
+    console.error("Erro ao gerar relatório:", err);
+    alert("Erro ao gerar o relatório.");
+  }
+}
+
+
+
+
+	async function verDetalhes(id) {
+  try {
+    const res = await fetch(`http://localhost:3000/protocolos/${id}`);
+    const { protocolo } = await res.json();
+    if (!protocolo) return alert("Protocolo não encontrado");
+
+    let detalhes = "Detalhes do Protocolo:\n\n";
+    const campos = [
+      ['Número', protocolo.numero],
+      ['Matrícula', protocolo.matricula],
+      ['Nome Completo', protocolo.nome],
+      ['Endereço', protocolo.endereco],
+      ['Município', protocolo.municipio],
+      ['Bairro', protocolo.bairro],
+      ['CEP', protocolo.cep],
+      ['Telefone', protocolo.telefone],
+      ['CPF', protocolo.cpf],
+      ['RG', protocolo.rg],
+      ['Data de Expedição', protocolo.dataExpedicao],
+      ['Cargo/Função', protocolo.cargo],
+      ['Lotação', protocolo.lotacao],
+      ['Unidade de Exercício', protocolo.unidade],
+      ['Tipo de Requerimento', protocolo.tipo],
+      ['Requer ao', protocolo.requerAo],
+      ['Data Solicitação', protocolo.dataSolicitacao],
+      ['Informações Complementares', protocolo.complemento]
+    ];
+    campos.forEach(c => detalhes += `${c[0]}: ${c[1] || ''}\n`);
+    alert(detalhes);
+
+  } catch (err) {
+    alert("Erro ao buscar detalhes.");
+    console.error(err);
+  }
+}
+
+
+
+    
     function salvarEmailSistema() {
       emailSistema = document.getElementById('emailSistemaConfig').value;
       localStorage.setItem('emailSistema', emailSistema);
       alert("Email salvo com sucesso!");
     }
 
-    function cadastrarUsuario() {
-      const novo = document.getElementById('novoUsuario').value;
-      const senha = document.getElementById('novaSenha').value;
-      const nivel = document.getElementById('nivelUsuario').value;
-      if (novo && senha && nivel) {
-        usuarios.push({ nome: novo, senha: senha, nivel: nivel });
-        localStorage.setItem('usuarios', JSON.stringify(usuarios));
-        alert("Usuário cadastrado!");
-        atualizarListaUsuarios();
-      }
+function cadastrarUsuario() {
+  const nome = document.getElementById('novoUsuario').value.trim();
+  const senha = document.getElementById('novaSenha').value.trim();
+  const tipo = document.getElementById('nivelUsuario').value;
+  const email = document.getElementById('novoEmail').value.trim();
+
+  if (!nome || !senha || !tipo || !email) {
+    alert("Preencha todos os campos, incluindo o e-mail.");
+    return;
+  }
+
+  fetch('http://localhost:3000/usuarios', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      nome: nome,
+      login: nome.toLowerCase(),
+      senha: senha,
+      tipo: tipo,
+      email: email
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.sucesso) {
+      alert("✅ Usuário cadastrado com sucesso!");
+      document.getElementById('novoUsuario').value = "";
+      document.getElementById('novaSenha').value = "";
+      document.getElementById('novoEmail').value = "";
+      atualizarListaUsuarios();
+    } else {
+      alert("❌ Erro ao cadastrar: " + (data.mensagem || "Erro desconhecido"));
+    }
+  })
+  .catch(err => {
+    console.error("Erro ao cadastrar usuário:", err);
+    alert("❌ Erro ao conectar ao servidor.");
+  });
+}
+
+
+
+async function atualizarListaUsuarios() {
+  try {
+    const response = await fetch('http://localhost:3000/usuarios');
+    if (!response.ok) throw new Error('Erro ao buscar usuários');
+    const data = await response.json();
+
+    const ul = document.getElementById('listaUsuarios');
+    ul.innerHTML = "";
+
+    data.usuarios.forEach(u => {
+      const li = document.createElement('li');
+      li.textContent = `${u.nome} (${u.tipo}) - ${u.email}`;
+      ul.appendChild(li);
+    });
+  } catch (error) {
+    alert('Erro ao carregar usuários: ' + error.message);
+  }
+}
+
+function voltarDeRelatorios() {
+  mostrarTela('menu'); // ou outra tela que desejar
+}
+
+async function gerarBackup() {
+  const dataInicio = document.getElementById('backupDataInicio').value;
+  const dataFim = document.getElementById('backupDataFim').value;
+
+  if (!dataInicio || !dataFim) {
+    alert("Por favor, selecione o período completo (data início e fim).");
+    return;
+  }
+
+  try {
+    const url = `http://localhost:3000/protocolos/backup?dataInicio=${dataInicio}&dataFim=${dataFim}`;
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      const textoErro = await response.text();
+      alert(`Erro ao gerar backup: ${textoErro || response.statusText}`);
+      return;
     }
 
-    function atualizarListaUsuarios() {
-      const ul = document.getElementById('listaUsuarios');
-      ul.innerHTML = "";
-      usuarios.forEach(u => {
-        const li = document.createElement('li');
-        li.textContent = `${u.nome} (${u.nivel})`;
-        ul.appendChild(li);
-      });
-    }
+    const blob = await response.blob();
+    const urlBlob = window.URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = urlBlob;
+    a.download = `backup_protocolos_${dataInicio}_a_${dataFim}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    window.URL.revokeObjectURL(urlBlob);
+
+  } catch (error) {
+    console.error("Erro ao gerar backup:", error);
+    alert("Erro ao gerar backup. Veja console.");
+  }
+}
+
 
     function voltarDeMeusProtocolos() {
       if (nivelUsuario === 'comum') {
@@ -553,148 +1254,37 @@
       }
     }
 
-function gerarDocumento(index) {
-  const p = dadosEnviados[index];
-  if (!p) {
-    alert("Protocolo não encontrado.");
-    return;
-  }
-
-  const html = `
-  <html>
-  <head>
-    <title>Protocolo - ${p.numero}</title>
-    <style>
-      body {
-        font-family: 'Times New Roman', serif;
-        margin: 40px;
-        color: #000;
-        background: #fff;
-      }
-      .container {
-        width: 21cm; /* A4 width */
-        min-height: 29.7cm; /* A4 height */
-        padding: 30px 40px;
-        border: 1px solid #333;
-        box-sizing: border-box;
-        box-shadow: 0 0 15px rgba(0,0,0,0.3);
-        margin: auto;
-      }
-      .header {
-        text-align: center;
-        border-bottom: 3px solid #2e7d32;
-        padding-bottom: 15px;
-        margin-bottom: 30px;
-      }
-      .header h2 {
-        margin: 0;
-        font-size: 26px;
-        font-weight: bold;
-        color: #2e7d32;
-      }
-      .header h4 {
-        margin: 0;
-        font-size: 16px;
-        color: #2e7d32;
-        font-weight: normal;
-      }
-      .header h3 {
-        margin: 10px 0 0 0;
-        font-size: 20px;
-        font-weight: bold;
-        text-decoration: underline;
-      }
-      h4.section-title {
-        font-size: 16px;
-        color: #2e7d32;
-        border-bottom: 1px solid #2e7d32;
-        padding-bottom: 5px;
-        margin-top: 30px;
-        margin-bottom: 15px;
-      }
-      p {
-        font-size: 14px;
-        line-height: 1.5;
-        margin: 6px 0;
-      }
-      strong {
-        color: #2e7d32;
-      }
-      #complemento {
-        border: 1px solid #ccc;
-        min-height: 80px;
-        padding: 10px;
-        margin-top: 5px;
-        background-color: #f9f9f9;
-        white-space: pre-wrap;
-        font-size: 13px;
-      }
-      .assinaturas {
-        margin-top: 80px;
-        display: flex;
-        justify-content: space-between;
-      }
-      .assinatura {
-        width: 40%;
-        text-align: center;
-        font-size: 14px;
-        border-top: 1px solid #000;
-        padding-top: 8px;
-        color: #444;
-      }
-    </style>
-  </head>
-  <body>
-    <div class="container">
-      <div class="header">
-        <h2>Prefeitura Municipal de Morada Nova</h2>
-        <h4>Setor de Protocolo</h4>
-        <h3>PROTOCOLO DE REQUERIMENTO</h3>
-      </div>
-
-      <p><strong>Número do Protocolo:</strong> ${p.numero || ""}</p>
-      <p><strong>Data de Solicitação:</strong> ${p.dataSolicitacao || ""}</p>
-
-      <h4 class="section-title">Dados do Requerente</h4>
-      <p><strong>Nome:</strong> ${p.nome || ""}</p>
-      <p><strong>Matrícula:</strong> ${p.matricula || ""}</p>
-      <p><strong>CPF:</strong> ${p.cpf || ""} | <strong>RG:</strong> ${p.rg || ""}</p>
-      <p><strong>Endereço:</strong> ${p.endereco || ""}, ${p.bairro || ""} - ${p.municipio || ""} - CEP: ${p.cep || ""}</p>
-      <p><strong>Telefone:</strong> ${p.telefone || ""}</p>
-      <p><strong>Cargo/Função:</strong> ${p.cargo || ""}</p>
-      <p><strong>Lotação:</strong> ${p.lotacao || ""}</p>
-      <p><strong>Unidade de Exercício:</strong> ${p.unidade || ""}</p>
-
-      <h4 class="section-title">Dados do Requerimento</h4>
-      <p><strong>Tipo de Requerimento:</strong> ${p.tipo || ""}</p>
-      <p><strong>Requer ao:</strong> ${p.requerAo || ""}</p>
-
-      <p><strong>Informações Complementares:</strong></p>
-      <div id="complemento">${p.complemento ? p.complemento.replace(/\n/g, '<br>') : ""}</div>
-
-      <div class="assinaturas">
-        <div class="assinatura">Assinatura do Requerente</div>
-        <div class="assinatura">Responsável pelo Protocolo</div>
-      </div>
-    </div>
-  </body>
-  </html>
-  `;
-
-  const janela = window.open('', '_blank', 'width=900,height=1200');
-  janela.document.write(html);
-  janela.document.close();
-
-  janela.focus();
-  // Dar tempo para renderizar antes de chamar print
-  setTimeout(() => {
-    janela.print();
-    // janela.close(); // opcional fechar após imprimir
-  }, 500);
-}
 
 
   </script>
+
+<script>
+  document.getElementById('cep').addEventListener('blur', async function () {
+    const cep = this.value.replace(/\D/g, '');
+
+    if (cep.length !== 8) {
+      alert('CEP inválido. Digite os 8 dígitos.');
+      return;
+    }
+
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+      const data = await response.json();
+
+      if (data.erro) {
+        alert('CEP não encontrado!');
+        return;
+      }
+
+      document.getElementById('endereco').value = data.logradouro || '';
+      document.getElementById('bairro').value = data.bairro || '';
+      document.getElementById('municipio').value = data.localidade || '';
+    } catch (error) {
+      console.error('Erro ao buscar CEP:', error);
+      alert('Erro ao buscar o CEP. Verifique sua conexão.');
+    }
+  });
+</script>
 
 </body>
 </html>
