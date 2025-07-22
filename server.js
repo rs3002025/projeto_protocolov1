@@ -1,3 +1,4 @@
+// server.js
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
@@ -7,14 +8,10 @@ const protocoloRoutes = require('./routes/protocolos');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Middleware
+// Middlewares
 app.use(cors());
 app.use(express.json());
-
-// Serve arquivos estáticos da pasta public
 app.use(express.static(path.join(__dirname, 'public')));
-
-// Rotas de API
 app.use('/protocolos', protocoloRoutes);
 
 // Rota de login
@@ -52,7 +49,7 @@ app.post('/usuarios', async (req, res) => {
   }
 });
 
-// Rota para listar usuários
+// Rota para listar todos os usuários
 app.get('/usuarios', async (req, res) => {
   try {
     const result = await pool.query('SELECT id, nome, login, tipo, email FROM usuarios');
@@ -63,12 +60,12 @@ app.get('/usuarios', async (req, res) => {
   }
 });
 
-// Rota raiz para carregar o frontend
-app.get('*', (req, res) => {
+// Rota raiz: abre o index.html
+app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // Inicia o servidor
 app.listen(port, () => {
-  console.log(`Servidor rodando na porta ${port}`);
+  console.log(`Servidor rodando em http://localhost:${port}`);
 });
