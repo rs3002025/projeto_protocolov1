@@ -718,8 +718,9 @@ async function listarProtocolos() {
     data.protocolos.forEach((p, i) => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td>${p.numero}</td> <!-- Adicionada esta linha -->
-        <td>${p.matricula}</td>
+        <tr>
+  	<td style="width: 80px; text-align: center;">${p.numero}</td>
+	<td>${p.matricula}</td>
         <td>${p.nome}</td>
         <td>${p.tipo_requerimento}</td>
         <td>${p.status}</td>
@@ -1056,7 +1057,7 @@ async function gerarRelatorio() {
     let html = `<h2>Relatório de Protocolos</h2>`;
     html += `<table border="1" cellpadding="5" cellspacing="0" style="border-collapse: collapse; width: 100%;">`;
     html += `<thead><tr>
-      <th>Número</th>
+      <th style="width: 80px;">Número</th>
       <th>Nome</th>
       <th>Status</th>
       <th>Data Solicitação</th>
