@@ -326,6 +326,7 @@
       <table>
         <thead>
           <tr>
+	    <th>Número</th>
             <th>Matrícula</th>
             <th>Nome</th>
             <th>Tipo</th>
@@ -706,7 +707,7 @@ function sair() {
 
   
 
- async function listarProtocolos() {
+async function listarProtocolos() {
   const tbody = document.getElementById('tabelaProtocolos');
   tbody.innerHTML = "";
 
@@ -717,6 +718,7 @@ function sair() {
     data.protocolos.forEach((p, i) => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
+        <td>${p.numero}</td> <!-- Adicionada esta linha -->
         <td>${p.matricula}</td>
         <td>${p.nome}</td>
         <td>${p.tipo_requerimento}</td>
@@ -735,14 +737,15 @@ function sair() {
       tbody.appendChild(tr);
 
       setTimeout(() => {
-  carregarHistorico(p.id);
-}, 100);
+        carregarHistorico(p.id);
+      }, 100);
     });
   } catch (error) {
     console.error("Erro ao listar protocolos:", error);
     alert("Erro ao buscar protocolos do banco.");
   }
 }
+
 
 
 
