@@ -542,7 +542,7 @@
   const senha = document.getElementById('senha').value;
   const msg = document.getElementById('loginMsg');
 
-  fetch('http://localhost:3000/login', {
+  fetch('/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ login: user, senha: senha })
@@ -630,7 +630,7 @@ function sair() {
   const anoAtual = new Date().getFullYear();
 
   try {
-    const res = await fetch(`http://localhost:3000/protocolos/ultimoNumero/${anoAtual}`);
+    const res = await fetch(`/protocolos/ultimoNumero/${anoAtual}`);
     const data = await res.json();
     const ultimo = data.ultimo || 0;
 
@@ -683,7 +683,7 @@ function sair() {
     ]
   };
 
-  fetch('http://localhost:3000/protocolos', {
+  fetch('/protocolos', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(protocolo)
@@ -711,7 +711,7 @@ function sair() {
   tbody.innerHTML = "";
 
   try {
-    const res = await fetch('http://localhost:3000/protocolos');
+    const res = await fetch('/protocolos');
     const data = await res.json();
 
     data.protocolos.forEach((p, i) => {
@@ -751,7 +751,7 @@ async function listarMeusProtocolos() {
   tbody.innerHTML = "";
 
   try {
-    const res = await fetch('http://localhost:3000/protocolos');
+    const res = await fetch('/protocolos');
     const data = await res.json();
 
     const protocolosFiltrados = data.protocolos.filter(p => p.responsavel === usuarioLogado);
@@ -793,7 +793,7 @@ async function listarMeusProtocolos() {
   const novoResp = prompt("Para qual usuário deseja encaminhar?");
   if (novoResp) {
     try {
-      const response = await fetch(`http://localhost:3000/protocolos/atualizar`, {
+      const response = await fetch(`/protocolos/atualizar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -834,7 +834,7 @@ async function abrirAtualizar(id) {
   const novoStatus = prompt("Digite o novo status:");
   if (novoStatus) {
     try {
-      const response = await fetch(`http://localhost:3000/protocolos/atualizar`, {
+      const response = await fetch(`/protocolos/atualizar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -873,7 +873,7 @@ async function abrirAtualizar(id) {
 
 async function carregarHistorico(protocoloId) {
   try {
-    const res = await fetch(`http://localhost:3000/protocolos/historico/${protocoloId}`);
+    const res = await fetch(`/protocolos/historico/${protocoloId}`);
     const data = await res.json();
 
     // Tenta encontrar o elemento em ambas as telas
@@ -903,7 +903,7 @@ async function carregarHistorico(protocoloId) {
 
 async function gerarDocumentoPorId(id) {
   try {
-    const res = await fetch(`http://localhost:3000/protocolos/${id}`);
+    const res = await fetch(`/protocolos/${id}`);
     const { protocolo } = await res.json();
     if (!protocolo) return alert("Protocolo não encontrado");
 
@@ -917,7 +917,7 @@ async function gerarDocumentoPorId(id) {
 async function gerarPDFPorId(id) {
   try {
     // Busca os dados do protocolo
-    const res = await fetch(`http://localhost:3000/protocolos/${id}`);
+    const res = await fetch(`/protocolos/${id}`);
     const { protocolo } = await res.json();
     
     if (!protocolo) {
@@ -1006,7 +1006,7 @@ async function pesquisarProtocolos() {
     const nome = document.getElementById('filtroNome').value;
     const status = document.getElementById('filtroStatus').value;
 
-    const res = await fetch(`http://localhost:3000/protocolos/pesquisa?numero=${numero}&nome=${nome}&status=${status}`);
+    const res = await fetch(`/protocolos/pesquisa?numero=${numero}&nome=${nome}&status=${status}`);
     const data = await res.json();
 
     const tbody = document.getElementById('resultadosPesquisa');
@@ -1042,7 +1042,7 @@ async function gerarRelatorio() {
     const nome = document.getElementById('filtroNome').value;
     const status = document.getElementById('filtroStatus').value;
 
-    const res = await fetch(`http://localhost:3000/protocolos/pesquisa?numero=${numero}&nome=${nome}&status=${status}`);
+    const res = await fetch(`/protocolos/pesquisa?numero=${numero}&nome=${nome}&status=${status}`);
     const data = await res.json();
 
     if (!data.protocolos || data.protocolos.length === 0) {
@@ -1100,7 +1100,7 @@ async function gerarRelatorio() {
 
 	async function verDetalhes(id) {
   try {
-    const res = await fetch(`http://localhost:3000/protocolos/${id}`);
+    const res = await fetch(`/protocolos/${id}`);
     const { protocolo } = await res.json();
     if (!protocolo) return alert("Protocolo não encontrado");
 
@@ -1154,7 +1154,7 @@ function cadastrarUsuario() {
     return;
   }
 
-  fetch('http://localhost:3000/usuarios', {
+  fetch('/usuarios', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -1187,7 +1187,7 @@ function cadastrarUsuario() {
 
 async function atualizarListaUsuarios() {
   try {
-    const response = await fetch('http://localhost:3000/usuarios');
+    const response = await fetch('/usuarios');
     if (!response.ok) throw new Error('Erro ao buscar usuários');
     const data = await response.json();
 
@@ -1218,7 +1218,7 @@ async function gerarBackup() {
   }
 
   try {
-    const url = `http://localhost:3000/protocolos/backup?dataInicio=${dataInicio}&dataFim=${dataFim}`;
+    const url = `/protocolos/backup?dataInicio=${dataInicio}&dataFim=${dataFim}`;
     const response = await fetch(url);
 
     if (!response.ok) {
