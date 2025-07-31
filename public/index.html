@@ -924,88 +924,62 @@ async function gerarDocumentoPorId(id) {
 
 async function gerarPDFPorId(id) {
   try {
-    // Busca os dados do protocolo
+    // 1. Busca o protocolo
     const res = await fetch(`/protocolos/${id}`);
     const { protocolo } = await res.json();
-    
     if (!protocolo) {
       alert("Protocolo não encontrado");
       return;
     }
 
-    // Preenche os dados no modelo
-    document.getElementById('doc_numero').textContent = protocolo.numero || 'Não informado';
-    document.getElementById('doc_dataSolicitacao').textContent = protocolo.data_solicitacao || 'Não informada';
-    document.getElementById('doc_nome').textContent = protocolo.nome || 'Não informado';
-    document.getElementById('doc_matricula').textContent = protocolo.matricula || 'Não informada';
-    document.getElementById('doc_cpf').textContent = protocolo.cpf || 'Não informado';
-    document.getElementById('doc_rg').textContent = protocolo.rg || 'Não informado';
-    document.getElementById('doc_endereco').textContent = protocolo.endereco || 'Não informado';
-    document.getElementById('doc_bairro').textContent = protocolo.bairro || 'Não informado';
-    document.getElementById('doc_municipio').textContent = protocolo.municipio || 'Não informado';
-    document.getElementById('doc_cep').textContent = protocolo.cep || 'Não informado';
-    document.getElementById('doc_telefone').textContent = protocolo.telefone || 'Não informado';
-    document.getElementById('doc_cargo').textContent = protocolo.cargo || 'Não informado';
-    document.getElementById('doc_lotacao').textContent = protocolo.lotacao || 'Não informado';
-    document.getElementById('doc_unidade').textContent = protocolo.unidade_exercicio || 'Não informado';
-    document.getElementById('doc_tipo').textContent = protocolo.tipo_requerimento || 'Não informado';
-    document.getElementById('doc_requerAo').textContent = protocolo.requer_ao || 'Não informado';
-    document.getElementById('doc_complemento').innerHTML = protocolo.observacoes 
-      ? protocolo.observacoes.replace(/\n/g, '<br>') 
+    // 2. Preenche o modelo
+    document.getElementById('doc_numero').textContent         = protocolo.numero              ?? 'Não informado';
+    document.getElementById('doc_dataSolicitacao').textContent= protocolo.data_solicitacao    ?? 'Não informada';
+    document.getElementById('doc_nome').textContent           = protocolo.nome                ?? 'Não informado';
+    document.getElementById('doc_matricula').textContent      = protocolo.matricula           ?? 'Não informada';
+    document.getElementById('doc_cpf').textContent            = protocolo.cpf                 ?? 'Não informado';
+    document.getElementById('doc_rg').textContent             = protocolo.rg                  ?? 'Não informado';
+    document.getElementById('doc_endereco').textContent       = protocolo.endereco            ?? 'Não informado';
+    document.getElementById('doc_bairro').textContent         = protocolo.bairro              ?? 'Não informado';
+    document.getElementById('doc_municipio').textContent      = protocolo.municipio           ?? 'Não informado';
+    document.getElementById('doc_cep').textContent            = protocolo.cep                 ?? 'Não informado';
+    document.getElementById('doc_telefone').textContent       = protocolo.telefone            ?? 'Não informado';
+    document.getElementById('doc_cargo').textContent          = protocolo.cargo               ?? 'Não informado';
+    document.getElementById('doc_lotacao').textContent        = protocolo.lotacao             ?? 'Não informado';
+    document.getElementById('doc_unidade').textContent        = protocolo.unidade_exercicio   ?? 'Não informado';
+    document.getElementById('doc_tipo').textContent           = protocolo.tipo_requerimento   ?? 'Não informado';
+    document.getElementById('doc_requerAo').textContent       = protocolo.requer_ao           ?? 'Não informado';
+    document.getElementById('doc_complemento').innerHTML      = protocolo.observacoes
+      ? protocolo.observacoes.replace(/\n/g, '<br>')
       : 'Nenhuma informação adicional';
 
-     // Configurações do PDF
+    // 3. Opções do PDF (ajuste principal: margem esquerda maior)
     const opt = {
-      margin: 7, // Margem uniforme de 10mm
+      margin: [10, 10, 10, 20],        // top, right, bottom, LEFT
       filename: `Protocolo_${protocolo.numero}.pdf`,
-      image: {
-        type: 'jpeg',
-        quality: 1 // Máxima qualidade
-      },
+      image:  { type: 'jpeg', quality: 1 },
       html2canvas: {
-        scale: 3, // Aumenta a qualidade
+        scale: 3,
         useCORS: true,
         scrollX: 0,
         scrollY: 0,
-        windowWidth: 1510 // Largura maior para renderização
+        windowWidth: 1400            // garante largura durante a renderização
       },
-      jsPDF: {
-        unit: 'mm',
-        format: 'a4',
-        orientation: 'portrait',
-        hotfixes: ['px_scaling'] // Corrige problemas de escala
-      },
-      pagebreak: {
-        mode: ['avoid-all', 'css', 'legacy'] // Evita quebras indesejadas
-      }
+      jsPDF:  { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
     };
 
-    // Geração do PDF
+    // 4. Geração do PDF
     const element = document.getElementById('modeloProtocolo');
-    element.style.display = 'block';
-    
-    await html2pdf()
-      .set(opt)
-      .from(element)
-      .toPdf()
-      .get('pdf')
-      .then((pdf) => {
-        // Centraliza verticalmente
-        const totalPages = pdf.internal.getNumberOfPages();
-        for (let i = 1; i <= totalPages; i++) {
-          pdf.setPage(i);
-          pdf.text('', 10, 10); // Ajuste fino de posição
-        }
-      })
-      .save();
-    
-    element.style.display = 'none';
-
+    element.style.display = 'block';    // torna o modelo visível
+    await html2pdf().set(opt).from(element).save();
+    element.style.display = 'none';     // esconde de novo
   } catch (err) {
-    console.error("Erro ao gerar PDF:", err);
-    alert("Erro ao gerar PDF. Verifique o console para detalhes.");
+    console.error('Erro ao gerar PDF:', err);
+    alert('Erro ao gerar PDF. Verifique o console para detalhes.');
   }
 }
+
 
 
 async function pesquisarProtocolos() {
