@@ -158,10 +158,9 @@
 }
 
     /* Estilo para o documento PDF / impressão */
-  #modeloProtocolo {
+ #modeloProtocolo {
   display: none;
   width: 730px;
-  margin: 0 auto;
   font-family: 'Times New Roman', serif;
   color: #000;
   background: #fff;
@@ -169,8 +168,13 @@
   border: 1px solid #333;
   box-shadow: 0 0 15px rgba(0,0,0,0.3);
   box-sizing: border-box;
-  position: static;
+
+  /* CENTRALIZAÇÃO GARANTIDA */
+  position: relative;
+  left: 50%;
+  transform: translateX(-50%);
 }
+
 
 
     #modeloProtocolo h2, #modeloProtocolo h3, #modeloProtocolo h4 {
