@@ -36,12 +36,12 @@ app.post('/login', async (req, res) => {
 
 // Rota para cadastrar novo usuário
 app.post('/usuarios', async (req, res) => {
-  const { nome, login, senha, tipo, email } = req.body;
+  const { login, senha, tipo, email, nome_completo, cpf } = req.body;
   try {
-    await pool.query(
-      'INSERT INTO usuarios (nome, login, senha, tipo, email) VALUES ($1, $2, $3, $4, $5)',
-      [nome, login, senha, tipo, email]
-    );
+    await pool.query(`
+  INSERT INTO usuarios (login, senha, tipo, email, nome_completo, cpf)
+  VALUES ($1, $2, $3, $4, $5, $6)
+`, [login, senha, tipo, email, nome_completo, cpf]);
     res.json({ sucesso: true, mensagem: 'Usuário cadastrado com sucesso.' });
   } catch (err) {
     console.error('Erro ao cadastrar usuário:', err);
@@ -52,7 +52,7 @@ app.post('/usuarios', async (req, res) => {
 // Rota para listar todos os usuários
 app.get('/usuarios', async (req, res) => {
   try {
-    const result = await pool.query('SELECT id, nome, login, tipo, email FROM usuarios');
+    const result = await pool.query('SELECT id, login, tipo, email, nome_completo, cpf FROM usuarios');
     res.json({ usuarios: result.rows });
   } catch (err) {
     console.error('Erro ao buscar usuários:', err);
