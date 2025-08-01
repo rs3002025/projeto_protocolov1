@@ -365,16 +365,22 @@
         <button onclick="salvarEmailSistema()">Salvar Email</button>
       </div>
       <div class="form-group full-row">
-  <label>Adicionar Novo Usuário:</label>
-  <input type="text" id="novoUsuario" placeholder="Nome do usuário" />
-  <input type="password" id="novaSenha" placeholder="Senha" />
-  <input type="email" id="novoEmail" placeholder="E-mail do usuário" />
-  <select id="nivelUsuario">
-    <option value="comum">Comum</option>
-    <option value="padrao">Padrão</option>
-    <option value="admin">Administrador</option>
-  </select>
-  <button onclick="cadastrarUsuario()">Cadastrar Usuário</button>
+<label>Adicionar Novo Usuário:</label>
+
+<input type="text" id="nomeCompleto" placeholder="Nome completo" />
+<input type="text" id="novoUsuario" placeholder="Nome de usuário" />
+<input type="text" id="cpfUsuario" placeholder="CPF (somente números)" />
+<input type="password" id="novaSenha" placeholder="Senha" />
+<input type="email" id="novoEmail" placeholder="E-mail do usuário" />
+
+<select id="nivelUsuario">
+  <option value="comum">Comum</option>
+  <option value="padrao">Padrão</option>
+  <option value="admin">Administrador</option>
+</select>
+
+<button onclick="cadastrarUsuario()">Cadastrar Usuário</button>
+
 </div>
 
 	<h4>Gerar Backup de Protocolos</h4>
@@ -1119,45 +1125,42 @@ async function gerarRelatorio() {
       alert("Email salvo com sucesso!");
     }
 
-function cadastrarUsuario() {
-  const nome = document.getElementById('novoUsuario').value.trim();
+async function cadastrarUsuario() {
+  const nomeCompleto = document.getElementById('nomeCompleto').value.trim();
+  const login = document.getElementById('novoUsuario').value.trim();
+  const cpf = document.getElementById('cpfUsuario').value.trim();
   const senha = document.getElementById('novaSenha').value.trim();
-  const tipo = document.getElementById('nivelUsuario').value;
   const email = document.getElementById('novoEmail').value.trim();
+  const tipo = document.getElementById('nivelUsuario').value;
 
-  if (!nome || !senha || !tipo || !email) {
-    alert("Preencha todos os campos, incluindo o e-mail.");
+  if (!nomeCompleto || !login || !cpf || !senha || !email || !tipo) {
+    alert('Por favor, preencha todos os campos.');
     return;
   }
 
-  fetch('/usuarios', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      nome: nome,
-      login: nome.toLowerCase(),
-      senha: senha,
-      tipo: tipo,
-      email: email
-    })
-  })
-  .then(res => res.json())
-  .then(data => {
-    if (data.sucesso) {
-      alert("✅ Usuário cadastrado com sucesso!");
-      document.getElementById('novoUsuario').value = "";
-      document.getElementById('novaSenha').value = "";
-      document.getElementById('novoEmail').value = "";
-      atualizarListaUsuarios();
-    } else {
-      alert("❌ Erro ao cadastrar: " + (data.mensagem || "Erro desconhecido"));
-    }
-  })
-  .catch(err => {
-    console.error("Erro ao cadastrar usuário:", err);
-    alert("❌ Erro ao conectar ao servidor.");
-  });
+  try {
+    const res = await fetch('/usuarios', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nome_completo: nomeCompleto,
+        login,
+        cpf,
+        senha,
+        email,
+        tipo
+      })
+    });
+
+    const data = await res.json();
+    alert(data.mensagem || 'Usuário cadastrado!');
+    if (data.sucesso) carregarUsuarios(); // Atualiza a tabela
+  } catch (error) {
+    console.error('Erro ao cadastrar usuário:', error);
+    alert('Erro ao cadastrar usuário.');
+  }
 }
+
 
 
 
