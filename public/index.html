@@ -1264,31 +1264,34 @@ async function confirmarEncaminhamento() {
   const destino = select.value;
 
   try {
-    const response = await fetch('/protocolos/encaminhar', {
+    const response = await fetch('/protocolos/atualizar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        id: idProtocolo,
-        destino,
-        status: 'Encaminhado'  // enviar status também
+        protocoloId: idProtocolo,
+        novoStatus: 'Encaminhado',
+        novoResponsavel: destino,
+        observacao: `Encaminhado por ${usuarioLogado} para ${destino}`,
+        usuarioLogado: usuarioLogado
       })
     });
 
     const data = await response.json();
 
     if (data.sucesso) {
-      alert('Protocolo encaminhado com sucesso');
+      alert('✅ Protocolo encaminhado com sucesso!');
       fecharModalEncaminhar();
       await listarProtocolos();
       await listarMeusProtocolos();
     } else {
-      alert('Erro ao encaminhar protocolo: ' + (data.mensagem || ''));
+      alert('❌ Erro ao encaminhar protocolo: ' + (data.mensagem || ''));
     }
   } catch (err) {
     console.error(err);
-    alert('Erro ao encaminhar protocolo');
+    alert('❌ Erro ao encaminhar protocolo');
   }
 }
+
 
 
 
