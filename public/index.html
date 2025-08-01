@@ -1259,45 +1259,36 @@ async function abrirModalEncaminhar(idProtocolo) {
 }
 
 async function confirmarEncaminhamento() {
-  const destino = document.getElementById('encaminharPara').value;
+  const select = document.getElementById('selectUsuarioEncaminhar');
+  const idProtocolo = select.dataset.idProtocolo;
+  const destino = select.value;
 
-  if (destino && idProtocolo) {
-    try {
-      const response = await fetch('/protocolos/atualizar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          protocoloId: idProtocolo,
-          novoStatus: "Encaminhado",
-          novoResponsavel: destino,
-          observacao: `Encaminhado por ${usuarioLogado} para ${destino}`,
-          usuarioLogado: usuarioLogado
-        })
-      });
+  try {
+    const response = await fetch('/protocolos/atualizar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        protocoloId: idProtocolo,
+        novoStatus: 'Encaminhado',
+        novoResponsavel: destino,
+        observacao: `Encaminhado por ${usuarioLogado} para ${destino}`,
+        usuarioLogado: usuarioLogado
+      })
+    });
 
-      const data = await response.json();
+    const data = await response.json();
 
-      if (data.sucesso) {
-        alert("✅ Protocolo encaminhado com sucesso!");
-        await carregarHistorico(idProtocolo);
-        
-        // Atualiza a lista
-        if (document.getElementById('protocolos').classList.contains('active')) {
-          await listarProtocolos();
-        }
-        if (document.getElementById('meusProtocolos').classList.contains('active')) {
-          await listarMeusProtocolos();
-        }
-
-        fecharModalEncaminhar();
-      } else {
-        alert("Erro ao encaminhar protocolo.");
-      }
-    } catch (error) {
-      console.error("Erro no encaminhamento:", error);
+    if (data.sucesso) {
+      alert('✅ Protocolo encaminhado com sucesso!');
+      fecharModalEncaminhar();
+      await listarProtocolos();
+      await listarMeusProtocolos();
+    } else {
+      alert('❌ Erro ao encaminhar protocolo: ' + (data.mensagem || ''));
     }
-  } else {
-    alert("Responsável inválido.");
+  } catch (err) {
+    console.error(err);
+    alert('❌ Erro ao encaminhar protocolo');
   }
 }
 
