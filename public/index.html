@@ -168,11 +168,8 @@
   border: 1px solid #333;
   box-shadow: 0 0 15px rgba(0,0,0,0.3);
   box-sizing: border-box;
-
-  /* CENTRALIZAÇÃO GARANTIDA */
-  position: relative;
-  left: 50%;
-  transform: translateX(-50%);
+  max-width: 794px; /* 210mm em pixels a 96dpi (aprox) */
+  margin: 0 auto;
 }
 
 
@@ -954,20 +951,20 @@ async function gerarPDFPorId(id) {
       : 'Nenhuma informação adicional';
 
     // 3. Opções do PDF (ajuste principal: margem esquerda maior)
-    const opt = {
-      margin: [10, 10, 10, 20],        // top, right, bottom, LEFT
-      filename: `Protocolo_${protocolo.numero}.pdf`,
-      image:  { type: 'jpeg', quality: 1 },
-      html2canvas: {
-        scale: 3,
-        useCORS: true,
-        scrollX: 0,
-        scrollY: 0,
-        windowWidth: 1400            // garante largura durante a renderização
-      },
-      jsPDF:  { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
-    };
+   const opt = {
+  margin: [10, 10, 10, 10],  // margens uniformes de 10mm
+  filename: `Protocolo_${protocolo.numero}.pdf`,
+  image: { type: 'jpeg', quality: 1 },
+  html2canvas: {
+    scale: 2,
+    useCORS: true,
+    scrollX: 0,
+    scrollY: 0,
+    windowWidth: 800 // (ou deixe sem isso para auto)
+  },
+  jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+  pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+};
 
     // 4. Geração do PDF
     const element = document.getElementById('modeloProtocolo');
