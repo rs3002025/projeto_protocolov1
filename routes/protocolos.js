@@ -279,6 +279,31 @@ router.put('/usuarios/:id', async (req, res) => {
   }
 });
 
+// POST /protocolos/encaminhar
+router.post('/encaminhar', async (req, res) => {
+  const { id, destino, status } = req.body;
+
+  try {
+    // Atualiza o protocolo com o novo destino e status
+    await pool.query(
+      'UPDATE protocolos SET destino = $1, status = $2 WHERE id = $3',
+      [destino, status, id]
+    );
+
+    // Insere movimentação
+    await pool.query(
+      `INSERT INTO movimentacoes (protocolo_id, acao, destino, data)
+       VALUES ($1, $2, $3, NOW())`,
+      [id, 'Encaminhado', destino]
+    );
+
+    res.json({ sucesso: true, mensagem: 'Protocolo encaminhado com sucesso.' });
+  } catch (err) {
+    console.error('Erro ao encaminhar:', err);
+    res.status(500).json({ sucesso: false, mensagem: 'Erro ao encaminhar protocolo.' });
+  }
+});
+
 
 // Buscar protocolo completo pelo ID
 router.get('/:id', async (req, res) => {
