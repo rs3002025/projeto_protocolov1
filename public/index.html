@@ -282,6 +282,14 @@
     </div>
 
 
+<div id="modalEncaminhar" class="modal" style="display:none;">
+  <div class="modal-content">
+    <h3>Encaminhar para:</h3>
+    <select id="selectUsuarioEncaminhar"></select>
+    <button onclick="confirmarEncaminhamento()">Confirmar</button>
+    <button onclick="fecharModalEncaminhar()">Cancelar</button>
+  </div>
+</div>
 
 
 <!-- Adicione isso junto com as outras telas (perto de <div id="protocolos">) -->
@@ -734,7 +742,7 @@ async function listarProtocolos() {
         <td>${p.responsavel}</td>
         <td>
           <button onclick="abrirAtualizar(${p.id})">Atualizar</button>
-          <button onclick="abrirEncaminhar(${p.id})">Encaminhar</button>
+          <button onclick="abrirModalEncaminhar('${p.id}')">Encaminhar</button>
           <button onclick="verDetalhes(${p.id})">Ver Detalhes</button>
           <button onclick="gerarPDFPorId(${p.id})">📄 Documento</button>
 
@@ -1224,7 +1232,59 @@ async function gerarBackup() {
   }
 }
 
+async function abrirModalEncaminhar(idProtocolo) {
+  try {
+    const res = await fetch('/usuarios');
+    const data = await res.json();
 
+    const select = document.getElementById('selectUsuarioEncaminhar');
+    select.innerHTML = ''; // limpa
+
+    data.usuarios.forEach(usuario => {
+      const option = document.createElement('option');
+      option.value = usuario.login;
+      option.textContent = `${usuario.nome_completo || usuario.login} (${usuario.tipo})`;
+      select.appendChild(option);
+    });
+
+    // Armazena o protocolo atual para uso no confirmar
+    select.dataset.idProtocolo = idProtocolo;
+
+    // Mostra o modal
+    document.getElementById('modalEncaminhar').style.display = 'block';
+  } catch (error) {
+    alert('Erro ao carregar usuários');
+    console.error(error);
+  }
+}
+
+	 async function confirmarEncaminhamento() {
+  const select = document.getElementById('selectUsuarioEncaminhar');
+  const idProtocolo = select.dataset.idProtocolo;
+  const destino = select.value;
+
+  try {
+    await fetch('/protocolos/encaminhar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: idProtocolo, destino })
+    });
+
+    alert('Protocolo encaminhado com sucesso');
+    fecharModalEncaminhar();
+    carregarProtocolos(); // recarrega a lista se quiser
+  } catch (err) {
+    console.error(err);
+    alert('Erro ao encaminhar protocolo');
+  }
+}
+
+
+	 function fecharModalEncaminhar() {
+  document.getElementById('modalEncaminhar').style.display = 'none';
+}
+
+	 
     function voltarDeMeusProtocolos() {
       if (nivelUsuario === 'comum') {
         sair();
