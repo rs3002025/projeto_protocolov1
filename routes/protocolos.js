@@ -257,6 +257,29 @@ router.get('/backup', async (req, res) => {
   }
 });
 
+router.put('/usuarios/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { login, tipo, email, nome_completo, cpf } = req.body;
+
+    await pool.query(`
+      UPDATE usuarios
+      SET login = $1,
+          tipo = $2,
+          email = $3,
+          nome_completo = $4,
+          cpf = $5
+      WHERE id = $6
+    `, [login, tipo, email, nome_completo, cpf, id]);
+
+    res.json({ sucesso: true, mensagem: 'Usuário atualizado com sucesso.' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ sucesso: false, mensagem: 'Erro ao atualizar usuário.' });
+  }
+});
+
+
 // Buscar protocolo completo pelo ID
 router.get('/:id', async (req, res) => {
   const protocoloId = req.params.id;
