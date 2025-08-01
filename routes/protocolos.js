@@ -281,20 +281,20 @@ router.put('/usuarios/:id', async (req, res) => {
 
 // POST /protocolos/encaminhar
 router.post('/encaminhar', async (req, res) => {
-  const { id, destino, status } = req.body;
+  const { id, destino } = req.body;
 
   try {
-    // Atualiza o protocolo com o novo responsável e status
+    // Atualiza protocolo: status e responsável
     await db.query(
-      'UPDATE protocolos SET responsavel = $1, status = $2 WHERE id = $3',
-      [destino, status, id]
+      'UPDATE protocolos SET status = $1, responsavel = $2 WHERE id = $3',
+      ['Encaminhado', destino, id]
     );
 
-    // Insere movimentação
+    // Insere histórico da movimentação
     await db.query(
-      `INSERT INTO movimentacoes (protocolo_id, acao, destino, data)
-       VALUES ($1, $2, $3, NOW())`,
-      [id, 'Encaminhado', destino]
+      `INSERT INTO historico_protocolos (protocolo_id, status, responsavel, observacao, data_movimentacao)
+       VALUES ($1, $2, $3, $4, NOW())`,
+      [id, 'Encaminhado', destino, `Encaminhado para ${destino}`]
     );
 
     res.json({ sucesso: true, mensagem: 'Protocolo encaminhado com sucesso.' });
@@ -303,6 +303,7 @@ router.post('/encaminhar', async (req, res) => {
     res.status(500).json({ sucesso: false, mensagem: 'Erro ao encaminhar protocolo.' });
   }
 });
+
 
 
 
