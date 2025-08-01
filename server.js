@@ -36,12 +36,13 @@ app.post('/login', async (req, res) => {
 
 // Rota para cadastrar novo usuário
 app.post('/usuarios', async (req, res) => {
- const { login, senha, tipo, email, nome, cpf } = req.body;
+  const { login, senha, tipo, email, nome, cpf } = req.body;
 
-await pool.query(`
-  INSERT INTO usuarios (login, senha, tipo, email, nome, cpf)
-  VALUES ($1, $2, $3, $4, $5, $6)
-`, [login, senha, tipo, email, nome, cpf]);
+  try {
+    await pool.query(`
+      INSERT INTO usuarios (login, senha, tipo, email, nome, cpf)
+      VALUES ($1, $2, $3, $4, $5, $6)
+    `, [login, senha, tipo, email, nome, cpf]);
 
     res.json({ sucesso: true, mensagem: 'Usuário cadastrado com sucesso.' });
   } catch (err) {
@@ -49,6 +50,7 @@ await pool.query(`
     res.status(500).json({ sucesso: false, mensagem: 'Erro ao cadastrar usuário.' });
   }
 });
+
 
 // Rota para listar todos os usuários
 app.get('/usuarios', async (req, res) => {
