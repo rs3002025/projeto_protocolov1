@@ -285,13 +285,13 @@ router.post('/encaminhar', async (req, res) => {
 
   try {
     // Atualiza o protocolo com o novo destino e status
-    await pool.query(
+    await db.query(
       'UPDATE protocolos SET destino = $1, status = $2 WHERE id = $3',
       [destino, status, id]
     );
 
     // Insere movimentação
-    await pool.query(
+    await db.query(
       `INSERT INTO movimentacoes (protocolo_id, acao, destino, data)
        VALUES ($1, $2, $3, NOW())`,
       [id, 'Encaminhado', destino]
