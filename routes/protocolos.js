@@ -284,9 +284,9 @@ router.post('/encaminhar', async (req, res) => {
   const { id, destino, status } = req.body;
 
   try {
-    // Atualiza o protocolo com o novo destino e status
+    // Atualiza o protocolo com o novo responsável e status
     await db.query(
-      'UPDATE protocolos SET destino = $1, status = $2 WHERE id = $3',
+      'UPDATE protocolos SET responsavel = $1, status = $2 WHERE id = $3',
       [destino, status, id]
     );
 
@@ -303,6 +303,7 @@ router.post('/encaminhar', async (req, res) => {
     res.status(500).json({ sucesso: false, mensagem: 'Erro ao encaminhar protocolo.' });
   }
 });
+
 
 
 // Buscar protocolo completo pelo ID
