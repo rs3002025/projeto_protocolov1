@@ -1258,26 +1258,38 @@ async function abrirModalEncaminhar(idProtocolo) {
   }
 }
 
-	 async function confirmarEncaminhamento() {
+async function confirmarEncaminhamento() {
   const select = document.getElementById('selectUsuarioEncaminhar');
   const idProtocolo = select.dataset.idProtocolo;
   const destino = select.value;
 
   try {
-    await fetch('/protocolos/encaminhar', {
+    const response = await fetch('/protocolos/encaminhar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: idProtocolo, destino })
+      body: JSON.stringify({
+        id: idProtocolo,
+        destino,
+        status: 'Encaminhado'  // enviar status também
+      })
     });
 
-    alert('Protocolo encaminhado com sucesso');
-    fecharModalEncaminhar();
-    carregarProtocolos(); // recarrega a lista se quiser
+    const data = await response.json();
+
+    if (data.sucesso) {
+      alert('Protocolo encaminhado com sucesso');
+      fecharModalEncaminhar();
+      await listarProtocolos();
+      await listarMeusProtocolos();
+    } else {
+      alert('Erro ao encaminhar protocolo: ' + (data.mensagem || ''));
+    }
   } catch (err) {
     console.error(err);
     alert('Erro ao encaminhar protocolo');
   }
 }
+
 
 
 	 function fecharModalEncaminhar() {
