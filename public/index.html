@@ -158,18 +158,17 @@
 }
 
     /* Estilo para o documento PDF / impressão */
- #modeloProtocolo {
+#modeloProtocolo {
   display: none;
-  width: 730px;
+  width: 794px;                    /* largura exata de uma folha A4 em 96dpi */
   font-family: 'Times New Roman', serif;
   color: #000;
   background: #fff;
-  padding: 30px 50px;
+  padding: 30px 40px;
   border: 1px solid #333;
   box-shadow: 0 0 15px rgba(0,0,0,0.3);
   box-sizing: border-box;
-  max-width: 794px; /* 210mm em pixels a 96dpi (aprox) */
-  margin: 0 auto;
+  margin: 0 auto;                  /* CENTRALIZA */
 }
 
 
@@ -951,20 +950,17 @@ async function gerarPDFPorId(id) {
       : 'Nenhuma informação adicional';
 
     // 3. Opções do PDF (ajuste principal: margem esquerda maior)
-   const opt = {
-  margin: [10, 10, 10, 10],  // margens uniformes de 10mm
+  const opt = {
+  margin: 10, // uniforme em todos os lados
   filename: `Protocolo_${protocolo.numero}.pdf`,
   image: { type: 'jpeg', quality: 1 },
   html2canvas: {
-    scale: 2,
-    useCORS: true,
-    scrollX: 0,
-    scrollY: 0,
-    windowWidth: 800 // (ou deixe sem isso para auto)
+    scale: 2,                      // 2 já é mais que suficiente
+    useCORS: true
   },
-  jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-  pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+  jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
 };
+
 
     // 4. Geração do PDF
     const element = document.getElementById('modeloProtocolo');
