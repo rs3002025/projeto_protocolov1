@@ -770,20 +770,14 @@ async function listarProtocolos() {
 
 
 async function listarMeusProtocolos() {
-  console.log("listarMeusProtocolos chamado. window.usuarioLogado =", window.usuarioLogado);
-
-  if (!window.usuarioLogado) {
-    console.error("Usuário logado não definido.");
-    return;
-  }
-  const tbody = document.getElementById('meusProtocolosTabela');
+ const tbody = document.getElementById('meusProtocolosTabela');
   tbody.innerHTML = "";
 
   try {
     const res = await fetch('/protocolos');
     const data = await res.json();
 
-    const usuarioLogado = window.usuarioLogado?.trim().toLowerCase();
+    const usuarioLogado = usuarioLogado?.trim().toLowerCase();
 
 if (!usuarioLogado) {
   console.error("Usuário logado não definido.");
