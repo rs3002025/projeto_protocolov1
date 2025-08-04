@@ -569,22 +569,21 @@
   .then(res => res.json())
   .then(data => {
     if (data.sucesso && data.usuario) {
-      // Armazena no localStorage
-      localStorage.setItem('window.usuarioLogado', data.usuario.login);
+      // Salva no localStorage com a chave correta
+      localStorage.setItem('usuarioLogado', data.usuario.login);
       localStorage.setItem('nivelUsuario', data.usuario.tipo);
-      
-     // Atualiza as variáveis globais
-window.usuarioLogado = data.usuario.login;
-window.nivelUsuario = data.usuario.tipo;
 
+      // Atualiza as variáveis globais window
+      window.usuarioLogado = data.usuario.login;
+      window.nivelUsuario = data.usuario.tipo;
 
       // Atualiza a interface
-      document.getElementById('btnConfig').style.display = nivelUsuario === "admin" ? "inline-block" : "none";
-      document.getElementById('btnNovo').style.display = (nivelUsuario === "admin" || nivelUsuario === "padrao") ? "inline-block" : "none";
-      document.getElementById('btnRelatorios').style.display = (nivelUsuario === "admin" || nivelUsuario === "padrao") ? "inline-block" : "none";
+      document.getElementById('btnConfig').style.display = window.nivelUsuario === "admin" ? "inline-block" : "none";
+      document.getElementById('btnNovo').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "inline-block" : "none";
+      document.getElementById('btnRelatorios').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "inline-block" : "none";
 
       // Redireciona
-      if (nivelUsuario === "comum") {
+      if (window.nivelUsuario === "comum") {
         mostrarTela('meusProtocolos');
       } else {
         mostrarTela('menu');
