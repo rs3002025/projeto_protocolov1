@@ -531,10 +531,13 @@
     let nivelUsuario = "";
 
  document.addEventListener('DOMContentLoaded', () => {
-    usuarioLogado = localStorage.getItem('usuarioLogado') || "";
-    nivelUsuario = localStorage.getItem('nivelUsuario') || "";
-    
-    console.log("Verificando sessão:", usuarioLogado, nivelUsuario); // Debug
+
+    window.usuarioLogado = localStorage.getItem('usuarioLogado') || "";
+    window.nivelUsuario = localStorage.getItem('nivelUsuario') || "";
+
+	 
+    console.log("Verificando sessão:", window.usuarioLogado, window.nivelUsuario);
+
     
     if (usuarioLogado) {
       // Atualiza a interface
