@@ -790,10 +790,7 @@ async function listarMeusProtocolos() {
         </td>`;
       
       tbody.appendChild(tr);
-
-      setTimeout(() => {
-        carregarHistorico(p.id);
-      }, 100);
+      setTimeout(() => carregarHistorico(p.id), 100);
     }
 
   } catch (error) {
@@ -801,7 +798,6 @@ async function listarMeusProtocolos() {
     alert("Erro ao buscar dados.");
   }
 }
-
 
 
 
