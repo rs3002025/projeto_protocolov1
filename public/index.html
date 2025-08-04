@@ -556,11 +556,14 @@
     .then(res => res.json())
     .then(data => {
       if (data.sucesso && data.usuario) {
-        localStorage.setItem('usuarioLogado', data.usuario.login);
-        localStorage.setItem('nivelUsuario', data.usuario.tipo);
+  localStorage.setItem('usuarioLogado', data.usuario.nome);  // nome completo
+  localStorage.setItem('usuarioLogin', data.usuario.login);  // login simples
+  localStorage.setItem('nivelUsuario', data.usuario.tipo);
 
-        window.usuarioLogado = data.usuario.login;
-        window.nivelUsuario = data.usuario.tipo;
+  window.usuarioLogado = data.usuario.nome;
+  window.usuarioLogin = data.usuario.login;
+  window.nivelUsuario = data.usuario.tipo;
+
 
         document.getElementById('btnConfig').style.display = window.nivelUsuario === "admin" ? "inline-block" : "none";
         document.getElementById('btnNovo').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "inline-block" : "none";
