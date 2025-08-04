@@ -19,9 +19,10 @@ app.post('/login', async (req, res) => {
   const { login, senha } = req.body;
   try {
     const result = await pool.query(
-      'SELECT nome, tipo, email FROM usuarios WHERE login = $1 AND senha = $2',
-      [login, senha]
-    );
+  'SELECT nome, login, tipo, email FROM usuarios WHERE login = $1 AND senha = $2',
+  [login, senha]
+);
+
 
     if (result.rows.length > 0) {
       res.json({ sucesso: true, usuario: result.rows[0] });
