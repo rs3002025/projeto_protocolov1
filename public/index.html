@@ -770,25 +770,23 @@ async function listarProtocolos() {
 
 
 async function listarMeusProtocolos() {
- const tbody = document.getElementById('meusProtocolosTabela');
+  const tbody = document.getElementById('meusProtocolosTabela');
   tbody.innerHTML = "";
 
   try {
     const res = await fetch('/protocolos');
     const data = await res.json();
 
-    const usuarioLogado = usuarioLogado?.trim().toLowerCase();
+    const usuario = (window.usuarioLogado || localStorage.getItem('usuarioLogado') || "").trim().toLowerCase();
 
-if (!usuarioLogado) {
-  console.error("Usuário logado não definido.");
-  return;
-}
+    if (!usuario) {
+      console.error("Usuário logado não definido.");
+      return;
+    }
 
-const protocolosFiltrados = data.protocolos.filter(p => 
-  p.responsavel?.trim().toLowerCase() === usuarioLogado
-);
-
-
+    const protocolosFiltrados = data.protocolos.filter(p => 
+      (p.responsavel || "").trim().toLowerCase() === usuario
+    );
 
     for (const p of protocolosFiltrados) {
       const tr = document.createElement('tr');
@@ -808,7 +806,6 @@ const protocolosFiltrados = data.protocolos.filter(p =>
       
       tbody.appendChild(tr);
 
-      // ✅ Dá tempo do banco salvar o histórico antes de tentar buscá-lo
       setTimeout(() => {
         carregarHistorico(p.id);
       }, 100);
@@ -819,6 +816,7 @@ const protocolosFiltrados = data.protocolos.filter(p =>
     alert("Erro ao buscar dados.");
   }
 }
+
 
 
 
