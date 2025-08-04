@@ -775,9 +775,17 @@ async function listarMeusProtocolos() {
     const res = await fetch('/protocolos');
     const data = await res.json();
 
-    const protocolosFiltrados = data.protocolos.filter(p => 
-  p.responsavel?.trim().toLowerCase() === usuarioLogado.trim().toLowerCase()
+    const usuarioLogado = window.usuarioLogado?.trim().toLowerCase();
+
+if (!usuarioLogado) {
+  console.error("Usuário logado não definido.");
+  return;
+}
+
+const protocolosFiltrados = data.protocolos.filter(p => 
+  p.responsavel?.trim().toLowerCase() === usuarioLogado
 );
+
 
 
     for (const p of protocolosFiltrados) {
