@@ -522,15 +522,7 @@
 
 
 <script defer>
-  let usuarios = []; // Não usa mais localStorage, os usuários vêm do backend
-
-  let emailSistema = localStorage.getItem('emailSistema') || "";
-  
-  let usuarioLogado = "";
-  let nivelUsuario = "";
-
   document.addEventListener('DOMContentLoaded', () => {
-
     window.usuarioLogado = localStorage.getItem('usuarioLogado') || "";
     window.nivelUsuario = localStorage.getItem('nivelUsuario') || "";
 
@@ -549,8 +541,7 @@
     } else {
       mostrarTela('login');
     }
-
-  });  // <-- Fechamento do DOMContentLoaded
+  });
 
   window.logar = function() {
     const user = document.getElementById('usuario').value;
@@ -565,20 +556,16 @@
     .then(res => res.json())
     .then(data => {
       if (data.sucesso && data.usuario) {
-        // Salva no localStorage com a chave correta
         localStorage.setItem('usuarioLogado', data.usuario.login);
         localStorage.setItem('nivelUsuario', data.usuario.tipo);
 
-        // Atualiza as variáveis globais window
         window.usuarioLogado = data.usuario.login;
         window.nivelUsuario = data.usuario.tipo;
 
-        // Atualiza a interface
         document.getElementById('btnConfig').style.display = window.nivelUsuario === "admin" ? "inline-block" : "none";
         document.getElementById('btnNovo').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "inline-block" : "none";
         document.getElementById('btnRelatorios').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "inline-block" : "none";
 
-        // Redireciona
         if (window.nivelUsuario === "comum") {
           mostrarTela('meusProtocolos');
         } else {
@@ -594,7 +581,7 @@
       console.error("Erro no login:", err);
       msg.textContent = "Erro ao conectar ao servidor.";
     });
-  }
+  };
 
 
   function mostrarTela(tela) {
