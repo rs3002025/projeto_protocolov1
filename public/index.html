@@ -556,7 +556,7 @@
     }
   });
 
-window.logar = function() {
+ window.logar = function() {
   const user = document.getElementById('usuario').value;
   const senha = document.getElementById('senha').value;
   const msg = document.getElementById('loginMsg');
@@ -569,20 +569,21 @@ window.logar = function() {
   .then(res => res.json())
   .then(data => {
     if (data.sucesso && data.usuario) {
-      // Armazena no localStorage (se quiser persistir entre sessões)
-      localStorage.setItem('usuarioLogado', data.usuario.login);
-
-      // Atualiza a variável global para uso imediato no JS
-      window.usuarioLogado = data.usuario.login;
-      window.nivelUsuario = data.usuario.tipo;
+      // Armazena no localStorage
+      localStorage.setItem('usuarioLogado', data.usuario.nome);
+      localStorage.setItem('nivelUsuario', data.usuario.tipo);
+      
+      // Atualiza as variáveis
+      usuarioLogado = data.usuario.nome;
+      nivelUsuario = data.usuario.tipo;
 
       // Atualiza a interface
-      document.getElementById('btnConfig').style.display = window.nivelUsuario === "admin" ? "inline-block" : "none";
-      document.getElementById('btnNovo').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "inline-block" : "none";
-      document.getElementById('btnRelatorios').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "inline-block" : "none";
+      document.getElementById('btnConfig').style.display = nivelUsuario === "admin" ? "inline-block" : "none";
+      document.getElementById('btnNovo').style.display = (nivelUsuario === "admin" || nivelUsuario === "padrao") ? "inline-block" : "none";
+      document.getElementById('btnRelatorios').style.display = (nivelUsuario === "admin" || nivelUsuario === "padrao") ? "inline-block" : "none";
 
       // Redireciona
-      if (window.nivelUsuario === "comum") {
+      if (nivelUsuario === "comum") {
         mostrarTela('meusProtocolos');
       } else {
         mostrarTela('menu');
@@ -597,7 +598,7 @@ window.logar = function() {
     console.error("Erro no login:", err);
     msg.textContent = "Erro ao conectar ao servidor.";
   });
-};
+}
 
 
 
