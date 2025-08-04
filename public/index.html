@@ -553,7 +553,9 @@
     }
   });
 
-  window.logar = function() {
+window.usuarioLogado = null; // inicializa a variável global
+
+window.logar = function() {
   const user = document.getElementById('usuario').value;
   const senha = document.getElementById('senha').value;
   const msg = document.getElementById('loginMsg');
@@ -566,23 +568,20 @@
   .then(res => res.json())
   .then(data => {
     if (data.sucesso && data.usuario) {
-      // Armazena no localStorage
-      localStorage.setItem('usuarioLogado', data.usuario.login); // <-- CERTO
-usuarioLogado = data.usuario.login;
+      // Armazena no localStorage (se quiser persistir entre sessões)
+      localStorage.setItem('usuarioLogado', data.usuario.login);
 
-      localStorage.setItem('nivelUsuario', data.usuario.tipo);
-      
-      // Atualiza as variáveis
-      usuarioLogado = data.usuario.login;
-      nivelUsuario = data.usuario.tipo;
+      // Atualiza a variável global para uso imediato no JS
+      window.usuarioLogado = data.usuario.login;
+      window.nivelUsuario = data.usuario.tipo;
 
       // Atualiza a interface
-      document.getElementById('btnConfig').style.display = nivelUsuario === "admin" ? "inline-block" : "none";
-      document.getElementById('btnNovo').style.display = (nivelUsuario === "admin" || nivelUsuario === "padrao") ? "inline-block" : "none";
-      document.getElementById('btnRelatorios').style.display = (nivelUsuario === "admin" || nivelUsuario === "padrao") ? "inline-block" : "none";
+      document.getElementById('btnConfig').style.display = window.nivelUsuario === "admin" ? "inline-block" : "none";
+      document.getElementById('btnNovo').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "inline-block" : "none";
+      document.getElementById('btnRelatorios').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "inline-block" : "none";
 
       // Redireciona
-      if (nivelUsuario === "comum") {
+      if (window.nivelUsuario === "comum") {
         mostrarTela('meusProtocolos');
       } else {
         mostrarTela('menu');
@@ -597,7 +596,8 @@ usuarioLogado = data.usuario.login;
     console.error("Erro no login:", err);
     msg.textContent = "Erro ao conectar ao servidor.";
   });
-}
+};
+
 
 
   function mostrarTela(tela) {
