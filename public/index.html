@@ -521,85 +521,80 @@
 </div>
 
 
- <script defer>
-    let usuarios = []; // Não usa mais localStorage, os usuários vêm do backend
+<script defer>
+  let usuarios = []; // Não usa mais localStorage, os usuários vêm do backend
 
+  let emailSistema = localStorage.getItem('emailSistema') || "";
+  
+  let usuarioLogado = "";
+  let nivelUsuario = "";
 
-    let emailSistema = localStorage.getItem('emailSistema') || "";
-    
-    let usuarioLogado = "";
-    let nivelUsuario = "";
-
- document.addEventListener('DOMContentLoaded', () => {
+  document.addEventListener('DOMContentLoaded', () => {
 
     window.usuarioLogado = localStorage.getItem('usuarioLogado') || "";
     window.nivelUsuario = localStorage.getItem('nivelUsuario') || "";
 
-	 
     console.log("Verificando sessão:", window.usuarioLogado, window.nivelUsuario);
 
-    
-   if (window.usuarioLogado) {
-  // Atualiza a interface
-  document.getElementById('btnConfig').style.display = window.nivelUsuario === "admin" ? "inline-block" : "none";
-  document.getElementById('btnNovo').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "inline-block" : "none";
-  document.getElementById('btnRelatorios').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "inline-block" : "none";
-
-  // Redireciona
-  if (window.nivelUsuario === "comum") {
-    mostrarTela('meusProtocolos');
-  } else {
-    mostrarTela('menu');
-  }
-} else {
-  mostrarTela('login');
-}
-
-
- window.logar = function() {
-  const user = document.getElementById('usuario').value;
-  const senha = document.getElementById('senha').value;
-  const msg = document.getElementById('loginMsg');
-
-  fetch('/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ login: user, senha: senha })
-  })
-  .then(res => res.json())
-  .then(data => {
-    if (data.sucesso && data.usuario) {
-      // Salva no localStorage com a chave correta
-      localStorage.setItem('usuarioLogado', data.usuario.login);
-      localStorage.setItem('nivelUsuario', data.usuario.tipo);
-
-      // Atualiza as variáveis globais window
-      window.usuarioLogado = data.usuario.login;
-      window.nivelUsuario = data.usuario.tipo;
-
-      // Atualiza a interface
+    if (window.usuarioLogado) {
       document.getElementById('btnConfig').style.display = window.nivelUsuario === "admin" ? "inline-block" : "none";
       document.getElementById('btnNovo').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "inline-block" : "none";
       document.getElementById('btnRelatorios').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "inline-block" : "none";
 
-      // Redireciona
       if (window.nivelUsuario === "comum") {
         mostrarTela('meusProtocolos');
       } else {
         mostrarTela('menu');
       }
-
-      msg.textContent = "";
     } else {
-      msg.textContent = "Usuário ou senha incorretos.";
+      mostrarTela('login');
     }
-  })
-  .catch(err => {
-    console.error("Erro no login:", err);
-    msg.textContent = "Erro ao conectar ao servidor.";
-  });
-}
 
+  });  // <-- Fechamento do DOMContentLoaded
+
+  window.logar = function() {
+    const user = document.getElementById('usuario').value;
+    const senha = document.getElementById('senha').value;
+    const msg = document.getElementById('loginMsg');
+
+    fetch('/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ login: user, senha: senha })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.sucesso && data.usuario) {
+        // Salva no localStorage com a chave correta
+        localStorage.setItem('usuarioLogado', data.usuario.login);
+        localStorage.setItem('nivelUsuario', data.usuario.tipo);
+
+        // Atualiza as variáveis globais window
+        window.usuarioLogado = data.usuario.login;
+        window.nivelUsuario = data.usuario.tipo;
+
+        // Atualiza a interface
+        document.getElementById('btnConfig').style.display = window.nivelUsuario === "admin" ? "inline-block" : "none";
+        document.getElementById('btnNovo').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "inline-block" : "none";
+        document.getElementById('btnRelatorios').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "inline-block" : "none";
+
+        // Redireciona
+        if (window.nivelUsuario === "comum") {
+          mostrarTela('meusProtocolos');
+        } else {
+          mostrarTela('menu');
+        }
+
+        msg.textContent = "";
+      } else {
+        msg.textContent = "Usuário ou senha incorretos.";
+      }
+    })
+    .catch(err => {
+      console.error("Erro no login:", err);
+      msg.textContent = "Erro ao conectar ao servidor.";
+    });
+  }
 
 
   function mostrarTela(tela) {
