@@ -570,11 +570,11 @@
   .then(data => {
     if (data.sucesso && data.usuario) {
       // Armazena no localStorage
-      localStorage.setItem('usuarioLogado', data.usuario.nome);
+      localStorage.setItem('usuarioLogado', data.usuario.login);
       localStorage.setItem('nivelUsuario', data.usuario.tipo);
       
       // Atualiza as variáveis
-      usuarioLogado = data.usuario.nome;
+      usuarioLogado = data.usuario.login;
       nivelUsuario = data.usuario.tipo;
 
       // Atualiza a interface
