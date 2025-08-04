@@ -570,12 +570,13 @@
   .then(data => {
     if (data.sucesso && data.usuario) {
       // Armazena no localStorage
-      localStorage.setItem('usuarioLogado', data.usuario.login);
+      localStorage.setItem('window.usuarioLogado', data.usuario.login);
       localStorage.setItem('nivelUsuario', data.usuario.tipo);
       
-      // Atualiza as variáveis
-      usuarioLogado = data.usuario.login;
-      nivelUsuario = data.usuario.tipo;
+     // Atualiza as variáveis globais
+window.usuarioLogado = data.usuario.login;
+window.nivelUsuario = data.usuario.tipo;
+
 
       // Atualiza a interface
       document.getElementById('btnConfig').style.display = nivelUsuario === "admin" ? "inline-block" : "none";
