@@ -769,11 +769,9 @@ async function listarMeusProtocolos() {
       return;
     }
 
-    const protocolosFiltrados = data.protocolos.filter(p => {
-      const responsavel = (p.responsavel || "").trim().toLowerCase();
-      const nome = (p.nome || "").trim().toLowerCase();
-      return responsavel === usuarioLogin || nome === usuarioLogin;
-    });
+    const protocolosFiltrados = data.protocolos.filter(p => 
+      (p.responsavel || "").trim().toLowerCase() === usuarioLogin
+    );
 
     for (const p of protocolosFiltrados) {
       const tr = document.createElement('tr');
@@ -803,6 +801,7 @@ async function listarMeusProtocolos() {
     alert("Erro ao buscar dados.");
   }
 }
+
 
 
 
