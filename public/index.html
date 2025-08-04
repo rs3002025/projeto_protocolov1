@@ -773,7 +773,10 @@ async function listarMeusProtocolos() {
     const res = await fetch('/protocolos');
     const data = await res.json();
 
-    const protocolosFiltrados = data.protocolos.filter(p => p.responsavel === usuarioLogado);
+    const protocolosFiltrados = data.protocolos.filter(p => 
+  p.responsavel?.trim().toLowerCase() === usuarioLogado.trim().toLowerCase()
+);
+
 
     for (const p of protocolosFiltrados) {
       const tr = document.createElement('tr');
