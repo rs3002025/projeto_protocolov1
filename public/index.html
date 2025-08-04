@@ -539,22 +539,22 @@
     console.log("Verificando sessão:", window.usuarioLogado, window.nivelUsuario);
 
     
-    if (usuarioLogado) {
-      // Atualiza a interface
-      document.getElementById('btnConfig').style.display = nivelUsuario === "admin" ? "inline-block" : "none";
-      document.getElementById('btnNovo').style.display = (nivelUsuario === "admin" || nivelUsuario === "padrao") ? "inline-block" : "none";
-      document.getElementById('btnRelatorios').style.display = (nivelUsuario === "admin" || nivelUsuario === "padrao") ? "inline-block" : "none";
-      
-      // Redireciona
-      if (nivelUsuario === "comum") {
-        mostrarTela('meusProtocolos');
-      } else {
-        mostrarTela('menu');
-      }
-    } else {
-      mostrarTela('login');
-    }
-  });
+   if (window.usuarioLogado) {
+  // Atualiza a interface
+  document.getElementById('btnConfig').style.display = window.nivelUsuario === "admin" ? "inline-block" : "none";
+  document.getElementById('btnNovo').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "inline-block" : "none";
+  document.getElementById('btnRelatorios').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "inline-block" : "none";
+
+  // Redireciona
+  if (window.nivelUsuario === "comum") {
+    mostrarTela('meusProtocolos');
+  } else {
+    mostrarTela('menu');
+  }
+} else {
+  mostrarTela('login');
+}
+
 
  window.logar = function() {
   const user = document.getElementById('usuario').value;
