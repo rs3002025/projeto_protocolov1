@@ -384,6 +384,7 @@
       </table>
       <button onclick="mostrarTela('menu')">Voltar</button>
     </div>
+	  <div id="paginacaoProtocolos" style="margin-top: 10px;"></div>
 
     <div id="meusProtocolos" class="meus-protocolos-screen content">
       <h3>📂 Meus Protocolos</h3>
@@ -400,6 +401,7 @@
       </table>
       <button onclick="voltarDeMeusProtocolos()">Voltar</button>
     </div>
+	  <div id="paginacaoMeusProtocolos" style="margin-top: 10px;"></div>
 
     <div id="config" class="config-screen content">
       <h3>⚙️ Configurações</h3>
@@ -558,6 +560,10 @@
 
 
 <script defer>
+	const itensPorPagina = 10;
+	let paginaAtualTodos = 1;
+	let paginaAtualMeus = 1;
+
   document.addEventListener('DOMContentLoaded', () => {
     window.usuarioLogado = localStorage.getItem('usuarioLogado') || "";
     window.nivelUsuario = localStorage.getItem('nivelUsuario') || "";
@@ -689,6 +695,11 @@ function sair() {
   }
 }
 
+function paginarProtocolos(lista, pagina, porPagina) {
+  const inicio = (pagina - 1) * porPagina;
+  const fim = inicio + porPagina;
+  return lista.slice(inicio, fim);
+}
 
 
 
@@ -751,20 +762,24 @@ function sair() {
 
   
 
-async function listarProtocolos() {
+async function listarProtocolos(pagina = 1) {
   const tbody = document.getElementById('tabelaProtocolos');
   tbody.innerHTML = "";
+  paginaAtualTodos = pagina;
 
   try {
     const res = await fetch('/protocolos');
     const data = await res.json();
 
-    data.protocolos.forEach((p, i) => {
+    const inicio = (pagina - 1) * itensPorPagina;
+    const fim = inicio + itensPorPagina;
+    const paginaDados = data.protocolos.slice(inicio, fim);
+
+    paginaDados.forEach(p => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <tr>
-  	<td style="width: 80px; text-align: center;">${p.numero}</td>
-	<td>${p.matricula}</td>
+        <td style="width: 80px; text-align: center;">${p.numero}</td>
+        <td>${p.matricula}</td>
         <td>${p.nome}</td>
         <td>${p.tipo_requerimento}</td>
         <td>${p.status}</td>
@@ -774,17 +789,16 @@ async function listarProtocolos() {
           <button onclick="abrirModalEncaminhar(${p.id}, event)">Encaminhar</button>
           <button onclick="verDetalhes(${p.id})">Ver Detalhes</button>
           <button onclick="gerarPDFPorId(${p.id})">📄 Documento</button>
-
           <details id="hist_${p.id}">
             <summary>Histórico</summary>
           </details>
         </td>`;
       tbody.appendChild(tr);
-
-      setTimeout(() => {
-        carregarHistorico(p.id);
-      }, 100);
+      setTimeout(() => carregarHistorico(p.id), 100);
     });
+
+    renderizarPaginacao(data.protocolos.length, pagina, 'paginacaoProtocolos', listarProtocolos);
+
   } catch (error) {
     console.error("Erro ao listar protocolos:", error);
     alert("Erro ao buscar protocolos do banco.");
@@ -794,9 +808,11 @@ async function listarProtocolos() {
 
 
 
-async function listarMeusProtocolos() {
+
+async function listarMeusProtocolos(pagina = 1) {
   const tbody = document.getElementById('meusProtocolosTabela');
   tbody.innerHTML = "";
+  paginaAtualMeus = pagina;
 
   try {
     const res = await fetch('/protocolos');
@@ -815,11 +831,15 @@ async function listarMeusProtocolos() {
       return;
     }
 
-    const protocolosFiltrados = data.protocolos.filter(p => 
+    const protocolosFiltrados = data.protocolos.filter(p =>
       (p.responsavel || "").trim().toLowerCase() === usuario
     );
 
-    for (const p of protocolosFiltrados) {
+    const inicio = (pagina - 1) * itensPorPagina;
+    const fim = inicio + itensPorPagina;
+    const paginaDados = protocolosFiltrados.slice(inicio, fim);
+
+    paginaDados.forEach(p => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>${p.numero}</td>
@@ -834,10 +854,11 @@ async function listarMeusProtocolos() {
             <summary>Histórico</summary>
           </details>
         </td>`;
-      
       tbody.appendChild(tr);
       setTimeout(() => carregarHistorico(p.id), 100);
-    }
+    });
+
+    renderizarPaginacao(protocolosFiltrados.length, pagina, 'paginacaoMeusProtocolos', listarMeusProtocolos);
 
   } catch (error) {
     console.error("Erro ao listar meus protocolos:", error);
@@ -1346,6 +1367,25 @@ function fecharModalEncaminhar() {
   modal.style.display = 'none';
 }
 
+function renderizarPaginacao(totalItens, paginaAtual, idContainer, callback) {
+  const container = document.getElementById(idContainer);
+  container.innerHTML = '';
+
+  const totalPaginas = Math.ceil(totalItens / itensPorPagina);
+
+  if (totalPaginas <= 1) return; // sem paginação se tiver 1 página
+
+  for (let i = 1; i <= totalPaginas; i++) {
+    const btn = document.createElement('button');
+    btn.textContent = i;
+    btn.style.margin = '0 2px';
+    if (i === paginaAtual) {
+      btn.disabled = true;
+    }
+    btn.onclick = () => callback(i);
+    container.appendChild(btn);
+  }
+}
 
 	 
     function voltarDeMeusProtocolos() {
