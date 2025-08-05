@@ -762,7 +762,13 @@ async function listarMeusProtocolos() {
     const res = await fetch('/protocolos');
     const data = await res.json();
 
-   const usuario = (window.usuarioLogado?.login || JSON.parse(localStorage.getItem('usuarioLogado'))?.login || "").trim().toLowerCase();
+   let usuario = "";
+try {
+  const logado = JSON.parse(localStorage.getItem('usuarioLogado'));
+  usuario = (logado?.login || "").trim().toLowerCase();
+} catch (e) {
+  usuario = (localStorage.getItem('usuarioLogado') || "").trim().toLowerCase();
+}
 
 
     if (!usuarioLogin) {
