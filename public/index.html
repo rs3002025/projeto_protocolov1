@@ -188,29 +188,35 @@
 
 	  
     /* Estilo para o documento PDF / impressão */
-#modeloProtocolo {
-  display: none;
-  width: 700px;                    /* Reduzido novamente para garantir margem */
-  font-family: 'Times New Roman', serif;
-  color: #000;
-  background: #fff;
-  padding: 20px 25px;              /* Laterais mais enxutas */
-  border: 1px solid #333;
-  box-shadow: 0 0 10px rgba(0,0,0,0.2);
-  box-sizing: border-box;
-  margin: 0 auto;
-}
+  #modeloProtocolo {
+    width: 100%;
+    max-width: 700px; /* Largura máxima */
+    margin: 0 auto;
+    padding: 20px;
+    font-family: Arial, sans-serif;
+    font-size: 14px; /* Tamanho fixo para evitar variações */
+    line-height: 1.5; /* Espaçamento entre linhas */
+    color: #000;
+    box-sizing: border-box; /* Garante que padding não aumente a largura */
+  }
 
+  #modeloProtocolo h2, 
+  #modeloProtocolo h3 {
+    text-align: center;
+    margin: 10px 0;
+  }
 
+  #modeloProtocolo p {
+    margin: 8px 0;
+    page-break-inside: avoid; /* Evita que parágrafos sejam cortados */
+  }
 
-
-    #modeloProtocolo h2, #modeloProtocolo h3, #modeloProtocolo h4 {
-      margin: 0;
-      padding: 0;
-    }
-    #modeloProtocolo p {
-      margin: 6px 0;
-    }
+  /* Garante que campos longos (como endereço) quebrem linhas */
+  #modeloProtocolo span {
+    display: inline-block;
+    max-width: 100%;
+    word-wrap: break-word;
+  }
   </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
@@ -1091,15 +1097,21 @@ async function gerarPDFPorId(id) {
       : 'Nenhuma informação adicional';
 
     const opt = {
-      margin: 10,
-      filename: `Protocolo_${protocolo.numero}.pdf`,
-      image: { type: 'jpeg', quality: 1 },
-      html2canvas: {
-        scale: 2,
-        useCORS: true
-      },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    };
+  margin: 10, // Margem mínima
+  filename: `Protocolo_${protocolo.numero}.pdf`,
+  html2canvas: {
+    scale: 2, // Aumenta a qualidade
+    scrollY: 0, // Remove scroll invisível
+    windowWidth: 800, // Largura virtual da renderização
+    useCORS: true,
+  },
+  jsPDF: {
+    unit: 'mm',
+    format: 'a4',
+    orientation: 'portrait',
+    hotfixes: ['px_scaling'], // Corrige bugs de escala
+  }
+};
 
     const element = document.getElementById('modeloProtocolo');
     element.style.display = 'block';
