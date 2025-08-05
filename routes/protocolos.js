@@ -151,7 +151,7 @@ router.get('/meus/:responsavel', async (req, res) => {
   }
 });
 
-// Buscar último número de protocolo do ano
+// Buscar último número de protocolo do ano (formato NNN/AAAA)
 router.get('/ultimoNumero/:ano', async (req, res) => {
   const { ano } = req.params;
 
@@ -159,20 +159,21 @@ router.get('/ultimoNumero/:ano', async (req, res) => {
     const { rows } = await db.query(`
       SELECT numero FROM protocolos
       WHERE numero LIKE $1
-      ORDER BY numero DESC LIMIT 1
-    `, [`${ano}-%`]);
+    `, [`%/${ano}`]);
 
-    if (rows.length > 0) {
-      const ultimo = parseInt(rows[0].numero.split('-')[1], 10);
-      res.json({ ultimo });
-    } else {
-      res.json({ ultimo: 0 });
-    }
+    const numeros = rows
+      .map(r => parseInt(r.numero.split('/')[0], 10))
+      .filter(n => !isNaN(n));
+
+    const max = numeros.length > 0 ? Math.max(...numeros) : 0;
+
+    res.json({ ultimo: max });
   } catch (err) {
     console.error("Erro ao buscar último número:", err);
     res.status(500).json({ erro: "Erro interno" });
   }
 });
+
 
 // Rota filtro por data (sem gerar arquivo)
 router.get('/filtro', async (req, res) => {
