@@ -677,7 +677,7 @@ function sair() {
   window.location.href = window.location.href.split('?')[0];
 }
 
-  async function gerarNumeroProtocolo() {
+ async function gerarNumeroProtocolo() {
   const anoAtual = new Date().getFullYear();
 
   try {
@@ -685,15 +685,17 @@ function sair() {
     const data = await res.json();
     const ultimo = data.ultimo || 0;
 
-    const novoNumero = `${anoAtual}-${String(ultimo + 1).padStart(4, '0')}`;
+    const novoNumero = `${String(ultimo + 1).padStart(4, '0')}/${anoAtual}`;
     document.getElementById('numeroProtocolo').value = novoNumero;
     document.getElementById('log').innerText = '📄 Número gerado: ' + novoNumero;
   } catch (error) {
     console.error("Erro ao gerar número:", error);
-    document.getElementById('numeroProtocolo').value = `${anoAtual}-0001`;
-    document.getElementById('log').innerText = '⚠️ Número gerado localmente: ' + `${anoAtual}-0001`;
+    const fallbackNumero = `0001/${anoAtual}`;
+    document.getElementById('numeroProtocolo').value = fallbackNumero;
+    document.getElementById('log').innerText = '⚠️ Número gerado localmente: ' + fallbackNumero;
   }
 }
+
 
 function paginarProtocolos(lista, pagina, porPagina) {
   const inicio = (pagina - 1) * porPagina;
@@ -1005,9 +1007,13 @@ async function gerarPDFPorId(id) {
       return;
     }
 
+    // Formata a data para YYYY-MM-DD
+    const dataObj = new Date(protocolo.data_solicitacao);
+    const dataFormatada = isNaN(dataObj) ? 'Não informada' : dataObj.toISOString().slice(0, 10);
+
     // 2. Preenche o modelo
     document.getElementById('doc_numero').textContent         = protocolo.numero              ?? 'Não informado';
-    document.getElementById('doc_dataSolicitacao').textContent= protocolo.data_solicitacao    ?? 'Não informada';
+    document.getElementById('doc_dataSolicitacao').textContent= dataFormatada;
     document.getElementById('doc_nome').textContent           = protocolo.nome                ?? 'Não informado';
     document.getElementById('doc_matricula').textContent      = protocolo.matricula           ?? 'Não informada';
     document.getElementById('doc_cpf').textContent            = protocolo.cpf                 ?? 'Não informado';
@@ -1027,17 +1033,13 @@ async function gerarPDFPorId(id) {
       : 'Nenhuma informação adicional';
 
     // 3. Opções do PDF (ajuste principal: margem esquerda maior)
-  const opt = {
-  margin: 10, // uniforme em todos os lados
-  filename: `Protocolo_${protocolo.numero}.pdf`,
-  image: { type: 'jpeg', quality: 1 },
-  html2canvas: {
-    scale: 2,                      // 2 já é mais que suficiente
-    useCORS: true
-  },
-  jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-};
-
+    const opt = {
+      margin: 10,
+      filename: `Protocolo_${protocolo.numero}.pdf`,
+      image: { type: 'jpeg', quality: 1 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
 
     // 4. Geração do PDF
     const element = document.getElementById('modeloProtocolo');
@@ -1049,6 +1051,7 @@ async function gerarPDFPorId(id) {
     alert('Erro ao gerar PDF. Verifique o console para detalhes.');
   }
 }
+
 
 
 
