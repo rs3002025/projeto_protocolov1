@@ -312,7 +312,9 @@
     </div>
 
 
-<div id="modalEncaminhar" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; display:flex; align-items:center; justify-content:center;">
+<div id="modalEncaminhar" 
+     style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); 
+            z-index:9999; align-items:center; justify-content:center;">
   <div style="background:#fff; padding:20px; border-radius:8px; box-shadow:0 0 10px rgba(0,0,0,0.3); width:300px; max-width:90%;">
     <h3>Encaminhar para:</h3>
     <select id="selectUsuarioEncaminhar" style="width:100%; margin-bottom:10px;"></select>
@@ -322,6 +324,7 @@
     </div>
   </div>
 </div>
+
 
 
 
@@ -1300,9 +1303,9 @@ async function abrirModalEncaminhar(idProtocolo, event) {
       modal.style.transform = 'translate(-50%, -50%)';
     }
 
-    modal.style.display = 'block';
+    modal.style.display = 'flex';  // <--- ajuste aqui!
 
-    // Opcional: se o modal estiver fora da viewport inferior, sobe a tela para mostrar
+    // Se modal estiver fora da viewport, sobe a tela
     const modalRect = modal.getBoundingClientRect();
     if (modalRect.bottom > window.innerHeight) {
       window.scrollBy(0, modalRect.bottom - window.innerHeight + 20);
@@ -1313,7 +1316,6 @@ async function abrirModalEncaminhar(idProtocolo, event) {
     console.error(error);
   }
 }
-
 
 async function confirmarEncaminhamento() {
   const select = document.getElementById('selectUsuarioEncaminhar');
@@ -1349,11 +1351,7 @@ async function confirmarEncaminhamento() {
   }
 }
 
-
-
-
-
-	function fecharModalEncaminhar() {
+function fecharModalEncaminhar() {
   const modal = document.getElementById('modalEncaminhar');
   modal.style.display = 'none';
 }
