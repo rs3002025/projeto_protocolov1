@@ -249,28 +249,49 @@
         <div class="form-group span-6"><label>Endereço</label><input type="text" id="endereco"></div>
         <div class="form-group span-3"><label>Município</label><input type="text" id="municipio" value="Morada Nova"></div>
        <div class="form-group span-3">
-<label for="bairro">Bairro:</label>
-<input list="lista-bairros" id="bairro" name="bairro" placeholder="Escolha ou digite o bairro">
+<div class="form-group span-3">
+  <label for="bairro">Bairro</label>
+  <select id="bairro" name="bairro" onchange="toggleOutroBairro(this)">
+    <option value="">Selecione...</option>
+    <option>Centro</option>
+    <option>Girilândia</option>
+    <option>Padre Assis Monteiro</option>
+    <option>Hermógenes Henrique Girão</option>
+    <option>São José</option>
+    <option>Nossa Senhora da Conceição</option>
+    <option>Planalto Aeroporto</option>
+    <option>Júlia Santiago</option>
+    <option>São Francisco</option>
+    <option>Nova Morada</option>
+    <option>Divino Espírito Santo</option>
+    <option>Alto Tiradentes</option>
+    <option>Capitão Dionísio Matos de Fontes</option>
+    <option>Irapuan Nobre</option>
+    <option>Dois de Agosto</option>
+    <option>Cristo Rei</option>
+    <option value="outro">Outro (digite manualmente)</option>
+  </select>
 
-<datalist id="lista-bairros">
-  <option value="Centro">
-  <option value="Girilândia">
-  <option value="Padre Assis Monteiro">
-  <option value="Hermógenes Henrique Girão">
-  <option value="São José">
-  <option value="Nossa Senhora da Conceição">
-  <option value="Planalto Aeroporto">
-  <option value="Júlia Santiago">
-  <option value="São Francisco">
-  <option value="Nova Morada">
-  <option value="Divino Espírito Santo">
-  <option value="Alto Tiradentes">
-  <option value="Capitão Dionísio Matos de Fontes">
-  <option value="Irapuan Nobre">
-  <option value="Dois de Agosto">
-  <option value="Cristo Rei">
-</datalist>
+  <input
+    type="text"
+    id="bairro_outro"
+    name="bairro_outro"
+    style="display:none; margin-top:8px;"
+    placeholder="Digite o bairro"
+  />
+</div>
 
+<script>
+  function toggleOutroBairro(select) {
+    const inputOutro = document.getElementById('bairro_outro');
+    if (select.value === 'outro') {
+      inputOutro.style.display = 'block';
+    } else {
+      inputOutro.style.display = 'none';
+      inputOutro.value = '';
+    }
+  }
+</script>
         <div class="form-group span-3"><label>CEP</label><input type="text" id="cep"></div>
         <div class="form-group span-3"><label>Telefone</label><input type="text" id="telefone"></div>
         <div class="form-group span-3"><label>CPF</label><input type="text" id="cpf"></div>
