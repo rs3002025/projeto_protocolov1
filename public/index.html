@@ -999,59 +999,53 @@ async function gerarDocumentoPorId(id) {
 
 async function gerarPDFPorId(id) {
   try {
-    // Busca os dados do protocolo
     const res = await fetch(`/protocolos/${id}`);
     const { protocolo } = await res.json();
-
     if (!protocolo) {
       alert("Protocolo não encontrado");
       return;
     }
 
-    // Preenche os dados no modelo
-    document.getElementById('doc_numero').textContent = protocolo.numero || 'Não informado';
+    document.getElementById('doc_numero').textContent = protocolo.numero ?? 'Não informado';
+    document.getElementById('doc_dataSolicitacao').textContent = protocolo.data_solicitacao 
+      ? new Date(protocolo.data_solicitacao).toLocaleDateString('pt-BR')
+      : 'Não informada';
+    document.getElementById('doc_nome').textContent = protocolo.nome ?? 'Não informado';
+    document.getElementById('doc_matricula').textContent = protocolo.matricula ?? 'Não informada';
+    document.getElementById('doc_cpf').textContent = protocolo.cpf ?? 'Não informado';
+    document.getElementById('doc_rg').textContent = protocolo.rg ?? 'Não informado';
+    document.getElementById('doc_endereco').textContent = protocolo.endereco ?? 'Não informado';
+    document.getElementById('doc_bairro').textContent = protocolo.bairro ?? 'Não informado';
+    document.getElementById('doc_municipio').textContent = protocolo.municipio ?? 'Não informado';
+    document.getElementById('doc_cep').textContent = protocolo.cep ?? 'Não informado';
+    document.getElementById('doc_telefone').textContent = protocolo.telefone ?? 'Não informado';
+    document.getElementById('doc_cargo').textContent = protocolo.cargo ?? 'Não informado';
+    document.getElementById('doc_lotacao').textContent = protocolo.lotacao ?? 'Não informado';
+    document.getElementById('doc_unidade').textContent = protocolo.unidade_exercicio ?? 'Não informado';
+    document.getElementById('doc_tipo').textContent = protocolo.tipo_requerimento ?? 'Não informado';
+    document.getElementById('doc_requerAo').textContent = protocolo.requer_ao ?? 'Não informado';
+    document.getElementById('doc_complemento').innerHTML = protocolo.observacoes
+      ? protocolo.observacoes.replace(/\n/g, '<br>')
+      : 'Nenhuma informação adicional';
 
-    const dataFormatada = new Date(protocolo.data).toLocaleDateString('pt-BR');
-    document.getElementById('doc_data').textContent = dataFormatada || 'Não informado';
-
-    document.getElementById('doc_nome').textContent = protocolo.nome || 'Não informado';
-    document.getElementById('doc_email').textContent = protocolo.email || 'Não informado';
-    document.getElementById('doc_telefone').textContent = protocolo.telefone || 'Não informado';
-    document.getElementById('doc_assunto').textContent = protocolo.assunto || 'Não informado';
-    document.getElementById('doc_mensagem').textContent = protocolo.mensagem || 'Não informado';
-    document.getElementById('doc_setor').textContent = protocolo.setor || 'Não informado';
-
-    // Seleciona o modelo
-    const element = document.getElementById('modeloProtocolo');
-
-    // Garante que o modelo esteja visível e com layout correto
-    element.style.display = 'block';
-    element.style.position = 'static'; // Evita corte no PDF
-    element.style.top = 'auto';
-    element.style.left = 'auto';
-    element.style.transform = 'none';
-
-    // Aguarda um pouco para renderizar corretamente
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    // Configurações do PDF
     const opt = {
-      margin: 10, // Margem de 10mm
+      margin: 10,
       filename: `Protocolo_${protocolo.numero}.pdf`,
       image: { type: 'jpeg', quality: 1 },
-      html2canvas: { scale: 3 },
+      html2canvas: {
+        scale: 2,
+        useCORS: true
+      },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
-    // Gera e salva o PDF
+    const element = document.getElementById('modeloProtocolo');
+    element.style.display = 'block';
     await html2pdf().set(opt).from(element).save();
-
-    // Oculta o modelo novamente
     element.style.display = 'none';
-
-  } catch (error) {
-    console.error("Erro ao gerar PDF:", error);
-    alert("Erro ao gerar PDF");
+  } catch (err) {
+    console.error('Erro ao gerar PDF:', err);
+    alert('Erro ao gerar PDF. Verifique o console para detalhes.');
   }
 }
 
