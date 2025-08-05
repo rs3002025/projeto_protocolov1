@@ -1097,10 +1097,10 @@ async function gerarPDFPorId(id) {
       : 'Nenhuma informação adicional';
 
     const opt = {
-  margin: 10, // Margem mínima
+  margin: 5, // Margem mínima
   filename: `Protocolo_${protocolo.numero}.pdf`,
   html2canvas: {
-    scale: 2, // Aumenta a qualidade
+    scale: 1, // Aumenta a qualidade
     scrollY: 0, // Remove scroll invisível
     windowWidth: 800, // Largura virtual da renderização
     useCORS: true,
