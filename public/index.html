@@ -623,6 +623,10 @@
     });
   };
 
+window.addEventListener('load', () => {
+    const modal = document.getElementById('modalEncaminhar');
+    modal.style.display = 'none';
+  });
 
   function mostrarTela(tela) {
   ['login','menu','form','config','protocolos','meusProtocolos','relatorios'].forEach(id => {
