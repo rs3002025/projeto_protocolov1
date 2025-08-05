@@ -312,9 +312,10 @@
     </div>
 
 
+	  
 <div id="modalEncaminhar" 
      style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); 
-            z-index:9999; align-items:center; justify-content:center;">
+            z-index:9999; display: flex; align-items:center; justify-content:center;">
   <div style="background:#fff; padding:20px; border-radius:8px; box-shadow:0 0 10px rgba(0,0,0,0.3); width:300px; max-width:90%;">
     <h3>Encaminhar para:</h3>
     <select id="selectUsuarioEncaminhar" style="width:100%; margin-bottom:10px;"></select>
@@ -1287,35 +1288,21 @@ async function abrirModalEncaminhar(idProtocolo, event) {
     // Armazena o protocolo atual para uso no confirmar
     select.dataset.idProtocolo = idProtocolo;
 
-    // Posiciona o modal
+    // Posiciona o modal fixo e centralizado (pelo CSS)
     const modal = document.getElementById('modalEncaminhar');
+    modal.style.position = 'fixed';
+    modal.style.top = '50%';
+    modal.style.left = '50%';
+    modal.style.transform = 'translate(-50%, -50%)';
 
-    if (event) {
-      const rect = event.target.getBoundingClientRect();
-      modal.style.position = 'absolute';
-      modal.style.top = `${window.scrollY + rect.bottom + 5}px`; // 5px abaixo do botão
-      modal.style.left = `${window.scrollX + rect.left}px`;
-      modal.style.transform = 'none';
-    } else {
-      modal.style.position = 'fixed';
-      modal.style.top = '50%';
-      modal.style.left = '50%';
-      modal.style.transform = 'translate(-50%, -50%)';
-    }
-
-    modal.style.display = 'flex';  // <--- ajuste aqui!
-
-    // Se modal estiver fora da viewport, sobe a tela
-    const modalRect = modal.getBoundingClientRect();
-    if (modalRect.bottom > window.innerHeight) {
-      window.scrollBy(0, modalRect.bottom - window.innerHeight + 20);
-    }
+    modal.style.display = 'flex';  // mostra o modal
 
   } catch (error) {
     alert('Erro ao carregar usuários');
     console.error(error);
   }
 }
+
 
 async function confirmarEncaminhamento() {
   const select = document.getElementById('selectUsuarioEncaminhar');
