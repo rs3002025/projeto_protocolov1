@@ -762,7 +762,8 @@ async function listarMeusProtocolos() {
     const res = await fetch('/protocolos');
     const data = await res.json();
 
-    const usuarioLogin = (window.usuarioLogado || localStorage.getItem('usuarioLogado') || "").trim().toLowerCase();
+   const usuario = (window.usuarioLogado?.login || JSON.parse(localStorage.getItem('usuarioLogado'))?.login || "").trim().toLowerCase();
+
 
     if (!usuarioLogin) {
       console.error("Usuário logado não definido.");
