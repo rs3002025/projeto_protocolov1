@@ -787,7 +787,7 @@ async function listarMeusProtocolos() {
         <td>${p.status}</td>
         <td>
           <button onclick="abrirAtualizar(${p.id})">Atualizar</button>
-          <button onclick="abrirEncaminhar(${p.id})">Encaminhar</button>
+          <button onclick="abrirModalEncaminhar('${p.id}')">Encaminhar</button>
           <button onclick="verDetalhes(${p.id})">Ver Detalhes</button>
           <button onclick="gerarPDFPorId(${p.id})">📄 Documento</button>
           <details id="hist_${p.id}">
