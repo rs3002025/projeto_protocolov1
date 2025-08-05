@@ -762,22 +762,21 @@ async function listarMeusProtocolos() {
     const res = await fetch('/protocolos');
     const data = await res.json();
 
-   let usuario = "";
-try {
-  const logado = JSON.parse(localStorage.getItem('usuarioLogado'));
-  usuario = (logado?.login || "").trim().toLowerCase();
-} catch (e) {
-  usuario = (localStorage.getItem('usuarioLogado') || "").trim().toLowerCase();
-}
+    let usuario = "";
+    try {
+      const logado = JSON.parse(localStorage.getItem('usuarioLogado'));
+      usuario = (logado?.login || "").trim().toLowerCase();
+    } catch (e) {
+      usuario = (localStorage.getItem('usuarioLogado') || "").trim().toLowerCase();
+    }
 
-
-    if (!usuarioLogin) {
+    if (!usuario) {
       console.error("Usuário logado não definido.");
       return;
     }
 
     const protocolosFiltrados = data.protocolos.filter(p => 
-      (p.responsavel || "").trim().toLowerCase() === usuarioLogin
+      (p.responsavel || "").trim().toLowerCase() === usuario
     );
 
     for (const p of protocolosFiltrados) {
