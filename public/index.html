@@ -157,6 +157,36 @@
   background: white;
 }
 
+.modal-encaminhar-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5); /* fundo escuro */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-encaminhar-box {
+  background-color: white;
+  padding: 20px;
+  border-radius: 10px;
+  width: 300px;
+  max-width: 90%;
+  box-shadow: 0 0 10px rgba(0,0,0,0.3);
+  text-align: center;
+}
+
+.modal-encaminhar-actions {
+  margin-top: 15px;
+  display: flex;
+  justify-content: space-between;
+}
+
+	  
     /* Estilo para o documento PDF / impressão */
 #modeloProtocolo {
   display: none;
@@ -282,14 +312,17 @@
     </div>
 
 
-<div id="modalEncaminhar" class="modal" style="display:none;">
-  <div class="modal-content">
+<div id="modalEncaminhar" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; display:flex; align-items:center; justify-content:center;">
+  <div style="background:#fff; padding:20px; border-radius:8px; box-shadow:0 0 10px rgba(0,0,0,0.3); width:300px; max-width:90%;">
     <h3>Encaminhar para:</h3>
-    <select id="selectUsuarioEncaminhar"></select>
-    <button onclick="confirmarEncaminhamento()">Confirmar</button>
-    <button onclick="fecharModalEncaminhar()">Cancelar</button>
+    <select id="selectUsuarioEncaminhar" style="width:100%; margin-bottom:10px;"></select>
+    <div style="text-align:right;">
+      <button onclick="confirmarEncaminhamento()" style="margin-right:10px;">Confirmar</button>
+      <button onclick="fecharModalEncaminhar()">Cancelar</button>
+    </div>
   </div>
 </div>
+
 
 
 <!-- Adicione isso junto com as outras telas (perto de <div id="protocolos">) -->
@@ -731,7 +764,7 @@ async function listarProtocolos() {
         <td>${p.responsavel}</td>
         <td>
           <button onclick="abrirAtualizar(${p.id})">Atualizar</button>
-          <button onclick="abrirModalEncaminhar('${p.id}')">Encaminhar</button>
+          <button onclick="abrirModalEncaminhar(${p.id}, event)">Encaminhar</button>
           <button onclick="verDetalhes(${p.id})">Ver Detalhes</button>
           <button onclick="gerarPDFPorId(${p.id})">📄 Documento</button>
 
@@ -787,7 +820,7 @@ async function listarMeusProtocolos() {
         <td>${p.status}</td>
         <td>
           <button onclick="abrirAtualizar(${p.id})">Atualizar</button>
-          <button onclick="abrirModalEncaminhar('${p.id}')">Encaminhar</button>
+          <button onclick="abrirModalEncaminhar(${p.id}, event)">Encaminhar</button>
           <button onclick="verDetalhes(${p.id})">Ver Detalhes</button>
           <button onclick="gerarPDFPorId(${p.id})">📄 Documento</button>
           <details id="hist_${p.id}">
@@ -1233,13 +1266,13 @@ async function gerarBackup() {
   }
 }
 
-async function abrirModalEncaminhar(idProtocolo) {
+async function abrirModalEncaminhar(idProtocolo, event) {
   try {
     const res = await fetch('/usuarios');
     const data = await res.json();
 
     const select = document.getElementById('selectUsuarioEncaminhar');
-    select.innerHTML = ''; // limpa
+    select.innerHTML = ''; // limpa opções
 
     data.usuarios.forEach(usuario => {
       const option = document.createElement('option');
@@ -1251,13 +1284,36 @@ async function abrirModalEncaminhar(idProtocolo) {
     // Armazena o protocolo atual para uso no confirmar
     select.dataset.idProtocolo = idProtocolo;
 
-    // Mostra o modal
-    document.getElementById('modalEncaminhar').style.display = 'block';
+    // Posiciona o modal
+    const modal = document.getElementById('modalEncaminhar');
+
+    if (event) {
+      const rect = event.target.getBoundingClientRect();
+      modal.style.position = 'absolute';
+      modal.style.top = `${window.scrollY + rect.bottom + 5}px`; // 5px abaixo do botão
+      modal.style.left = `${window.scrollX + rect.left}px`;
+      modal.style.transform = 'none';
+    } else {
+      modal.style.position = 'fixed';
+      modal.style.top = '50%';
+      modal.style.left = '50%';
+      modal.style.transform = 'translate(-50%, -50%)';
+    }
+
+    modal.style.display = 'block';
+
+    // Opcional: se o modal estiver fora da viewport inferior, sobe a tela para mostrar
+    const modalRect = modal.getBoundingClientRect();
+    if (modalRect.bottom > window.innerHeight) {
+      window.scrollBy(0, modalRect.bottom - window.innerHeight + 20);
+    }
+
   } catch (error) {
     alert('Erro ao carregar usuários');
     console.error(error);
   }
 }
+
 
 async function confirmarEncaminhamento() {
   const select = document.getElementById('selectUsuarioEncaminhar');
@@ -1297,9 +1353,11 @@ async function confirmarEncaminhamento() {
 
 
 
-	 function fecharModalEncaminhar() {
-  document.getElementById('modalEncaminhar').style.display = 'none';
+	function fecharModalEncaminhar() {
+  const modal = document.getElementById('modalEncaminhar');
+  modal.style.display = 'none';
 }
+
 
 	 
     function voltarDeMeusProtocolos() {
