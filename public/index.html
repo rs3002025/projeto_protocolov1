@@ -1101,22 +1101,21 @@ async function gerarPDFPorId(id) {
       : 'Nenhuma informação adicional';
 
     // *** Configurações otimizadas para PDF ***
-    const opt = {
-      margin: 10, // Margem em mm (10mm = 1cm)
-      filename: `Protocolo_${protocolo.numero}.pdf`,
-      html2canvas: {
-        scale: 2, // Aumenta a qualidade da renderização para melhor nitidez
-        scrollY: 0,
-        windowWidth: 1000, // Largura virtual para renderização
-        useCORS: true,
-      },
-      jsPDF: {
-        unit: 'mm',
-        format: 'a4',
-        orientation: 'portrait',
-      }
-    };
-
+const opt = {
+  margin: 10, // Margem em mm (10mm = 1cm)
+  filename: `Protocolo_${protocolo.numero}.pdf`,
+  html2canvas: {
+    scale: 2, // Aumenta a qualidade da renderização para melhor nitidez
+    scrollY: 0,
+    windowWidth: 800, // Ajuste para uma largura virtual mais segura
+    useCORS: true,
+  },
+  jsPDF: {
+    unit: 'mm',
+    format: 'a4',
+    orientation: 'portrait',
+  }
+};
     const element = document.getElementById('modeloProtocolo');
     element.style.display = 'block';
 
