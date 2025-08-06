@@ -1109,39 +1109,34 @@ async function previsualizarPDF(id) {
     // Pega o modelo HTML oculto
     const modeloOriginal = document.getElementById('modeloProtocolo');
 
-    // Clona o modelo para preenchimento e exibição
-    const modeloClone = modeloOriginal.cloneNode(true);
-    modeloClone.removeAttribute('style'); // Remove o 'display: none;'
-    modeloClone.id = 'modeloProtocoloClone'; // Novo ID para não conflitar
+    // Preenche o modelo oculto com os dados
+    modeloOriginal.querySelector('#doc_numero').textContent = protocolo.numero ?? 'Não informado';
+    modeloOriginal.querySelector('#doc_dataSolicitacao').textContent = protocolo.data_solicitacao
+      ? new Date(protocolo.data_solicitacao).toLocaleDateString('pt-BR')
+      : 'Não informada';
+    modeloOriginal.querySelector('#doc_nome').textContent = protocolo.nome ?? 'Não informado';
+    modeloOriginal.querySelector('#doc_matricula').textContent = protocolo.matricula ?? 'Não informada';
+    modeloOriginal.querySelector('#doc_cpf').textContent = protocolo.cpf ?? 'Não informado';
+    modeloOriginal.querySelector('#doc_rg').textContent = protocolo.rg ?? 'Não informado';
+    modeloOriginal.querySelector('#doc_endereco').textContent = protocolo.endereco ?? 'Não informado';
+    modeloOriginal.querySelector('#doc_bairro').textContent = protocolo.bairro ?? 'Não informado';
+    modeloOriginal.querySelector('#doc_municipio').textContent = protocolo.municipio ?? 'Não informado';
+    modeloOriginal.querySelector('#doc_cep').textContent = protocolo.cep ?? 'Não informado';
+    modeloOriginal.querySelector('#doc_telefone').textContent = protocolo.telefone ?? 'Não informado';
+    modeloOriginal.querySelector('#doc_cargo').textContent = protocolo.cargo ?? 'Não informado';
+    modeloOriginal.querySelector('#doc_lotacao').textContent = protocolo.lotacao ?? 'Não informado';
+    modeloOriginal.querySelector('#doc_unidade').textContent = protocolo.unidade_exercicio ?? 'Não informado';
+    modeloOriginal.querySelector('#doc_tipo').textContent = protocolo.tipo_requerimento ?? 'Não informado';
+    modeloOriginal.querySelector('#doc_requerAo').textContent = protocolo.requer_ao ?? 'Não informado';
+    modeloOriginal.querySelector('#doc_complemento').innerHTML = protocolo.observacoes
+      ? protocolo.observacoes.replace(/\n/g, '<br>')
+      : 'Nenhuma informação adicional';
 
-    // Preenche o clone com os dados
-    modeloClone.querySelector('#doc_numero').textContent = protocolo.numero ?? 'Não informado';
-    modeloClone.querySelector('#doc_dataSolicitacao').textContent = protocolo.data_solicitacao 
-      ? new Date(protocolo.data_solicitacao).toLocaleDateString('pt-BR')
-      : 'Não informada';
-    modeloClone.querySelector('#doc_nome').textContent = protocolo.nome ?? 'Não informado';
-    modeloClone.querySelector('#doc_matricula').textContent = protocolo.matricula ?? 'Não informada';
-    modeloClone.querySelector('#doc_cpf').textContent = protocolo.cpf ?? 'Não informado';
-    modeloClone.querySelector('#doc_rg').textContent = protocolo.rg ?? 'Não informado';
-    modeloClone.querySelector('#doc_endereco').textContent = protocolo.endereco ?? 'Não informado';
-    modeloClone.querySelector('#doc_bairro').textContent = protocolo.bairro ?? 'Não informado';
-    modeloClone.querySelector('#doc_municipio').textContent = protocolo.municipio ?? 'Não informado';
-    modeloClone.querySelector('#doc_cep').textContent = protocolo.cep ?? 'Não informado';
-    modeloClone.querySelector('#doc_telefone').textContent = protocolo.telefone ?? 'Não informado';
-    modeloClone.querySelector('#doc_cargo').textContent = protocolo.cargo ?? 'Não informado';
-    modeloClone.querySelector('#doc_lotacao').textContent = protocolo.lotacao ?? 'Não informado';
-    modeloClone.querySelector('#doc_unidade').textContent = protocolo.unidade_exercicio ?? 'Não informado';
-    modeloClone.querySelector('#doc_tipo').textContent = protocolo.tipo_requerimento ?? 'Não informado';
-    modeloClone.querySelector('#doc_requerAo').textContent = protocolo.requer_ao ?? 'Não informado';
-    modeloClone.querySelector('#doc_complemento').innerHTML = protocolo.observacoes
-      ? protocolo.observacoes.replace(/\n/g, '<br>')
-      : 'Nenhuma informação adicional';
-
-    // Injeta o clone preenchido no modal
-    document.getElementById('pdfContent').innerHTML = '';
-    document.getElementById('pdfContent').appendChild(modeloClone);
-
-    // Exibe o modal
+    // Injeta o conteúdo HTML do modelo oculto na div de visualização
+    const pdfContentDiv = document.getElementById('pdfContent');
+    pdfContentDiv.innerHTML = modeloOriginal.innerHTML;
+    
+    // Exibe o modal para a visualização
     document.getElementById('pdfModal').style.display = 'block';
 
   } catch (err) {
@@ -1164,7 +1159,7 @@ async function gerarPDF() {
     return;
   }
   
-  const element = document.getElementById('modeloProtocoloClone');
+  const element = document.getElementById('modeloProtocolo');
   
   const opt = {
     margin: [10, 10, 10, 10], 
@@ -1173,7 +1168,8 @@ async function gerarPDF() {
     html2canvas: {
       scale: 2, 
       scrollY: 0,
-      windowWidth: 800,
+      width: 700, // Largura fixa para renderização do html2canvas
+      windowWidth: 700, // Largura de janela fixa para renderização
       useCORS: true,
     },
     jsPDF: {
@@ -1184,7 +1180,17 @@ async function gerarPDF() {
   };
   
   try {
+    // Torna o elemento visível temporariamente para a captura
+    // e o posiciona fora da tela para evitar a visualização
+    element.style.position = 'absolute';
+    element.style.left = '-9999px';
+    element.style.display = 'block';
+
     await html2pdf().set(opt).from(element).save();
+    
+    // Retorna o elemento ao estado original
+    element.style.display = 'none';
+    element.style.position = 'static';
     fecharModal();
   } catch (error) {
     console.error("Erro ao gerar PDF:", error);
@@ -1192,6 +1198,30 @@ async function gerarPDF() {
   }
 }
 
+
+// A função gerarDocumentoPorId é redundante e não é usada, pode ser removida se desejar.
+async function gerarDocumentoPorId(id) {
+  try {
+    const res = await fetch(`/protocolos/${id}`);
+    const { protocolo } = await res.json();
+    if (!protocolo) return alert("Protocolo não encontrado");
+
+    previsualizarPDF(protocolo.id); // Chama a nova função de pré-visualização
+  } catch (err) {
+    console.error("Erro ao gerar documento:", err);
+    alert("Erro ao gerar documento.");
+  }
+}
+
+// A função gerarPDFPorId antiga será substituída por previsualizarPDF.
+// O código abaixo é apenas para ilustrar, o seu código já deve estar
+// usando a função previsualizarPDF.
+// A função original abaixo foi removida na refatoração:
+/*
+async function gerarPDFPorId(id) {
+  // ... código antigo
+}
+*/
 
 
 async function pesquisarProtocolos() {
