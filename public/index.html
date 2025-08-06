@@ -1066,6 +1066,7 @@ async function gerarDocumentoPorId(id) {
 }
 
 async function gerarPDFPorId(id) {
+async function gerarPDFPorId(id) {
   try {
     const res = await fetch(`/protocolos/${id}`);
     const { protocolo } = await res.json();
@@ -1074,6 +1075,7 @@ async function gerarPDFPorId(id) {
       return;
     }
 
+    // Preenche o modelo com os dados
     document.getElementById('doc_numero').textContent = protocolo.numero ?? 'Não informado';
     document.getElementById('doc_dataSolicitacao').textContent = protocolo.data_solicitacao 
       ? new Date(protocolo.data_solicitacao).toLocaleDateString('pt-BR')
@@ -1096,32 +1098,37 @@ async function gerarPDFPorId(id) {
       ? protocolo.observacoes.replace(/\n/g, '<br>')
       : 'Nenhuma informação adicional';
 
+    // *** Configurações otimizadas para PDF ***
     const opt = {
-  margin: 5, // Margem mínima
-  filename: `Protocolo_${protocolo.numero}.pdf`,
-  html2canvas: {
-    scale: 1, // Aumenta a qualidade
-    scrollY: 0, // Remove scroll invisível
-    windowWidth: 800, // Largura virtual da renderização
-    useCORS: true,
-  },
-  jsPDF: {
-    unit: 'mm',
-    format: 'a4',
-    orientation: 'portrait',
-    hotfixes: ['px_scaling'], // Corrige bugs de escala
-  }
-};
+      margin: 10, // Margem em mm (10mm = 1cm)
+      filename: `Protocolo_${protocolo.numero}.pdf`,
+      html2canvas: {
+        scale: 2, // Aumenta a qualidade da renderização para melhor nitidez
+        scrollY: 0,
+        windowWidth: 1000, // Largura virtual para renderização
+        useCORS: true,
+      },
+      jsPDF: {
+        unit: 'mm',
+        format: 'a4',
+        orientation: 'portrait',
+      }
+    };
 
     const element = document.getElementById('modeloProtocolo');
     element.style.display = 'block';
+
+    // Cria e salva o PDF
     await html2pdf().set(opt).from(element).save();
+    
+    // Esconde o elemento novamente
     element.style.display = 'none';
   } catch (err) {
     console.error('Erro ao gerar PDF:', err);
     alert('Erro ao gerar PDF. Verifique o console para detalhes.');
   }
 }
+
 
 
 
