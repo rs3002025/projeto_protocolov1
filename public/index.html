@@ -1159,19 +1159,16 @@ async function gerarPDF() {
     return;
   }
   
-  const element = document.getElementById('modeloProtocolo');
-  
-  // Configurações do PDF. Vamos remover as configurações de width e windowWidth do html2canvas
-  // para deixar que ele capture o elemento no seu tamanho natural.
+  const element = document.getElementById('pdfContent'); // ← Agora pega o conteúdo já visível e renderizado
+
   const opt = {
-    margin: [10, 10, 10, 10], 
-    filename: `Protocolo_${protocoloParaGerar.numero}.pdf`, 
+    margin: [10, 10, 10, 10],
+    filename: `Protocolo_${protocoloParaGerar.numero}.pdf`,
     image: { type: 'jpeg', quality: 0.98 },
     html2canvas: {
-      scale: 2, 
+      scale: 2,
       scrollY: 0,
-      useCORS: true,
-      // Removendo width e windowWidth fixos aqui
+      useCORS: true
     },
     jsPDF: {
       unit: 'mm',
@@ -1179,22 +1176,9 @@ async function gerarPDF() {
       orientation: 'portrait',
     }
   };
-  
-  try {
-    // Torna o elemento visível temporariamente e o posiciona na tela
-    // com estilos que o garantem que ele será renderizado, mas sem afetar o layout.
-    element.style.position = 'absolute';
-    element.style.left = '0';
-    element.style.top = '0';
-    element.style.display = 'block';
 
+  try {
     await html2pdf().set(opt).from(element).save();
-    
-    // Retorna o elemento ao estado original (oculto e sem posição fixa)
-    element.style.display = 'none';
-    element.style.position = 'static';
-    element.style.left = 'auto';
-    element.style.top = 'auto';
     fecharModal();
   } catch (error) {
     console.error("Erro ao gerar PDF:", error);
