@@ -514,67 +514,77 @@
 <!-- Modelo completo do PDF -->
 <div id="modeloProtocolo" style="display: none;">
   <style>
-    .doc-container {
-      width: 100%;
-      max-width: 650px;
-      margin: 0 auto;
-      font-family: 'Arial', sans-serif;
-      padding: 20px;
-      color: #000;
-      border: 1px solid #000; /* Borda externa preta, como na foto */
-      box-sizing: border-box;
-    }
-    .header-pdf {
-      text-align: center;
-      margin-bottom: 20px;
-      border-bottom: 2px solid #2e7d32; /* LINHA VERDE do cabeçalho */
-      padding-bottom: 10px;
-    }
-    .header-pdf img {
-      height: 60px;
-      margin-bottom: 5px;
-    }
-    .titulo-pdf {
-      font-size: 20px;
-      font-weight: bold;
-      margin: 5px 0;
-      color: #000; /* Mantém o título preto */
-    }
-    .dados-protocolo p {
-      margin: 8px 0;
-      page-break-inside: avoid;
-    }
-    .dados-section {
-      margin-top: 20px;
-    }
-    .dados-section h4 {
-      color: #000;
-      font-size: 14px;
-      font-weight: bold;
-      border-bottom: 1px solid #2e7d32; /* LINHA VERDE dos títulos de seção */
-      padding-bottom: 5px;
-      margin-bottom: 10px;
-    }
-    .assinaturas {
-      display: flex;
-      justify-content: space-between;
-      margin-top: 80px;
-    }
-    .assinatura {
-      text-align: center;
-      width: 45%;
-      border-top: 1px solid #000;
-      padding-top: 10px;
-      font-size: 12px;
-    }
-    #doc_complemento {
-      background: #fff;
-      border: 1px solid #ddd;
-      padding: 10px;
-      margin-top: 5px;
-      min-height: 50px;
-    }
-  </style>
+  /* Reset básico para o PDF */
+  .pdf-body {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: Arial, sans-serif;
+    color: #000;
+  }
+  
+  .doc-container {
+    width: 100%;
+    max-width: 650px;
+    margin: 20px auto;
+    font-size: 12px;
+    line-height: 1.4;
+    border: 1px solid #000;
+    padding: 20px;
+  }
+  
+  /* ... mantenha os estilos do cabeçalho, dados, assinaturas, etc. que já estavam funcionando ... */
+  .header-pdf {
+    text-align: center;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #2e7d32;
+    padding-bottom: 10px;
+  }
+  .header-pdf img {
+    height: 60px;
+    margin-bottom: 5px;
+  }
+  .titulo-pdf {
+    font-size: 20px;
+    font-weight: bold;
+    margin: 5px 0;
+    color: #000;
+  }
+  .dados-protocolo p {
+    margin: 8px 0;
+    page-break-inside: avoid;
+  }
+  .dados-section {
+    margin-top: 20px;
+  }
+  .dados-section h4 {
+    color: #000;
+    font-size: 14px;
+    font-weight: bold;
+    border-bottom: 1px solid #2e7d32;
+    padding-bottom: 5px;
+    margin-bottom: 10px;
+  }
+  .assinaturas {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 80px;
+  }
+  .assinatura {
+    text-align: center;
+    width: 45%;
+    border-top: 1px solid #000;
+    padding-top: 10px;
+    font-size: 12px;
+  }
+  #doc_complemento {
+    background: #fff;
+    border: 1px solid #ddd;
+    padding: 10px;
+    margin-top: 5px;
+    min-height: 50px;
+  }
+</style>
 
   <div class="doc-container">
     <div class="header-pdf">
@@ -1102,12 +1112,13 @@ async function gerarPDFPorId(id) {
 
     // *** Configurações otimizadas para PDF ***
 const opt = {
-  margin: 10, // Margem em mm (10mm = 1cm)
+  margin: [10, 10, 10, 10], // Margem superior, direita, inferior, esquerda
   filename: `Protocolo_${protocolo.numero}.pdf`,
+  image: { type: 'jpeg', quality: 0.98 },
   html2canvas: {
-    scale: 2, // Aumenta a qualidade da renderização para melhor nitidez
+    scale: 2,
     scrollY: 0,
-    windowWidth: 800, // Ajuste para uma largura virtual mais segura
+    windowWidth: 800, // Mantive o valor que sugeri anteriormente
     useCORS: true,
   },
   jsPDF: {
