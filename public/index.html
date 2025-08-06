@@ -1064,8 +1064,6 @@ async function gerarDocumentoPorId(id) {
     alert("Erro ao gerar documento.");
   }
 }
-
-async function gerarPDFPorId(id) {
 async function gerarPDFPorId(id) {
   try {
     const res = await fetch(`/protocolos/${id}`);
