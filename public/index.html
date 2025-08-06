@@ -593,6 +593,90 @@
         <p><strong>CPF:</strong> <span id="doc_cpf"></span></p>
         <p><strong>RG:</strong> <span id="doc_rg"></span></p>
         <p><strong>Endereço:</strong> <span id="doc_endereco"></span></p>
+<div id="modeloProtocolo" style="display: none;">
+  <style>
+    .doc-container {
+      width: 100%;
+      max-width: 650px; /* Largura máxima ajustada para caber na página com bordas */
+      margin: 0 auto;
+      font-family: 'Arial', sans-serif;
+      padding: 20px;
+      color: #000;
+      border: 1px solid #000; /* Adiciona a borda */
+      box-sizing: border-box; /* Importante para que a borda não aumente a largura total */
+    }
+    .header-pdf {
+      text-align: center;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #000; /* Linha preta mais grossa para o cabeçalho */
+      padding-bottom: 10px;
+    }
+    .header-pdf img {
+      height: 60px;
+      margin-bottom: 5px;
+    }
+    .titulo-pdf {
+      font-size: 20px;
+      font-weight: bold;
+      margin: 5px 0;
+      color: #000;
+    }
+    .dados-protocolo p {
+      margin: 8px 0;
+      page-break-inside: avoid;
+    }
+    .dados-section {
+      margin-top: 20px;
+    }
+    .dados-section h4 {
+      color: #000;
+      font-size: 14px;
+      font-weight: bold;
+      border-bottom: 1px solid #000; /* Borda preta para os títulos de seção */
+      padding-bottom: 5px;
+      margin-bottom: 10px;
+    }
+    .assinaturas {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 80px;
+    }
+    .assinatura {
+      text-align: center;
+      width: 45%;
+      border-top: 1px solid #000;
+      padding-top: 10px;
+      font-size: 12px;
+    }
+    #doc_complemento {
+      background: #fff;
+      border: 1px solid #ddd;
+      padding: 10px;
+      margin-top: 5px;
+      min-height: 50px;
+    }
+  </style>
+
+  <div class="doc-container">
+    <div class="header-pdf">
+      <img src="/img/logo.png" alt="Logo">
+      <h2>Secretaria da Administração</h2>
+      <h3 class="titulo-pdf">PROTOCOLO DE REQUERIMENTO</h3>
+    </div>
+
+    <div class="dados-protocolo">
+      <p><strong>Número do Protocolo:</strong> <span id="doc_numero"></span></p>
+      <p><strong>Data de Solicitação:</strong> <span id="doc_dataSolicitacao"></span></p>
+    </div>
+
+    <div class="dados-section">
+      <h4>DADOS DO REQUERENTE</h4>
+      <div class="dados-protocolo">
+        <p><strong>Nome:</strong> <span id="doc_nome"></span></p>
+        <p><strong>Matrícula:</strong> <span id="doc_matricula"></span></p>
+        <p><strong>CPF:</strong> <span id="doc_cpf"></span></p>
+        <p><strong>RG:</strong> <span id="doc_rg"></span></p>
+        <p><strong>Endereço:</strong> <span id="doc_endereco"></span></p>
         <p><strong>Bairro:</strong> <span id="doc_bairro"></span></p>
         <p><strong>Município:</strong> <span id="doc_municipio"></span></p>
         <p><strong>CEP:</strong> <span id="doc_cep"></span></p>
@@ -603,7 +687,6 @@
       </div>
     </div>
 
-    <!-- Dados do Requerimento -->
     <div class="dados-section">
       <h4>DADOS DO REQUERIMENTO</h4>
       <div class="dados-protocolo">
@@ -614,7 +697,6 @@
       </div>
     </div>
 
-    <!-- Assinaturas -->
     <div class="assinaturas">
       <div class="assinatura">
         Assinatura do Requerente
@@ -625,6 +707,7 @@
     </div>
   </div>
 </div>
+
 
 
 <script defer>
