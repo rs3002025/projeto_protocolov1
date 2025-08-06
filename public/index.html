@@ -512,23 +512,22 @@
 
  <!-- Modelo padrão do protocolo para impressão/PDF -->
 <!-- Modelo completo do PDF -->
-
-        <div id="modeloProtocolo" style="display: none;">
+<div id="modeloProtocolo" style="display: none;">
   <style>
     .doc-container {
       width: 100%;
-      max-width: 650px; /* Largura máxima ajustada para caber na página com bordas */
+      max-width: 650px;
       margin: 0 auto;
       font-family: 'Arial', sans-serif;
       padding: 20px;
       color: #000;
-      border: 1px solid #000; /* Adiciona a borda */
-      box-sizing: border-box; /* Importante para que a borda não aumente a largura total */
+      border: 1px solid #000; /* Borda externa preta, como na foto */
+      box-sizing: border-box;
     }
     .header-pdf {
       text-align: center;
       margin-bottom: 20px;
-      border-bottom: 2px solid #000; /* Linha preta mais grossa para o cabeçalho */
+      border-bottom: 2px solid #2e7d32; /* LINHA VERDE do cabeçalho */
       padding-bottom: 10px;
     }
     .header-pdf img {
@@ -539,7 +538,7 @@
       font-size: 20px;
       font-weight: bold;
       margin: 5px 0;
-      color: #000;
+      color: #000; /* Mantém o título preto */
     }
     .dados-protocolo p {
       margin: 8px 0;
@@ -552,7 +551,7 @@
       color: #000;
       font-size: 14px;
       font-weight: bold;
-      border-bottom: 1px solid #000; /* Borda preta para os títulos de seção */
+      border-bottom: 1px solid #2e7d32; /* LINHA VERDE dos títulos de seção */
       padding-bottom: 5px;
       margin-bottom: 10px;
     }
@@ -627,6 +626,7 @@
     </div>
   </div>
 </div>
+
 
 
 
