@@ -637,7 +637,18 @@
   </div>
 </div>
 
-
+<div id="pdfModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.6);">
+  <div style="background-color: #fefefe; margin: 20px auto; padding: 0; border: 1px solid #888; width: 95%; max-width: 800px; box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2), 0 6px 20px 0 rgba(0,0,0,0.19);">
+    <div style="text-align: right; background: #2e7d32; padding: 5px 15px;">
+      <span style="color: white; font-size: 28px; font-weight: bold; cursor: pointer;" onclick="fecharModal()">&times;</span>
+    </div>
+    <div id="pdfContent" style="padding: 20px;">
+      </div>
+    <div style="text-align: center; padding: 10px; border-top: 1px solid #ddd;">
+      <button onclick="gerarPDF()">Gerar e Salvar PDF</button>
+    </div>
+  </div>
+</div>
 
 
 
@@ -872,7 +883,7 @@ async function listarProtocolos(pagina = 1) {
           <button onclick="abrirAtualizar(${p.id})">Atualizar</button>
           <button onclick="abrirModalEncaminhar(${p.id}, event)">Encaminhar</button>
           <button onclick="verDetalhes(${p.id})">Ver Detalhes</button>
-          <button onclick="gerarPDFPorId(${p.id})">📄 Documento</button>
+        <button onclick="previsualizarPDF(${p.id})">📄 Documento</button>
           <details id="hist_${p.id}">
             <summary>Histórico</summary>
           </details>
@@ -933,7 +944,7 @@ async function listarMeusProtocolos(pagina = 1) {
           <button onclick="abrirAtualizar(${p.id})">Atualizar</button>
           <button onclick="abrirModalEncaminhar(${p.id}, event)">Encaminhar</button>
           <button onclick="verDetalhes(${p.id})">Ver Detalhes</button>
-          <button onclick="gerarPDFPorId(${p.id})">📄 Documento</button>
+          <button onclick="previsualizarPDF(${p.id})">📄 Documento</button>
           <details id="hist_${p.id}">
             <summary>Histórico</summary>
           </details>
@@ -1078,7 +1089,12 @@ async function gerarDocumentoPorId(id) {
     alert("Erro ao gerar documento.");
   }
 }
-async function gerarPDFPorId(id) {
+
+// Variável global para armazenar os dados do protocolo
+let protocoloParaGerar = null;
+
+// Nova função para abrir o modal de pré-visualização
+async function previsualizarPDF(id) {
   try {
     const res = await fetch(`/protocolos/${id}`);
     const { protocolo } = await res.json();
@@ -1086,62 +1102,95 @@ async function gerarPDFPorId(id) {
       alert("Protocolo não encontrado");
       return;
     }
-
-    // Preenche o modelo com os dados
-    document.getElementById('doc_numero').textContent = protocolo.numero ?? 'Não informado';
-    document.getElementById('doc_dataSolicitacao').textContent = protocolo.data_solicitacao 
-      ? new Date(protocolo.data_solicitacao).toLocaleDateString('pt-BR')
-      : 'Não informada';
-    document.getElementById('doc_nome').textContent = protocolo.nome ?? 'Não informado';
-    document.getElementById('doc_matricula').textContent = protocolo.matricula ?? 'Não informada';
-    document.getElementById('doc_cpf').textContent = protocolo.cpf ?? 'Não informado';
-    document.getElementById('doc_rg').textContent = protocolo.rg ?? 'Não informado';
-    document.getElementById('doc_endereco').textContent = protocolo.endereco ?? 'Não informado';
-    document.getElementById('doc_bairro').textContent = protocolo.bairro ?? 'Não informado';
-    document.getElementById('doc_municipio').textContent = protocolo.municipio ?? 'Não informado';
-    document.getElementById('doc_cep').textContent = protocolo.cep ?? 'Não informado';
-    document.getElementById('doc_telefone').textContent = protocolo.telefone ?? 'Não informado';
-    document.getElementById('doc_cargo').textContent = protocolo.cargo ?? 'Não informado';
-    document.getElementById('doc_lotacao').textContent = protocolo.lotacao ?? 'Não informado';
-    document.getElementById('doc_unidade').textContent = protocolo.unidade_exercicio ?? 'Não informado';
-    document.getElementById('doc_tipo').textContent = protocolo.tipo_requerimento ?? 'Não informado';
-    document.getElementById('doc_requerAo').textContent = protocolo.requer_ao ?? 'Não informado';
-    document.getElementById('doc_complemento').innerHTML = protocolo.observacoes
-      ? protocolo.observacoes.replace(/\n/g, '<br>')
-      : 'Nenhuma informação adicional';
-
-    // *** Configurações otimizadas para PDF ***
-const opt = {
-  margin: [10, 10, 10, 10], // Margem superior, direita, inferior, esquerda
-  filename: `Protocolo_${protocolo.numero}.pdf`,
-  image: { type: 'jpeg', quality: 0.98 },
-  html2canvas: {
-    scale: 2,
-    scrollY: 0,
-    windowWidth: 800, // Mantive o valor que sugeri anteriormente
-    useCORS: true,
-  },
-  jsPDF: {
-    unit: 'mm',
-    format: 'a4',
-    orientation: 'portrait',
-  }
-};
-    const element = document.getElementById('modeloProtocolo');
-    element.style.display = 'block';
-
-    // Cria e salva o PDF
-    await html2pdf().set(opt).from(element).save();
     
-    // Esconde o elemento novamente
-    element.style.display = 'none';
+    // Armazena o protocolo em uma variável global
+    protocoloParaGerar = protocolo;
+
+    // Pega o modelo HTML oculto
+    const modeloOriginal = document.getElementById('modeloProtocolo');
+
+    // Clona o modelo para preenchimento e exibição
+    const modeloClone = modeloOriginal.cloneNode(true);
+    modeloClone.removeAttribute('style'); // Remove o 'display: none;'
+    modeloClone.id = 'modeloProtocoloClone'; // Novo ID para não conflitar
+
+    // Preenche o clone com os dados
+    modeloClone.querySelector('#doc_numero').textContent = protocolo.numero ?? 'Não informado';
+    modeloClone.querySelector('#doc_dataSolicitacao').textContent = protocolo.data_solicitacao 
+      ? new Date(protocolo.data_solicitacao).toLocaleDateString('pt-BR')
+      : 'Não informada';
+    modeloClone.querySelector('#doc_nome').textContent = protocolo.nome ?? 'Não informado';
+    modeloClone.querySelector('#doc_matricula').textContent = protocolo.matricula ?? 'Não informada';
+    modeloClone.querySelector('#doc_cpf').textContent = protocolo.cpf ?? 'Não informado';
+    modeloClone.querySelector('#doc_rg').textContent = protocolo.rg ?? 'Não informado';
+    modeloClone.querySelector('#doc_endereco').textContent = protocolo.endereco ?? 'Não informado';
+    modeloClone.querySelector('#doc_bairro').textContent = protocolo.bairro ?? 'Não informado';
+    modeloClone.querySelector('#doc_municipio').textContent = protocolo.municipio ?? 'Não informado';
+    modeloClone.querySelector('#doc_cep').textContent = protocolo.cep ?? 'Não informado';
+    modeloClone.querySelector('#doc_telefone').textContent = protocolo.telefone ?? 'Não informado';
+    modeloClone.querySelector('#doc_cargo').textContent = protocolo.cargo ?? 'Não informado';
+    modeloClone.querySelector('#doc_lotacao').textContent = protocolo.lotacao ?? 'Não informado';
+    modeloClone.querySelector('#doc_unidade').textContent = protocolo.unidade_exercicio ?? 'Não informado';
+    modeloClone.querySelector('#doc_tipo').textContent = protocolo.tipo_requerimento ?? 'Não informado';
+    modeloClone.querySelector('#doc_requerAo').textContent = protocolo.requer_ao ?? 'Não informado';
+    modeloClone.querySelector('#doc_complemento').innerHTML = protocolo.observacoes
+      ? protocolo.observacoes.replace(/\n/g, '<br>')
+      : 'Nenhuma informação adicional';
+
+    // Injeta o clone preenchido no modal
+    document.getElementById('pdfContent').innerHTML = '';
+    document.getElementById('pdfContent').appendChild(modeloClone);
+
+    // Exibe o modal
+    document.getElementById('pdfModal').style.display = 'block';
+
   } catch (err) {
-    console.error('Erro ao gerar PDF:', err);
-    alert('Erro ao gerar PDF. Verifique o console para detalhes.');
+    console.error('Erro ao preparar PDF:', err);
+    alert('Erro ao preparar a visualização do PDF. Verifique o console.');
   }
 }
 
+// Função para fechar o modal
+function fecharModal() {
+  document.getElementById('pdfModal').style.display = 'none';
+  document.getElementById('pdfContent').innerHTML = ''; // Limpa o conteúdo
+  protocoloParaGerar = null; // Limpa o objeto global
+}
 
+// Função que gera o PDF de fato, chamada pelo botão no modal
+async function gerarPDF() {
+  if (!protocoloParaGerar) {
+    alert("Nenhum protocolo para gerar.");
+    return;
+  }
+  
+  const element = document.getElementById('modeloProtocoloClone');
+  
+  const opt = {
+    margin: [10, 10, 10, 10], 
+    filename: `Protocolo_${protocoloParaGerar.numero}.pdf`, 
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: {
+      scale: 2, 
+      scrollY: 0,
+      windowWidth: 800,
+      useCORS: true,
+    },
+    jsPDF: {
+      unit: 'mm',
+      format: 'a4',
+      orientation: 'portrait',
+    }
+  };
+  
+  try {
+    await html2pdf().set(opt).from(element).save();
+    fecharModal();
+  } catch (error) {
+    console.error("Erro ao gerar PDF:", error);
+    alert("Ocorreu um erro ao gerar o PDF. Por favor, tente novamente.");
+  }
+}
 
 
 
