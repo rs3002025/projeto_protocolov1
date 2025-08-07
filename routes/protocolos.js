@@ -327,4 +327,28 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// GET /protocolos/servidor/:matricula
+router.get('/servidor/:matricula', async (req, res) => {
+  const matricula = req.params.matricula;
+  try {
+    const result = await db.query(`
+      SELECT matricula, nome, lotacao, cargo, unidade_de_exercicio
+      FROM servidores
+      WHERE matricula = $1
+      LIMIT 1
+    `, [matricula]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ mensagem: 'Servidor não encontrado' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Erro ao buscar servidor:', error);
+    res.status(500).json({ mensagem: 'Erro interno no servidor' });
+  }
+});
+
+
+
 module.exports = router;
