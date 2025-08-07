@@ -1555,7 +1555,44 @@ function renderizarPaginacao(totalItens, paginaAtual, idContainer, callback) {
       }
     }
 
+function preencherCamposServidor(servidor) {
+    if (!servidor) {
+      // Limpa os campos apenas se matricula estiver vazia (campo apagado)
+      document.getElementById('nome').value = '';
+      document.getElementById('lotacao').value = '';
+      document.getElementById('cargo').value = '';
+      document.getElementById('unidade').value = '';
+    } else {
+      document.getElementById('nome').value = servidor.nome || '';
+      document.getElementById('lotacao').value = servidor.lotacao || '';
+      document.getElementById('cargo').value = servidor.cargo || '';
+      document.getElementById('unidade').value = servidor.unidade_de_exercicio || '';
+    }
+  }
 
+  // Evento blur para disparar busca ao sair do campo matrícula
+  document.getElementById('matricula').addEventListener('blur', async function() {
+    const matricula = this.value.trim();
+    if (!matricula) {
+      preencherCamposServidor(null);
+      return;
+    }
+
+    try {
+      const response = await fetch(`/protocolos/servidor/${encodeURIComponent(matricula)}`);
+
+      if (!response.ok) {
+        // Se não encontrado, NÃO limpa os campos, deixa para digitação manual
+        return;
+      }
+
+      const servidor = await response.json();
+      preencherCamposServidor(servidor);
+    } catch (error) {
+      console.error('Erro ao buscar servidor:', error);
+      // Em caso de erro, mantém campos como estão
+    }
+  });
 
   </script>
 
