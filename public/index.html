@@ -217,11 +217,22 @@
     max-width: 100%;
     word-wrap: break-word;
   }
+  /* Novos estilos do rodapé PDF */
+  .rodape-pdf {
+    text-align: center;
+    margin-top: 40px;
+  }
+
+  .rodape-pdf img {
+    max-width: 100%;
+    height: auto;
+  }
   </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
 </head>
 <body>
+
   <div class="container">
 <div class="header">
   <img src="/img/logo.png" alt="Logo" class="logo">
@@ -514,81 +525,102 @@
 <!-- Modelo completo do PDF -->
 <div id="modeloProtocolo" style="display: none;">
   <style>
-  /* Reset básico para o PDF */
-  .pdf-body {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    font-family: Arial, sans-serif;
-    color: #000;
-  }
-  
-  .doc-container {
-    width: 100%;
-    max-width: 650px;
-    margin: 20px auto;
-    font-size: 12px;
-    line-height: 1.4;
-    border: 1px solid #000;
-    padding: 20px;
-  }
-  
-  /* ... mantenha os estilos do cabeçalho, dados, assinaturas, etc. que já estavam funcionando ... */
-  .header-pdf {
-    text-align: center;
-    margin-bottom: 20px;
-    border-bottom: 2px solid #2e7d32;
-    padding-bottom: 10px;
-  }
-  .header-pdf img {
-    height: 60px;
-    margin-bottom: 5px;
-  }
-  .titulo-pdf {
-    font-size: 20px;
-    font-weight: bold;
-    margin: 5px 0;
-    color: #000;
-  }
-  .dados-protocolo p {
-    margin: 8px 0;
-    page-break-inside: avoid;
-  }
-  .dados-section {
-    margin-top: 20px;
-  }
-  .dados-section h4 {
-    color: #000;
-    font-size: 14px;
-    font-weight: bold;
-    border-bottom: 1px solid #2e7d32;
-    padding-bottom: 5px;
-    margin-bottom: 10px;
-  }
-  .assinaturas {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 80px;
-  }
-  .assinatura {
-    text-align: center;
-    width: 45%;
-    border-top: 1px solid #000;
-    padding-top: 10px;
-    font-size: 12px;
-  }
-  #doc_complemento {
-    background: #fff;
-    border: 1px solid #ddd;
-    padding: 10px;
-    margin-top: 5px;
-    min-height: 50px;
-  }
-</style>
+    /* Reset básico para o PDF */
+    .pdf-body {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: Arial, sans-serif;
+      color: #000;
+    }
+    
+    .doc-container {
+      width: 100%;
+      max-width: 650px;
+      margin: 20px auto;
+      font-size: 12px;
+      line-height: 1.4;
+      border: 1px solid #000;
+      padding: 20px;
+      background: #fff;
+    }
+    
+    /* Cabeçalho */
+    .header-pdf {
+      text-align: center;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #2e7d32;
+      padding-bottom: 10px;
+    }
+    .header-pdf img {
+      height: 60px;
+      margin-bottom: 5px;
+    }
+    .titulo-pdf {
+      font-size: 20px;
+      font-weight: bold;
+      margin: 5px 0;
+      color: #000;
+    }
+    
+    /* Dados principais */
+    .dados-protocolo p {
+      margin: 8px 0;
+      page-break-inside: avoid;
+    }
+    
+    .dados-section {
+      margin-top: 20px;
+    }
+    .dados-section h4 {
+      color: #000;
+      font-size: 14px;
+      font-weight: bold;
+      border-bottom: 1px solid #2e7d32;
+      padding-bottom: 5px;
+      margin-bottom: 10px;
+    }
+    
+    /* Assinaturas */
+    .assinaturas {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 80px;
+    }
+    .assinatura {
+      text-align: center;
+      width: 45%;
+      border-top: 1px solid #000;
+      padding-top: 10px;
+      font-size: 12px;
+    }
+    
+    /* Complemento */
+    #doc_complemento {
+      background: #fff;
+      border: 1px solid #ddd;
+      padding: 10px;
+      margin-top: 5px;
+      min-height: 50px;
+      font-style: italic;
+      white-space: pre-wrap; /* mantém quebras de linha */
+    }
 
-  <div class="doc-container">
+    /* Rodapé */
+    .rodape-pdf {
+      text-align: center;
+      margin-top: 40px;
+    }
+
+    .rodape-pdf img {
+      max-width: 100%;
+      height: auto;
+    }
+  </style>
+
+  <div class="doc-container pdf-body">
     <div class="header-pdf">
-      <img src="/img/logo.png" alt="Logo">
+      <img src="logo.png" alt="Logo Prefeitura">
       <h2>Secretaria da Administração</h2>
       <h3 class="titulo-pdf">PROTOCOLO DE REQUERIMENTO</h3>
     </div>
@@ -634,16 +666,21 @@
         Responsável pelo Protocolo
       </div>
     </div>
+
+    <div class="rodape-pdf">
+      <img src="rodape.png" alt="Rodapé Prefeitura">
+    </div>
   </div>
 </div>
 
+<!-- Modal para visualização do PDF -->
 <div id="pdfModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.6);">
-  <div style="background-color: #fefefe; margin: 20px auto; padding: 0; border: 1px solid #888; width: 95%; max-width: 800px; box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2), 0 6px 20px 0 rgba(0,0,0,0.19);">
+  <div style="background-color: #fefefe; margin: 20px auto; padding: 0; border: 1px solid #888; width: 95%; max-width: 800px; box-shadow: 0 4px 8px rgba(0,0,0,0.2), 0 6px 20px rgba(0,0,0,0.19);">
     <div style="text-align: right; background: #2e7d32; padding: 5px 15px;">
       <span style="color: white; font-size: 28px; font-weight: bold; cursor: pointer;" onclick="fecharModal()">&times;</span>
     </div>
     <div id="pdfContent" style="padding: 20px;">
-      </div>
+    </div>
     <div style="text-align: center; padding: 10px; border-top: 1px solid #ddd;">
       <button onclick="gerarPDF()">Gerar e Salvar PDF</button>
     </div>
@@ -1090,10 +1127,10 @@ async function gerarDocumentoPorId(id) {
   }
 }
 
-// Variável global para armazenar os dados do protocolo
+// Variável global para armazenar os dados do protocolo a gerar
 let protocoloParaGerar = null;
 
-// Nova função para abrir o modal de pré-visualização
+// Função para abrir o modal de pré-visualização e preencher o modelo com dados
 async function previsualizarPDF(id) {
   try {
     const res = await fetch(`/protocolos/${id}`);
@@ -1103,13 +1140,12 @@ async function previsualizarPDF(id) {
       return;
     }
     
-    // Armazena o protocolo em uma variável global
     protocoloParaGerar = protocolo;
 
-    // Pega o modelo HTML oculto
+    // Pega o modelo oculto
     const modeloOriginal = document.getElementById('modeloProtocolo');
 
-    // Preenche o modelo oculto com os dados
+    // Preenche os dados no modelo oculto
     modeloOriginal.querySelector('#doc_numero').textContent = protocolo.numero ?? 'Não informado';
     modeloOriginal.querySelector('#doc_dataSolicitacao').textContent = protocolo.data_solicitacao
       ? new Date(protocolo.data_solicitacao).toLocaleDateString('pt-BR')
@@ -1132,34 +1168,34 @@ async function previsualizarPDF(id) {
       ? protocolo.observacoes.replace(/\n/g, '<br>')
       : 'Nenhuma informação adicional';
 
-    // Injeta o conteúdo HTML do modelo oculto na div de visualização
+    // Injeta o HTML do modelo oculto no modal de visualização
     const pdfContentDiv = document.getElementById('pdfContent');
     pdfContentDiv.innerHTML = modeloOriginal.innerHTML;
-    
-    // Exibe o modal para a visualização
+
+    // Exibe o modal
     document.getElementById('pdfModal').style.display = 'block';
 
   } catch (err) {
     console.error('Erro ao preparar PDF:', err);
-    alert('Erro ao preparar a visualização do PDF. Verifique o console.');
+    alert('Erro ao preparar a visualização do PDF. Veja o console.');
   }
 }
 
-// Função para fechar o modal
+// Fecha o modal e limpa conteúdo
 function fecharModal() {
   document.getElementById('pdfModal').style.display = 'none';
-  document.getElementById('pdfContent').innerHTML = ''; // Limpa o conteúdo
-  protocoloParaGerar = null; // Limpa o objeto global
+  document.getElementById('pdfContent').innerHTML = '';
+  protocoloParaGerar = null;
 }
 
-// Função que gera o PDF de fato, chamada pelo botão no modal
+// Gera o PDF a partir do conteúdo visível no modal e faz download
 async function gerarPDF() {
   if (!protocoloParaGerar) {
     alert("Nenhum protocolo para gerar.");
     return;
   }
-  
-  const element = document.getElementById('pdfContent'); // ← Agora pega o conteúdo já visível e renderizado
+
+  const element = document.getElementById('pdfContent');
 
   const opt = {
     margin: [10, 10, 10, 10],
@@ -1182,9 +1218,10 @@ async function gerarPDF() {
     fecharModal();
   } catch (error) {
     console.error("Erro ao gerar PDF:", error);
-    alert("Ocorreu um erro ao gerar o PDF. Por favor, tente novamente.");
+    alert("Erro ao gerar o PDF. Tente novamente.");
   }
 }
+
 
 // A função gerarDocumentoPorId é redundante e não é usada, pode ser removida se desejar.
 async function gerarDocumentoPorId(id) {
