@@ -514,125 +514,165 @@
 <!-- Modelo completo do PDF -->
 <div id="modeloProtocolo" style="display: none;">
   <style>
-  /* Reset básico para o PDF */
-  .pdf-body {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    font-family: Arial, sans-serif;
-    color: #000;
-  }
-  
-  .doc-container {
-    width: 100%;
-    max-width: 650px;
-    margin: 20px auto;
-    font-size: 12px;
-    line-height: 1.4;
-    border: 1px solid #000;
-    padding: 20px;
-  }
-  
-  /* ... mantenha os estilos do cabeçalho, dados, assinaturas, etc. que já estavam funcionando ... */
-  .header-pdf {
-    text-align: center;
-    margin-bottom: 20px;
-    border-bottom: 2px solid #2e7d32;
-    padding-bottom: 10px;
-  }
-  .header-pdf img {
-    height: 60px;
-    margin-bottom: 5px;
-  }
-  .titulo-pdf {
-    font-size: 20px;
-    font-weight: bold;
-    margin: 5px 0;
-    color: #000;
-  }
-  .dados-protocolo p {
-    margin: 8px 0;
-    page-break-inside: avoid;
-  }
-  .dados-section {
-    margin-top: 20px;
-  }
-  .dados-section h4 {
-    color: #000;
-    font-size: 14px;
-    font-weight: bold;
-    border-bottom: 1px solid #2e7d32;
-    padding-bottom: 5px;
-    margin-bottom: 10px;
-  }
-  .assinaturas {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 80px;
-  }
-  .assinatura {
-    text-align: center;
-    width: 45%;
-    border-top: 1px solid #000;
-    padding-top: 10px;
-    font-size: 12px;
-  }
-  #doc_complemento {
-    background: #fff;
-    border: 1px solid #ddd;
-    padding: 10px;
-    margin-top: 5px;
-    min-height: 50px;
-  }
-</style>
+    /* Estilos do novo layout */
+    .pdf-body {
+      font-family: "Segoe UI", "Open Sans", sans-serif;
+      color: #000;
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    .doc-container {
+      background: white;
+      width: 100%;
+      max-width: 800px;
+      margin: 20px auto;
+      padding: 40px 50px;
+      border: 1px solid #ccc;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    .logo-pdf {
+      text-align: center;
+      margin-bottom: 2px;
+    }
+    .logo-pdf img {
+      height: 80px;
+    }
+    .titulo-principal-pdf {
+      text-align: center;
+      margin: 2px 0;
+      font-size: 22px;
+    }
+    .titulo-central-pdf {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .titulo-central-pdf span {
+      background: #2e7d32;
+      color: white;
+      font-size: 16px;
+      padding: 8px 20px;
+      border-radius: 4px;
+      display: inline-block;
+      font-weight: bold;
+    }
+    .info-pdf {
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+    }
+    .campo-destaque-pdf {
+      font-weight: bold;
+      font-size: 16px;
+      background-color: #2e7d32;
+      color: white;
+      padding: 8px 12px;
+      border-radius: 5px;
+      margin: 4px 0;
+      flex: 1;
+      text-align: center;
+    }
+    .section-title-pdf {
+      background: #f0f0f0;
+      font-weight: bold;
+      padding: 6px 10px;
+      border-left: 4px solid #4caf50;
+      margin-top: 20px;
+    }
+    .grid-pdf {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 30px;
+      margin-top: 10px;
+    }
+    .grid-pdf div {
+      font-size: 14px;
+    }
+    .box-pdf {
+      border: 1px solid #ddd;
+      padding: 10px;
+      border-radius: 6px;
+      background: #fafafa;
+      margin-top: 10px;
+      font-style: italic;
+    }
+    .assinaturas-pdf {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 100px;
+    }
+    .assinatura-pdf {
+      text-align: center;
+      width: 45%;
+    }
+    .linha-pdf {
+      border-top: 1px solid #000;
+      margin-top: 40px;
+    }
+    .rodape-pdf {
+      text-align: center;
+      margin-top: 40px;
+    }
+    .rodape-pdf img {
+      max-width: 100%;
+      height: auto;
+    }
+  </style>
 
-  <div class="doc-container">
-    <div class="header-pdf">
-      <img src="/img/logo.png" alt="Logo">
-      <h2>Secretaria da Administração</h2>
-      <h3 class="titulo-pdf">PROTOCOLO DE REQUERIMENTO</h3>
+  <div class="pdf-body doc-container">
+    <div class="logo-pdf">
+      <img src="/img/logo.png" alt="Logo Prefeitura" />
     </div>
 
-    <div class="dados-protocolo">
-      <p><strong>Número do Protocolo:</strong> <span id="doc_numero"></span></p>
-      <p><strong>Data de Solicitação:</strong> <span id="doc_dataSolicitacao"></span></p>
+    <h1 class="titulo-principal-pdf">Secretaria da Administração</h1>
+
+    <div class="titulo-central-pdf">
+      <span>PROTOCOLO DE REQUERIMENTO</span>
     </div>
 
-    <div class="dados-section">
-      <h4>DADOS DO REQUERENTE</h4>
-      <div class="dados-protocolo">
-        <p><strong>Nome:</strong> <span id="doc_nome"></span></p>
-        <p><strong>Matrícula:</strong> <span id="doc_matricula"></span></p>
-        <p><strong>CPF:</strong> <span id="doc_cpf"></span></p>
-        <p><strong>RG:</strong> <span id="doc_rg"></span></p>
-        <p><strong>Endereço:</strong> <span id="doc_endereco"></span></p>
-        <p><strong>Bairro:</strong> <span id="doc_bairro"></span></p>
-        <p><strong>Município:</strong> <span id="doc_municipio"></span></p>
-        <p><strong>CEP:</strong> <span id="doc_cep"></span></p>
-        <p><strong>Telefone:</strong> <span id="doc_telefone"></span></p>
-        <p><strong>Cargo/Função:</strong> <span id="doc_cargo"></span></p>
-        <p><strong>Lotação:</strong> <span id="doc_lotacao"></span></p>
-        <p><strong>Unidade de Exercício:</strong> <span id="doc_unidade"></span></p>
-      </div>
+    <div class="info-pdf">
+      <p class="campo-destaque-pdf"><strong>Número do Protocolo:</strong> <span id="doc_numero"></span></p>
+      <p class="campo-destaque-pdf"><strong>Data da Solicitação:</strong> <span id="doc_dataSolicitacao"></span></p>
     </div>
 
-    <div class="dados-section">
-      <h4>DADOS DO REQUERIMENTO</h4>
-      <div class="dados-protocolo">
-        <p><strong>Tipo de Requerimento:</strong> <span id="doc_tipo"></span></p>
-        <p><strong>Requer ao:</strong> <span id="doc_requerAo"></span></p>
-        <p><strong>Informações Complementares:</strong></p>
-        <div id="doc_complemento"></div>
-      </div>
+    <div class="section-title-pdf">DADOS DO REQUERENTE</div>
+    <div class="grid-pdf">
+      <div><strong>Nome:</strong> <span id="doc_nome"></span></div>
+      <div><strong>Bairro:</strong> <span id="doc_bairro"></span></div>
+      <div><strong>Matrícula:</strong> <span id="doc_matricula"></span></div>
+      <div><strong>Município:</strong> <span id="doc_municipio"></span></div>
+      <div><strong>CPF:</strong> <span id="doc_cpf"></span></div>
+      <div><strong>CEP:</strong> <span id="doc_cep"></span></div>
+      <div><strong>RG:</strong> <span id="doc_rg"></span></div>
+      <div><strong>Lotação:</strong> <span id="doc_lotacao"></span></div>
+      <div><strong>Endereço:</strong> <span id="doc_endereco"></span></div>
+      <div><strong>Unidade de Exercício:</strong> <span id="doc_unidade"></span></div>
+      <div><strong>Telefone:</strong> <span id="doc_telefone"></span></div>
+      <div><strong>Cargo/Função:</strong> <span id="doc_cargo"></span></div>
     </div>
 
-    <div class="assinaturas">
-      <div class="assinatura">
+    <div class="section-title-pdf">DADOS DO REQUERIMENTO</div>
+    <div style="margin-top: 10px;">
+      <div style="margin-bottom: 6px;"><strong>Tipo de Requerimento:</strong> <span id="doc_tipo"></span></div>
+      <div style="margin-bottom: 10px;"><strong>Requer ao:</strong> <span id="doc_requerAo"></span></div>
+    </div>
+
+    <div class="box-pdf" id="doc_complemento"></div>
+
+    <div class="assinaturas-pdf">
+      <div class="assinatura-pdf">
+        <div class="linha-pdf"></div>
         Assinatura do Requerente
       </div>
-      <div class="assinatura">
+      <div class="assinatura-pdf">
+        <div class="linha-pdf"></div>
         Responsável pelo Protocolo
       </div>
+    </div>
+
+    <div class="rodape-pdf">
+      <img src="/img/rodape.png" alt="Rodapé" />
     </div>
   </div>
 </div>
