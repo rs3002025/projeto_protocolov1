@@ -1203,7 +1203,7 @@ async function gerarPDF() {
   const element = document.getElementById('pdfContent'); // ← Agora pega o conteúdo já visível e renderizado
 
   const opt = {
-    margin: [10, 10, 10, 10],
+    margin: [0, 0, 0, 0],
     filename: `Protocolo_${protocoloParaGerar.numero}.pdf`,
     image: { type: 'jpeg', quality: 0.98 },
     html2canvas: {
