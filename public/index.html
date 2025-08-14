@@ -408,7 +408,7 @@
 </div>
 
 <script defer>
-   // Variáveis Globais
+// Variáveis Globais
 const itensPorPagina = 10;
 let paginaAtualTodos = 1;
 let paginaAtualMeus = 1;
@@ -416,7 +416,7 @@ let tiposChartInstance = null;
 window.opcoesTipos = [];
 window.opcoesLotacoes = [];
 
-// Funções de Inicialização
+// Funções de Inicialização (executadas quando o DOM estiver pronto)
 document.addEventListener('DOMContentLoaded', () => {
     // Código de inicialização da sessão
     window.usuarioLogado = localStorage.getItem('usuarioLogado') || "";
@@ -429,11 +429,16 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('btnNovo').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "flex" : "none";
         document.getElementById('btnRelatorios').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "flex" : "none";
 
-        if (window.nivelUsuario === "comum") {
-            mostrarTela('meusProtocolos');
-        } else {
-            mostrarTela('menu');
-        }
+        // Carrega dados iniciais essenciais
+        carregarOpcoesDropdowns().then(() => {
+            if (window.nivelUsuario === "comum") {
+                mostrarTela('meusProtocolos');
+            } else {
+                mostrarTela('menu');
+            }
+            verificarNotificacoes();
+        });
+
     } else {
         mostrarTela('login');
     }
@@ -547,11 +552,12 @@ window.mostrarTela = async function(tela) {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ usuarioLogin })
                 });
-                document.getElementById('notification-bell').style.display = 'none';
+                await verificarNotificacoes(); // Re-verifica para zerar o contador
             } catch (err) { console.error('Erro ao marcar notificações como lidas:', err); }
         }
     }
     
+    // Carrega os dados específicos da tela
     if (tela === 'protocolos') listarProtocolos();
     if (tela === 'meusProtocolos') listarMeusProtocolos();
     if (tela === 'form') { popularDropdownsFormulario(); gerarNumeroProtocolo(); }
@@ -675,6 +681,7 @@ window.abrirModalEncaminhar = async function(idProtocolo) {
     const select = document.getElementById('selectUsuarioEncaminhar');
     select.innerHTML = '';
     data.usuarios.forEach(usuario => {
+      if(usuario.status !== 'ativo') return;
       const option = document.createElement('option');
       option.value = usuario.login;
       option.textContent = `${usuario.nome} (${usuario.tipo})`;
@@ -774,7 +781,7 @@ window.previsualizarPDF = async function(id) {
     pdfContentDiv.querySelector('#doc_numero').textContent = protocolo.numero ?? 'Não informado';
     pdfContentDiv.querySelector('#doc_dataSolicitacao').textContent = protocolo.data_solicitacao ? new Date(protocolo.data_solicitacao).toLocaleDateString('pt-BR') : 'Não informada';
     pdfContentDiv.querySelector('#doc_nome').textContent = protocolo.nome ?? 'Não informado';
-    pdfContentDiv.querySelector('#doc_matricula').textContent = protocolo.matricula ?? 'Não informado';
+    pdfContentDiv.querySelector('#doc_matricula').textContent = protocolo.matricula ?? 'Não informada';
     pdfContentDiv.querySelector('#doc_cpf').textContent = protocolo.cpf ?? 'Não informado';
     pdfContentDiv.querySelector('#doc_rg').textContent = protocolo.rg ?? 'Não informado';
     pdfContentDiv.querySelector('#doc_endereco').textContent = protocolo.endereco ?? 'Não informado';
@@ -850,7 +857,6 @@ window.gerarRelatorioPDF = async function() {
     tempNode.querySelector('#doc_nome').textContent = p.nome || '';
     tempNode.querySelector('#doc_matricula').textContent = p.matricula || '';
     tempNode.querySelector('#doc_tipo').textContent = p.tipo_requerimento || '';
-    // Adicione outros campos que queira exibir no relatório
     htmlContent += `<div style="page-break-after: always;">${tempNode.innerHTML}</div>`;
   });
 
@@ -865,8 +871,9 @@ window.exportarRelatorioExcel = function() {
   window.location.href = `/protocolos/backup?${params.toString()}`;
 };
 window.limparFiltrosRelatorio = function() {
-  document.querySelector('#relatorios .filtros').reset();
-  pesquisarProtocolos();
+    const form = document.querySelector('#relatorios .filtros');
+    if(form) form.reset();
+    pesquisarProtocolos();
 };
 window.verificarNotificacoes = async function() {
   const usuarioLogin = localStorage.getItem('usuarioLogin');
@@ -1027,10 +1034,10 @@ window.popularDropdownsFormulario = function() {
 };
 window.carregarTabelaGestao = async function(tipo) {
     const tbody = document.getElementById(tipo === 'tipos' ? 'tabelaTipos' : 'tabelaLotacoes');
+    tbody.innerHTML = '';
     try {
         const res = await fetch(`/admin/${tipo}/all`);
         const data = await res.json();
-        tbody.innerHTML = '';
         data.forEach(item => {
             const tr = document.createElement('tr');
             const statusStyle = item.ativo ? 'color:green;' : 'color:red;';
@@ -1128,42 +1135,7 @@ window.preencherCamposServidor = function(servidor) {
       document.getElementById('nome').value = servidor.nome || ''; document.getElementById('lotacao').value = servidor.lotacao || ''; document.getElementById('cargo').value = servidor.cargo || ''; document.getElementById('unidade').value = servidor.unidade_de_exercicio || '';
     }
 };
-    document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('matricula').addEventListener('blur', async function() {
-        const matricula = this.value.trim();
-        if (!matricula) {
-            preencherCamposServidor(null);
-            return;
-        }
-        try {
-            const response = await fetch(`/protocolos/servidor/${encodeURIComponent(matricula)}`);
-            if (!response.ok) { return; }
-            const servidor = await response.json();
-            preencherCamposServidor(servidor);
-        } catch (error) {
-            console.error('Erro ao buscar servidor:', error);
-        }
-    });
+</script>
 
-    document.getElementById('cep').addEventListener('blur', async function () {
-        const cep = this.value.replace(/\D/g, '');
-        if (cep.length !== 8) {
-            if(cep.length > 0) alert('CEP inválido. Digite os 8 dígitos.');
-            return;
-        }
-        try {
-            const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
-            const data = await response.json();
-            if (data.erro) {
-                alert('CEP não encontrado!');
-                return;
-            }
-            document.getElementById('endereco').value = data.logradouro || '';
-            document.getElementById('bairro').value = data.bairro || '';
-            document.getElementById('municipio').value = data.localidade || '';
-        } catch (error) {
-            console.error('Erro ao buscar CEP:', error);
-            alert('Erro ao buscar o CEP. Verifique sua conexão.');
-        }
-    });
-});
+</body>
+</html>
