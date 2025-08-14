@@ -39,14 +39,6 @@
     .modal-encaminhar-box { background-color: white; padding: 20px; border-radius: 10px; width: 300px; max-width: 90%; box-shadow: 0 0 10px rgba(0,0,0,0.3); text-align: center; }
     .modal-encaminhar-actions { margin-top: 15px; display: flex; justify-content: space-between; }
     
-    /* --- ESTILOS DO PDF --- */
-    #modeloProtocolo { width: 100%; max-width: 700px; margin: 0 auto; padding: 20px; font-family: Arial, sans-serif; font-size: 14px; line-height: 1.5; color: #000; box-sizing: border-box; }
-    #modeloProtocolo h2, #modeloProtocolo h3 { text-align: center; margin: 10px 0; }
-    #modeloProtocolo p { margin: 8px 0; page-break-inside: avoid; }
-    #modeloProtocolo span { display: inline-block; max-width: 100%; word-wrap: break-word; }
-    .pdf-header { display: flex; justify-content: space-between; align-items: flex-start; }
-    #qrcode-container { padding-left: 20px; }
-
     /* --- ESTILOS DA TELA DE LOGIN (NOVO) --- */
     .login-screen.active {
       display: flex;
@@ -319,8 +311,8 @@
       <tbody id="tabelaProtocolos"></tbody>
     </table>
     <button onclick="mostrarTela('menu')">Voltar</button>
+    <div id="paginacaoProtocolos" style="margin-top: 10px;"></div>
   </div>
-  <div id="paginacaoProtocolos" style="margin-top: 10px;"></div>
   <div id="meusProtocolos" class="meus-protocolos-screen content">
       <h3>📂 Meus Protocolos</h3>
       <div class="filtros" style="padding: 10px 0;">
@@ -341,8 +333,8 @@
         <tbody id="meusProtocolosTabela"></tbody>
       </table>
       <button onclick="voltarDeMeusProtocolos()">Voltar</button>
+      <div id="paginacaoMeusProtocolos" style="margin-top: 10px;"></div>
   </div>
-  <div id="paginacaoMeusProtocolos" style="margin-top: 10px;"></div>
   <div id="config" class="config-screen content">
     <h3>⚙️ Configurações</h3>
     <div class="form-group full-row">
@@ -473,8 +465,6 @@ document.addEventListener('DOMContentLoaded', () => {
   window.nivelUsuario = localStorage.getItem('nivelUsuario') || "";
   window.usuarioLogin = localStorage.getItem('usuarioLogin') || "";
 
-  console.log("Verificando sessão:", window.usuarioLogado, window.nivelUsuario);
-
   if (window.usuarioLogado) {
     document.getElementById('btnConfig').style.display = window.nivelUsuario === "admin" ? "inline-block" : "none";
     document.getElementById('btnNovo').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "inline-block" : "none";
@@ -494,7 +484,6 @@ window.logar = function() {
   const user = document.getElementById('usuario').value;
   const senha = document.getElementById('senha').value;
   const msg = document.getElementById('loginMsg');
-
   fetch('/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -506,7 +495,6 @@ window.logar = function() {
       localStorage.setItem('usuarioLogado', data.usuario.nome);
       localStorage.setItem('usuarioLogin', data.usuario.login);
       localStorage.setItem('nivelUsuario', data.usuario.tipo);
-
       window.usuarioLogado = data.usuario.nome;
       window.usuarioLogin = data.usuario.login;
       window.nivelUsuario = data.usuario.tipo;
@@ -540,12 +528,10 @@ function mostrarTela(tela) {
   ['login','menu','form','config','protocolos','meusProtocolos','relatorios'].forEach(id => {
     document.getElementById(id).classList.remove('active');
   });
-
-  if (tela === 'relatorios' && window.nivelUsuario === 'comum') {
+  if (window.nivelUsuario && tela === 'relatorios' && window.nivelUsuario === 'comum') {
     alert('Acesso restrito!');
     return;
   }
-
   document.getElementById(tela).classList.add('active');
 
   if (tela === 'protocolos') listarProtocolos();
@@ -562,16 +548,12 @@ function sair() {
   window.usuarioLogado = "";
   window.nivelUsuario = "";
   window.usuarioLogin = "";
-  
   document.getElementById('usuario').value = "";
   document.getElementById('senha').value = "";
-  
   document.getElementById('btnConfig').style.display = 'none';
   document.getElementById('btnNovo').style.display = 'none';
   document.getElementById('btnRelatorios').style.display = 'none';
-  
   mostrarTela('login');
-  
   window.location.href = window.location.href.split('?')[0];
 }
 
@@ -581,7 +563,6 @@ async function gerarNumeroProtocolo() {
     const res = await fetch(`/protocolos/ultimoNumero/${anoAtual}`);
     const data = await res.json();
     const ultimo = data.ultimo || 0;
-
     const novoNumero = `${String(ultimo + 1).padStart(4, '0')}/${anoAtual}`;
     document.getElementById('numeroProtocolo').value = novoNumero;
     document.getElementById('log').innerText = '📄 Número gerado: ' + novoNumero;
@@ -842,42 +823,44 @@ async function previsualizarPDF(id) {
     }
     protocoloParaGerar = protocolo;
     const modeloOriginal = document.getElementById('modeloProtocolo');
-    
-    // --- LÓGICA DO QR CODE (NOVA E SEGURA) ---
-    const qrcodeContainer = modeloOriginal.querySelector('#qrcode-container');
-    qrcodeContainer.innerHTML = ''; // Limpa QR code anterior
-    const numeroParts = protocolo.numero.split('/');
-    if (numeroParts.length === 2) {
-        const urlConsulta = `${window.location.origin}/consulta/${numeroParts[1]}/${numeroParts[0]}`;
-        new QRCode(qrcodeContainer, {
-            text: urlConsulta,
-            width: 90,
-            height: 90,
-            correctLevel : QRCode.CorrectLevel.H
-        });
-    }
-    // --- FIM DA LÓGICA DO QR CODE ---
-    
-    modeloOriginal.querySelector('#doc_numero').textContent = protocolo.numero ?? 'Não informado';
-    modeloOriginal.querySelector('#doc_dataSolicitacao').textContent = protocolo.data_solicitacao ? new Date(protocolo.data_solicitacao).toLocaleDateString('pt-BR') : 'Não informada';
-    modeloOriginal.querySelector('#doc_nome').textContent = protocolo.nome ?? 'Não informado';
-    modeloOriginal.querySelector('#doc_matricula').textContent = protocolo.matricula ?? 'Não informada';
-    modeloOriginal.querySelector('#doc_cpf').textContent = protocolo.cpf ?? 'Não informado';
-    modeloOriginal.querySelector('#doc_rg').textContent = protocolo.rg ?? 'Não informado';
-    modeloOriginal.querySelector('#doc_endereco').textContent = protocolo.endereco ?? 'Não informado';
-    modeloOriginal.querySelector('#doc_bairro').textContent = protocolo.bairro ?? 'Não informado';
-    modeloOriginal.querySelector('#doc_municipio').textContent = protocolo.municipio ?? 'Não informado';
-    modeloOriginal.querySelector('#doc_cep').textContent = protocolo.cep ?? 'Não informado';
-    modeloOriginal.querySelector('#doc_telefone').textContent = protocolo.telefone ?? 'Não informado';
-    modeloOriginal.querySelector('#doc_cargo').textContent = protocolo.cargo ?? 'Não informado';
-    modeloOriginal.querySelector('#doc_lotacao').textContent = protocolo.lotacao ?? 'Não informado';
-    modeloOriginal.querySelector('#doc_unidade').textContent = protocolo.unidade_exercicio ?? 'Não informado';
-    modeloOriginal.querySelector('#doc_tipo').textContent = protocolo.tipo_requerimento ?? 'Não informado';
-    modeloOriginal.querySelector('#doc_requerAo').textContent = protocolo.requer_ao ?? 'Não informado';
-    modeloOriginal.querySelector('#doc_complemento').innerHTML = protocolo.observacoes ? protocolo.observacoes.replace(/\n/g, '<br>') : 'Nenhuma informação adicional';
-    
     const pdfContentDiv = document.getElementById('pdfContent');
-    pdfContentDiv.innerHTML = modeloOriginal.innerHTML;
+    pdfContentDiv.innerHTML = modeloOriginal.innerHTML; // Copia o template estático primeiro
+    
+    // Agora, encontra o placeholder DENTRO do modal visível e gera o QR Code
+    const qrcodeContainer = pdfContentDiv.querySelector('#qrcode-container');
+    if(qrcodeContainer) {
+        qrcodeContainer.innerHTML = ''; // Limpa QR code anterior
+        const numeroParts = protocolo.numero.split('/');
+        if (numeroParts.length === 2) {
+            const urlConsulta = `${window.location.origin}/consulta/${numeroParts[1]}/${numeroParts[0]}`;
+            new QRCode(qrcodeContainer, {
+                text: urlConsulta,
+                width: 90,
+                height: 90,
+                correctLevel : QRCode.CorrectLevel.H
+            });
+        }
+    }
+    
+    // Preenche os dados no modal que será renderizado
+    pdfContentDiv.querySelector('#doc_numero').textContent = protocolo.numero ?? 'Não informado';
+    pdfContentDiv.querySelector('#doc_dataSolicitacao').textContent = protocolo.data_solicitacao ? new Date(protocolo.data_solicitacao).toLocaleDateString('pt-BR') : 'Não informada';
+    pdfContentDiv.querySelector('#doc_nome').textContent = protocolo.nome ?? 'Não informado';
+    pdfContentDiv.querySelector('#doc_matricula').textContent = protocolo.matricula ?? 'Não informada';
+    pdfContentDiv.querySelector('#doc_cpf').textContent = protocolo.cpf ?? 'Não informado';
+    pdfContentDiv.querySelector('#doc_rg').textContent = protocolo.rg ?? 'Não informado';
+    pdfContentDiv.querySelector('#doc_endereco').textContent = protocolo.endereco ?? 'Não informado';
+    pdfContentDiv.querySelector('#doc_bairro').textContent = protocolo.bairro ?? 'Não informado';
+    pdfContentDiv.querySelector('#doc_municipio').textContent = protocolo.municipio ?? 'Não informado';
+    pdfContentDiv.querySelector('#doc_cep').textContent = protocolo.cep ?? 'Não informado';
+    pdfContentDiv.querySelector('#doc_telefone').textContent = protocolo.telefone ?? 'Não informado';
+    pdfContentDiv.querySelector('#doc_cargo').textContent = protocolo.cargo ?? 'Não informado';
+    pdfContentDiv.querySelector('#doc_lotacao').textContent = protocolo.lotacao ?? 'Não informado';
+    pdfContentDiv.querySelector('#doc_unidade').textContent = protocolo.unidade_exercicio ?? 'Não informado';
+    pdfContentDiv.querySelector('#doc_tipo').textContent = protocolo.tipo_requerimento ?? 'Não informado';
+    pdfContentDiv.querySelector('#doc_requerAo').textContent = protocolo.requer_ao ?? 'Não informado';
+    pdfContentDiv.querySelector('#doc_complemento').innerHTML = protocolo.observacoes ? protocolo.observacoes.replace(/\n/g, '<br>') : 'Nenhuma informação adicional';
+    
     document.getElementById('pdfModal').style.display = 'block';
   } catch (err) {
     console.error('Erro ao preparar PDF:', err);
@@ -1129,81 +1112,81 @@ function fecharModalEncaminhar() {
 }
 
 function renderizarPaginacao(totalItens, paginaAtual, idContainer, callback) {
-  const container = document.getElementById(idContainer);
-  container.innerHTML = '';
-  const totalPaginas = Math.ceil(totalItens / itensPorPagina);
-  if (totalPaginas <= 1) return;
+    const container = document.getElementById(idContainer);
+    container.innerHTML = '';
+    const totalPaginas = Math.ceil(totalItens / itensPorPagina);
+    if (totalPaginas <= 1) return;
 
-  let maxPagesToShow = 5;
-  let startPage, endPage;
+    let maxPagesToShow = 5;
+    let startPage, endPage;
 
-  if (totalPaginas <= maxPagesToShow) {
-      startPage = 1;
-      endPage = totalPaginas;
-  } else {
-      const maxPagesBeforeCurrent = Math.floor(maxPagesToShow / 2);
-      const maxPagesAfterCurrent = Math.ceil(maxPagesToShow / 2) - 1;
-      if (paginaAtual <= maxPagesBeforeCurrent) {
-          startPage = 1;
-          endPage = maxPagesToShow;
-      } else if (paginaAtual + maxPagesAfterCurrent >= totalPaginas) {
-          startPage = totalPaginas - maxPagesToShow + 1;
-          endPage = totalPaginas;
-      } else {
-          startPage = paginaAtual - maxPagesBeforeCurrent;
-          endPage = paginaAtual + maxPagesAfterCurrent;
-      }
-  }
+    if (totalPaginas <= maxPagesToShow) {
+        startPage = 1;
+        endPage = totalPaginas;
+    } else {
+        const maxPagesBeforeCurrent = Math.floor(maxPagesToShow / 2);
+        const maxPagesAfterCurrent = Math.ceil(maxPagesToShow / 2) - 1;
+        if (paginaAtual <= maxPagesBeforeCurrent) {
+            startPage = 1;
+            endPage = maxPagesToShow;
+        } else if (paginaAtual + maxPagesAfterCurrent >= totalPaginas) {
+            startPage = totalPaginas - maxPagesToShow + 1;
+            endPage = totalPaginas;
+        } else {
+            startPage = paginaAtual - maxPagesBeforeCurrent;
+            endPage = paginaAtual + maxPagesAfterCurrent;
+        }
+    }
 
-  if (paginaAtual > 1) {
-      const prevBtn = document.createElement('button');
-      prevBtn.textContent = '«';
-      prevBtn.onclick = () => callback(paginaAtual - 1);
-      container.appendChild(prevBtn);
-  }
+    if (paginaAtual > 1) {
+        const prevBtn = document.createElement('button');
+        prevBtn.textContent = '«';
+        prevBtn.onclick = () => callback(paginaAtual - 1);
+        container.appendChild(prevBtn);
+    }
 
-  if (startPage > 1) {
-      const firstBtn = document.createElement('button');
-      firstBtn.textContent = '1';
-      firstBtn.onclick = () => callback(1);
-      container.appendChild(firstBtn);
-      if (startPage > 2) {
-          const ellipsis = document.createElement('span');
-          ellipsis.textContent = '...';
-          container.appendChild(ellipsis);
-      }
-  }
+    if (startPage > 1) {
+        const firstBtn = document.createElement('button');
+        firstBtn.textContent = '1';
+        firstBtn.onclick = () => callback(1);
+        container.appendChild(firstBtn);
+        if (startPage > 2) {
+            const ellipsis = document.createElement('span');
+            ellipsis.textContent = '...';
+            container.appendChild(ellipsis);
+        }
+    }
 
-  for (let i = startPage; i <= endPage; i++) {
-      const btn = document.createElement('button');
-      btn.textContent = i;
-      if (i === paginaAtual) {
-          btn.disabled = true;
-          btn.style.fontWeight = 'bold';
-          btn.style.backgroundColor = '#ccc';
-      }
-      btn.onclick = () => callback(i);
-      container.appendChild(btn);
-  }
+    for (let i = startPage; i <= endPage; i++) {
+        const btn = document.createElement('button');
+        btn.textContent = i;
+        if (i === paginaAtual) {
+            btn.disabled = true;
+            btn.style.fontWeight = 'bold';
+            btn.style.backgroundColor = '#ccc';
+        }
+        btn.onclick = () => callback(i);
+        container.appendChild(btn);
+    }
 
-  if (endPage < totalPaginas) {
-      if (endPage < totalPaginas - 1) {
-          const ellipsis = document.createElement('span');
-          ellipsis.textContent = '...';
-          container.appendChild(ellipsis);
-      }
-      const lastBtn = document.createElement('button');
-      lastBtn.textContent = totalPaginas;
-      lastBtn.onclick = () => callback(totalPaginas);
-      container.appendChild(lastBtn);
-  }
+    if (endPage < totalPaginas) {
+        if (endPage < totalPaginas - 1) {
+            const ellipsis = document.createElement('span');
+            ellipsis.textContent = '...';
+            container.appendChild(ellipsis);
+        }
+        const lastBtn = document.createElement('button');
+        lastBtn.textContent = totalPaginas;
+        lastBtn.onclick = () => callback(totalPaginas);
+        container.appendChild(lastBtn);
+    }
 
-  if (paginaAtual < totalPaginas) {
-      const nextBtn = document.createElement('button');
-      nextBtn.textContent = '»';
-      nextBtn.onclick = () => callback(paginaAtual + 1);
-      container.appendChild(nextBtn);
-  }
+    if (paginaAtual < totalPaginas) {
+        const nextBtn = document.createElement('button');
+        nextBtn.textContent = '»';
+        nextBtn.onclick = () => callback(paginaAtual + 1);
+        container.appendChild(nextBtn);
+    }
 }
 
 function voltarDeMeusProtocolos() {
