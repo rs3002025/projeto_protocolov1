@@ -408,7 +408,7 @@
 </div>
 
 <script defer>
-    // Variáveis Globais
+   // Variáveis Globais
 const itensPorPagina = 10;
 let paginaAtualTodos = 1;
 let paginaAtualMeus = 1;
@@ -418,951 +418,27 @@ window.opcoesLotacoes = [];
 
 // Funções de Inicialização
 document.addEventListener('DOMContentLoaded', () => {
-  window.usuarioLogado = localStorage.getItem('usuarioLogado') || "";
-  window.nivelUsuario = localStorage.getItem('nivelUsuario') || "";
-  window.usuarioLogin = localStorage.getItem('usuarioLogin') || "";
-  if (window.usuarioLogado) {
-    document.getElementById('btnDashboard').style.display = (window.nivelUsuario === 'admin' || window.nivelUsuario === 'padrao') ? 'flex' : 'none';
-    document.getElementById('btnConfig').style.display = window.nivelUsuario === "admin" ? "flex" : "none";
-    document.getElementById('btnNovo').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "flex" : "none";
-    document.getElementById('btnRelatorios').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "flex" : "none";
-    if (window.nivelUsuario === "comum") {
-      mostrarTela('meusProtocolos');
-    } else {
-      mostrarTela('menu');
-    }
-  } else {
-    mostrarTela('login');
-  }
-});
-
-async function logar() {
-  const user = document.getElementById('usuario').value;
-  const senha = document.getElementById('senha').value;
-  const msg = document.getElementById('loginMsg');
-  try {
-    const res = await fetch('/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ login: user, senha: senha })
-    });
-    const data = await res.json();
-    if (data.sucesso && data.usuario) {
-      localStorage.setItem('usuarioLogado', data.usuario.nome);
-      localStorage.setItem('usuarioLogin', data.usuario.login);
-      localStorage.setItem('nivelUsuario', data.usuario.tipo);
-      window.usuarioLogado = data.usuario.nome;
-      window.usuarioLogin = data.usuario.login;
-      window.nivelUsuario = data.usuario.tipo;
-
-      await carregarOpcoesDropdowns();
-      verificarNotificacoes();
-
-      document.getElementById('btnDashboard').style.display = (window.nivelUsuario === 'admin' || window.nivelUsuario === 'padrao') ? 'flex' : 'none';
-      document.getElementById('btnConfig').style.display = window.nivelUsuario === "admin" ? "flex" : "none";
-      document.getElementById('btnNovo').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "flex" : "none";
-      document.getElementById('btnRelatorios').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "flex" : "none";
-
-      if (window.nivelUsuario === "comum") {
-        mostrarTela('meusProtocolos');
-      } else {
-        mostrarTela('menu');
-      }
-      msg.textContent = "";
-    } else {
-      msg.textContent = "Usuário ou senha incorretos.";
-    }
-  } catch(err) {
-    console.error("Erro no login:", err);
-    msg.textContent = "Erro ao conectar ao servidor.";
-  }
-};
-
-function sair() {
-  localStorage.clear();
-  window.usuarioLogado = "";
-  window.nivelUsuario = "";
-  window.usuarioLogin = "";
-  document.getElementById('notification-bell').style.display = 'none';
-  window.location.reload();
-}
-
-// Funções de Controle de Tela
-async function mostrarTela(tela) {
-  ['login','menu','dashboard','form','config','protocolos','meusProtocolos','relatorios'].forEach(id => {
-    document.getElementById(id)?.classList.remove('active');
-  });
-  if (window.nivelUsuario && tela === 'relatorios' && window.nivelUsuario === 'comum') {
-    alert('Acesso restrito!');
-    return;
-  }
-  document.getElementById(tela).classList.add('active');
-
-  if (tela === 'meusProtocolos') {
-    const usuarioLogin = localStorage.getItem('usuarioLogin');
-    if (usuarioLogin) {
-      try {
-        await fetch('/protocolos/notificacoes/ler', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ usuarioLogin })
-        });
-        document.getElementById('notification-bell').style.display = 'none';
-      } catch (err) { console.error('Erro ao marcar notificações como lidas:', err); }
-    }
-  }
-  
-  // Carrega os dados específicos da tela
-  if (tela === 'protocolos') listarProtocolos();
-  if (tela === 'meusProtocolos') listarMeusProtocolos();
-  if (tela === 'form') { popularDropdownsFormulario(); gerarNumeroProtocolo(); }
-  if (tela === 'config') { atualizarListaUsuarios(); carregarTabelaGestao('tipos'); carregarTabelaGestao('lotacoes'); }
-  if (tela === 'relatorios') { popularFiltrosRelatorio(); pesquisarProtocolos(); }
-  if (tela === 'dashboard') carregarDashboard();
-}
-
-// Funções de Protocolo
-async function gerarNumeroProtocolo() {
-  const anoAtual = new Date().getFullYear();
-  try {
-    const res = await fetch(`/protocolos/ultimoNumero/${anoAtual}`);
-    const data = await res.json();
-    const ultimo = data.ultimo || 0;
-    const novoNumero = `${String(ultimo + 1).padStart(4, '0')}/${anoAtual}`;
-    document.getElementById('numeroProtocolo').value = novoNumero;
-  } catch (error) {
-    console.error("Erro ao gerar número:", error);
-    const fallbackNumero = `0001/${anoAtual}`;
-    document.getElementById('numeroProtocolo').value = fallbackNumero;
-  }
-}
-function enviarRequerimento() {
-  const numeroProtocolo = document.getElementById('numeroProtocolo').value;
-  if (!numeroProtocolo) {
-    alert("❗Número de protocolo não gerado.");
-    return;
-  }
-  const dataAgora = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
-  const protocolo = {
-    numero: numeroProtocolo,
-    matricula: document.getElementById('matricula').value,
-    nome: document.getElementById('nome').value,
-    endereco: document.getElementById('endereco').value,
-    municipio: document.getElementById('municipio').value,
-    bairro: document.getElementById('bairro').value,
-    cep: document.getElementById('cep').value,
-    telefone: document.getElementById('telefone').value,
-    cpf: document.getElementById('cpf').value,
-    rg: document.getElementById('rg').value,
-    dataExpedicao: document.getElementById('dataExpedicao').value,
-    cargo: document.getElementById('cargo').value,
-    lotacao: document.getElementById('lotacao').value,
-    unidade: document.getElementById('unidade').value,
-    tipo: document.getElementById('tipo').value,
-    requerAo: document.getElementById('requerAo').value,
-    dataSolicitacao: document.getElementById('dataSolicitacao').value,
-    complemento: document.getElementById('complemento').value,
-    dataEnvio: dataAgora,
-    status: "Enviado",
-    responsavel: window.usuarioLogin,
-  };
-  fetch('/protocolos', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(protocolo)
-  })
-  .then(res => res.json())
-  .then(data => {
-    if (data.sucesso) {
-      alert('✅ Protocolo enviado e salvo no banco com sucesso!');
-      document.querySelector('#form .formulario').reset();
-      gerarNumeroProtocolo();
-    } else {
-      alert('❌ Erro ao enviar protocolo: ' + (data.mensagem || 'Erro desconhecido'));
-    }
-  })
-  .catch(err => {
-    alert('❌ Erro na conexão: ' + err.message);
-  });
-}
-async function listarProtocolos(pagina = 1) {
-  const tbody = document.getElementById('tabelaProtocolos');
-  tbody.innerHTML = "";
-  paginaAtualTodos = pagina;
-  try {
-    const res = await fetch('/protocolos');
-    const data = await res.json();
-    const inicio = (pagina - 1) * itensPorPagina;
-    const fim = inicio + itensPorPagina;
-    const paginaDados = data.protocolos.slice(inicio, fim);
-    paginaDados.forEach(p => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td style="width: 80px; text-align: center;">${p.numero}</td>
-        <td>${p.matricula}</td>
-        <td>${p.nome}</td>
-        <td>${p.tipo_requerimento}</td>
-        <td>${p.status}</td>
-        <td>${p.responsavel}</td>
-        <td>
-          <button onclick="abrirAtualizar(${p.id})">Atualizar</button>
-          <button onclick="abrirModalEncaminhar(${p.id})">Encaminhar</button>
-          <button onclick="previsualizarPDF(${p.id})">📄 Documento</button>
-        </td>`;
-      tbody.appendChild(tr);
-    });
-    renderizarPaginacao(data.protocolos.length, pagina, 'paginacaoProtocolos', listarProtocolos);
-  } catch (error) {
-    console.error("Erro ao listar protocolos:", error);
-    alert("Erro ao buscar protocolos do banco.");
-  }
-}
-async function listarMeusProtocolos(pagina = 1) {
-    const tbody = document.getElementById('meusProtocolosTabela');
-    tbody.innerHTML = "";
-    paginaAtualMeus = pagina;
-    const filtroNumero = document.getElementById('filtroMeusProtocolosNumero').value.trim().toLowerCase();
-    const filtroNome = document.getElementById('filtroMeusProtocolosNome').value.trim().toLowerCase();
-    try {
-        const usuarioLogin = localStorage.getItem('usuarioLogin');
-        if (!usuarioLogin) {
-            console.error("Login de usuário não encontrado.");
-            return;
-        }
-        const res = await fetch(`/protocolos/meus/${usuarioLogin}`);
-        let data = await res.json();
-        if (filtroNumero || filtroNome) {
-            data.protocolos = data.protocolos.filter(p => {
-                const numeroMatch = !filtroNumero || (p.numero || "").toLowerCase().includes(filtroNumero);
-                const nomeMatch = !filtroNome || (p.nome || "").toLowerCase().includes(filtroNome);
-                return numeroMatch && nomeMatch;
-            });
-        }
-        const inicio = (pagina - 1) * itensPorPagina;
-        const fim = inicio + itensPorPagina;
-        const paginaDados = data.protocolos.slice(inicio, fim);
-        paginaDados.forEach(p => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td>${p.numero}</td>
-                <td>${p.nome}</td>
-                <td>${p.status}</td>
-                <td>
-                  <button onclick="abrirAtualizar(${p.id})">Atualizar</button>
-                  <button onclick="abrirModalEncaminhar(${p.id})">Encaminhar</button>
-                  <button onclick="previsualizarPDF(${p.id})">📄 Documento</button>
-                </td>`;
-            tbody.appendChild(tr);
-        });
-        renderizarPaginacao(data.protocolos.length, pagina, 'paginacaoMeusProtocolos', listarMeusProtocolos);
-    } catch (error) {
-        console.error("Erro ao listar meus protocolos:", error);
-        alert("Erro ao buscar dados.");
-    }
-}
-function limparFiltrosMeusProtocolos() {
-    document.getElementById('filtroMeusProtocolosNumero').value = '';
-    document.getElementById('filtroMeusProtocolosNome').value = '';
-    listarMeusProtocolos();
-}
-
-// Funções de Modais
-function fecharModal(modalId) { document.getElementById(modalId).style.display = 'none'; }
-async function abrirModalEncaminhar(idProtocolo) {
-  try {
-    const res = await fetch('/usuarios');
-    const data = await res.json();
-    const select = document.getElementById('selectUsuarioEncaminhar');
-    select.innerHTML = '';
-    data.usuarios.forEach(usuario => {
-      const option = document.createElement('option');
-      option.value = usuario.login;
-      option.textContent = `${usuario.nome} (${usuario.tipo})`;
-      select.appendChild(option);
-    });
-    document.getElementById('statusEncaminhamento').value = 'Encaminhado';
-    const modal = document.getElementById('modalEncaminhar');
-    modal.dataset.protocoloId = idProtocolo;
-    modal.style.display = 'flex';
-  } catch (error) {
-    alert('Erro ao carregar usuários');
-    console.error(error);
-  }
-}
-async function confirmarEncaminhamento() {
-  const modal = document.getElementById('modalEncaminhar');
-  const idProtocolo = modal.dataset.protocoloId;
-  const destino = document.getElementById('selectUsuarioEncaminhar').value;
-  const novoStatus = document.getElementById('statusEncaminhamento').value.trim();
-  if (!novoStatus) {
-    alert('O campo de status não pode ficar vazio.');
-    return;
-  }
-  try {
-    const response = await fetch('/protocolos/atualizar', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        protocoloId: idProtocolo,
-        novoStatus: novoStatus,
-        novoResponsavel: destino,
-        observacao: `Encaminhado por ${window.usuarioLogado} para ${destino}`,
-        usuarioLogado: window.usuarioLogado
-      })
-    });
-    const data = await response.json();
-    if (data.sucesso) {
-      alert('✅ Protocolo encaminhado com sucesso!');
-      fecharModal('modalEncaminhar');
-      if (document.getElementById('protocolos').classList.contains('active')) await listarProtocolos();
-      if (document.getElementById('meusProtocolos').classList.contains('active')) await listarMeusProtocolos();
-    } else {
-      alert('❌ Erro ao encaminhar protocolo: ' + (data.mensagem || ''));
-    }
-  } catch (err) {
-    console.error(err);
-    alert('❌ Erro ao encaminhar protocolo');
-  }
-}
-async function abrirAtualizar(id) {
-  const modal = document.getElementById('modalAtualizarStatus');
-  document.getElementById('statusSelect').value = 'Em análise';
-  document.getElementById('statusCustom').style.display = 'none';
-  document.getElementById('statusCustom').value = '';
-  document.getElementById('observacaoAtualizacao').value = '';
-  modal.dataset.protocoloId = id;
-  modal.style.display = 'flex';
-}
-function handleStatusChange(selectElement) {
-  const customInput = document.getElementById('statusCustom');
-  if (selectElement.value === 'Outro') {
-    customInput.style.display = 'block';
-  } else {
-    customInput.style.display = 'none';
-  }
-}
-async function confirmarAtualizacaoStatus() {
-  const modal = document.getElementById('modalAtualizarStatus');
-  const protocoloId = modal.dataset.protocoloId;
-  const statusSelect = document.getElementById('statusSelect');
-  let novoStatus = statusSelect.value;
-  if (novoStatus === 'Outro') {
-    novoStatus = document.getElementById('statusCustom').value.trim();
-    if (!novoStatus) {
-      alert('Por favor, digite o status personalizado.');
-      return;
-    }
-  }
-  const observacaoInput = document.getElementById('observacaoAtualizacao').value.trim();
-  const observacaoFinal = `Status atualizado para "${novoStatus}". ${observacaoInput}`.trim();
-  try {
-    const response = await fetch(`/protocolos/atualizar`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        protocoloId: protocoloId,
-        novoStatus: novoStatus,
-        novoResponsavel: window.usuarioLogin,
-        observacao: observacaoFinal,
-        usuarioLogado: window.usuarioLogado
-      })
-    });
-    const data = await response.json();
-    if (data.sucesso) {
-      alert("✅ Status atualizado!");
-      fecharModal('modalAtualizarStatus');
-      if (document.getElementById('protocolos').classList.contains('active')) await listarProtocolos();
-      if (document.getElementById('meusProtocolos').classList.contains('active')) await listarMeusProtocolos();
-    } else {
-      alert("Erro ao atualizar.");
-    }
-  } catch (error) {
-    console.error("Erro na atualização:", error);
-  }
-}
-
-// Funções de PDF e QR Code
-let protocoloParaGerar = null;
-async function previsualizarPDF(id) {
-  try {
-    const res = await fetch(`/protocolos/${id}`);
-    const { protocolo } = await res.json();
-    if (!protocolo) {
-      alert("Protocolo não encontrado");
-      return;
-    }
-    protocoloParaGerar = protocolo;
-    const modeloOriginal = document.getElementById('modeloProtocolo');
-    const pdfContentDiv = document.getElementById('pdfContent');
-    pdfContentDiv.innerHTML = modeloOriginal.innerHTML; 
+    // Código de inicialização da sessão
+    window.usuarioLogado = localStorage.getItem('usuarioLogado') || "";
+    window.nivelUsuario = localStorage.getItem('nivelUsuario') || "";
+    window.usuarioLogin = localStorage.getItem('usuarioLogin') || "";
     
-    const qrcodeContainer = pdfContentDiv.querySelector('#qrcode-container');
-    if(qrcodeContainer) {
-        qrcodeContainer.innerHTML = '';
-        const numeroParts = protocolo.numero.split('/');
-        if (numeroParts.length === 2) {
-            const urlConsulta = `${window.location.origin}/consulta/${numeroParts[1]}/${numeroParts[0]}`;
-            new QRCode(qrcodeContainer, { text: urlConsulta, width: 90, height: 90, correctLevel : QRCode.CorrectLevel.H });
-        }
-    }
-    
-    pdfContentDiv.querySelector('#doc_numero').textContent = protocolo.numero ?? 'Não informado';
-    pdfContentDiv.querySelector('#doc_dataSolicitacao').textContent = protocolo.data_solicitacao ? new Date(protocolo.data_solicitacao).toLocaleDateString('pt-BR') : 'Não informada';
-    pdfContentDiv.querySelector('#doc_nome').textContent = protocolo.nome ?? 'Não informado';
-    pdfContentDiv.querySelector('#doc_matricula').textContent = protocolo.matricula ?? 'Não informada';
-    pdfContentDiv.querySelector('#doc_cpf').textContent = protocolo.cpf ?? 'Não informado';
-    pdfContentDiv.querySelector('#doc_rg').textContent = protocolo.rg ?? 'Não informado';
-    pdfContentDiv.querySelector('#doc_endereco').textContent = protocolo.endereco ?? 'Não informado';
-    pdfContentDiv.querySelector('#doc_bairro').textContent = protocolo.bairro ?? 'Não informado';
-    pdfContentDiv.querySelector('#doc_municipio').textContent = protocolo.municipio ?? 'Não informado';
-    pdfContentDiv.querySelector('#doc_cep').textContent = protocolo.cep ?? 'Não informado';
-    pdfContentDiv.querySelector('#doc_telefone').textContent = protocolo.telefone ?? 'Não informado';
-    pdfContentDiv.querySelector('#doc_cargo').textContent = protocolo.cargo ?? 'Não informado';
-    pdfContentDiv.querySelector('#doc_lotacao').textContent = protocolo.lotacao ?? 'Não informado';
-    pdfContentDiv.querySelector('#doc_unidade').textContent = protocolo.unidade_exercicio ?? 'Não informado';
-    pdfContentDiv.querySelector('#doc_tipo').textContent = protocolo.tipo_requerimento ?? 'Não informado';
-    pdfContentDiv.querySelector('#doc_requerAo').textContent = protocolo.requer_ao ?? 'Não informado';
-    pdfContentDiv.querySelector('#doc_complemento').innerHTML = protocolo.observacoes ? protocolo.observacoes.replace(/\n/g, '<br>') : 'Nenhuma informação adicional';
-    
-    document.getElementById('pdfModal').style.display = 'block';
-  } catch (err) {
-    console.error('Erro ao preparar PDF:', err);
-    alert('Erro ao preparar a visualização do PDF. Verifique o console.');
-  }
-}
-async function gerarPDF() {
-  if (!protocoloParaGerar) {
-    alert("Nenhum protocolo para gerar.");
-    return;
-  }
-  const element = document.getElementById('pdfContent');
-  const opt = {
-    margin: [0, 0, 0, 0],
-    filename: `Protocolo_${protocoloParaGerar.numero.replace('/', '-')}.pdf`,
-    image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: { scale: 2, scrollY: 0, useCORS: true },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-  };
-  try {
-    await html2pdf().set(opt).from(element).save();
-    fecharModal('pdfModal');
-  } catch (error) {
-    console.error("Erro ao gerar PDF:", error);
-    alert("Ocorreu um erro ao gerar o PDF. Por favor, tente novamente.");
-  }
-}
+    if (window.usuarioLogado) {
+        document.getElementById('btnDashboard').style.display = (window.nivelUsuario === 'admin' || window.nivelUsuario === 'padrao') ? 'flex' : 'none';
+        document.getElementById('btnConfig').style.display = window.nivelUsuario === "admin" ? "flex" : "none";
+        document.getElementById('btnNovo').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "flex" : "none";
+        document.getElementById('btnRelatorios').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "flex" : "none";
 
-// Funções de Relatórios
-function popularFiltrosRelatorio() {
-    popularDropdown('filtroTipo', window.opcoesTipos);
-    document.getElementById('filtroTipo').firstChild.textContent = "Todo tipo de Requerimento";
-    popularDropdown('filtroLotacao', window.opcoesLotacoes);
-    document.getElementById('filtroLotacao').firstChild.textContent = "Todas as Lotações";
-}
-async function pesquisarProtocolos() {
-  const params = new URLSearchParams({
-    numero: document.getElementById('filtroNumero').value,
-    nome: document.getElementById('filtroNome').value,
-    status: document.getElementById('filtroStatus').value,
-    dataInicio: document.getElementById('filtroDataInicio').value,
-    dataFim: document.getElementById('filtroDataFim').value,
-    tipo: document.getElementById('filtroTipo').value,
-    lotacao: document.getElementById('filtroLotacao').value
-  });
-  try {
-    const res = await fetch(`/protocolos/pesquisa?${params.toString()}`);
-    const data = await res.json();
-    const tbody = document.getElementById('resultadosPesquisa');
-    tbody.innerHTML = '';
-    if (data.protocolos && data.protocolos.length > 0) {
-      data.protocolos.forEach(p => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${p.numero || ''}</td>
-          <td>${p.nome || ''}</td>
-          <td>${p.matricula || ''}</td>
-          <td>${p.tipo_requerimento || ''}</td>
-          <td>${p.data_solicitacao ? new Date(p.data_solicitacao).toLocaleDateString('pt-BR') : ''}</td>
-          <td>${p.status || ''}</td>
-          <td>${p.responsavel || ''}</td>
-        `;
-        tbody.appendChild(tr);
-      });
-    } else {
-      tbody.innerHTML = '<tr><td colspan="7">Nenhum protocolo encontrado com os filtros informados.</td></tr>';
-    }
-  } catch (error) {
-    console.error("Erro ao pesquisar protocolos:", error);
-  }
-}
-async function gerarRelatorioPDF() {
-  const params = new URLSearchParams({ numero: document.getElementById('filtroNumero').value, nome: document.getElementById('filtroNome').value, status: document.getElementById('filtroStatus').value, dataInicio: document.getElementById('filtroDataInicio').value, dataFim: document.getElementById('filtroDataFim').value, tipo: document.getElementById('filtroTipo').value, lotacao: document.getElementById('filtroLotacao').value });
-  const res = await fetch(`/protocolos/pesquisa?${params.toString()}`);
-  const data = await res.json();
-  if (!data.protocolos || data.protocolos.length === 0) {
-    alert("Nenhum resultado encontrado para gerar o PDF.");
-    return;
-  }
-  let htmlContent = '';
-  const templatePDF = document.getElementById('modeloProtocolo').innerHTML;
-
-  data.protocolos.forEach(p => {
-    let protocoloHtml = templatePDF;
-    protocoloHtml = protocoloHtml.replace(/<span id="doc_numero"><\/span>/g, `<span>${p.numero || ''}</span>`);
-    protocoloHtml = protocoloHtml.replace(/<span id="doc_dataSolicitacao"><\/span>/g, `<span>${p.data_solicitacao ? new Date(p.data_solicitacao).toLocaleDateString('pt-BR') : ''}</span>`);
-    protocoloHtml = protocoloHtml.replace(/<span id="doc_nome"><\/span>/g, `<span>${p.nome || ''}</span>`);
-    protocoloHtml = protocoloHtml.replace(/<span id="doc_matricula"><\/span>/g, `<span>${p.matricula || ''}</span>`);
-    protocoloHtml = protocoloHtml.replace(/<span id="doc_tipo"><\/span>/g, `<span>${p.tipo_requerimento || ''}</span>`);
-    // Adicionar mais campos se necessário
-    htmlContent += `<div style="page-break-after: always;">${protocoloHtml}</div>`;
-  });
-
-  const tempDiv = document.createElement('div');
-  tempDiv.innerHTML = htmlContent;
-  
-  const opt = {
-    margin: [0, 0, 0, 0],
-    filename: `Relatorio_Protocolos.pdf`,
-    image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: { scale: 2, scrollY: 0, useCORS: true },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-  };
-  html2pdf().set(opt).from(tempDiv).save();
-}
-function exportarRelatorioExcel() {
-  const params = new URLSearchParams({ numero: document.getElementById('filtroNumero').value, nome: document.getElementById('filtroNome').value, status: document.getElementById('filtroStatus').value, dataInicio: document.getElementById('filtroDataInicio').value, dataFim: document.getElementById('filtroDataFim').value, tipo: document.getElementById('filtroTipo').value, lotacao: document.getElementById('filtroLotacao').value });
-  window.location.href = `/protocolos/backup?${params.toString()}`;
-}
-function limparFiltrosRelatorio() {
-  document.getElementById('filtroNumero').value = '';
-  document.getElementById('filtroNome').value = '';
-  document.getElementById('filtroStatus').value = '';
-  document.getElementById('filtroDataInicio').value = '';
-  document.getElementById('filtroDataFim').value = '';
-  document.getElementById('filtroTipo').value = '';
-  document.getElementById('filtroLotacao').value = '';
-  pesquisarProtocolos();
-}
-
-// Funções de Notificação
-async function verificarNotificacoes() {
-  const usuarioLogin = localStorage.getItem('usuarioLogin');
-  if (!usuarioLogin) return;
-  try {
-    const res = await fetch(`/protocolos/notificacoes/${usuarioLogin}`);
-    const data = await res.json();
-    const count = data.count;
-    const bell = document.getElementById('notification-bell');
-    const countSpan = document.getElementById('notification-count');
-    if (count > 0) {
-      countSpan.textContent = count;
-      bell.style.display = 'block';
-    } else {
-      bell.style.display = 'none';
-    }
-  } catch (err) {
-    console.error('Erro ao verificar notificações:', err);
-  }
-}
-
-// Funções de Dashboard
-async function carregarDashboard() {
-    try {
-        const res = await fetch('/protocolos/dashboard-stats');
-        const stats = await res.json();
-        document.getElementById('stat-novos').textContent = stats.novosNaSemana;
-        document.getElementById('stat-pendentes').textContent = stats.pendentesAntigos;
-        const labels = stats.topTipos.map(item => item.tipo_requerimento);
-        const data = stats.topTipos.map(item => item.total);
-        const ctx = document.getElementById('tiposChart').getContext('2d');
-        if (tiposChartInstance) {
-            tiposChartInstance.destroy();
-        }
-        tiposChartInstance = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'Total de Protocolos',
-                    data: data,
-                    backgroundColor: ['rgba(46, 125, 50, 0.7)', 'rgba(76, 175, 80, 0.7)', 'rgba(139, 195, 74, 0.7)', 'rgba(205, 220, 57, 0.7)', 'rgba(255, 235, 59, 0.7)'],
-                    borderColor: ['rgba(46, 125, 50, 1)', 'rgba(76, 175, 80, 1)', 'rgba(139, 195, 74, 1)', 'rgba(205, 220, 57, 1)', 'rgba(255, 235, 59, 1)'],
-                    borderWidth: 1
-                }]
-            },
-            options: { scales: { y: { beginAtZero: true } }, indexAxis: 'y', responsive: true, plugins: { legend: { display: false } } }
-        });
-    } catch (err) {
-        console.error("Erro ao carregar dados do dashboard:", err);
-        alert("Não foi possível carregar os dados do dashboard.");
-    }
-}
-
-// Funções de Configuração e Usuários
-function salvarEmailSistema() {
-  localStorage.setItem('emailSistema', document.getElementById('emailSistemaConfig').value);
-  alert("Email salvo com sucesso!");
-}
-async function cadastrarUsuario() {
-  const nomeCompleto = document.getElementById('nomeCompleto').value.trim();
-  const login = document.getElementById('novoUsuario').value.trim();
-  const cpf = document.getElementById('cpfUsuario').value.trim();
-  const senha = document.getElementById('novaSenha').value.trim();
-  const email = document.getElementById('novoEmail').value.trim();
-  const tipo = document.getElementById('nivelUsuario').value;
-  if (!nomeCompleto || !login || !cpf || !senha || !email || !tipo) {
-    alert('Por favor, preencha todos os campos.');
-    return;
-  }
-  try {
-    const res = await fetch('/usuarios', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nome: nomeCompleto, login, cpf, senha, email, tipo })
-    });
-    const data = await res.json();
-    alert(data.mensagem || 'Usuário cadastrado!');
-    if (data.sucesso) {
-        document.getElementById('nomeCompleto').value = '';
-        document.getElementById('novoUsuario').value = '';
-        document.getElementById('cpfUsuario').value = '';
-        document.getElementById('novaSenha').value = '';
-        document.getElementById('novoEmail').value = '';
-        atualizarListaUsuarios();
-    }
-  } catch (error) {
-    console.error('Erro ao cadastrar usuário:', error);
-    alert('Erro ao cadastrar usuário.');
-  }
-}
-async function atualizarListaUsuarios() {
-  try {
-    const response = await fetch('/usuarios');
-    const data = await response.json();
-    const tbody = document.getElementById('tabelaUsuarios');
-    tbody.innerHTML = "";
-    data.usuarios.forEach(u => {
-      const tr = document.createElement('tr');
-      const statusClasse = u.status === 'ativo' ? 'color:green;' : 'color:red;';
-      tr.innerHTML = `
-        <td>${u.nome}</td>
-        <td>${u.login}</td>
-        <td>${u.email}</td>
-        <td>${u.tipo}</td>
-        <td style="font-weight:bold; ${statusClasse}">${u.status}</td>
-        <td>
-          <button onclick='abrirModalEditar(${JSON.stringify(u)})'>Editar</button>
-          <button onclick='abrirModalResetarSenha(${u.id})'>Resetar Senha</button>
-          ${u.status === 'ativo' 
-             ? `<button onclick="alterarStatusUsuario(${u.id}, 'inativo')" style="background-color:#c82333;">Desativar</button>` 
-             : `<button onclick="alterarStatusUsuario(${u.id}, 'ativo')" style="background-color:#218838;">Reativar</button>`
-          }
-        </td>
-      `;
-      tbody.appendChild(tr);
-    });
-  } catch (error) {
-    alert('Erro ao carregar usuários: ' + error.message);
-  }
-}
-function abrirModalEditar(usuario) {
-  document.getElementById('editUserId').value = usuario.id;
-  document.getElementById('editNomeCompleto').value = usuario.nome;
-  document.getElementById('editLogin').value = usuario.login;
-  document.getElementById('editEmail').value = usuario.email;
-  document.getElementById('editCpf').value = usuario.cpf;
-  document.getElementById('editTipo').value = usuario.tipo;
-  document.getElementById('modalEditarUsuario').style.display = 'flex';
-}
-async function confirmarEdicaoUsuario() {
-  const id = document.getElementById('editUserId').value;
-  const usuario = {
-    nome: document.getElementById('editNomeCompleto').value,
-    login: document.getElementById('editLogin').value,
-    email: document.getElementById('editEmail').value,
-    cpf: document.getElementById('editCpf').value,
-    tipo: document.getElementById('editTipo').value
-  };
-  try {
-    const res = await fetch(`/usuarios/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(usuario)
-    });
-    const data = await res.json();
-    alert(data.mensagem);
-    if (data.sucesso) {
-      fecharModal('modalEditarUsuario');
-      atualizarListaUsuarios();
-    }
-  } catch(err) {
-    alert('Erro ao salvar alterações.');
-  }
-}
-function abrirModalResetarSenha(id) {
-  document.getElementById('resetUserId').value = id;
-  document.getElementById('resetNovaSenha').value = '';
-  document.getElementById('modalResetarSenha').style.display = 'flex';
-}
-async function confirmarResetSenha() {
-  const id = document.getElementById('resetUserId').value;
-  const novaSenha = document.getElementById('resetNovaSenha').value;
-  if (novaSenha.length < 4) {
-    alert('A nova senha deve ter pelo menos 4 caracteres.');
-    return;
-  }
-  try {
-    const res = await fetch(`/usuarios/${id}/senha`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ novaSenha })
-    });
-    const data = await res.json();
-    alert(data.mensagem);
-    if (data.sucesso) {
-      fecharModal('modalResetarSenha');
-    }
-  } catch(err) {
-    alert('Erro ao resetar senha.');
-  }
-}
-async function alterarStatusUsuario(id, novoStatus) {
-  const acao = novoStatus === 'inativo' ? 'desativar' : 'reativar';
-  if (confirm(`Tem certeza que deseja ${acao} este usuário?`)) {
-    try {
-      const res = await fetch(`/usuarios/${id}/status`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: novoStatus })
-      });
-      const data = await res.json();
-      alert(data.mensagem);
-      if (data.sucesso) {
-        atualizarListaUsuarios();
-      }
-    } catch(err) {
-      alert(`Erro ao ${acao} usuário.`);
-    }
-  }
-}
-
-// Funções de Gerenciamento de Listas
-async function carregarOpcoesDropdowns() {
-    try {
-        const [tiposRes, lotacoesRes] = await Promise.all([
-            fetch('/admin/tipos'),
-            fetch('/admin/lotacoes')
-        ]);
-        window.opcoesTipos = await tiposRes.json();
-        window.opcoesLotacoes = await lotacoesRes.json();
-    } catch (err) {
-        console.error("Erro ao carregar opções de dropdowns:", err);
-        alert("Não foi possível carregar as listas de opções. A página será recarregada.");
-        location.reload();
-    }
-}
-function popularDropdown(selectId, opcoes) {
-    const select = document.getElementById(selectId);
-    // Preserva a primeira opção (ex: "Selecione...")
-    const primeiraOpcao = select.options[0];
-    select.innerHTML = '';
-    select.appendChild(primeiraOpcao);
-
-    opcoes.forEach(opcao => {
-        const opt = document.createElement('option');
-        opt.value = opcao;
-        opt.textContent = opcao;
-        select.appendChild(opt);
-    });
-}
-function popularDropdownsFormulario() {
-    popularDropdown('tipo', window.opcoesTipos);
-    popularDropdown('lotacao', window.opcoesLotacoes);
-}
-async function carregarTabelaGestao(tipo) { // tipo = 'tipos' ou 'lotacoes'
-    const tbody = document.getElementById(tipo === 'tipos' ? 'tabelaTipos' : 'tabelaLotacoes');
-    try {
-        const res = await fetch(`/admin/${tipo}/all`);
-        const data = await res.json();
-        tbody.innerHTML = '';
-        data.forEach(item => {
-            const tr = document.createElement('tr');
-            const statusStyle = item.ativo ? 'color:green;' : 'color:red;';
-            tr.innerHTML = `
-                <td>${item.nome}</td>
-                <td style="${statusStyle}">${item.ativo ? 'Ativo' : 'Inativo'}</td>
-                <td>
-                    <button onclick="alterarStatusItem('${tipo}', ${item.id}, ${!item.ativo})">
-                        ${item.ativo ? 'Desativar' : 'Reativar'}
-                    </button>
-                </td>
-            `;
-            tbody.appendChild(tr);
-        });
-    } catch (err) {
-        console.error(`Erro ao carregar ${tipo}:`, err);
-    }
-}
-async function adicionarItem(tipo) {
-    const nomeInput = document.getElementById(tipo === 'tipos' ? 'novoTipoNome' : 'novaLotacaoNome');
-    const nome = nomeInput.value.trim();
-    if (!nome) {
-        alert('O nome não pode ser vazio.');
-        return;
-    }
-    try {
-        await fetch(`/admin/${tipo}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nome })
-        });
-        nomeInput.value = '';
-        carregarTabelaGestao(tipo);
-        await carregarOpcoesDropdowns();
-    } catch (err) {
-        alert(`Erro ao adicionar item.`);
-    }
-}
-async function alterarStatusItem(tipo, id, novoStatus) {
-    const acao = novoStatus ? 'reativar' : 'desativar';
-    if (confirm(`Tem certeza que deseja ${acao} este item?`)) {
-        try {
-            await fetch(`/admin/${tipo}/${id}/status`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ativo: novoStatus })
-            });
-            carregarTabelaGestao(tipo);
-            await carregarOpcoesDropdowns();
-        } catch (err) {
-            alert(`Erro ao ${acao} o item.`);
-        }
-    }
-}
-
-// Funções Auxiliares
-async function gerarBackup() {
-  const dataInicio = document.getElementById('backupDataInicio').value;
-  const dataFim = document.getElementById('backupDataFim').value;
-  if (!dataInicio || !dataFim) {
-    alert("Por favor, selecione o período completo (data início e fim).");
-    return;
-  }
-  try {
-    const url = `/protocolos/backup?dataInicio=${dataInicio}&dataFim=${dataFim}`;
-    const response = await fetch(url);
-    if (!response.ok) {
-      const textoErro = await response.text();
-      alert(`Erro ao gerar backup: ${textoErro || response.statusText}`);
-      return;
-    }
-    const blob = await response.blob();
-    const urlBlob = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = urlBlob;
-    a.download = `backup_protocolos_${dataInicio}_a_${dataFim}.xlsx`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    window.URL.revokeObjectURL(urlBlob);
-  } catch (error) {
-    console.error("Erro ao gerar backup:", error);
-    alert("Erro ao gerar backup. Veja console.");
-  }
-}
-function renderizarPaginacao(totalItens, paginaAtual, idContainer, callback) {
-    const container = document.getElementById(idContainer);
-    container.innerHTML = '';
-    const totalPaginas = Math.ceil(totalItens / itensPorPagina);
-    if (totalPaginas <= 1) return;
-    let maxPagesToShow = 5;
-    let startPage, endPage;
-    if (totalPaginas <= maxPagesToShow) {
-        startPage = 1;
-        endPage = totalPaginas;
-    } else {
-        const maxPagesBeforeCurrent = Math.floor(maxPagesToShow / 2);
-        const maxPagesAfterCurrent = Math.ceil(maxPagesToShow / 2) - 1;
-        if (paginaAtual <= maxPagesBeforeCurrent) {
-            startPage = 1;
-            endPage = maxPagesToShow;
-        } else if (paginaAtual + maxPagesAfterCurrent >= totalPaginas) {
-            startPage = totalPaginas - maxPagesToShow + 1;
-            endPage = totalPaginas;
+        if (window.nivelUsuario === "comum") {
+            mostrarTela('meusProtocolos');
         } else {
-            startPage = paginaAtual - maxPagesBeforeCurrent;
-            endPage = paginaAtual + maxPagesAfterCurrent;
+            mostrarTela('menu');
         }
-    }
-    if (paginaAtual > 1) {
-        const prevBtn = document.createElement('button');
-        prevBtn.textContent = '«';
-        prevBtn.onclick = () => callback(paginaAtual - 1);
-        container.appendChild(prevBtn);
-    }
-    if (startPage > 1) {
-        const firstBtn = document.createElement('button');
-        firstBtn.textContent = '1';
-        firstBtn.onclick = () => callback(1);
-        container.appendChild(firstBtn);
-        if (startPage > 2) {
-            const ellipsis = document.createElement('span');
-            ellipsis.textContent = '...';
-            container.appendChild(ellipsis);
-        }
-    }
-    for (let i = startPage; i <= endPage; i++) {
-        const btn = document.createElement('button');
-        btn.textContent = i;
-        if (i === paginaAtual) {
-            btn.disabled = true;
-            btn.style.fontWeight = 'bold';
-            btn.style.backgroundColor = '#ccc';
-        }
-        btn.onclick = () => callback(i);
-        container.appendChild(btn);
-    }
-    if (endPage < totalPaginas) {
-        if (endPage < totalPaginas - 1) {
-            const ellipsis = document.createElement('span');
-            ellipsis.textContent = '...';
-            container.appendChild(ellipsis);
-        }
-        const lastBtn = document.createElement('button');
-        lastBtn.textContent = totalPaginas;
-        lastBtn.onclick = () => callback(totalPaginas);
-        container.appendChild(lastBtn);
-    }
-    if (paginaAtual < totalPaginas) {
-        const nextBtn = document.createElement('button');
-        nextBtn.textContent = '»';
-        nextBtn.onclick = () => callback(paginaAtual + 1);
-        container.appendChild(nextBtn);
-    }
-}
-function voltarDeMeusProtocolos() {
-  if (window.nivelUsuario === 'comum') {
-    sair();
-  } else {
-    mostrarTela('menu');
-  }
-}
-function preencherCamposServidor(servidor) {
-    if (!servidor) {
-      document.getElementById('nome').value = '';
-      document.getElementById('lotacao').value = '';
-      document.getElementById('cargo').value = '';
-      document.getElementById('unidade').value = '';
     } else {
-      document.getElementById('nome').value = servidor.nome || '';
-      document.getElementById('lotacao').value = servidor.lotacao || '';
-      document.getElementById('cargo').value = servidor.cargo || '';
-      document.getElementById('unidade').value = servidor.unidade_de_exercicio || '';
+        mostrarTela('login');
     }
-  }
 
-// Event Listeners
-document.addEventListener('DOMContentLoaded', () => {
+    // Adiciona os listeners que dependem do DOM estar carregado
     document.getElementById('matricula').addEventListener('blur', async function() {
         const matricula = this.value.trim();
         if (!matricula) {
@@ -1401,3 +477,654 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
+// Funções Globais (acessíveis via onclick)
+window.logar = async function() {
+    const user = document.getElementById('usuario').value;
+    const senha = document.getElementById('senha').value;
+    const msg = document.getElementById('loginMsg');
+    try {
+        const res = await fetch('/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ login: user, senha: senha })
+        });
+        const data = await res.json();
+        if (data.sucesso && data.usuario) {
+            localStorage.setItem('usuarioLogado', data.usuario.nome);
+            localStorage.setItem('usuarioLogin', data.usuario.login);
+            localStorage.setItem('nivelUsuario', data.usuario.tipo);
+            window.usuarioLogado = data.usuario.nome;
+            window.usuarioLogin = data.usuario.login;
+            window.nivelUsuario = data.usuario.tipo;
+
+            await carregarOpcoesDropdowns();
+            verificarNotificacoes();
+
+            document.getElementById('btnDashboard').style.display = (window.nivelUsuario === 'admin' || window.nivelUsuario === 'padrao') ? 'flex' : 'none';
+            document.getElementById('btnConfig').style.display = window.nivelUsuario === "admin" ? "flex" : "none";
+            document.getElementById('btnNovo').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "flex" : "none";
+            document.getElementById('btnRelatorios').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "flex" : "none";
+
+            if (window.nivelUsuario === "comum") {
+                mostrarTela('meusProtocolos');
+            } else {
+                mostrarTela('menu');
+            }
+            msg.textContent = "";
+        } else {
+            msg.textContent = "Usuário ou senha incorretos.";
+        }
+    } catch(err) {
+        console.error("Erro no login:", err);
+        msg.textContent = "Erro ao conectar ao servidor.";
+    }
+};
+window.sair = function() {
+    localStorage.clear();
+    window.usuarioLogado = "";
+    window.nivelUsuario = "";
+    window.usuarioLogin = "";
+    document.getElementById('notification-bell').style.display = 'none';
+    window.location.reload();
+};
+window.mostrarTela = async function(tela) {
+    ['login','menu','dashboard','form','config','protocolos','meusProtocolos','relatorios'].forEach(id => {
+        document.getElementById(id)?.classList.remove('active');
+    });
+    if (window.nivelUsuario && tela === 'relatorios' && window.nivelUsuario === 'comum') {
+        alert('Acesso restrito!');
+        return;
+    }
+    document.getElementById(tela).classList.add('active');
+
+    if (tela === 'meusProtocolos') {
+        const usuarioLogin = localStorage.getItem('usuarioLogin');
+        if (usuarioLogin) {
+            try {
+                await fetch('/protocolos/notificacoes/ler', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ usuarioLogin })
+                });
+                document.getElementById('notification-bell').style.display = 'none';
+            } catch (err) { console.error('Erro ao marcar notificações como lidas:', err); }
+        }
+    }
+    
+    if (tela === 'protocolos') listarProtocolos();
+    if (tela === 'meusProtocolos') listarMeusProtocolos();
+    if (tela === 'form') { popularDropdownsFormulario(); gerarNumeroProtocolo(); }
+    if (tela === 'config') { atualizarListaUsuarios(); carregarTabelaGestao('tipos'); carregarTabelaGestao('lotacoes'); }
+    if (tela === 'relatorios') { popularFiltrosRelatorio(); pesquisarProtocolos(); }
+    if (tela === 'dashboard') carregarDashboard();
+};
+window.gerarNumeroProtocolo = async function() {
+  const anoAtual = new Date().getFullYear();
+  try {
+    const res = await fetch(`/protocolos/ultimoNumero/${anoAtual}`);
+    const data = await res.json();
+    const ultimo = data.ultimo || 0;
+    const novoNumero = `${String(ultimo + 1).padStart(4, '0')}/${anoAtual}`;
+    document.getElementById('numeroProtocolo').value = novoNumero;
+  } catch (error) {
+    console.error("Erro ao gerar número:", error);
+    document.getElementById('numeroProtocolo').value = `0001/${anoAtual}`;
+  }
+};
+window.enviarRequerimento = function() {
+  const numeroProtocolo = document.getElementById('numeroProtocolo').value;
+  if (!numeroProtocolo) { alert("❗Número de protocolo não gerado."); return; }
+  const dataAgora = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+  const protocolo = {
+    numero: numeroProtocolo, matricula: document.getElementById('matricula').value, nome: document.getElementById('nome').value,
+    endereco: document.getElementById('endereco').value, municipio: document.getElementById('municipio').value, bairro: document.getElementById('bairro').value,
+    cep: document.getElementById('cep').value, telefone: document.getElementById('telefone').value, cpf: document.getElementById('cpf').value,
+    rg: document.getElementById('rg').value, dataExpedicao: document.getElementById('dataExpedicao').value, cargo: document.getElementById('cargo').value,
+    lotacao: document.getElementById('lotacao').value, unidade: document.getElementById('unidade').value, tipo: document.getElementById('tipo').value,
+    requerAo: document.getElementById('requerAo').value, dataSolicitacao: document.getElementById('dataSolicitacao').value, complemento: document.getElementById('complemento').value,
+    dataEnvio: dataAgora, status: "Enviado", responsavel: window.usuarioLogin,
+  };
+  fetch('/protocolos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(protocolo) })
+  .then(res => res.json())
+  .then(data => {
+    if (data.sucesso) {
+      alert('✅ Protocolo enviado e salvo no banco com sucesso!');
+      document.querySelector('#form .formulario').reset();
+      gerarNumeroProtocolo();
+    } else {
+      alert('❌ Erro ao enviar protocolo: ' + (data.mensagem || 'Erro desconhecido'));
+    }
+  })
+  .catch(err => { alert('❌ Erro na conexão: ' + err.message); });
+};
+window.listarProtocolos = async function(pagina = 1) {
+  const tbody = document.getElementById('tabelaProtocolos');
+  tbody.innerHTML = "<tr><td colspan='7'>Carregando...</td></tr>";
+  paginaAtualTodos = pagina;
+  try {
+    const res = await fetch('/protocolos');
+    const data = await res.json();
+    tbody.innerHTML = "";
+    const inicio = (pagina - 1) * itensPorPagina;
+    const fim = inicio + itensPorPagina;
+    const paginaDados = data.protocolos.slice(inicio, fim);
+    if (paginaDados.length === 0) tbody.innerHTML = "<tr><td colspan='7'>Nenhum protocolo encontrado.</td></tr>";
+    paginaDados.forEach(p => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td style="width: 120px; text-align: center;">${p.numero}</td> <td>${p.matricula}</td> <td>${p.nome}</td>
+        <td>${p.tipo_requerimento}</td> <td>${p.status}</td> <td>${p.responsavel}</td>
+        <td>
+          <button onclick="abrirAtualizar(${p.id})">Atualizar</button>
+          <button onclick="abrirModalEncaminhar(${p.id})">Encaminhar</button>
+          <button onclick="previsualizarPDF(${p.id})">📄 Documento</button>
+        </td>`;
+      tbody.appendChild(tr);
+    });
+    renderizarPaginacao(data.protocolos.length, pagina, 'paginacaoProtocolos', listarProtocolos);
+  } catch (error) { console.error("Erro ao listar protocolos:", error); tbody.innerHTML = "<tr><td colspan='7'>Erro ao carregar protocolos.</td></tr>"; }
+};
+window.listarMeusProtocolos = async function(pagina = 1) {
+    const tbody = document.getElementById('meusProtocolosTabela');
+    tbody.innerHTML = "<tr><td colspan='4'>Carregando...</td></tr>";
+    paginaAtualMeus = pagina;
+    const filtroNumero = document.getElementById('filtroMeusProtocolosNumero').value.trim().toLowerCase();
+    const filtroNome = document.getElementById('filtroMeusProtocolosNome').value.trim().toLowerCase();
+    try {
+        const usuarioLogin = localStorage.getItem('usuarioLogin');
+        if (!usuarioLogin) { tbody.innerHTML = "<tr><td colspan='4'>Usuário não identificado.</td></tr>"; return; }
+        const res = await fetch(`/protocolos/meus/${usuarioLogin}`);
+        let data = await res.json();
+        tbody.innerHTML = "";
+        if (filtroNumero || filtroNome) {
+            data.protocolos = data.protocolos.filter(p => {
+                const numeroMatch = !filtroNumero || (p.numero || "").toLowerCase().includes(filtroNumero);
+                const nomeMatch = !filtroNome || (p.nome || "").toLowerCase().includes(filtroNome);
+                return numeroMatch && nomeMatch;
+            });
+        }
+        const inicio = (pagina - 1) * itensPorPagina;
+        const fim = inicio + itensPorPagina;
+        const paginaDados = data.protocolos.slice(inicio, fim);
+        if (paginaDados.length === 0) tbody.innerHTML = "<tr><td colspan='4'>Nenhum protocolo encontrado.</td></tr>";
+        paginaDados.forEach(p => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${p.numero}</td> <td>${p.nome}</td> <td>${p.status}</td>
+                <td>
+                  <button onclick="abrirAtualizar(${p.id})">Atualizar</button>
+                  <button onclick="abrirModalEncaminhar(${p.id})">Encaminhar</button>
+                  <button onclick="previsualizarPDF(${p.id})">📄 Documento</button>
+                </td>`;
+            tbody.appendChild(tr);
+        });
+        renderizarPaginacao(data.protocolos.length, pagina, 'paginacaoMeusProtocolos', listarMeusProtocolos);
+    } catch (error) { console.error("Erro ao listar meus protocolos:", error); tbody.innerHTML = "<tr><td colspan='4'>Erro ao carregar protocolos.</td></tr>"; }
+};
+window.limparFiltrosMeusProtocolos = function() {
+    document.getElementById('filtroMeusProtocolosNumero').value = '';
+    document.getElementById('filtroMeusProtocolosNome').value = '';
+    listarMeusProtocolos();
+};
+window.fecharModal = function(modalId) { document.getElementById(modalId).style.display = 'none'; };
+window.abrirModalEncaminhar = async function(idProtocolo) {
+  try {
+    const res = await fetch('/usuarios');
+    const data = await res.json();
+    const select = document.getElementById('selectUsuarioEncaminhar');
+    select.innerHTML = '';
+    data.usuarios.forEach(usuario => {
+      const option = document.createElement('option');
+      option.value = usuario.login;
+      option.textContent = `${usuario.nome} (${usuario.tipo})`;
+      select.appendChild(option);
+    });
+    document.getElementById('statusEncaminhamento').value = 'Encaminhado';
+    const modal = document.getElementById('modalEncaminhar');
+    modal.dataset.protocoloId = idProtocolo;
+    modal.style.display = 'flex';
+  } catch (error) { alert('Erro ao carregar usuários'); console.error(error); }
+};
+window.confirmarEncaminhamento = async function() {
+  const modal = document.getElementById('modalEncaminhar');
+  const idProtocolo = modal.dataset.protocoloId;
+  const destino = document.getElementById('selectUsuarioEncaminhar').value;
+  const novoStatus = document.getElementById('statusEncaminhamento').value.trim();
+  if (!novoStatus) { alert('O campo de status não pode ficar vazio.'); return; }
+  try {
+    const response = await fetch('/protocolos/atualizar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ protocoloId: idProtocolo, novoStatus: novoStatus, novoResponsavel: destino, observacao: `Encaminhado por ${window.usuarioLogado} para ${destino}`, usuarioLogado: window.usuarioLogado })
+    });
+    const data = await response.json();
+    if (data.sucesso) {
+      alert('✅ Protocolo encaminhado com sucesso!');
+      fecharModal('modalEncaminhar');
+      if (document.getElementById('protocolos').classList.contains('active')) await listarProtocolos();
+      if (document.getElementById('meusProtocolos').classList.contains('active')) await listarMeusProtocolos();
+      await verificarNotificacoes();
+    } else {
+      alert('❌ Erro ao encaminhar protocolo: ' + (data.mensagem || ''));
+    }
+  } catch (err) { console.error(err); alert('❌ Erro ao encaminhar protocolo'); }
+};
+window.abrirAtualizar = async function(id) {
+  const modal = document.getElementById('modalAtualizarStatus');
+  document.getElementById('statusSelect').value = 'Em análise';
+  document.getElementById('statusCustom').style.display = 'none';
+  document.getElementById('statusCustom').value = '';
+  document.getElementById('observacaoAtualizacao').value = '';
+  modal.dataset.protocoloId = id;
+  modal.style.display = 'flex';
+};
+window.handleStatusChange = function(selectElement) {
+  const customInput = document.getElementById('statusCustom');
+  customInput.style.display = selectElement.value === 'Outro' ? 'block' : 'none';
+};
+window.confirmarAtualizacaoStatus = async function() {
+  const modal = document.getElementById('modalAtualizarStatus');
+  const protocoloId = modal.dataset.protocoloId;
+  const statusSelect = document.getElementById('statusSelect');
+  let novoStatus = statusSelect.value;
+  if (novoStatus === 'Outro') {
+    novoStatus = document.getElementById('statusCustom').value.trim();
+    if (!novoStatus) { alert('Por favor, digite o status personalizado.'); return; }
+  }
+  const observacaoInput = document.getElementById('observacaoAtualizacao').value.trim();
+  const observacaoFinal = `Status atualizado para "${novoStatus}". ${observacaoInput}`.trim();
+  try {
+    const response = await fetch(`/protocolos/atualizar`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ protocoloId: protocoloId, novoStatus: novoStatus, novoResponsavel: window.usuarioLogin, observacao: observacaoFinal, usuarioLogado: window.usuarioLogado })
+    });
+    const data = await response.json();
+    if (data.sucesso) {
+      alert("✅ Status atualizado!");
+      fecharModal('modalAtualizarStatus');
+      if (document.getElementById('protocolos').classList.contains('active')) await listarProtocolos();
+      if (document.getElementById('meusProtocolos').classList.contains('active')) await listarMeusProtocolos();
+    } else {
+      alert("Erro ao atualizar.");
+    }
+  } catch (error) { console.error("Erro na atualização:", error); }
+};
+window.previsualizarPDF = async function(id) {
+  try {
+    const res = await fetch(`/protocolos/${id}`);
+    const { protocolo } = await res.json();
+    if (!protocolo) { alert("Protocolo não encontrado"); return; }
+    protocoloParaGerar = protocolo;
+    const modeloOriginal = document.getElementById('modeloProtocolo');
+    const pdfContentDiv = document.getElementById('pdfContent');
+    pdfContentDiv.innerHTML = modeloOriginal.innerHTML; 
+    
+    const qrcodeContainer = pdfContentDiv.querySelector('#qrcode-container');
+    if(qrcodeContainer) {
+        qrcodeContainer.innerHTML = '';
+        const numeroParts = protocolo.numero.split('/');
+        if (numeroParts.length === 2) {
+            const urlConsulta = `${window.location.origin}/consulta/${numeroParts[1]}/${numeroParts[0]}`;
+            new QRCode(qrcodeContainer, { text: urlConsulta, width: 90, height: 90, correctLevel : QRCode.CorrectLevel.H });
+        }
+    }
+    
+    pdfContentDiv.querySelector('#doc_numero').textContent = protocolo.numero ?? 'Não informado';
+    pdfContentDiv.querySelector('#doc_dataSolicitacao').textContent = protocolo.data_solicitacao ? new Date(protocolo.data_solicitacao).toLocaleDateString('pt-BR') : 'Não informada';
+    pdfContentDiv.querySelector('#doc_nome').textContent = protocolo.nome ?? 'Não informado';
+    pdfContentDiv.querySelector('#doc_matricula').textContent = protocolo.matricula ?? 'Não informado';
+    pdfContentDiv.querySelector('#doc_cpf').textContent = protocolo.cpf ?? 'Não informado';
+    pdfContentDiv.querySelector('#doc_rg').textContent = protocolo.rg ?? 'Não informado';
+    pdfContentDiv.querySelector('#doc_endereco').textContent = protocolo.endereco ?? 'Não informado';
+    pdfContentDiv.querySelector('#doc_bairro').textContent = protocolo.bairro ?? 'Não informado';
+    pdfContentDiv.querySelector('#doc_municipio').textContent = protocolo.municipio ?? 'Não informado';
+    pdfContentDiv.querySelector('#doc_cep').textContent = protocolo.cep ?? 'Não informado';
+    pdfContentDiv.querySelector('#doc_telefone').textContent = protocolo.telefone ?? 'Não informado';
+    pdfContentDiv.querySelector('#doc_cargo').textContent = protocolo.cargo ?? 'Não informado';
+    pdfContentDiv.querySelector('#doc_lotacao').textContent = protocolo.lotacao ?? 'Não informado';
+    pdfContentDiv.querySelector('#doc_unidade').textContent = protocolo.unidade_exercicio ?? 'Não informado';
+    pdfContentDiv.querySelector('#doc_tipo').textContent = protocolo.tipo_requerimento ?? 'Não informado';
+    pdfContentDiv.querySelector('#doc_requerAo').textContent = protocolo.requer_ao ?? 'Não informado';
+    pdfContentDiv.querySelector('#doc_complemento').innerHTML = protocolo.observacoes ? protocolo.observacoes.replace(/\n/g, '<br>') : 'Nenhuma informação adicional';
+    
+    document.getElementById('pdfModal').style.display = 'block';
+  } catch (err) {
+    console.error('Erro ao preparar PDF:', err);
+    alert('Erro ao preparar a visualização do PDF. Verifique o console.');
+  }
+};
+window.gerarPDF = async function() {
+  if (!protocoloParaGerar) { alert("Nenhum protocolo para gerar."); return; }
+  const element = document.getElementById('pdfContent');
+  const opt = { margin: [0, 0, 0, 0], filename: `Protocolo_${protocoloParaGerar.numero.replace('/', '-')}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, scrollY: 0, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
+  try {
+    await html2pdf().set(opt).from(element).save();
+    fecharModal('pdfModal');
+  } catch (error) { console.error("Erro ao gerar PDF:", error); alert("Ocorreu um erro ao gerar o PDF."); }
+};
+window.popularFiltrosRelatorio = function() {
+    popularDropdown('filtroTipo', window.opcoesTipos);
+    document.getElementById('filtroTipo').firstChild.textContent = "Todo tipo de Requerimento";
+    popularDropdown('filtroLotacao', window.opcoesLotacoes);
+    document.getElementById('filtroLotacao').firstChild.textContent = "Todas as Lotações";
+};
+window.pesquisarProtocolos = async function() {
+  const params = new URLSearchParams({ numero: document.getElementById('filtroNumero').value, nome: document.getElementById('filtroNome').value, status: document.getElementById('filtroStatus').value, dataInicio: document.getElementById('filtroDataInicio').value, dataFim: document.getElementById('filtroDataFim').value, tipo: document.getElementById('filtroTipo').value, lotacao: document.getElementById('filtroLotacao').value });
+  const tbody = document.getElementById('resultadosPesquisa');
+  tbody.innerHTML = '<tr><td colspan="7">Pesquisando...</td></tr>';
+  try {
+    const res = await fetch(`/protocolos/pesquisa?${params.toString()}`);
+    const data = await res.json();
+    tbody.innerHTML = '';
+    if (data.protocolos && data.protocolos.length > 0) {
+      data.protocolos.forEach(p => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${p.numero || ''}</td> <td>${p.nome || ''}</td> <td>${p.matricula || ''}</td>
+          <td>${p.tipo_requerimento || ''}</td> <td>${p.data_solicitacao ? new Date(p.data_solicitacao).toLocaleDateString('pt-BR') : ''}</td>
+          <td>${p.status || ''}</td> <td>${p.responsavel || ''}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    } else {
+      tbody.innerHTML = '<tr><td colspan="7">Nenhum protocolo encontrado com os filtros informados.</td></tr>';
+    }
+  } catch (error) { console.error("Erro ao pesquisar protocolos:", error); }
+};
+window.gerarRelatorioPDF = async function() {
+  const params = new URLSearchParams({ numero: document.getElementById('filtroNumero').value, nome: document.getElementById('filtroNome').value, status: document.getElementById('filtroStatus').value, dataInicio: document.getElementById('filtroDataInicio').value, dataFim: document.getElementById('filtroDataFim').value, tipo: document.getElementById('filtroTipo').value, lotacao: document.getElementById('filtroLotacao').value });
+  const res = await fetch(`/protocolos/pesquisa?${params.toString()}`);
+  const data = await res.json();
+  if (!data.protocolos || data.protocolos.length === 0) { alert("Nenhum resultado encontrado para gerar o PDF."); return; }
+  
+  const templatePDF = document.getElementById('modeloProtocolo');
+  let htmlContent = '';
+  
+  data.protocolos.forEach(p => {
+    const tempNode = templatePDF.cloneNode(true);
+    tempNode.style.display = 'block';
+    tempNode.querySelector('#doc_numero').textContent = p.numero || '';
+    tempNode.querySelector('#doc_dataSolicitacao').textContent = p.data_solicitacao ? new Date(p.data_solicitacao).toLocaleDateString('pt-BR') : '';
+    tempNode.querySelector('#doc_nome').textContent = p.nome || '';
+    tempNode.querySelector('#doc_matricula').textContent = p.matricula || '';
+    tempNode.querySelector('#doc_tipo').textContent = p.tipo_requerimento || '';
+    // Adicione outros campos que queira exibir no relatório
+    htmlContent += `<div style="page-break-after: always;">${tempNode.innerHTML}</div>`;
+  });
+
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = htmlContent;
+  
+  const opt = { margin: [0, 0, 0, 0], filename: `Relatorio_Protocolos.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, scrollY: 0, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
+  html2pdf().set(opt).from(tempDiv).save();
+};
+window.exportarRelatorioExcel = function() {
+  const params = new URLSearchParams({ numero: document.getElementById('filtroNumero').value, nome: document.getElementById('filtroNome').value, status: document.getElementById('filtroStatus').value, dataInicio: document.getElementById('filtroDataInicio').value, dataFim: document.getElementById('filtroDataFim').value, tipo: document.getElementById('filtroTipo').value, lotacao: document.getElementById('filtroLotacao').value });
+  window.location.href = `/protocolos/backup?${params.toString()}`;
+};
+window.limparFiltrosRelatorio = function() {
+  document.querySelector('#relatorios .filtros').reset();
+  pesquisarProtocolos();
+};
+window.verificarNotificacoes = async function() {
+  const usuarioLogin = localStorage.getItem('usuarioLogin');
+  if (!usuarioLogin) return;
+  try {
+    const res = await fetch(`/protocolos/notificacoes/${usuarioLogin}`);
+    const data = await res.json();
+    const count = data.count;
+    const bell = document.getElementById('notification-bell');
+    const countSpan = document.getElementById('notification-count');
+    if (count > 0) {
+      countSpan.textContent = count;
+      bell.style.display = 'block';
+    } else {
+      bell.style.display = 'none';
+    }
+  } catch (err) { console.error('Erro ao verificar notificações:', err); }
+};
+window.carregarDashboard = async function() {
+    try {
+        const res = await fetch('/protocolos/dashboard-stats');
+        const stats = await res.json();
+        document.getElementById('stat-novos').textContent = stats.novosNaSemana;
+        document.getElementById('stat-pendentes').textContent = stats.pendentesAntigos;
+        const labels = stats.topTipos.map(item => item.tipo_requerimento);
+        const data = stats.topTipos.map(item => item.total);
+        const ctx = document.getElementById('tiposChart').getContext('2d');
+        if (tiposChartInstance) { tiposChartInstance.destroy(); }
+        tiposChartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Total de Protocolos', data: data,
+                    backgroundColor: ['rgba(46, 125, 50, 0.7)', 'rgba(76, 175, 80, 0.7)', 'rgba(139, 195, 74, 0.7)', 'rgba(205, 220, 57, 0.7)', 'rgba(255, 235, 59, 0.7)'],
+                    borderColor: ['rgba(46, 125, 50, 1)', 'rgba(76, 175, 80, 1)', 'rgba(139, 195, 74, 1)', 'rgba(205, 220, 57, 1)', 'rgba(255, 235, 59, 1)'],
+                    borderWidth: 1
+                }]
+            },
+            options: { scales: { y: { beginAtZero: true } }, indexAxis: 'y', responsive: true, plugins: { legend: { display: false } } }
+        });
+    } catch (err) { console.error("Erro ao carregar dados do dashboard:", err); alert("Não foi possível carregar os dados do dashboard."); }
+};
+window.salvarEmailSistema = function() {
+  localStorage.setItem('emailSistema', document.getElementById('emailSistemaConfig').value);
+  alert("Email salvo com sucesso!");
+};
+window.cadastrarUsuario = async function() {
+  const nomeCompleto = document.getElementById('nomeCompleto').value.trim();
+  const login = document.getElementById('novoUsuario').value.trim();
+  const cpf = document.getElementById('cpfUsuario').value.trim();
+  const senha = document.getElementById('novaSenha').value.trim();
+  const email = document.getElementById('novoEmail').value.trim();
+  const tipo = document.getElementById('nivelUsuario').value;
+  if (!nomeCompleto || !login || !cpf || !senha || !email || !tipo) { alert('Por favor, preencha todos os campos.'); return; }
+  try {
+    const res = await fetch('/usuarios', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome: nomeCompleto, login, cpf, senha, email, tipo }) });
+    const data = await res.json();
+    alert(data.mensagem || 'Usuário cadastrado!');
+    if (data.sucesso) {
+        document.getElementById('nomeCompleto').value = ''; document.getElementById('novoUsuario').value = ''; document.getElementById('cpfUsuario').value = ''; document.getElementById('novaSenha').value = ''; document.getElementById('novoEmail').value = '';
+        atualizarListaUsuarios();
+    }
+  } catch (error) { console.error('Erro ao cadastrar usuário:', error); alert('Erro ao cadastrar usuário.'); }
+};
+window.atualizarListaUsuarios = async function() {
+  try {
+    const response = await fetch('/usuarios');
+    const data = await response.json();
+    const tbody = document.getElementById('tabelaUsuarios');
+    tbody.innerHTML = "";
+    data.usuarios.forEach(u => {
+      const tr = document.createElement('tr');
+      const statusClasse = u.status === 'ativo' ? 'color:green;' : 'color:red;';
+      tr.innerHTML = `
+        <td>${u.nome}</td> <td>${u.login}</td> <td>${u.email}</td> <td>${u.tipo}</td> <td style="font-weight:bold; ${statusClasse}">${u.status}</td>
+        <td>
+          <button onclick='abrirModalEditar(${JSON.stringify(u)})'>Editar</button>
+          <button onclick='abrirModalResetarSenha(${u.id})'>Resetar Senha</button>
+          ${u.status === 'ativo' ? `<button onclick="alterarStatusUsuario(${u.id}, 'inativo')" style="background-color:#c82333;">Desativar</button>` : `<button onclick="alterarStatusUsuario(${u.id}, 'ativo')" style="background-color:#218838;">Reativar</button>`}
+        </td>`;
+      tbody.appendChild(tr);
+    });
+  } catch (error) { alert('Erro ao carregar usuários: ' + error.message); }
+};
+window.abrirModalEditar = function(usuario) {
+  document.getElementById('editUserId').value = usuario.id;
+  document.getElementById('editNomeCompleto').value = usuario.nome;
+  document.getElementById('editLogin').value = usuario.login;
+  document.getElementById('editEmail').value = usuario.email;
+  document.getElementById('editCpf').value = usuario.cpf;
+  document.getElementById('editTipo').value = usuario.tipo;
+  document.getElementById('modalEditarUsuario').style.display = 'flex';
+};
+window.confirmarEdicaoUsuario = async function() {
+  const id = document.getElementById('editUserId').value;
+  const usuario = { nome: document.getElementById('editNomeCompleto').value, login: document.getElementById('editLogin').value, email: document.getElementById('editEmail').value, cpf: document.getElementById('editCpf').value, tipo: document.getElementById('editTipo').value };
+  try {
+    const res = await fetch(`/usuarios/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(usuario) });
+    const data = await res.json();
+    alert(data.mensagem);
+    if (data.sucesso) { fecharModal('modalEditarUsuario'); atualizarListaUsuarios(); }
+  } catch(err) { alert('Erro ao salvar alterações.'); }
+};
+window.abrirModalResetarSenha = function(id) {
+  document.getElementById('resetUserId').value = id;
+  document.getElementById('resetNovaSenha').value = '';
+  document.getElementById('modalResetarSenha').style.display = 'flex';
+};
+window.confirmarResetSenha = async function() {
+  const id = document.getElementById('resetUserId').value;
+  const novaSenha = document.getElementById('resetNovaSenha').value;
+  if (novaSenha.length < 4) { alert('A nova senha deve ter pelo menos 4 caracteres.'); return; }
+  try {
+    const res = await fetch(`/usuarios/${id}/senha`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ novaSenha }) });
+    const data = await res.json();
+    alert(data.mensagem);
+    if (data.sucesso) { fecharModal('modalResetarSenha'); }
+  } catch(err) { alert('Erro ao resetar senha.'); }
+};
+window.alterarStatusUsuario = async function(id, novoStatus) {
+  const acao = novoStatus === 'inativo' ? 'desativar' : 'reativar';
+  if (confirm(`Tem certeza que deseja ${acao} este usuário?`)) {
+    try {
+      const res = await fetch(`/usuarios/${id}/status`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: novoStatus }) });
+      const data = await res.json();
+      alert(data.mensagem);
+      if (data.sucesso) { atualizarListaUsuarios(); }
+    } catch(err) { alert(`Erro ao ${acao} usuário.`); }
+  }
+};
+window.carregarOpcoesDropdowns = async function() {
+    try {
+        const [tiposRes, lotacoesRes] = await Promise.all([ fetch('/admin/tipos'), fetch('/admin/lotacoes') ]);
+        window.opcoesTipos = await tiposRes.json();
+        window.opcoesLotacoes = await lotacoesRes.json();
+    } catch (err) {
+        console.error("Erro ao carregar opções de dropdowns:", err);
+        alert("Não foi possível carregar as listas de opções. A página será recarregada.");
+        location.reload();
+    }
+};
+window.popularDropdown = function(selectId, opcoes) {
+    const select = document.getElementById(selectId);
+    const primeiraOpcao = select.options[0];
+    select.innerHTML = '';
+    select.appendChild(primeiraOpcao);
+    opcoes.forEach(opcao => {
+        const opt = document.createElement('option');
+        opt.value = opcao;
+        opt.textContent = opcao;
+        select.appendChild(opt);
+    });
+};
+window.popularDropdownsFormulario = function() {
+    popularDropdown('tipo', window.opcoesTipos);
+    popularDropdown('lotacao', window.opcoesLotacoes);
+};
+window.carregarTabelaGestao = async function(tipo) {
+    const tbody = document.getElementById(tipo === 'tipos' ? 'tabelaTipos' : 'tabelaLotacoes');
+    try {
+        const res = await fetch(`/admin/${tipo}/all`);
+        const data = await res.json();
+        tbody.innerHTML = '';
+        data.forEach(item => {
+            const tr = document.createElement('tr');
+            const statusStyle = item.ativo ? 'color:green;' : 'color:red;';
+            tr.innerHTML = `
+                <td>${item.nome}</td>
+                <td style="${statusStyle}">${item.ativo ? 'Ativo' : 'Inativo'}</td>
+                <td><button onclick="alterarStatusItem('${tipo}', ${item.id}, ${!item.ativo})">${item.ativo ? 'Desativar' : 'Reativar'}</button></td>
+            `;
+            tbody.appendChild(tr);
+        });
+    } catch (err) { console.error(`Erro ao carregar ${tipo}:`, err); }
+};
+window.adicionarItem = async function(tipo) {
+    const nomeInput = document.getElementById(tipo === 'tipos' ? 'novoTipoNome' : 'novaLotacaoNome');
+    const nome = nomeInput.value.trim();
+    if (!nome) { alert('O nome não pode ser vazio.'); return; }
+    try {
+        await fetch(`/admin/${tipo}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome }) });
+        nomeInput.value = '';
+        carregarTabelaGestao(tipo);
+        await carregarOpcoesDropdowns();
+    } catch (err) { alert(`Erro ao adicionar item.`); }
+};
+window.alterarStatusItem = async function(tipo, id, novoStatus) {
+    const acao = novoStatus ? 'reativar' : 'desativar';
+    if (confirm(`Tem certeza que deseja ${acao} este item?`)) {
+        try {
+            await fetch(`/admin/${tipo}/${id}/status`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ativo: novoStatus }) });
+            carregarTabelaGestao(tipo);
+            await carregarOpcoesDropdowns();
+        } catch (err) { alert(`Erro ao ${acao} o item.`); }
+    }
+};
+window.gerarBackup = async function() {
+  const dataInicio = document.getElementById('backupDataInicio').value;
+  const dataFim = document.getElementById('backupDataFim').value;
+  if (!dataInicio || !dataFim) { alert("Por favor, selecione o período completo (data início e fim)."); return; }
+  try {
+    const url = `/protocolos/backup?dataInicio=${dataInicio}&dataFim=${dataFim}`;
+    const response = await fetch(url);
+    if (!response.ok) { const textoErro = await response.text(); alert(`Erro ao gerar backup: ${textoErro || response.statusText}`); return; }
+    const blob = await response.blob();
+    const urlBlob = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = urlBlob;
+    a.download = `backup_protocolos_${dataInicio}_a_${dataFim}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(urlBlob);
+  } catch (error) { console.error("Erro ao gerar backup:", error); alert("Erro ao gerar backup. Veja console."); }
+};
+window.renderizarPaginacao = function(totalItens, paginaAtual, idContainer, callback) {
+    const container = document.getElementById(idContainer);
+    container.innerHTML = '';
+    const totalPaginas = Math.ceil(totalItens / itensPorPagina);
+    if (totalPaginas <= 1) return;
+    let maxPagesToShow = 5;
+    let startPage, endPage;
+    if (totalPaginas <= maxPagesToShow) { startPage = 1; endPage = totalPaginas; } 
+    else {
+        const maxPagesBeforeCurrent = Math.floor(maxPagesToShow / 2);
+        const maxPagesAfterCurrent = Math.ceil(maxPagesToShow / 2) - 1;
+        if (paginaAtual <= maxPagesBeforeCurrent) { startPage = 1; endPage = maxPagesToShow; } 
+        else if (paginaAtual + maxPagesAfterCurrent >= totalPaginas) { startPage = totalPaginas - maxPagesToShow + 1; endPage = totalPaginas; } 
+        else { startPage = paginaAtual - maxPagesBeforeCurrent; endPage = paginaAtual + maxPagesAfterCurrent; }
+    }
+    if (paginaAtual > 1) {
+        const prevBtn = document.createElement('button'); prevBtn.textContent = '«'; prevBtn.onclick = () => callback(paginaAtual - 1); container.appendChild(prevBtn);
+    }
+    if (startPage > 1) {
+        const firstBtn = document.createElement('button'); firstBtn.textContent = '1'; firstBtn.onclick = () => callback(1); container.appendChild(firstBtn);
+        if (startPage > 2) { const ellipsis = document.createElement('span'); ellipsis.textContent = '...'; container.appendChild(ellipsis); }
+    }
+    for (let i = startPage; i <= endPage; i++) {
+        const btn = document.createElement('button'); btn.textContent = i;
+        if (i === paginaAtual) { btn.disabled = true; btn.style.fontWeight = 'bold'; btn.style.backgroundColor = '#ccc'; }
+        btn.onclick = () => callback(i); container.appendChild(btn);
+    }
+    if (endPage < totalPaginas) {
+        if (endPage < totalPaginas - 1) { const ellipsis = document.createElement('span'); ellipsis.textContent = '...'; container.appendChild(ellipsis); }
+        const lastBtn = document.createElement('button'); lastBtn.textContent = totalPaginas; lastBtn.onclick = () => callback(totalPaginas); container.appendChild(lastBtn);
+    }
+    if (paginaAtual < totalPaginas) {
+        const nextBtn = document.createElement('button'); nextBtn.textContent = '»'; nextBtn.onclick = () => callback(paginaAtual + 1); container.appendChild(nextBtn);
+    }
+};
+window.voltarDeMeusProtocolos = function() {
+  if (window.nivelUsuario === 'comum') { sair(); } else { mostrarTela('menu'); }
+};
+window.preencherCamposServidor = function(servidor) {
+    if (!servidor) {
+      document.getElementById('nome').value = ''; document.getElementById('lotacao').value = ''; document.getElementById('cargo').value = ''; document.getElementById('unidade').value = '';
+    } else {
+      document.getElementById('nome').value = servidor.nome || ''; document.getElementById('lotacao').value = servidor.lotacao || ''; document.getElementById('cargo').value = servidor.cargo || ''; document.getElementById('unidade').value = servidor.unidade_de_exercicio || '';
+    }
+};
