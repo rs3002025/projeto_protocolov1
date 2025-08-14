@@ -8,61 +8,96 @@
     /* --- ESTILOS GERAIS --- */
     body { margin: 0; font-family: Arial, sans-serif; background: #f5f5f5; }
     .container { max-width: 1500px; margin: 40px auto; background: #fff; border-radius: 16px; box-shadow: 0 0 10px rgba(0,0,0,0.1); overflow: hidden; padding-bottom: 30px; }
-    .header { background: #2e7d32; color: white; padding: 20px; text-align: center; border-radius: 0 0 15px 15px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); position: relative; }
+    .header { background: #2e7d32; color: white; padding: 20px; text-align: center; border-radius: 0 0 15px 15px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
     .logo { height: 80px; margin-bottom: 5px; }
     .header h2, .header h3 { margin: 5px 0; }
     .header img { height: 60px; width: auto; }
     .content { padding: 20px 30px; display: none; }
     .content.active { display: block; }
-    .menu, .login-screen, .form-screen, .protocolos-screen, .config-screen, .meus-protocolos-screen, .relatorios-screen, .dashboard-screen { display: none; }
+    .menu, .login-screen, .form-screen, .protocolos-screen, .config-screen, .meus-protocolos-screen, .relatorios-screen { display: none; }
     .active { display: block; }
     .formulario { display: grid; grid-template-columns: repeat(12, 1fr); gap: 15px 20px; }
     .form-group { display: flex; flex-direction: column; }
     .full-row { grid-column: span 12; }
     .span-6 { grid-column: span 6; }
+    .span-4 { grid-column: span 4; }
     .span-3 { grid-column: span 3; }
+    .span-2 { grid-column: span 2; }
     label { margin-bottom: 5px; font-weight: 600; }
     input, select, textarea { border: 1px solid #ccc; border-radius: 6px; padding: 8px; font-size: 1em; }
-    button { padding: 10px 12px; border: none; background: #2e7d32; color: white; border-radius: 8px; cursor: pointer; margin: 5px 10px 5px 0; transition: background-color 0.2s; }
-    button:hover { background-color: #1b5e20; }
+    button { padding: 10px 12px; border: none; background: #2e7d32; color: white; border-radius: 8px; cursor: pointer; margin: 5px 10px 5px 0; }
+    .log-area { margin-top: 20px; font-size: 0.9em; background: #eee; padding: 10px; border-radius: 6px; min-height: 24px; }
     table { width: 100%; border-collapse: collapse; margin-top: 20px; }
     th, td { border: 1px solid #ccc; padding: 8px; text-align: left; vertical-align: top; }
     th { background-color: #e0e0e0; }
+    details { margin-top: 5px; font-size: 0.9em; }
+    summary { cursor: pointer; font-weight: bold; color: #2e7d32; }
     .filtros { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; background: #f5f5f5; padding: 15px; border-radius: 8px; }
     .filtros input, .filtros select { padding: 8px; border-radius: 4px; border: 1px solid #ccc; }
-    #modeloProtocolo { display: none; }
-
-    /* --- ESTILOS DA TELA DE LOGIN --- */
-    .login-screen.active { display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 40px 20px; }
-    .login-form-container { width: 100%; max-width: 400px; padding: 30px; background-color: #ffffff; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); box-sizing: border-box; }
+    #resultadosPesquisa { background: white; }
+    .modal-encaminhar-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+    .modal-encaminhar-box { background-color: white; padding: 20px; border-radius: 10px; width: 300px; max-width: 90%; box-shadow: 0 0 10px rgba(0,0,0,0.3); text-align: center; }
+    .modal-encaminhar-actions { margin-top: 15px; display: flex; justify-content: space-between; }
+    
+    /* --- ESTILOS DA TELA DE LOGIN (NOVO) --- */
+    .login-screen.active {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 40px 20px;
+    }
+    .login-form-container {
+      width: 100%;
+      max-width: 400px;
+      padding: 30px;
+      background-color: #ffffff;
+      border-radius: 12px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+      box-sizing: border-box;
+    }
     .login-form-container h3 { text-align: center; color: #333; margin-top: 0; }
     .login-form-container label { width: 100%; text-align: left; margin-bottom: 8px; font-size: 0.9em; color: #555; }
     .login-form-container input { width: 100%; padding: 12px; margin-bottom: 20px; box-sizing: border-box; }
     .login-form-container button { width: 100%; padding: 12px; margin-top: 10px; margin-left: 0; font-size: 1.1em; font-weight: bold; }
 
-    /* --- ESTILOS DO MENU PRINCIPAL --- */
-    .menu.active { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 25px; padding: 40px; }
-    .menu button { margin: 0; min-height: 110px; font-size: 1.1em; font-weight: bold; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; transition: transform 0.2s ease, box-shadow 0.2s ease; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-    .menu button:hover { transform: translateY(-5px); box-shadow: 0 8px 15px rgba(0,0,0,0.15); }
+    /* --- ESTILOS DO MENU PRINCIPAL (NOVO E CORRIGIDO) --- */
+    .menu.active {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 25px;
+      padding: 40px;
+    }
+    .menu button {
+      margin: 0;
+      min-height: 110px;
+      font-size: 1.1em;
+      font-weight: bold;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .menu button:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 15px rgba(0,0,0,0.15);
+    }
     
     /* Paginação */
-    #paginacaoProtocolos, #paginacaoMeusProtocolos { text-align: center; margin-top: 20px; }
-    #paginacaoProtocolos span, #paginacaoMeusProtocolos span { margin: 0 5px; color: #888; }
-
-    /* Notificações */
-    #notification-bell { position: absolute; top: 25px; right: 30px; font-size: 24px; cursor: pointer; display: none; }
-    #notification-count { position: absolute; top: -5px; right: -10px; background-color: red; color: white; border-radius: 50%; padding: 2px 6px; font-size: 12px; font-weight: bold; line-height: 1; }
-
-    /* Dashboard */
-    .dashboard-cards { display: flex; flex-wrap: wrap; gap: 20px; margin-bottom: 40px; }
-    .stat-card { flex: 1; min-width: 200px; background-color: #f8f9fa; padding: 20px; border-radius: 8px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-    .stat-value { font-size: 3em; font-weight: bold; color: #2e7d32; }
-    .stat-label { font-size: 1.1em; color: #6c757d; }
-    .chart-container { max-width: 800px; margin: 0 auto; }
+    #paginacaoProtocolos, #paginacaoMeusProtocolos {
+        text-align: center;
+        margin-top: 20px;
+    }
+    #paginacaoProtocolos span, #paginacaoMeusProtocolos span {
+        margin: 0 5px;
+        color: #888;
+    }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs/qrcode.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 <div class="container">
@@ -70,10 +105,6 @@
     <img src="/img/logo.png" alt="Logo" class="logo">
     <h2>Prefeitura de Morada Nova</h2>
     <h3>Sistema de Protocolo</h3>
-    <div id="notification-bell" onclick="mostrarTela('meusProtocolos')">
-      <span>🔔</span>
-      <span id="notification-count">0</span>
-    </div>
   </div>
 
   <div id="login" class="login-screen content active">
@@ -89,32 +120,12 @@
   </div>
 
   <div id="menu" class="menu content">
-    <button id="btnDashboard" onclick="mostrarTela('dashboard')">📈 Dashboard</button>
     <button id="btnNovo" onclick="mostrarTela('form')">📄 Novo Protocolo</button>
     <button onclick="mostrarTela('protocolos')">🗂️ Todos os Protocolos</button>
     <button onclick="mostrarTela('relatorios')" id="btnRelatorios">📊 Relatórios</button>
     <button onclick="mostrarTela('meusProtocolos')">📂 Meus Protocolos</button>
     <button id="btnConfig" onclick="mostrarTela('config')">⚙️ Configurações</button>
     <button onclick="sair()">🚪 Sair</button>
-  </div>
-
-  <div id="dashboard" class="dashboard-screen content">
-    <h3>Dashboard Gerencial</h3>
-    <div class="dashboard-cards">
-        <div class="stat-card">
-            <div class="stat-value" id="stat-novos">0</div>
-            <div class="stat-label">Protocolos na Semana</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-value" id="stat-pendentes">0</div>
-            <div class="stat-label">Pendentes (> 15 dias)</div>
-        </div>
-    </div>
-    <div class="chart-container">
-        <h4>Top 5 Tipos de Requerimento</h4>
-        <canvas id="tiposChart"></canvas>
-    </div>
-    <button onclick="mostrarTela('menu')">🔙 Voltar</button>
   </div>
 
   <div id="form" class="form-screen content">
@@ -156,12 +167,73 @@
         <div class="form-group span-3"><label>Cargo/Função</label><input type="text" id="cargo"></div>
         <div class="form-group span-6">
           <label>Lotação</label>
-          <select id="lotacao"><option value="">Selecione...</option></select>
+          <select id="lotacao">
+            <option value="">Selecione...</option>
+            <option value="AMT">AMT</option>
+            <option value="IPREMN">IPREMN</option>
+            <option value="IMAMN">IMAMN</option>
+            <option value="SAS">SAS</option>
+            <option value="SEINFRA">SEINFRA</option>
+            <option value="SESA">SESA</option>
+            <option value="SEAD">SEAD</option>
+            <option value="SEAGRI">SEAGRI</option>
+            <option value="SEAI">SEAI</option>
+            <option value="SECULT">SECULT</option>
+            <option value="SEDEM">SEDEM</option>
+            <option value="SEDUCTEC">SEDUCTEC</option>
+            <option value="SEFIN">SEFIN</option>
+            <option value="SSPDC">SSPDC</option>
+            <option value="SEJUV">SEJUV</option>
+            <option value="SAAE">SAAE</option>
+          </select>
         </div>
         <div class="form-group span-6"><label>Unidade de Exercício</label><input type="text" id="unidade"></div>
        <div class="form-group span-6">
           <label>Tipo de Requerimento</label>
-          <select id="tipo"><option value="">Selecione...</option></select>
+          <select id="tipo">
+            <option value="">Selecione...</option>
+            <option value="Adicional de tempo de serviços">Adicional de tempo de serviços</option>
+            <option value="Adicional de insalubridade">Adicional de insalubridade</option>
+            <option value="Adicional de periculosidade">Adicional de periculosidade</option>
+            <option value="Adicional de atividades penosas">Adicional de atividades penosas</option>
+            <option value="Adicional por serviços extraordinários">Adicional por serviços extraordinários</option>
+            <option value="Adicional noturno">Adicional noturno</option>
+            <option value="Adicional de férias">Adicional de férias</option>
+            <option value="Afastamento p. servir a outro órgão ou entidade">Afastamento p. servir a outro órgão ou entidade</option>
+            <option value="Afastamento para exercício de mandato eletivo">Afastamento para exercício de mandato eletivo</option>
+            <option value="Afastamento para estudo fora do município">Afastamento para estudo fora do município</option>
+            <option value="Alteração do cadastro funcional/pessoal">Alteração do cadastro funcional/pessoal</option>
+            <option value="Aposentadoria">Aposentadoria</option>
+            <option value="Certidão por tempo de contribuição">Certidão por tempo de contribuição</option>
+            <option value="Cópia de Documentação">Cópia de Documentação</option>
+            <option value="Declaração">Declaração</option>
+            <option value="Exoneração de cargo/função">Exoneração de cargo/função</option>
+            <option value="Férias">Férias</option>
+            <option value="Ficha financeira">Ficha financeira</option>
+            <option value="Gratificação natalina">Gratificação natalina</option>
+            <option value="Gratificação de incentivo profissional">Gratificação de incentivo profissional</option>
+            <option value="Gratificação pós-graduação">Gratificação pós-graduação</option>
+            <option value="Gratificação retribuição pecuniária">Gratificação retribuição pecuniária</option>
+            <option value="Gratificação de difícil acesso">Gratificação de difícil acesso</option>
+            <option value="Licença para atividades políticas">Licença para atividades políticas</option>
+            <option value="Licença para capacitação">Licença para capacitação</option>
+            <option value="Licença para desempenho de mandato classista">Licença para desempenho de mandato classista</option>
+            <option value="Licença por motivo de doença na família">Licença por motivo de doença na família</option>
+            <option value="Licença por motivo de afastamento do cônjuge">Licença por motivo de afastamento do cônjuge</option>
+            <option value="Licença para serviço militar">Licença para serviço militar</option>
+            <option value="Licença para tratar de interesse particular">Licença para tratar de interesse particular</option>
+            <option value="Licença Especial">Licença Especial</option>
+            <option value="Reposição de faltas">Reposição de faltas</option>
+            <option value="Quebra de vínculo">Quebra de vínculo</option>
+            <option value="CTC">CTC</option>
+            <option value="Simulação por tempo de serviço">Simulação por tempo de serviço</option>
+            <option value="Acerto de CNIS">Acerto de CNIS</option>
+            <option value="Declaração para o Bolsa Família">Declaração para o Bolsa Família</option>
+            <option value="Declaração para seleção">Declaração para seleção</option>
+            <option value="Abono de permanência">Abono de permanência</option>
+            <option value="Salário família">Salário família</option>
+            <option value="Outros">Outros</option>
+          </select>
         </div>
         <div class="form-group span-6">
           <label>Requer ao</label>
@@ -183,51 +255,45 @@
       <button onclick="mostrarTela('menu')">Voltar</button>
       <div id="log" class="log-area"></div>
   </div>
-
+  <div id="modalEncaminhar" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center;">
+    <div style="background:#fff; padding:20px; border-radius:8px; box-shadow:0 0 10px rgba(0,0,0,0.3); width:300px; max-width:90%;">
+      <h3>Encaminhar para:</h3>
+      <select id="selectUsuarioEncaminhar" style="width:100%; margin-bottom:10px;"></select>
+      <div style="text-align:right;">
+        <button onclick="confirmarEncaminhamento()" style="margin-right:10px;">Confirmar</button>
+        <button onclick="fecharModalEncaminhar()">Cancelar</button>
+      </div>
+    </div>
+  </div>
   <div id="relatorios" class="relatorios-screen content">
-    <h3>🔍 Relatórios e Pesquisa Avançada</h3>
+    <h3>🔍 Pesquisar Protocolos</h3>
     <div class="filtros">
-        <input type="text" id="filtroNumero" placeholder="Número do Protocolo">
-        <input type="text" id="filtroNome" placeholder="Nome do Requerente">
-        <select id="filtroStatus">
-        <option value="">Todos os Status</option>
+      <input type="text" id="filtroNumero" placeholder="Número do Protocolo">
+      <input type="text" id="filtroNome" placeholder="Nome do Requerente">
+      <select id="filtroStatus">
+        <option value="">Todos os status</option>
+        <option value="Aberto">Aberto</option>
         <option value="Em análise">Em análise</option>
-        <option value="Pendente de documento">Pendente de documento</option>
-        <option value="Finalizado">Finalizado</option>
-        <option value="Encaminhado">Encaminhado</option>
-        </select>
-        <input type="date" id="filtroDataInicio" title="Data de Início">
-        <input type="date" id="filtroDataFim" title="Data Final">
-        <select id="filtroTipo">
-        <option value="">Todo tipo de Requerimento</option>
-        </select>
-        <select id="filtroLotacao">
-        <option value="">Todas as Lotações</option>
-        </select>
+        <option value="Concluído">Concluído</option>
+      </select>
+      <button onclick="pesquisarProtocolos()">Pesquisar</button>
+      <button onclick="gerarRelatorio()">📊 Gerar Relatório</button>
+      <button onclick="voltarDeRelatorios()">🔙 Voltar</button>
     </div>
-    <div>
-        <button onclick="pesquisarProtocolos()">Pesquisar</button>
-        <button onclick="gerarRelatorioPDF()">📄 Gerar PDF</button>
-        <button onclick="exportarRelatorioExcel()">📊 Exportar para Excel</button>
-        <button onclick="limparFiltrosRelatorio()">Limpar Filtros</button>
-        <button onclick="mostrarTela('menu')">🔙 Voltar</button>
-    </div>
-    <table id="tabelaRelatorios">
-        <thead>
+    <table>
+      <thead>
         <tr>
-            <th>Número</th>
-            <th>Requerente</th>
-            <th>Matrícula</th>
-            <th>Tipo de Requerimento</th>
-            <th>Data</th>
-            <th>Status</th>
-            <th>Responsável</th>
+          <th>Número</th>
+          <th>Nome</th>
+          <th>Status</th>
+          <th>Data Solicitação</th>
+          <th>Tipo</th>
+          <th>CPF</th>
         </tr>
-        </thead>
-        <tbody id="resultadosPesquisa"></tbody>
+      </thead>
+      <tbody id="resultadosPesquisa"></tbody>
     </table>
   </div>
-
   <div id="protocolos" class="protocolos-screen content">
     <h3>📋 Lista de Protocolos Enviados</h3>
     <table>
@@ -245,9 +311,8 @@
       <tbody id="tabelaProtocolos"></tbody>
     </table>
     <button onclick="mostrarTela('menu')">Voltar</button>
-    <div id="paginacaoProtocolos"></div>
+    <div id="paginacaoProtocolos" style="margin-top: 10px;"></div>
   </div>
-
   <div id="meusProtocolos" class="meus-protocolos-screen content">
       <h3>📂 Meus Protocolos</h3>
       <div class="filtros" style="padding: 10px 0;">
@@ -268,9 +333,8 @@
         <tbody id="meusProtocolosTabela"></tbody>
       </table>
       <button onclick="voltarDeMeusProtocolos()">Voltar</button>
-      <div id="paginacaoMeusProtocolos"></div>
+      <div id="paginacaoMeusProtocolos" style="margin-top: 10px;"></div>
   </div>
-
   <div id="config" class="config-screen content">
     <h3>⚙️ Configurações</h3>
     <div class="form-group full-row">
@@ -278,9 +342,8 @@
       <input type="email" id="emailSistemaConfig" />
       <button onclick="salvarEmailSistema()">Salvar Email</button>
     </div>
-    <hr style="margin: 20px 0;">
-    <h4>Adicionar Novo Usuário:</h4>
     <div class="form-group full-row">
+      <label>Adicionar Novo Usuário:</label>
       <input type="text" id="nomeCompleto" placeholder="Nome completo" />
       <input type="text" id="novoUsuario" placeholder="Nome de usuário" />
       <input type="text" id="cpfUsuario" placeholder="CPF (somente números)" />
@@ -293,50 +356,14 @@
       </select>
       <button onclick="cadastrarUsuario()">Cadastrar Usuário</button>
     </div>
-    <hr style="margin: 20px 0;">
-    <h4>Usuários Cadastrados:</h4>
-    <table style="width:100%;">
-      <thead>
-        <tr>
-          <th>Nome</th>
-          <th>Login</th>
-          <th>Email</th>
-          <th>Tipo</th>
-          <th>Status</th>
-          <th style="width: 280px;">Ações</th>
-        </tr>
-      </thead>
-      <tbody id="tabelaUsuarios"></tbody>
-    </table>
-    <hr style="margin: 20px 0;">
-    <h4>Gerenciar Listas</h4>
-    <h5>Tipos de Requerimento</h5>
-    <div class="form-group" style="flex-direction: row; gap: 10px; align-items: center;">
-        <input type="text" id="novoTipoNome" placeholder="Nome do novo tipo" style="flex-grow: 1;">
-        <button onclick="adicionarItem('tipos')">Adicionar</button>
-    </div>
-    <table style="width:100%;">
-        <thead><tr><th>Nome</th><th>Status</th><th style="width: 120px;">Ações</th></tr></thead>
-        <tbody id="tabelaTipos"></tbody>
-    </table>
-    <br>
-    <h5>Lotações</h5>
-    <div class="form-group" style="flex-direction: row; gap: 10px; align-items: center;">
-        <input type="text" id="novaLotacaoNome" placeholder="Nome da nova lotação" style="flex-grow: 1;">
-        <button onclick="adicionarItem('lotacoes')">Adicionar</button>
-    </div>
-    <table style="width:100%;">
-        <thead><tr><th>Nome</th><th>Status</th><th style="width: 120px;">Ações</th></tr></thead>
-        <tbody id="tabelaLotacoes"></tbody>
-    </table>
-    <hr style="margin: 20px 0;">
     <h4>Gerar Backup de Protocolos</h4>
     <label>Data Início:</label>
     <input type="date" id="backupDataInicio" />
     <label>Data Fim:</label>
     <input type="date" id="backupDataFim" />
     <button onclick="gerarBackup()">Gerar Backup</button>
-    <br><br>
+    <h4>Usuários Cadastrados:</h4>
+    <ul id="listaUsuarios"></ul>
     <button onclick="mostrarTela('menu')">Voltar</button>
   </div>
 </div>
@@ -365,11 +392,15 @@
   </style>
   <div class="pdf-body doc-container">
     <div class="pdf-header">
-      <div class="logo-pdf"><img src="/img/logo.png" alt="Logo Prefeitura" /></div>
+      <div class="logo-pdf">
+        <img src="/img/logo.png" alt="Logo Prefeitura" />
+      </div>
       <div id="qrcode-container"></div>
     </div>
     <h1 class="titulo-principal-pdf">Secretaria da Administração</h1>
-    <div class="titulo-central-pdf"><span>PROTOCOLO DE REQUERIMENTO</span></div>
+    <div class="titulo-central-pdf">
+      <span>PROTOCOLO DE REQUERIMENTO</span>
+    </div>
     <div class="info-pdf">
       <p class="campo-destaque-pdf"><strong>Número do Protocolo:</strong> <span id="doc_numero"></span></p>
       <p class="campo-destaque-pdf"><strong>Data da Solicitação:</strong> <span id="doc_dataSolicitacao"></span></p>
@@ -396,107 +427,49 @@
     </div>
     <div class="box-pdf" id="doc_complemento"></div>
     <div class="assinaturas-pdf">
-      <div class="assinatura-pdf"><div class="linha-pdf"></div>Assinatura do Requerente</div>
-      <div class="assinatura-pdf"><div class="linha-pdf"></div>Responsável pelo Protocolo</div>
+      <div class="assinatura-pdf">
+        <div class="linha-pdf"></div>
+        Assinatura do Requerente
+      </div>
+      <div class="assinatura-pdf">
+        <div class="linha-pdf"></div>
+        Responsável pelo Protocolo
+      </div>
     </div>
-    <div class="rodape-pdf"><img src="/img/rodape.jpg" alt="Rodapé" /></div>
+    <div class="rodape-pdf">
+      <img src="/img/rodape.jpg" alt="Rodapé" />
+    </div>
   </div>
 </div>
+
 <div id="pdfModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.6);">
   <div style="background-color: #fefefe; margin: 20px auto; padding: 0; border: 1px solid #888; width: 95%; max-width: 800px; box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2), 0 6px 20px 0 rgba(0,0,0,0.19);">
-    <div style="text-align: right; background: #2e7d32; padding: 5px 15px;"><span style="color: white; font-size: 28px; font-weight: bold; cursor: pointer;" onclick="fecharModal('pdfModal')">&times;</span></div>
-    <div id="pdfContent" style="padding: 20px;"></div>
-    <div style="text-align: center; padding: 10px; border-top: 1px solid #ddd;"><button onclick="gerarPDF()">Gerar e Salvar PDF</button></div>
-  </div>
-</div>
-<div id="modalEncaminhar" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center;">
-  <div style="background:#fff; padding:20px; border-radius:8px; box-shadow:0 0 10px rgba(0,0,0,0.3); width:300px; max-width:90%;">
-    <h3>Encaminhar Protocolo</h3>
-    <label for="selectUsuarioEncaminhar" style="display:block; text-align:left; margin-bottom:5px;">Para o usuário:</label>
-    <select id="selectUsuarioEncaminhar" style="width:100%; padding:8px; margin-bottom:10px;"></select>
-    <label for="statusEncaminhamento" style="display:block; text-align:left; margin-bottom:5px;">Definir status como:</label>
-    <input type="text" id="statusEncaminhamento" style="width:100%; padding:8px; margin-bottom:15px; box-sizing: border-box;">
-    <div style="text-align:right;">
-      <button onclick="confirmarEncaminhamento()" style="margin-right:10px;">Confirmar</button>
-      <button onclick="fecharModal('modalEncaminhar')">Cancelar</button>
+    <div style="text-align: right; background: #2e7d32; padding: 5px 15px;">
+      <span style="color: white; font-size: 28px; font-weight: bold; cursor: pointer;" onclick="fecharModal()">&times;</span>
     </div>
-  </div>
-</div>
-<div id="modalAtualizarStatus" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center;">
-  <div style="background:#fff; padding:20px; border-radius:8px; box-shadow:0 0 10px rgba(0,0,0,0.3); width:400px; max-width:90%;">
-    <h3>Atualizar Status do Protocolo</h3>
-    <label for="statusSelect">Status:</label>
-    <select id="statusSelect" onchange="handleStatusChange(this)" style="width:100%; padding:8px; margin-bottom:10px;">
-      <option value="Em análise">Em análise</option>
-      <option value="Pendente de documento">Pendente de documento</option>
-      <option value="Finalizado">Finalizado</option>
-      <option value="Outro">Outro (digitar)</option>
-    </select>
-    <input type="text" id="statusCustom" placeholder="Digite o status personalizado" style="display:none; width:100%; padding:8px; margin-bottom:10px; box-sizing: border-box;">
-    <label for="observacaoAtualizacao">Observação (opcional):</label>
-    <textarea id="observacaoAtualizacao" rows="4" style="width:100%; padding:8px; margin-bottom:15px; box-sizing: border-box;"></textarea>
-    <div style="text-align:right;">
-      <button onclick="confirmarAtualizacaoStatus()" style="margin-right:10px;">Confirmar</button>
-      <button onclick="fecharModal('modalAtualizarStatus')">Cancelar</button>
+    <div id="pdfContent" style="padding: 20px;">
     </div>
-  </div>
-</div>
-<div id="modalEditarUsuario" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:10000; align-items:center; justify-content:center;">
-  <div style="background:#fff; padding:20px; border-radius:8px; width:400px; max-width:90%;">
-    <h3>Editar Usuário</h3>
-    <input type="hidden" id="editUserId">
-    <div class="form-group"><label>Nome Completo</label><input type="text" id="editNomeCompleto"></div>
-    <div class="form-group"><label>Login</label><input type="text" id="editLogin"></div>
-    <div class="form-group"><label>Email</label><input type="email" id="editEmail"></div>
-    <div class="form-group"><label>CPF</label><input type="text" id="editCpf"></div>
-    <div class="form-group">
-      <label>Tipo</label>
-      <select id="editTipo">
-        <option value="comum">Comum</option>
-        <option value="padrao">Padrão</option>
-        <option value="admin">Administrador</option>
-      </select>
-    </div>
-    <div style="text-align:right; margin-top:15px;">
-      <button onclick="confirmarEdicaoUsuario()">Salvar Alterações</button>
-      <button onclick="fecharModal('modalEditarUsuario')">Cancelar</button>
-    </div>
-  </div>
-</div>
-<div id="modalResetarSenha" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:10000; align-items:center; justify-content:center;">
-  <div style="background:#fff; padding:20px; border-radius:8px; width:400px; max-width:90%;">
-    <h3>Resetar Senha</h3>
-    <input type="hidden" id="resetUserId">
-    <div class="form-group">
-      <label>Nova Senha</label>
-      <input type="password" id="resetNovaSenha">
-    </div>
-    <div style="text-align:right; margin-top:15px;">
-      <button onclick="confirmarResetSenha()">Confirmar Nova Senha</button>
-      <button onclick="fecharModal('modalResetarSenha')">Cancelar</button>
+    <div style="text-align: center; padding: 10px; border-top: 1px solid #ddd;">
+      <button onclick="gerarPDF()">Gerar e Salvar PDF</button>
     </div>
   </div>
 </div>
 
 <script defer>
-// Variáveis Globais
 const itensPorPagina = 10;
 let paginaAtualTodos = 1;
 let paginaAtualMeus = 1;
-let tiposChartInstance = null;
-window.opcoesTipos = [];
-window.opcoesLotacoes = [];
 
-// Funções de Inicialização
 document.addEventListener('DOMContentLoaded', () => {
   window.usuarioLogado = localStorage.getItem('usuarioLogado') || "";
   window.nivelUsuario = localStorage.getItem('nivelUsuario') || "";
   window.usuarioLogin = localStorage.getItem('usuarioLogin') || "";
+
   if (window.usuarioLogado) {
-    document.getElementById('btnDashboard').style.display = (window.nivelUsuario === 'admin' || window.nivelUsuario === 'padrao') ? 'flex' : 'none';
-    document.getElementById('btnConfig').style.display = window.nivelUsuario === "admin" ? "flex" : "none";
-    document.getElementById('btnNovo').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "flex" : "none";
-    document.getElementById('btnRelatorios').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "flex" : "none";
+    document.getElementById('btnConfig').style.display = window.nivelUsuario === "admin" ? "inline-block" : "none";
+    document.getElementById('btnNovo').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "inline-block" : "none";
+    document.getElementById('btnRelatorios').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "inline-block" : "none";
+
     if (window.nivelUsuario === "comum") {
       mostrarTela('meusProtocolos');
     } else {
@@ -507,17 +480,17 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-async function logar() {
+window.logar = function() {
   const user = document.getElementById('usuario').value;
   const senha = document.getElementById('senha').value;
   const msg = document.getElementById('loginMsg');
-  try {
-    const res = await fetch('/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ login: user, senha: senha })
-    });
-    const data = await res.json();
+  fetch('/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ login: user, senha: senha })
+  })
+  .then(res => res.json())
+  .then(data => {
     if (data.sucesso && data.usuario) {
       localStorage.setItem('usuarioLogado', data.usuario.nome);
       localStorage.setItem('usuarioLogin', data.usuario.login);
@@ -526,13 +499,9 @@ async function logar() {
       window.usuarioLogin = data.usuario.login;
       window.nivelUsuario = data.usuario.tipo;
 
-      await carregarOpcoesDropdowns();
-      verificarNotificacoes();
-
-      document.getElementById('btnDashboard').style.display = (window.nivelUsuario === 'admin' || window.nivelUsuario === 'padrao') ? 'flex' : 'none';
-      document.getElementById('btnConfig').style.display = window.nivelUsuario === "admin" ? "flex" : "none";
-      document.getElementById('btnNovo').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "flex" : "none";
-      document.getElementById('btnRelatorios').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "flex" : "none";
+      document.getElementById('btnConfig').style.display = window.nivelUsuario === "admin" ? "inline-block" : "none";
+      document.getElementById('btnNovo').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "inline-block" : "none";
+      document.getElementById('btnRelatorios').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "inline-block" : "none";
 
       if (window.nivelUsuario === "comum") {
         mostrarTela('meusProtocolos');
@@ -543,25 +512,21 @@ async function logar() {
     } else {
       msg.textContent = "Usuário ou senha incorretos.";
     }
-  } catch(err) {
+  })
+  .catch(err => {
     console.error("Erro no login:", err);
     msg.textContent = "Erro ao conectar ao servidor.";
-  }
+  });
 };
 
-function sair() {
-  localStorage.clear();
-  window.usuarioLogado = "";
-  window.nivelUsuario = "";
-  window.usuarioLogin = "";
-  document.getElementById('notification-bell').style.display = 'none';
-  window.location.reload();
-}
+window.addEventListener('load', () => {
+    const modal = document.getElementById('modalEncaminhar');
+    modal.style.display = 'none';
+});
 
-// Funções de Controle de Tela
-async function mostrarTela(tela) {
-  ['login','menu','dashboard','form','config','protocolos','meusProtocolos','relatorios'].forEach(id => {
-    document.getElementById(id)?.classList.remove('active');
+function mostrarTela(tela) {
+  ['login','menu','form','config','protocolos','meusProtocolos','relatorios'].forEach(id => {
+    document.getElementById(id).classList.remove('active');
   });
   if (window.nivelUsuario && tela === 'relatorios' && window.nivelUsuario === 'comum') {
     alert('Acesso restrito!');
@@ -569,90 +534,721 @@ async function mostrarTela(tela) {
   }
   document.getElementById(tela).classList.add('active');
 
-  if (tela === 'meusProtocolos') {
-    const usuarioLogin = localStorage.getItem('usuarioLogin');
-    if (usuarioLogin) {
-      try {
-        await fetch('/protocolos/notificacoes/ler', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ usuarioLogin })
-        });
-        document.getElementById('notification-bell').style.display = 'none';
-      } catch (err) { console.error('Erro ao marcar notificações como lidas:', err); }
-    }
-  }
-  
-  // Carrega os dados específicos da tela
   if (tela === 'protocolos') listarProtocolos();
   if (tela === 'meusProtocolos') listarMeusProtocolos();
-  if (tela === 'form') { popularDropdownsFormulario(); gerarNumeroProtocolo(); }
-  if (tela === 'config') { atualizarListaUsuarios(); carregarTabelaGestao('tipos'); carregarTabelaGestao('lotacoes'); }
-  if (tela === 'relatorios') { popularFiltrosRelatorio(); pesquisarProtocolos(); }
-  if (tela === 'dashboard') carregarDashboard();
+  if (tela === 'form') gerarNumeroProtocolo();
+  if (tela === 'config') atualizarListaUsuarios();
+  if (tela === 'relatorios') pesquisarProtocolos();
 }
 
-// Funções de Protocolo
-async function gerarNumeroProtocolo() { /* ... */ }
-function enviarRequerimento() { /* ... */ }
-async function listarProtocolos(pagina = 1) { /* ... */ }
-async function listarMeusProtocolos(pagina = 1) { /* ... */ }
-function limparFiltrosMeusProtocolos() { /* ... */ }
-async function carregarHistorico(protocoloId) { /* ... */ }
+function sair() {
+  localStorage.removeItem('usuarioLogado');
+  localStorage.removeItem('nivelUsuario');
+  localStorage.removeItem('usuarioLogin');
+  window.usuarioLogado = "";
+  window.nivelUsuario = "";
+  window.usuarioLogin = "";
+  document.getElementById('usuario').value = "";
+  document.getElementById('senha').value = "";
+  document.getElementById('btnConfig').style.display = 'none';
+  document.getElementById('btnNovo').style.display = 'none';
+  document.getElementById('btnRelatorios').style.display = 'none';
+  mostrarTela('login');
+  window.location.href = window.location.href.split('?')[0];
+}
 
-// Funções de Modais
-function fecharModal(modalId) { document.getElementById(modalId).style.display = 'none'; }
-async function abrirModalEncaminhar(idProtocolo) { /* ... */ }
-async function confirmarEncaminhamento() { /* ... */ }
-async function abrirAtualizar(id) { /* ... */ }
-function handleStatusChange(selectElement) { /* ... */ }
-async function confirmarAtualizacaoStatus() { /* ... */ }
+async function gerarNumeroProtocolo() {
+  const anoAtual = new Date().getFullYear();
+  try {
+    const res = await fetch(`/protocolos/ultimoNumero/${anoAtual}`);
+    const data = await res.json();
+    const ultimo = data.ultimo || 0;
+    const novoNumero = `${String(ultimo + 1).padStart(4, '0')}/${anoAtual}`;
+    document.getElementById('numeroProtocolo').value = novoNumero;
+    document.getElementById('log').innerText = '📄 Número gerado: ' + novoNumero;
+  } catch (error) {
+    console.error("Erro ao gerar número:", error);
+    const fallbackNumero = `0001/${anoAtual}`;
+    document.getElementById('numeroProtocolo').value = fallbackNumero;
+    document.getElementById('log').innerText = '⚠️ Número gerado localmente: ' + fallbackNumero;
+  }
+}
 
-// Funções de PDF e QR Code
+function enviarRequerimento() {
+  const numeroProtocolo = document.getElementById('numeroProtocolo').value;
+  if (!numeroProtocolo) {
+    alert("❗Número de protocolo não gerado.");
+    return;
+  }
+  const dataAgora = new Date().toLocaleString();
+  const protocolo = {
+    numero: numeroProtocolo,
+    matricula: document.getElementById('matricula').value,
+    nome: document.getElementById('nome').value,
+    endereco: document.getElementById('endereco').value,
+    municipio: document.getElementById('municipio').value,
+    bairro: document.getElementById('bairro').value,
+    cep: document.getElementById('cep').value,
+    telefone: document.getElementById('telefone').value,
+    cpf: document.getElementById('cpf').value,
+    rg: document.getElementById('rg').value,
+    dataExpedicao: document.getElementById('dataExpedicao').value,
+    cargo: document.getElementById('cargo').value,
+    lotacao: document.getElementById('lotacao').value,
+    unidade: document.getElementById('unidade').value,
+    tipo: document.getElementById('tipo').value,
+    requerAo: document.getElementById('requerAo').value,
+    dataSolicitacao: document.getElementById('dataSolicitacao').value,
+    complemento: document.getElementById('complemento').value,
+    dataEnvio: dataAgora,
+    status: "Enviado",
+    responsavel: window.usuarioLogin,
+    movimentacoes: [
+      { data: dataAgora, acao: "Criado e enviado", autor: window.usuarioLogado }
+    ]
+  };
+  fetch('/protocolos', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(protocolo)
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.sucesso) {
+      alert('✅ Protocolo enviado e salvo no banco com sucesso!');
+      document.querySelector('.formulario').reset();
+      gerarNumeroProtocolo();
+    } else {
+      alert('❌ Erro ao enviar protocolo: ' + (data.mensagem || 'Erro desconhecido'));
+    }
+  })
+  .catch(err => {
+    alert('❌ Erro na conexão: ' + err.message);
+  });
+}
+
+async function listarProtocolos(pagina = 1) {
+  const tbody = document.getElementById('tabelaProtocolos');
+  tbody.innerHTML = "";
+  paginaAtualTodos = pagina;
+  try {
+    const res = await fetch('/protocolos');
+    const data = await res.json();
+    const inicio = (pagina - 1) * itensPorPagina;
+    const fim = inicio + itensPorPagina;
+    const paginaDados = data.protocolos.slice(inicio, fim);
+    paginaDados.forEach(p => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td style="width: 80px; text-align: center;">${p.numero}</td>
+        <td>${p.matricula}</td>
+        <td>${p.nome}</td>
+        <td>${p.tipo_requerimento}</td>
+        <td>${p.status}</td>
+        <td>${p.responsavel}</td>
+        <td>
+          <button onclick="abrirAtualizar(${p.id})">Atualizar</button>
+          <button onclick="abrirModalEncaminhar(${p.id}, event)">Encaminhar</button>
+          <button onclick="previsualizarPDF(${p.id})">📄 Documento</button>
+          <details id="hist_${p.id}">
+            <summary>Histórico</summary>
+          </details>
+        </td>`;
+      tbody.appendChild(tr);
+      setTimeout(() => carregarHistorico(p.id), 100);
+    });
+    renderizarPaginacao(data.protocolos.length, pagina, 'paginacaoProtocolos', listarProtocolos);
+  } catch (error) {
+    console.error("Erro ao listar protocolos:", error);
+    alert("Erro ao buscar protocolos do banco.");
+  }
+}
+
+async function listarMeusProtocolos(pagina = 1) {
+    const tbody = document.getElementById('meusProtocolosTabela');
+    tbody.innerHTML = "";
+    paginaAtualMeus = pagina;
+    const filtroNumero = document.getElementById('filtroMeusProtocolosNumero').value.trim().toLowerCase();
+    const filtroNome = document.getElementById('filtroMeusProtocolosNome').value.trim().toLowerCase();
+    try {
+        const usuarioLogin = localStorage.getItem('usuarioLogin');
+        if (!usuarioLogin) {
+            console.error("Login de usuário não encontrado.");
+            return;
+        }
+        const res = await fetch(`/protocolos/meus/${usuarioLogin}`);
+        let data = await res.json();
+
+        if (filtroNumero || filtroNome) {
+            data.protocolos = data.protocolos.filter(p => {
+                const numeroMatch = !filtroNumero || (p.numero || "").toLowerCase().includes(filtroNumero);
+                const nomeMatch = !filtroNome || (p.nome || "").toLowerCase().includes(filtroNome);
+                return numeroMatch && nomeMatch;
+            });
+        }
+        const inicio = (pagina - 1) * itensPorPagina;
+        const fim = inicio + itensPorPagina;
+        const paginaDados = data.protocolos.slice(inicio, fim);
+        paginaDados.forEach(p => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${p.numero}</td>
+                <td>${p.nome}</td>
+                <td>${p.status}</td>
+                <td>
+                  <button onclick="abrirAtualizar(${p.id})">Atualizar</button>
+                  <button onclick="abrirModalEncaminhar(${p.id}, event)">Encaminhar</button>
+                  <button onclick="previsualizarPDF(${p.id})">📄 Documento</button>
+                  <details id="hist_${p.id}">
+                    <summary>Histórico</summary>
+                  </details>
+                </td>`;
+            tbody.appendChild(tr);
+            setTimeout(() => carregarHistorico(p.id), 100);
+        });
+        renderizarPaginacao(data.protocolos.length, pagina, 'paginacaoMeusProtocolos', listarMeusProtocolos);
+    } catch (error) {
+        console.error("Erro ao listar meus protocolos:", error);
+        alert("Erro ao buscar dados.");
+    }
+}
+
+function limparFiltrosMeusProtocolos() {
+    document.getElementById('filtroMeusProtocolosNumero').value = '';
+    document.getElementById('filtroMeusProtocolosNome').value = '';
+    listarMeusProtocolos();
+}
+
+async function abrirEncaminhar(id) {
+  const novoResp = prompt("Para qual usuário deseja encaminhar?");
+  if (novoResp) {
+    try {
+      const response = await fetch(`/protocolos/atualizar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          protocoloId: id,
+          novoStatus: "Encaminhado",
+          novoResponsavel: novoResp,
+          observacao: `Encaminhado por ${window.usuarioLogado} para ${novoResp}`,
+          usuarioLogado: window.usuarioLogado
+        })
+      });
+      const data = await response.json();
+      if (data.sucesso) {
+        alert("✅ Protocolo encaminhado com sucesso!");
+        await carregarHistorico(id);
+        if (document.getElementById('protocolos').classList.contains('active')) {
+          await listarProtocolos();
+        }
+        if (document.getElementById('meusProtocolos').classList.contains('active')) {
+          await listarMeusProtocolos();
+        }
+      } else {
+        alert("Erro ao encaminhar protocolo.");
+      }
+    } catch (error) {
+      console.error("Erro no encaminhamento:", error);
+    }
+  }
+}
+
+async function abrirAtualizar(id) {
+  const novoStatus = prompt("Digite o novo status:");
+  if (novoStatus) {
+    try {
+      const response = await fetch(`/protocolos/atualizar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          protocoloId: id,
+          novoStatus,
+          novoResponsavel: window.usuarioLogin,
+          observacao: `Status atualizado por ${window.usuarioLogado} para ${novoStatus}`,
+          usuarioLogado: window.usuarioLogado
+        })
+      });
+      const data = await response.json();
+      if (data.sucesso) {
+        alert("✅ Status atualizado!");
+        await carregarHistorico(id);
+        if (document.getElementById('protocolos').classList.contains('active')) {
+          await listarProtocolos();
+        }
+        if (document.getElementById('meusProtocolos').classList.contains('active')) {
+          await listarMeusProtocolos();
+        }
+      } else {
+        alert("Erro ao atualizar.");
+      }
+    } catch (error) {
+      console.error("Erro na atualização:", error);
+    }
+  }
+}
+
+async function carregarHistorico(protocoloId) {
+  try {
+    const res = await fetch(`/protocolos/historico/${protocoloId}`);
+    const data = await res.json();
+    let details = document.getElementById('hist_' + protocoloId);
+    if (!details) {
+      const otherTable = document.getElementById('tabelaProtocolos') || document.getElementById('meusProtocolosTabela');
+      if (otherTable) {
+        details = otherTable.querySelector('#hist_' + protocoloId);
+      }
+    }
+    if (details) {
+      details.innerHTML = `<summary>Histórico</summary>`;
+      data.historico.forEach(h => {
+        const div = document.createElement('div');
+        div.textContent = `📌 ${h.status} - 👤 ${h.responsavel} - 🕒 ${new Date(h.data_movimentacao).toLocaleString()}${h.observacao ? ` - 📝 ${h.observacao}` : ''}`;
+        details.appendChild(div);
+      });
+    }
+  } catch (error) {
+    console.error("Erro ao carregar histórico:", error);
+  }
+}
+
 let protocoloParaGerar = null;
-async function previsualizarPDF(id) { /* ... */ }
-async function gerarPDF() { /* ... */ }
 
-// Funções de Relatórios
-function popularFiltrosRelatorio() { /* ... */ }
-async function pesquisarProtocolos() { /* ... */ }
-async function gerarRelatorioPDF() { /* ... */ }
-function exportarRelatorioExcel() { /* ... */ }
-function limparFiltrosRelatorio() { /* ... */ }
+async function previsualizarPDF(id) {
+  try {
+    const res = await fetch(`/protocolos/${id}`);
+    const { protocolo } = await res.json();
+    if (!protocolo) {
+      alert("Protocolo não encontrado");
+      return;
+    }
+    protocoloParaGerar = protocolo;
+    const modeloOriginal = document.getElementById('modeloProtocolo');
+    const pdfContentDiv = document.getElementById('pdfContent');
+    pdfContentDiv.innerHTML = modeloOriginal.innerHTML; // Copia o template estático primeiro
+    
+    // Agora, encontra o placeholder DENTRO do modal visível e gera o QR Code
+    const qrcodeContainer = pdfContentDiv.querySelector('#qrcode-container');
+    if(qrcodeContainer) {
+        qrcodeContainer.innerHTML = ''; // Limpa QR code anterior
+        const numeroParts = protocolo.numero.split('/');
+        if (numeroParts.length === 2) {
+            const urlConsulta = `${window.location.origin}/consulta/${numeroParts[1]}/${numeroParts[0]}`;
+            new QRCode(qrcodeContainer, {
+                text: urlConsulta,
+                width: 90,
+                height: 90,
+                correctLevel : QRCode.CorrectLevel.H
+            });
+        }
+    }
+    
+    // Preenche os dados no modal que será renderizado
+    pdfContentDiv.querySelector('#doc_numero').textContent = protocolo.numero ?? 'Não informado';
+    pdfContentDiv.querySelector('#doc_dataSolicitacao').textContent = protocolo.data_solicitacao ? new Date(protocolo.data_solicitacao).toLocaleDateString('pt-BR') : 'Não informada';
+    pdfContentDiv.querySelector('#doc_nome').textContent = protocolo.nome ?? 'Não informado';
+    pdfContentDiv.querySelector('#doc_matricula').textContent = protocolo.matricula ?? 'Não informada';
+    pdfContentDiv.querySelector('#doc_cpf').textContent = protocolo.cpf ?? 'Não informado';
+    pdfContentDiv.querySelector('#doc_rg').textContent = protocolo.rg ?? 'Não informado';
+    pdfContentDiv.querySelector('#doc_endereco').textContent = protocolo.endereco ?? 'Não informado';
+    pdfContentDiv.querySelector('#doc_bairro').textContent = protocolo.bairro ?? 'Não informado';
+    pdfContentDiv.querySelector('#doc_municipio').textContent = protocolo.municipio ?? 'Não informado';
+    pdfContentDiv.querySelector('#doc_cep').textContent = protocolo.cep ?? 'Não informado';
+    pdfContentDiv.querySelector('#doc_telefone').textContent = protocolo.telefone ?? 'Não informado';
+    pdfContentDiv.querySelector('#doc_cargo').textContent = protocolo.cargo ?? 'Não informado';
+    pdfContentDiv.querySelector('#doc_lotacao').textContent = protocolo.lotacao ?? 'Não informado';
+    pdfContentDiv.querySelector('#doc_unidade').textContent = protocolo.unidade_exercicio ?? 'Não informado';
+    pdfContentDiv.querySelector('#doc_tipo').textContent = protocolo.tipo_requerimento ?? 'Não informado';
+    pdfContentDiv.querySelector('#doc_requerAo').textContent = protocolo.requer_ao ?? 'Não informado';
+    pdfContentDiv.querySelector('#doc_complemento').innerHTML = protocolo.observacoes ? protocolo.observacoes.replace(/\n/g, '<br>') : 'Nenhuma informação adicional';
+    
+    document.getElementById('pdfModal').style.display = 'block';
+  } catch (err) {
+    console.error('Erro ao preparar PDF:', err);
+    alert('Erro ao preparar a visualização do PDF. Verifique o console.');
+  }
+}
 
-// Funções de Notificação
-async function verificarNotificacoes() { /* ... */ }
+function fecharModal() {
+  document.getElementById('pdfModal').style.display = 'none';
+  document.getElementById('pdfContent').innerHTML = '';
+  protocoloParaGerar = null;
+}
 
-// Funções de Dashboard
-async function carregarDashboard() { /* ... */ }
+async function gerarPDF() {
+  if (!protocoloParaGerar) {
+    alert("Nenhum protocolo para gerar.");
+    return;
+  }
+  const element = document.getElementById('pdfContent');
+  const opt = {
+    margin: [0, 0, 0, 0],
+    filename: `Protocolo_${protocoloParaGerar.numero.replace('/', '-')}.pdf`,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, scrollY: 0, useCORS: true },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  };
+  try {
+    await html2pdf().set(opt).from(element).save();
+    fecharModal();
+  } catch (error) {
+    console.error("Erro ao gerar PDF:", error);
+    alert("Ocorreu um erro ao gerar o PDF. Por favor, tente novamente.");
+  }
+}
 
-// Funções de Configuração e Usuários
-function salvarEmailSistema() { /* ... */ }
-async function cadastrarUsuario() { /* ... */ }
-async function atualizarListaUsuarios() { /* ... */ }
-function abrirModalEditar(usuario) { /* ... */ }
-async function confirmarEdicaoUsuario() { /* ... */ }
-function abrirModalResetarSenha(id) { /* ... */ }
-async function confirmarResetSenha() { /* ... */ }
-async function alterarStatusUsuario(id, novoStatus) { /* ... */ }
+async function pesquisarProtocolos() {
+  try {
+    const numero = document.getElementById('filtroNumero').value;
+    const nome = document.getElementById('filtroNome').value;
+    const status = document.getElementById('filtroStatus').value;
+    const res = await fetch(`/protocolos/pesquisa?numero=${numero}&nome=${nome}&status=${status}`);
+    const data = await res.json();
+    const tbody = document.getElementById('resultadosPesquisa');
+    tbody.innerHTML = '';
+    if (data.protocolos && data.protocolos.length > 0) {
+      data.protocolos.forEach(p => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${p.numero || ''}</td>
+          <td>${p.nome || ''}</td>
+          <td>${p.status || ''}</td>
+          <td>${p.data_solicitacao ? new Date(p.data_solicitacao).toLocaleDateString() : ''}</td>
+          <td>${p.tipo || ''}</td>
+          <td>${p.cpf || ''}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    } else {
+      tbody.innerHTML = '<tr><td colspan="6">Nenhum protocolo encontrado</td></tr>';
+    }
+  } catch (error) {
+    console.error("Erro ao pesquisar protocolos:", error);
+  }
+}
 
-// Funções de Gerenciamento de Listas
-async function carregarOpcoesDropdowns() { /* ... */ }
-function popularDropdown(selectId, opcoes) { /* ... */ }
-async function carregarTabelaGestao(tipo) { /* ... */ }
-async function adicionarItem(tipo) { /* ... */ }
-async function alterarStatusItem(tipo, id, novoStatus) { /* ... */ }
+async function gerarRelatorio() {
+  try {
+    const numero = document.getElementById('filtroNumero').value;
+    const nome = document.getElementById('filtroNome').value;
+    const status = document.getElementById('filtroStatus').value;
+    const res = await fetch(`/protocolos/pesquisa?numero=${numero}&nome=${nome}&status=${status}`);
+    const data = await res.json();
+    if (!data.protocolos || data.protocolos.length === 0) {
+      alert("Nenhum protocolo encontrado para gerar relatório!");
+      return;
+    }
+    let html = `<h2>Relatório de Protocolos</h2>`;
+    html += `<table border="1" cellpadding="5" cellspacing="0" style="border-collapse: collapse; width: 100%;">`;
+    html += `<thead><tr>
+      <th style="width: 80px;">Número</th><th>Nome</th><th>Status</th><th>Data Solicitação</th><th>Tipo</th><th>CPF</th>
+    </tr></thead><tbody>`;
+    data.protocolos.forEach(p => {
+      html += `<tr>
+        <td>${p.numero || ''}</td><td>${p.nome || ''}</td><td>${p.status || ''}</td>
+        <td>${p.data_solicitacao ? new Date(p.data_solicitacao).toLocaleDateString() : ''}</td>
+        <td>${p.tipo || ''}</td><td>${p.cpf || ''}</td>
+      </tr>`;
+    });
+    html += `</tbody></table>`;
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = html;
+    document.body.appendChild(tempDiv);
+    const opt = {
+      margin: 1,
+      filename: 'relatorio_protocolos.pdf',
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+    };
+    await html2pdf().set(opt).from(tempDiv).save();
+    document.body.removeChild(tempDiv);
+  } catch (err) {
+    console.error("Erro ao gerar relatório:", err);
+    alert("Erro ao gerar o relatório.");
+  }
+}
 
-// Funções Auxiliares
-async function gerarBackup() { /* ... */ }
-function renderizarPaginacao(totalItens, paginaAtual, idContainer, callback) { /* ... */ }
-function voltarDeMeusProtocolos() { /* ... */ }
-function preencherCamposServidor(servidor) { /* ... */ }
+function salvarEmailSistema() {
+  localStorage.setItem('emailSistema', document.getElementById('emailSistemaConfig').value);
+  alert("Email salvo com sucesso!");
+}
 
-// Event Listeners
-document.getElementById('matricula').addEventListener('blur', async function() { /* ... */ });
-document.getElementById('cep').addEventListener('blur', async function () { /* ... */ });
+async function cadastrarUsuario() {
+  const nomeCompleto = document.getElementById('nomeCompleto').value.trim();
+  const login = document.getElementById('novoUsuario').value.trim();
+  const cpf = document.getElementById('cpfUsuario').value.trim();
+  const senha = document.getElementById('novaSenha').value.trim();
+  const email = document.getElementById('novoEmail').value.trim();
+  const tipo = document.getElementById('nivelUsuario').value;
+  if (!nomeCompleto || !login || !cpf || !senha || !email || !tipo) {
+    alert('Por favor, preencha todos os campos.');
+    return;
+  }
+  try {
+    const res = await fetch('/usuarios', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nome: nomeCompleto, login, cpf, senha, email, tipo })
+    });
+    const data = await res.json();
+    alert(data.mensagem || 'Usuário cadastrado!');
+    if (data.sucesso) atualizarListaUsuarios();
+  } catch (error) {
+    console.error('Erro ao cadastrar usuário:', error);
+    alert('Erro ao cadastrar usuário.');
+  }
+}
 
+async function atualizarListaUsuarios() {
+  try {
+    const response = await fetch('/usuarios');
+    if (!response.ok) throw new Error('Erro ao buscar usuários');
+    const data = await response.json();
+    const ul = document.getElementById('listaUsuarios');
+    ul.innerHTML = "";
+    data.usuarios.forEach(u => {
+      const li = document.createElement('li');
+      li.textContent = `${u.nome} (${u.tipo}) - ${u.email}`;
+      ul.appendChild(li);
+    });
+  } catch (error) {
+    alert('Erro ao carregar usuários: ' + error.message);
+  }
+}
+
+function voltarDeRelatorios() {
+  mostrarTela('menu');
+}
+
+async function gerarBackup() {
+  const dataInicio = document.getElementById('backupDataInicio').value;
+  const dataFim = document.getElementById('backupDataFim').value;
+  if (!dataInicio || !dataFim) {
+    alert("Por favor, selecione o período completo (data início e fim).");
+    return;
+  }
+  try {
+    const url = `/protocolos/backup?dataInicio=${dataInicio}&dataFim=${dataFim}`;
+    const response = await fetch(url);
+    if (!response.ok) {
+      const textoErro = await response.text();
+      alert(`Erro ao gerar backup: ${textoErro || response.statusText}`);
+      return;
+    }
+    const blob = await response.blob();
+    const urlBlob = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = urlBlob;
+    a.download = `backup_protocolos_${dataInicio}_a_${dataFim}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(urlBlob);
+  } catch (error) {
+    console.error("Erro ao gerar backup:", error);
+    alert("Erro ao gerar backup. Veja console.");
+  }
+}
+
+async function abrirModalEncaminhar(idProtocolo, event) {
+  try {
+    const res = await fetch('/usuarios');
+    const data = await res.json();
+    const select = document.getElementById('selectUsuarioEncaminhar');
+    select.innerHTML = '';
+    data.usuarios.forEach(usuario => {
+      const option = document.createElement('option');
+      option.value = usuario.login;
+      option.textContent = `${usuario.nome_completo || usuario.login} (${usuario.tipo})`;
+      select.appendChild(option);
+    });
+    select.dataset.idProtocolo = idProtocolo;
+    const modal = document.getElementById('modalEncaminhar');
+    modal.style.position = 'fixed';
+    modal.style.top = '50%';
+    modal.style.left = '50%';
+    modal.style.transform = 'translate(-50%, -50%)';
+    modal.style.display = 'flex';
+  } catch (error) {
+    alert('Erro ao carregar usuários');
+    console.error(error);
+  }
+}
+
+async function confirmarEncaminhamento() {
+  const select = document.getElementById('selectUsuarioEncaminhar');
+  const idProtocolo = select.dataset.idProtocolo;
+  const destino = select.value;
+  try {
+    const response = await fetch('/protocolos/atualizar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        protocoloId: idProtocolo,
+        novoStatus: 'Encaminhado',
+        novoResponsavel: destino,
+        observacao: `Encaminhado por ${window.usuarioLogado} para ${destino}`,
+        usuarioLogado: window.usuarioLogado
+      })
+    });
+    const data = await response.json();
+    if (data.sucesso) {
+      alert('✅ Protocolo encaminhado com sucesso!');
+      fecharModalEncaminhar();
+      await listarProtocolos();
+      await listarMeusProtocolos();
+    } else {
+      alert('❌ Erro ao encaminhar protocolo: ' + (data.mensagem || ''));
+    }
+  } catch (err) {
+    console.error(err);
+    alert('❌ Erro ao encaminhar protocolo');
+  }
+}
+
+function fecharModalEncaminhar() {
+  const modal = document.getElementById('modalEncaminhar');
+  modal.style.display = 'none';
+}
+
+function renderizarPaginacao(totalItens, paginaAtual, idContainer, callback) {
+    const container = document.getElementById(idContainer);
+    container.innerHTML = '';
+    const totalPaginas = Math.ceil(totalItens / itensPorPagina);
+    if (totalPaginas <= 1) return;
+
+    let maxPagesToShow = 5;
+    let startPage, endPage;
+
+    if (totalPaginas <= maxPagesToShow) {
+        startPage = 1;
+        endPage = totalPaginas;
+    } else {
+        const maxPagesBeforeCurrent = Math.floor(maxPagesToShow / 2);
+        const maxPagesAfterCurrent = Math.ceil(maxPagesToShow / 2) - 1;
+        if (paginaAtual <= maxPagesBeforeCurrent) {
+            startPage = 1;
+            endPage = maxPagesToShow;
+        } else if (paginaAtual + maxPagesAfterCurrent >= totalPaginas) {
+            startPage = totalPaginas - maxPagesToShow + 1;
+            endPage = totalPaginas;
+        } else {
+            startPage = paginaAtual - maxPagesBeforeCurrent;
+            endPage = paginaAtual + maxPagesAfterCurrent;
+        }
+    }
+
+    if (paginaAtual > 1) {
+        const prevBtn = document.createElement('button');
+        prevBtn.textContent = '«';
+        prevBtn.onclick = () => callback(paginaAtual - 1);
+        container.appendChild(prevBtn);
+    }
+
+    if (startPage > 1) {
+        const firstBtn = document.createElement('button');
+        firstBtn.textContent = '1';
+        firstBtn.onclick = () => callback(1);
+        container.appendChild(firstBtn);
+        if (startPage > 2) {
+            const ellipsis = document.createElement('span');
+            ellipsis.textContent = '...';
+            container.appendChild(ellipsis);
+        }
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+        const btn = document.createElement('button');
+        btn.textContent = i;
+        if (i === paginaAtual) {
+            btn.disabled = true;
+            btn.style.fontWeight = 'bold';
+            btn.style.backgroundColor = '#ccc';
+        }
+        btn.onclick = () => callback(i);
+        container.appendChild(btn);
+    }
+
+    if (endPage < totalPaginas) {
+        if (endPage < totalPaginas - 1) {
+            const ellipsis = document.createElement('span');
+            ellipsis.textContent = '...';
+            container.appendChild(ellipsis);
+        }
+        const lastBtn = document.createElement('button');
+        lastBtn.textContent = totalPaginas;
+        lastBtn.onclick = () => callback(totalPaginas);
+        container.appendChild(lastBtn);
+    }
+
+    if (paginaAtual < totalPaginas) {
+        const nextBtn = document.createElement('button');
+        nextBtn.textContent = '»';
+        nextBtn.onclick = () => callback(paginaAtual + 1);
+        container.appendChild(nextBtn);
+    }
+}
+
+function voltarDeMeusProtocolos() {
+  if (window.nivelUsuario === 'comum') {
+    sair();
+  } else {
+    mostrarTela('menu');
+  }
+}
+
+function preencherCamposServidor(servidor) {
+    if (!servidor) {
+      document.getElementById('nome').value = '';
+      document.getElementById('lotacao').value = '';
+      document.getElementById('cargo').value = '';
+      document.getElementById('unidade').value = '';
+    } else {
+      document.getElementById('nome').value = servidor.nome || '';
+      document.getElementById('lotacao').value = servidor.lotacao || '';
+      document.getElementById('cargo').value = servidor.cargo || '';
+      document.getElementById('unidade').value = servidor.unidade_de_exercicio || '';
+    }
+  }
+
+  document.getElementById('matricula').addEventListener('blur', async function() {
+    const matricula = this.value.trim();
+    if (!matricula) {
+      preencherCamposServidor(null);
+      return;
+    }
+    try {
+      const response = await fetch(`/protocolos/servidor/${encodeURIComponent(matricula)}`);
+      if (!response.ok) { return; }
+      const servidor = await response.json();
+      preencherCamposServidor(servidor);
+    } catch (error) {
+      console.error('Erro ao buscar servidor:', error);
+    }
+  });
+
+  document.getElementById('cep').addEventListener('blur', async function () {
+    const cep = this.value.replace(/\D/g, '');
+    if (cep.length !== 8) {
+      if(cep.length > 0) alert('CEP inválido. Digite os 8 dígitos.');
+      return;
+    }
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+      const data = await response.json();
+      if (data.erro) {
+        alert('CEP não encontrado!');
+        return;
+      }
+      document.getElementById('endereco').value = data.logradouro || '';
+      document.getElementById('bairro').value = data.bairro || '';
+      document.getElementById('municipio').value = data.localidade || '';
+    } catch (error) {
+      console.error('Erro ao buscar CEP:', error);
+      alert('Erro ao buscar o CEP. Verifique sua conexão.');
+    }
+  });
 </script>
+
 </body>
 </html>
