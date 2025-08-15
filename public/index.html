@@ -28,6 +28,8 @@
     table { width: 100%; border-collapse: collapse; margin-top: 20px; }
     th, td { border: 1px solid #ccc; padding: 8px; text-align: left; vertical-align: top; word-break: break-word; }
     th { background-color: #e0e0e0; }
+    details { margin-top: 5px; font-size: 0.9em; }
+    summary { cursor: pointer; font-weight: bold; color: #2e7d32; }
     .filtros { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; background: #f5f5f5; padding: 15px; border-radius: 8px; }
     .filtros input, .filtros select { padding: 8px; border-radius: 4px; border: 1px solid #ccc; }
     #modeloProtocolo, #modeloRelatorio { display: none; }
@@ -154,7 +156,7 @@
 
   <div id="relatorios" class="relatorios-screen content">
     <h3>🔍 Relatórios e Pesquisa Avançada</h3>
-    <form class="filtros" onsubmit="return false;">
+    <form class="filtros" onsubmit="pesquisarProtocolos(); return false;">
         <input type="text" id="filtroNumero" placeholder="Número do Protocolo">
         <input type="text" id="filtroNome" placeholder="Nome do Requerente">
         <select id="filtroStatus">
@@ -440,7 +442,6 @@
 </div>
 
 <script defer>
-
 // Variáveis Globais
 const itensPorPagina = 10;
 let paginaAtualTodos = 1;
@@ -451,6 +452,7 @@ window.opcoesLotacoes = [];
 
 // Funções de Inicialização (executadas quando o DOM estiver pronto)
 document.addEventListener('DOMContentLoaded', () => {
+    // Código de inicialização da sessão
     window.usuarioLogado = localStorage.getItem('usuarioLogado') || "";
     window.nivelUsuario = localStorage.getItem('nivelUsuario') || "";
     window.usuarioLogin = localStorage.getItem('usuarioLogin') || "";
@@ -478,13 +480,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('matricula').addEventListener('blur', async function() {
         const matricula = this.value.trim();
-        if (!matricula) { preencherCamposServidor(null); return; }
+        if (!matricula) {
+            preencherCamposServidor(null);
+            return;
+        }
         try {
             const response = await fetch(`/protocolos/servidor/${encodeURIComponent(matricula)}`);
             if (!response.ok) { return; }
             const servidor = await response.json();
             preencherCamposServidor(servidor);
-        } catch (error) { console.error('Erro ao buscar servidor:', error); }
+        } catch (error) {
+            console.error('Erro ao buscar servidor:', error);
+        }
     });
 
     document.getElementById('cep').addEventListener('blur', async function () {
@@ -496,11 +503,17 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
             const data = await response.json();
-            if (data.erro) { alert('CEP não encontrado!'); return; }
+            if (data.erro) {
+                alert('CEP não encontrado!');
+                return;
+            }
             document.getElementById('endereco').value = data.logradouro || '';
             document.getElementById('bairro').value = data.bairro || '';
             document.getElementById('municipio').value = data.localidade || '';
-        } catch (error) { console.error('Erro ao buscar CEP:', error); alert('Erro ao buscar o CEP.'); }
+        } catch (error) {
+            console.error('Erro ao buscar CEP:', error);
+            alert('Erro ao buscar o CEP. Verifique sua conexão.');
+        }
     });
 });
 
@@ -511,7 +524,8 @@ window.logar = async function() {
     const msg = document.getElementById('loginMsg');
     try {
         const res = await fetch('/login', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ login: user, senha: senha })
         });
         const data = await res.json();
@@ -523,7 +537,10 @@ window.logar = async function() {
         } else {
             msg.textContent = "Usuário ou senha incorretos.";
         }
-    } catch(err) { console.error("Erro no login:", err); msg.textContent = "Erro ao conectar ao servidor."; }
+    } catch(err) {
+        console.error("Erro no login:", err);
+        msg.textContent = "Erro ao conectar ao servidor.";
+    }
 };
 window.sair = function() {
     localStorage.clear();
@@ -540,7 +557,8 @@ window.mostrarTela = async function(tela) {
         if (usuarioLogin) {
             try {
                 await fetch('/protocolos/notificacoes/ler', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ usuarioLogin })
                 });
                 await verificarNotificacoes();
@@ -586,7 +604,7 @@ window.enviarRequerimento = async function() {
           gerarNumeroProtocolo();
       } else if (res.status === 400) {
           if (confirm("O número deste protocolo já foi usado. Deseja tentar salvar novamente com um novo número sem perder os dados?")) {
-              const novoNumero = await gerarNumeroProtocolo();
+              await gerarNumeroProtocolo();
               protocolo.numero = document.getElementById('numeroProtocolo').value;
               enviarRequerimento(); // Tenta novamente com o novo número
           }
@@ -595,49 +613,6 @@ window.enviarRequerimento = async function() {
       }
   } catch(err) { alert('❌ Erro na conexão: ' + err.message); }
 };
-window.listarProtocolos = async function(pagina = 1) { /* ... */ };
-window.listarMeusProtocolos = async function(pagina = 1) { /* ... */ };
-window.limparFiltrosMeusProtocolos = function() { /* ... */ };
-window.fecharModal = function(modalId) { document.getElementById(modalId).style.display = 'none'; };
-window.abrirModalEncaminhar = async function(idProtocolo) { /* ... */ };
-window.confirmarEncaminhamento = async function() { /* ... */ };
-window.abrirAtualizar = async function(id) { /* ... */ };
-window.handleStatusChange = function(selectElement) { /* ... */ };
-window.confirmarAtualizacaoStatus = async function() { /* ... */ };
-window.previsualizarPDF = async function(id, isPrint = false) { /* ... */ };
-window.gerarPDF = async function() { /* ... */ };
-window.popularFiltrosRelatorio = function() { /* ... */ };
-window.pesquisarProtocolos = async function() { /* ... */ };
-window.previsualizarRelatorioPDF = async function() { /* ... */ };
-window.salvarRelatorioPDF = async function() { /* ... */ };
-window.exportarRelatorioExcel = function() { /* ... */ };
-window.limparFiltrosRelatorio = function() { /* ... */ };
-window.verificarNotificacoes = async function() { /* ... */ };
-window.carregarDashboard = async function() { /* ... */ };
-window.salvarEmailSistema = function() { /* ... */ };
-window.cadastrarUsuario = async function() { /* ... */ };
-window.atualizarListaUsuarios = async function() { /* ... */ };
-window.abrirModalEditar = function(usuario) { /* ... */ };
-window.confirmarEdicaoUsuario = async function() { /* ... */ };
-window.abrirModalResetarSenha = function(id) { /* ... */ };
-window.confirmarResetSenha = async function() { /* ... */ };
-window.alterarStatusUsuario = async function(id, novoStatus) { /* ... */ };
-window.carregarOpcoesDropdowns = async function() { /* ... */ };
-window.popularDropdown = function(selectId, opcoes) { /* ... */ };
-window.popularDropdownsFormulario = function() { /* ... */ };
-window.popularFiltrosDashboard = function() { /* ... */ };
-window.carregarTabelaGestao = async function(tipo) { /* ... */ };
-window.adicionarItem = async function(tipo) { /* ... */ };
-window.alterarStatusItem = async function(tipo, id, novoStatus) { /* ... */ };
-window.gerarBackup = async function() { /* ... */ };
-window.renderizarPaginacao = function(totalItens, paginaAtual, idContainer, callback) { /* ... */ };
-window.voltarDeMeusProtocolos = function() { /* ... */ };
-window.preencherCamposServidor = function(servidor) { /* ... */ };
-window.abrirModalAlterarSenha = function() { /* ... */ };
-window.confirmarAlteracaoSenha = async function() { /* ... */ };
-// O código acima é só a estrutura, o conteúdo completo está abaixo.
-
-// Implementação COMPLETA das funções:
 window.listarProtocolos = async function(pagina = 1) {
   const tbody = document.getElementById('tabelaProtocolos');
   tbody.innerHTML = "<tr><td colspan='7'>Carregando...</td></tr>";
@@ -707,6 +682,7 @@ window.limparFiltrosMeusProtocolos = function() {
     document.getElementById('filtroMeusProtocolosNome').value = '';
     listarMeusProtocolos();
 };
+window.fecharModal = function(modalId) { document.getElementById(modalId).style.display = 'none'; };
 window.abrirModalEncaminhar = async function(idProtocolo) {
   try {
     const res = await fetch('/usuarios');
@@ -1225,8 +1201,8 @@ window.confirmarAlteracaoSenha = async function() {
     }
 };
 
-
     
+// JS VAI AQUI
 </script>
 
 </body>
