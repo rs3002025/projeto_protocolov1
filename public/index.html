@@ -453,6 +453,7 @@ window.opcoesLotacoes = [];
 
 // Funções de Inicialização (executadas quando o DOM estiver pronto)
 document.addEventListener('DOMContentLoaded', () => {
+    // Código de inicialização da sessão
     window.usuarioLogado = localStorage.getItem('usuarioLogado') || "";
     window.nivelUsuario = localStorage.getItem('nivelUsuario') || "";
     window.usuarioLogin = localStorage.getItem('usuarioLogin') || "";
@@ -634,12 +635,11 @@ window.listarProtocolos = async function(pagina = 1) {
           <button onclick="abrirAtualizar(${p.id})">Atualizar</button>
           <button onclick="abrirModalEncaminhar(${p.id})">Encaminhar</button>
           <button onclick="previsualizarPDF(${p.id})">📄 Documento</button>
-          <details id="hist_${p.id}">
+          <details id="hist_${p.id}" ontoggle="carregarHistorico(this, ${p.id})">
             <summary>Histórico</summary>
           </details>
         </td>`;
       tbody.appendChild(tr);
-      setTimeout(() => carregarHistorico(p.id), 100);
     });
     renderizarPaginacao(data.protocolos.length, pagina, 'paginacaoProtocolos', listarProtocolos);
   } catch (error) { console.error("Erro ao listar protocolos:", error); tbody.innerHTML = "<tr><td colspan='7'>Erro ao carregar protocolos.</td></tr>"; }
@@ -675,12 +675,11 @@ window.listarMeusProtocolos = async function(pagina = 1) {
                   <button onclick="abrirAtualizar(${p.id})">Atualizar</button>
                   <button onclick="abrirModalEncaminhar(${p.id})">Encaminhar</button>
                   <button onclick="previsualizarPDF(${p.id})">📄 Documento</button>
-                  <details id="hist_${p.id}">
+                  <details id="hist_${p.id}" ontoggle="carregarHistorico(this, ${p.id})">
                     <summary>Histórico</summary>
                   </details>
                 </td>`;
             tbody.appendChild(tr);
-            setTimeout(() => carregarHistorico(p.id), 100);
         });
         renderizarPaginacao(data.protocolos.length, pagina, 'paginacaoMeusProtocolos', listarMeusProtocolos);
     } catch (error) { console.error("Erro ao listar meus protocolos:", error); tbody.innerHTML = "<tr><td colspan='4'>Erro ao carregar protocolos.</td></tr>"; }
@@ -775,6 +774,37 @@ window.confirmarAtualizacaoStatus = async function() {
     }
   } catch (error) { console.error("Erro na atualização:", error); }
 };
+window.carregarHistorico = async function(detailsElement, protocoloId) {
+    if (!detailsElement.open || detailsElement.dataset.loaded === 'true') {
+        return;
+    }
+    const summary = detailsElement.querySelector('summary');
+    detailsElement.innerHTML = '';
+    detailsElement.appendChild(summary);
+    const loadingDiv = document.createElement('div');
+    loadingDiv.textContent = 'Carregando histórico...';
+    detailsElement.appendChild(loadingDiv);
+    try {
+        const res = await fetch(`/protocolos/historico/${protocoloId}`);
+        const data = await res.json();
+        loadingDiv.remove();
+        if (data.historico && data.historico.length > 0) {
+            data.historico.forEach(h => {
+                const div = document.createElement('div');
+                div.textContent = `📌 ${h.status} - 👤 ${h.responsavel} - 🕒 ${new Date(h.data_movimentacao).toLocaleString('pt-BR')}${h.observacao ? ` - 📝 ${h.observacao}` : ''}`;
+                detailsElement.appendChild(div);
+            });
+        } else {
+            const noHistoryDiv = document.createElement('div');
+            noHistoryDiv.textContent = 'Nenhum histórico de movimentação encontrado.';
+            detailsElement.appendChild(noHistoryDiv);
+        }
+        detailsElement.dataset.loaded = 'true';
+    } catch (error) {
+        loadingDiv.textContent = 'Erro ao carregar histórico.';
+        console.error("Erro ao carregar histórico:", error);
+    }
+};
 window.previsualizarPDF = async function(id, isPrint = false) {
   let protocolo;
   if(id === null && isPrint === true) {
@@ -799,7 +829,7 @@ window.previsualizarPDF = async function(id, isPrint = false) {
   const pdfContentDiv = document.getElementById('pdfContent');
   pdfContentDiv.innerHTML = modeloOriginal.innerHTML; 
   const qrcodeContainer = pdfContentDiv.querySelector('#qrcode-container');
-  if(qrcodeContainer && protocolo.numero) {
+  if(qrcodeContainer && protocolo.numero && protocolo.numero.includes('/')) {
       qrcodeContainer.innerHTML = '';
       const numeroParts = protocolo.numero.split('/');
       if (numeroParts.length === 2) {
@@ -869,10 +899,7 @@ window.previsualizarRelatorioPDF = async function() {
     try {
         const res = await fetch(`/protocolos/pesquisa?${params.toString()}`);
         const data = await res.json();
-        if (!data.protocolos || data.protocolos.length === 0) {
-            alert("Nenhum resultado encontrado para gerar o PDF.");
-            return;
-        }
+        if (!data.protocolos || data.protocolos.length === 0) { alert("Nenhum resultado encontrado para gerar o PDF."); return; }
         const templatePDF = document.getElementById('modeloProtocolo');
         let htmlContent = '';
         data.protocolos.forEach(p => {
@@ -1159,7 +1186,7 @@ window.renderizarPaginacao = function(totalItens, paginaAtual, idContainer, call
     }
 };
 window.voltarDeMeusProtocolos = function() {
-  if (window.nivelUsuario === 'comum') { sair(); } else { mostrarTela('menu'); }
+  if (window.nivelUsuario === 'comum' || window.nivelUsuario === 'usuario') { sair(); } else { mostrarTela('menu'); }
 };
 window.preencherCamposServidor = function(servidor) {
     if (!servidor) {
@@ -1178,37 +1205,23 @@ window.confirmarAlteracaoSenha = async function() {
     const senhaAtual = document.getElementById('senhaAtual').value;
     const novaSenha = document.getElementById('alterarNovaSenha').value;
     const confirmarSenha = document.getElementById('confirmarNovaSenha').value;
-    if (!senhaAtual || !novaSenha || !confirmarSenha) {
-        alert('Por favor, preencha todos os campos.');
-        return;
-    }
-    if (novaSenha !== confirmarSenha) {
-        alert('A nova senha e a confirmação não são iguais.');
-        return;
-    }
-    if (novaSenha.length < 4) {
-        alert('A nova senha deve ter pelo menos 4 caracteres.');
-        return;
-    }
+    if (!senhaAtual || !novaSenha || !confirmarSenha) { alert('Por favor, preencha todos os campos.'); return; }
+    if (novaSenha !== confirmarSenha) { alert('A nova senha e a confirmação não são iguais.'); return; }
+    if (novaSenha.length < 4) { alert('A nova senha deve ter pelo menos 4 caracteres.'); return; }
     try {
         const res = await fetch('/usuarios/minha-senha', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                usuarioLogin: window.usuarioLogin,
-                senhaAtual: senhaAtual,
-                novaSenha: novaSenha
-            })
+            body: JSON.stringify({ usuarioLogin: window.usuarioLogin, senhaAtual: senhaAtual, novaSenha: novaSenha })
         });
         const data = await res.json();
         alert(data.mensagem);
         if (data.sucesso) {
             fecharModal('modalAlterarSenha');
         }
-    } catch(err) {
-        alert('Erro ao conectar com o servidor para alterar a senha.');
-    }
+    } catch(err) { alert('Erro ao conectar com o servidor para alterar a senha.'); }
 };
+
     
 </script>
 
