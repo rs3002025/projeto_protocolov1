@@ -95,6 +95,7 @@
     <button onclick="mostrarTela('relatorios')" id="btnRelatorios">📊 Relatórios</button>
     <button onclick="mostrarTela('meusProtocolos')">📂 Meus Protocolos</button>
     <button id="btnConfig" onclick="mostrarTela('config')">⚙️ Configurações</button>
+    <button onclick="abrirModalAlterarSenha()">🔑 Alterar Senha</button>
     <button onclick="sair()">🚪 Sair</button>
   </div>
 
@@ -119,7 +120,7 @@
         </div>
     </div>
     <div class="chart-container">
-        <h4>Top 5 Tipos de Requerimento (no período)</h4>
+        <h4>Top 5 Tipos de Requerimento (nos filtros)</h4>
         <canvas id="tiposChart"></canvas>
     </div>
     <button onclick="mostrarTela('menu')">🔙 Voltar</button>
@@ -153,7 +154,7 @@
 
   <div id="relatorios" class="relatorios-screen content">
     <h3>🔍 Relatórios e Pesquisa Avançada</h3>
-    <form class="filtros">
+    <form class="filtros" onsubmit="return false;">
         <input type="text" id="filtroNumero" placeholder="Número do Protocolo">
         <input type="text" id="filtroNome" placeholder="Nome do Requerente">
         <select id="filtroStatus">
@@ -236,6 +237,7 @@
       <input type="password" id="novaSenha" placeholder="Senha" />
       <input type="email" id="novoEmail" placeholder="E-mail do usuário" />
       <select id="nivelUsuario">
+        <option value="usuario">Usuário</option>
         <option value="comum">Comum</option>
         <option value="padrao">Padrão</option>
         <option value="admin">Administrador</option>
@@ -398,6 +400,7 @@
     <div class="form-group">
       <label>Tipo</label>
       <select id="editTipo">
+        <option value="usuario">Usuário</option>
         <option value="comum">Comum</option>
         <option value="padrao">Padrão</option>
         <option value="admin">Administrador</option>
@@ -423,6 +426,18 @@
     </div>
   </div>
 </div>
+<div id="modalAlterarSenha" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:10000; align-items:center; justify-content:center;">
+  <div style="background:#fff; padding:20px; border-radius:8px; width:400px; max-width:90%;">
+    <h3>Alterar Minha Senha</h3>
+    <div class="form-group"><label>Senha Atual</label><input type="password" id="senhaAtual"></div>
+    <div class="form-group"><label>Nova Senha</label><input type="password" id="alterarNovaSenha"></div>
+    <div class="form-group"><label>Confirmar Nova Senha</label><input type="password" id="confirmarNovaSenha"></div>
+    <div style="text-align:right; margin-top:15px;">
+      <button onclick="confirmarAlteracaoSenha()">Salvar Nova Senha</button>
+      <button onclick="fecharModal('modalAlterarSenha')">Cancelar</button>
+    </div>
+  </div>
+</div>
 
 <script defer>
 
@@ -436,7 +451,6 @@ window.opcoesLotacoes = [];
 
 // Funções de Inicialização (executadas quando o DOM estiver pronto)
 document.addEventListener('DOMContentLoaded', () => {
-    // Código de inicialização da sessão
     window.usuarioLogado = localStorage.getItem('usuarioLogado') || "";
     window.nivelUsuario = localStorage.getItem('nivelUsuario') || "";
     window.usuarioLogin = localStorage.getItem('usuarioLogin') || "";
@@ -446,7 +460,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (window.usuarioLogado) {
         document.getElementById('btnDashboard').style.display = (window.nivelUsuario === 'admin' || window.nivelUsuario === 'padrao') ? 'flex' : 'none';
         document.getElementById('btnConfig').style.display = window.nivelUsuario === "admin" ? "flex" : "none";
-        document.getElementById('btnNovo').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "flex" : "none";
+        document.getElementById('btnNovo').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao" || window.nivelUsuario === "usuario") ? "flex" : "none";
         document.getElementById('btnRelatorios').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "flex" : "none";
 
         carregarOpcoesDropdowns().then(() => {
@@ -464,18 +478,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('matricula').addEventListener('blur', async function() {
         const matricula = this.value.trim();
-        if (!matricula) {
-            preencherCamposServidor(null);
-            return;
-        }
+        if (!matricula) { preencherCamposServidor(null); return; }
         try {
             const response = await fetch(`/protocolos/servidor/${encodeURIComponent(matricula)}`);
             if (!response.ok) { return; }
             const servidor = await response.json();
             preencherCamposServidor(servidor);
-        } catch (error) {
-            console.error('Erro ao buscar servidor:', error);
-        }
+        } catch (error) { console.error('Erro ao buscar servidor:', error); }
     });
 
     document.getElementById('cep').addEventListener('blur', async function () {
@@ -487,28 +496,22 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
             const data = await response.json();
-            if (data.erro) {
-                alert('CEP não encontrado!');
-                return;
-            }
+            if (data.erro) { alert('CEP não encontrado!'); return; }
             document.getElementById('endereco').value = data.logradouro || '';
             document.getElementById('bairro').value = data.bairro || '';
             document.getElementById('municipio').value = data.localidade || '';
-        } catch (error) {
-            console.error('Erro ao buscar CEP:', error);
-            alert('Erro ao buscar o CEP. Verifique sua conexão.');
-        }
+        } catch (error) { console.error('Erro ao buscar CEP:', error); alert('Erro ao buscar o CEP.'); }
     });
 });
 
+// Funções Globais (acessíveis via onclick)
 window.logar = async function() {
     const user = document.getElementById('usuario').value;
     const senha = document.getElementById('senha').value;
     const msg = document.getElementById('loginMsg');
     try {
         const res = await fetch('/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ login: user, senha: senha })
         });
         const data = await res.json();
@@ -520,17 +523,12 @@ window.logar = async function() {
         } else {
             msg.textContent = "Usuário ou senha incorretos.";
         }
-    } catch(err) {
-        console.error("Erro no login:", err);
-        msg.textContent = "Erro ao conectar ao servidor.";
-    }
+    } catch(err) { console.error("Erro no login:", err); msg.textContent = "Erro ao conectar ao servidor."; }
 };
-
 window.sair = function() {
     localStorage.clear();
     window.location.reload();
 };
-
 window.mostrarTela = async function(tela) {
     ['login','menu','dashboard','form','config','protocolos','meusProtocolos','relatorios'].forEach(id => {
         document.getElementById(id)?.classList.remove('active');
@@ -542,8 +540,7 @@ window.mostrarTela = async function(tela) {
         if (usuarioLogin) {
             try {
                 await fetch('/protocolos/notificacoes/ler', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ usuarioLogin })
                 });
                 await verificarNotificacoes();
@@ -556,27 +553,20 @@ window.mostrarTela = async function(tela) {
     if (tela === 'form') { popularDropdownsFormulario(); gerarNumeroProtocolo(); }
     if (tela === 'config') { atualizarListaUsuarios(); carregarTabelaGestao('tipos'); carregarTabelaGestao('lotacoes'); }
     if (tela === 'relatorios') { popularFiltrosRelatorio(); pesquisarProtocolos(); }
-    if (tela === 'dashboard') carregarDashboard();
+    if (tela === 'dashboard') { popularFiltrosDashboard(); carregarDashboard(); }
 };
-
 window.gerarNumeroProtocolo = async function() {
   const anoAtual = new Date().getFullYear();
   try {
     const res = await fetch(`/protocolos/ultimoNumero/${anoAtual}`);
     const data = await res.json();
-    const ultimo = data.ultimo || 0;
-    const novoNumero = `${String(ultimo + 1).padStart(4, '0')}/${anoAtual}`;
-    document.getElementById('numeroProtocolo').value = novoNumero;
-  } catch (error) {
-    console.error("Erro ao gerar número:", error);
-    document.getElementById('numeroProtocolo').value = `0001/${anoAtual}`;
-  }
+    document.getElementById('numeroProtocolo').value = `${String((data.ultimo || 0) + 1).padStart(4, '0')}/${anoAtual}`;
+  } catch (error) { console.error("Erro ao gerar número:", error); document.getElementById('numeroProtocolo').value = `0001/${anoAtual}`; }
 };
-
-window.enviarRequerimento = function() {
-  const numeroProtocolo = document.getElementById('numeroProtocolo').value;
+window.enviarRequerimento = async function() {
+  let numeroProtocolo = document.getElementById('numeroProtocolo').value;
   if (!numeroProtocolo) { alert("❗Número de protocolo não gerado."); return; }
-  const dataAgora = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+  
   const protocolo = {
     numero: numeroProtocolo, matricula: document.getElementById('matricula').value, nome: document.getElementById('nome').value,
     endereco: document.getElementById('endereco').value, municipio: document.getElementById('municipio').value, bairro: document.getElementById('bairro').value,
@@ -584,22 +574,70 @@ window.enviarRequerimento = function() {
     rg: document.getElementById('rg').value, dataExpedicao: document.getElementById('dataExpedicao').value, cargo: document.getElementById('cargo').value,
     lotacao: document.getElementById('lotacao').value, unidade: document.getElementById('unidade').value, tipo: document.getElementById('tipo').value,
     requerAo: document.getElementById('requerAo').value, dataSolicitacao: document.getElementById('dataSolicitacao').value, complemento: document.getElementById('complemento').value,
-    dataEnvio: dataAgora, status: "Enviado", responsavel: window.usuarioLogin,
+    status: "Enviado", responsavel: window.usuarioLogin,
   };
-  fetch('/protocolos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(protocolo) })
-  .then(res => res.json())
-  .then(data => {
-    if (data.sucesso) {
-      alert('✅ Protocolo enviado e salvo no banco com sucesso!');
-      document.querySelector('#form .formulario').reset();
-      gerarNumeroProtocolo();
-    } else {
-      alert('❌ Erro ao enviar protocolo: ' + (data.mensagem || 'Erro desconhecido'));
-    }
-  })
-  .catch(err => { alert('❌ Erro na conexão: ' + err.message); });
-};
 
+  try {
+      const res = await fetch('/protocolos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(protocolo) });
+      const data = await res.json();
+      if (res.ok && data.sucesso) {
+          alert('✅ Protocolo enviado e salvo com sucesso!');
+          document.querySelector('#form .formulario').reset();
+          gerarNumeroProtocolo();
+      } else if (res.status === 400) {
+          if (confirm("O número deste protocolo já foi usado. Deseja tentar salvar novamente com um novo número sem perder os dados?")) {
+              const novoNumero = await gerarNumeroProtocolo();
+              protocolo.numero = document.getElementById('numeroProtocolo').value;
+              enviarRequerimento(); // Tenta novamente com o novo número
+          }
+      } else {
+          alert('❌ Erro ao enviar protocolo: ' + (data.mensagem || 'Erro desconhecido'));
+      }
+  } catch(err) { alert('❌ Erro na conexão: ' + err.message); }
+};
+window.listarProtocolos = async function(pagina = 1) { /* ... */ };
+window.listarMeusProtocolos = async function(pagina = 1) { /* ... */ };
+window.limparFiltrosMeusProtocolos = function() { /* ... */ };
+window.fecharModal = function(modalId) { document.getElementById(modalId).style.display = 'none'; };
+window.abrirModalEncaminhar = async function(idProtocolo) { /* ... */ };
+window.confirmarEncaminhamento = async function() { /* ... */ };
+window.abrirAtualizar = async function(id) { /* ... */ };
+window.handleStatusChange = function(selectElement) { /* ... */ };
+window.confirmarAtualizacaoStatus = async function() { /* ... */ };
+window.previsualizarPDF = async function(id, isPrint = false) { /* ... */ };
+window.gerarPDF = async function() { /* ... */ };
+window.popularFiltrosRelatorio = function() { /* ... */ };
+window.pesquisarProtocolos = async function() { /* ... */ };
+window.previsualizarRelatorioPDF = async function() { /* ... */ };
+window.salvarRelatorioPDF = async function() { /* ... */ };
+window.exportarRelatorioExcel = function() { /* ... */ };
+window.limparFiltrosRelatorio = function() { /* ... */ };
+window.verificarNotificacoes = async function() { /* ... */ };
+window.carregarDashboard = async function() { /* ... */ };
+window.salvarEmailSistema = function() { /* ... */ };
+window.cadastrarUsuario = async function() { /* ... */ };
+window.atualizarListaUsuarios = async function() { /* ... */ };
+window.abrirModalEditar = function(usuario) { /* ... */ };
+window.confirmarEdicaoUsuario = async function() { /* ... */ };
+window.abrirModalResetarSenha = function(id) { /* ... */ };
+window.confirmarResetSenha = async function() { /* ... */ };
+window.alterarStatusUsuario = async function(id, novoStatus) { /* ... */ };
+window.carregarOpcoesDropdowns = async function() { /* ... */ };
+window.popularDropdown = function(selectId, opcoes) { /* ... */ };
+window.popularDropdownsFormulario = function() { /* ... */ };
+window.popularFiltrosDashboard = function() { /* ... */ };
+window.carregarTabelaGestao = async function(tipo) { /* ... */ };
+window.adicionarItem = async function(tipo) { /* ... */ };
+window.alterarStatusItem = async function(tipo, id, novoStatus) { /* ... */ };
+window.gerarBackup = async function() { /* ... */ };
+window.renderizarPaginacao = function(totalItens, paginaAtual, idContainer, callback) { /* ... */ };
+window.voltarDeMeusProtocolos = function() { /* ... */ };
+window.preencherCamposServidor = function(servidor) { /* ... */ };
+window.abrirModalAlterarSenha = function() { /* ... */ };
+window.confirmarAlteracaoSenha = async function() { /* ... */ };
+// O código acima é só a estrutura, o conteúdo completo está abaixo.
+
+// Implementação COMPLETA das funções:
 window.listarProtocolos = async function(pagina = 1) {
   const tbody = document.getElementById('tabelaProtocolos');
   tbody.innerHTML = "<tr><td colspan='7'>Carregando...</td></tr>";
@@ -627,7 +665,6 @@ window.listarProtocolos = async function(pagina = 1) {
     renderizarPaginacao(data.protocolos.length, pagina, 'paginacaoProtocolos', listarProtocolos);
   } catch (error) { console.error("Erro ao listar protocolos:", error); tbody.innerHTML = "<tr><td colspan='7'>Erro ao carregar protocolos.</td></tr>"; }
 };
-
 window.listarMeusProtocolos = async function(pagina = 1) {
     const tbody = document.getElementById('meusProtocolosTabela');
     tbody.innerHTML = "<tr><td colspan='4'>Carregando...</td></tr>";
@@ -665,15 +702,11 @@ window.listarMeusProtocolos = async function(pagina = 1) {
         renderizarPaginacao(data.protocolos.length, pagina, 'paginacaoMeusProtocolos', listarMeusProtocolos);
     } catch (error) { console.error("Erro ao listar meus protocolos:", error); tbody.innerHTML = "<tr><td colspan='4'>Erro ao carregar protocolos.</td></tr>"; }
 };
-
 window.limparFiltrosMeusProtocolos = function() {
     document.getElementById('filtroMeusProtocolosNumero').value = '';
     document.getElementById('filtroMeusProtocolosNome').value = '';
     listarMeusProtocolos();
 };
-
-window.fecharModal = function(modalId) { document.getElementById(modalId).style.display = 'none'; };
-
 window.abrirModalEncaminhar = async function(idProtocolo) {
   try {
     const res = await fetch('/usuarios');
@@ -693,7 +726,6 @@ window.abrirModalEncaminhar = async function(idProtocolo) {
     modal.style.display = 'flex';
   } catch (error) { alert('Erro ao carregar usuários'); console.error(error); }
 };
-
 window.confirmarEncaminhamento = async function() {
   const modal = document.getElementById('modalEncaminhar');
   const idProtocolo = modal.dataset.protocoloId;
@@ -718,7 +750,6 @@ window.confirmarEncaminhamento = async function() {
     }
   } catch (err) { console.error(err); alert('❌ Erro ao encaminhar protocolo'); }
 };
-
 window.abrirAtualizar = async function(id) {
   const modal = document.getElementById('modalAtualizarStatus');
   document.getElementById('statusSelect').value = 'Em análise';
@@ -728,12 +759,10 @@ window.abrirAtualizar = async function(id) {
   modal.dataset.protocoloId = id;
   modal.style.display = 'flex';
 };
-
 window.handleStatusChange = function(selectElement) {
   const customInput = document.getElementById('statusCustom');
   customInput.style.display = selectElement.value === 'Outro' ? 'block' : 'none';
 };
-
 window.confirmarAtualizacaoStatus = async function() {
   const modal = document.getElementById('modalAtualizarStatus');
   const protocoloId = modal.dataset.protocoloId;
@@ -762,49 +791,29 @@ window.confirmarAtualizacaoStatus = async function() {
     }
   } catch (error) { console.error("Erro na atualização:", error); }
 };
-
 window.previsualizarPDF = async function(id, isPrint = false) {
   let protocolo;
   if(id === null && isPrint === true) {
-      // Modo de impressão a partir do formulário
       protocolo = {
-          numero: document.getElementById('numeroProtocolo').value,
-          data_solicitacao: document.getElementById('dataSolicitacao').value,
-          nome: document.getElementById('nome').value,
-          matricula: document.getElementById('matricula').value,
-          cpf: document.getElementById('cpf').value,
-          rg: document.getElementById('rg').value,
-          endereco: document.getElementById('endereco').value,
-          bairro: document.getElementById('bairro').value,
-          municipio: document.getElementById('municipio').value,
-          cep: document.getElementById('cep').value,
-          telefone: document.getElementById('telefone').value,
-          cargo: document.getElementById('cargo').value,
-          lotacao: document.getElementById('lotacao').value,
-          unidade_exercicio: document.getElementById('unidade').value,
-          tipo_requerimento: document.getElementById('tipo').value,
-          requer_ao: document.getElementById('requerAo').value,
-          observacoes: document.getElementById('complemento').value,
+          numero: document.getElementById('numeroProtocolo').value, data_solicitacao: document.getElementById('dataSolicitacao').value,
+          nome: document.getElementById('nome').value, matricula: document.getElementById('matricula').value, cpf: document.getElementById('cpf').value,
+          rg: document.getElementById('rg').value, endereco: document.getElementById('endereco').value, bairro: document.getElementById('bairro').value,
+          municipio: document.getElementById('municipio').value, cep: document.getElementById('cep').value, telefone: document.getElementById('telefone').value,
+          cargo: document.getElementById('cargo').value, lotacao: document.getElementById('lotacao').value, unidade_exercicio: document.getElementById('unidade').value,
+          tipo_requerimento: document.getElementById('tipo').value, requer_ao: document.getElementById('requerAo').value, observacoes: document.getElementById('complemento').value,
       };
   } else {
-      // Modo de visualização de um protocolo existente
       try {
           const res = await fetch(`/protocolos/${id}`);
           const data = await res.json();
           if(!data.protocolo) { alert("Protocolo não encontrado"); return; }
           protocolo = data.protocolo;
-      } catch (err) {
-          console.error('Erro ao buscar protocolo:', err);
-          alert('Erro ao buscar dados do protocolo.');
-          return;
-      }
+      } catch (err) { console.error('Erro ao buscar protocolo:', err); alert('Erro ao buscar dados do protocolo.'); return; }
   }
-  
   protocoloParaGerar = protocolo;
   const modeloOriginal = document.getElementById('modeloProtocolo');
   const pdfContentDiv = document.getElementById('pdfContent');
   pdfContentDiv.innerHTML = modeloOriginal.innerHTML; 
-  
   const qrcodeContainer = pdfContentDiv.querySelector('#qrcode-container');
   if(qrcodeContainer && protocolo.numero) {
       qrcodeContainer.innerHTML = '';
@@ -814,9 +823,8 @@ window.previsualizarPDF = async function(id, isPrint = false) {
           new QRCode(qrcodeContainer, { text: urlConsulta, width: 90, height: 90, correctLevel : QRCode.CorrectLevel.H });
       }
   }
-  
   pdfContentDiv.querySelector('#doc_numero').textContent = protocolo.numero ?? 'A ser gerado';
-  pdfContentDiv.querySelector('#doc_dataSolicitacao').textContent = protocolo.data_solicitacao ? new Date(protocolo.data_solicitacao).toLocaleDateString('pt-BR') : 'Não informada';
+  pdfContentDiv.querySelector('#doc_dataSolicitacao').textContent = protocolo.data_solicitacao ? new Date(protocolo.data_solicitacao).toLocaleDateString('pt-BR', {timeZone: 'UTC'}) : new Date().toLocaleDateString('pt-BR');
   pdfContentDiv.querySelector('#doc_nome').textContent = protocolo.nome ?? '';
   pdfContentDiv.querySelector('#doc_matricula').textContent = protocolo.matricula ?? '';
   pdfContentDiv.querySelector('#doc_cpf').textContent = protocolo.cpf ?? '';
@@ -832,10 +840,8 @@ window.previsualizarPDF = async function(id, isPrint = false) {
   pdfContentDiv.querySelector('#doc_tipo').textContent = protocolo.tipo_requerimento ?? '';
   pdfContentDiv.querySelector('#doc_requerAo').textContent = protocolo.requer_ao ?? '';
   pdfContentDiv.querySelector('#doc_complemento').innerHTML = protocolo.observacoes ? protocolo.observacoes.replace(/\n/g, '<br>') : 'Nenhuma informação adicional.';
-  
   document.getElementById('pdfModal').style.display = 'block';
 };
-
 window.gerarPDF = async function() {
   if (!protocoloParaGerar) { alert("Nenhum protocolo para gerar."); return; }
   const element = document.getElementById('pdfContent');
@@ -845,14 +851,12 @@ window.gerarPDF = async function() {
     fecharModal('pdfModal');
   } catch (error) { console.error("Erro ao gerar PDF:", error); alert("Ocorreu um erro ao gerar o PDF."); }
 };
-
 window.popularFiltrosRelatorio = function() {
     popularDropdown('filtroTipo', window.opcoesTipos);
     document.getElementById('filtroTipo').firstChild.textContent = "Todo tipo de Requerimento";
     popularDropdown('filtroLotacao', window.opcoesLotacoes);
     document.getElementById('filtroLotacao').firstChild.textContent = "Todas as Lotações";
 };
-
 window.pesquisarProtocolos = async function() {
   const params = new URLSearchParams({ numero: document.getElementById('filtroNumero').value, nome: document.getElementById('filtroNome').value, status: document.getElementById('filtroStatus').value, dataInicio: document.getElementById('filtroDataInicio').value, dataFim: document.getElementById('filtroDataFim').value, tipo: document.getElementById('filtroTipo').value, lotacao: document.getElementById('filtroLotacao').value });
   const tbody = document.getElementById('resultadosPesquisa');
@@ -866,7 +870,7 @@ window.pesquisarProtocolos = async function() {
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td>${p.numero || ''}</td> <td>${p.nome || ''}</td> <td>${p.matricula || ''}</td>
-          <td>${p.tipo_requerimento || ''}</td> <td>${p.data_solicitacao ? new Date(p.data_solicitacao).toLocaleDateString('pt-BR') : ''}</td>
+          <td>${p.tipo_requerimento || ''}</td> <td>${p.data_solicitacao ? new Date(p.data_solicitacao).toLocaleDateString('pt-BR', {timeZone: 'UTC'}) : ''}</td>
           <td>${p.status || ''}</td> <td>${p.responsavel || ''}</td>
         `;
         tbody.appendChild(tr);
@@ -876,7 +880,6 @@ window.pesquisarProtocolos = async function() {
     }
   } catch (error) { console.error("Erro ao pesquisar protocolos:", error); }
 };
-
 window.previsualizarRelatorioPDF = async function() {
     const params = new URLSearchParams({ numero: document.getElementById('filtroNumero').value, nome: document.getElementById('filtroNome').value, status: document.getElementById('filtroStatus').value, dataInicio: document.getElementById('filtroDataInicio').value, dataFim: document.getElementById('filtroDataFim').value, tipo: document.getElementById('filtroTipo').value, lotacao: document.getElementById('filtroLotacao').value });
     try {
@@ -886,40 +889,30 @@ window.previsualizarRelatorioPDF = async function() {
             alert("Nenhum resultado encontrado para gerar o PDF.");
             return;
         }
-
-        const templatePDF = document.getElementById('modeloProtocolo').innerHTML;
+        const templatePDF = document.getElementById('modeloProtocolo');
         let htmlContent = '';
         data.protocolos.forEach(p => {
-            let protocoloHtml = templatePDF
-                .replace(/<span id="doc_numero"><\/span>/g, `<span>${p.numero || ''}</span>`)
-                .replace(/<span id="doc_dataSolicitacao"><\/span>/g, `<span>${p.data_solicitacao ? new Date(p.data_solicitacao).toLocaleDateString('pt-BR') : ''}</span>`)
-                .replace(/<span id="doc_nome"><\/span>/g, `<span>${p.nome || ''}</span>`)
-                .replace(/<span id="doc_matricula"><\/span>/g, `<span>${p.matricula || ''}</span>`)
-                .replace(/<span id="doc_tipo"><\/span>/g, `<span>${p.tipo_requerimento || ''}</span>`);
-            htmlContent += `<div style="page-break-after: always;">${protocoloHtml}</div>`;
+            const tempNode = templatePDF.cloneNode(true);
+            tempNode.style.display = 'block';
+            tempNode.querySelector('#doc_numero').textContent = p.numero || '';
+            tempNode.querySelector('#doc_dataSolicitacao').textContent = p.data_solicitacao ? new Date(p.data_solicitacao).toLocaleDateString('pt-BR', {timeZone: 'UTC'}) : '';
+            tempNode.querySelector('#doc_nome').textContent = p.nome || '';
+            tempNode.querySelector('#doc_matricula').textContent = p.matricula || '';
+            tempNode.querySelector('#doc_tipo').textContent = p.tipo_requerimento || '';
+            htmlContent += `<div style="page-break-after: always;">${tempNode.innerHTML}</div>`;
         });
-        
         document.getElementById('relatorioContent').innerHTML = htmlContent;
         document.getElementById('relatorioModal').style.display = 'block';
-
-    } catch(err) {
-        console.error('Erro ao gerar relatório:', err);
-        alert('Erro ao gerar relatório.');
-    }
+    } catch(err) { console.error('Erro ao gerar relatório:', err); alert('Erro ao gerar relatório.'); }
 };
-
 window.salvarRelatorioPDF = async function() {
     const element = document.getElementById('relatorioContent');
     const opt = { margin: [0, 0, 0, 0], filename: `Relatorio_Protocolos.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
     try {
         await html2pdf().set(opt).from(element).save();
         fecharModal('relatorioModal');
-    } catch(err) {
-        console.error('Erro ao salvar PDF do relatório:', err);
-        alert('Erro ao salvar PDF do relatório.');
-    }
+    } catch(err) { console.error('Erro ao salvar PDF do relatório:', err); alert('Erro ao salvar PDF do relatório.'); }
 };
-
 window.exportarRelatorioExcel = function() {
   const params = new URLSearchParams({ numero: document.getElementById('filtroNumero').value, nome: document.getElementById('filtroNome').value, status: document.getElementById('filtroStatus').value, dataInicio: document.getElementById('filtroDataInicio').value, dataFim: document.getElementById('filtroDataFim').value, tipo: document.getElementById('filtroTipo').value, lotacao: document.getElementById('filtroLotacao').value });
   window.location.href = `/protocolos/backup?${params.toString()}`;
@@ -934,24 +927,28 @@ window.verificarNotificacoes = async function() {
   try {
     const res = await fetch(`/protocolos/notificacoes/${usuarioLogin}`);
     const data = await res.json();
-    const count = data.count;
     const bell = document.getElementById('notification-bell');
     const countSpan = document.getElementById('notification-count');
-    if (count > 0) {
-      countSpan.textContent = count;
+    if (data.count > 0) {
+      countSpan.textContent = data.count;
       bell.style.display = 'block';
     } else {
       bell.style.display = 'none';
     }
   } catch (err) { console.error('Erro ao verificar notificações:', err); }
 };
+window.popularFiltrosDashboard = function() {
+    const statusOptions = '<option value="">Todos os Status</option><option value="Em análise">Em análise</option><option value="Pendente de documento">Pendente de documento</option><option value="Finalizado">Finalizado</option><option value="Concluído">Concluído</option><option value="Encaminhado">Encaminhado</option>';
+    document.getElementById('dashStatus').innerHTML = statusOptions;
+    popularDropdown('dashTipo', window.opcoesTipos);
+    document.getElementById('dashTipo').firstChild.textContent = "Todo tipo de Requerimento";
+    popularDropdown('dashLotacao', window.opcoesLotacoes);
+    document.getElementById('dashLotacao').firstChild.textContent = "Todas as Lotações";
+};
 window.carregarDashboard = async function() {
     const params = new URLSearchParams({
-        dataInicio: document.getElementById('dashDataInicio').value,
-        dataFim: document.getElementById('dashDataFim').value,
-        status: document.getElementById('dashStatus').value,
-        tipo: document.getElementById('dashTipo').value,
-        lotacao: document.getElementById('dashLotacao').value
+        dataInicio: document.getElementById('dashDataInicio').value, dataFim: document.getElementById('dashDataFim').value,
+        status: document.getElementById('dashStatus').value, tipo: document.getElementById('dashTipo').value, lotacao: document.getElementById('dashLotacao').value
     });
     try {
         const res = await fetch(`/protocolos/dashboard-stats?${params.toString()}`);
@@ -965,15 +962,10 @@ window.carregarDashboard = async function() {
         const ctx = document.getElementById('tiposChart').getContext('2d');
         if (tiposChartInstance) { tiposChartInstance.destroy(); }
         tiposChartInstance = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: labels,
-                datasets: [{
+            type: 'bar', data: { labels: labels, datasets: [{
                     label: 'Total de Protocolos', data: data,
                     backgroundColor: ['rgba(46, 125, 50, 0.7)', 'rgba(76, 175, 80, 0.7)', 'rgba(139, 195, 74, 0.7)', 'rgba(205, 220, 57, 0.7)', 'rgba(255, 235, 59, 0.7)'],
-                    borderColor: ['rgba(46, 125, 50, 1)', 'rgba(76, 175, 80, 1)', 'rgba(139, 195, 74, 1)', 'rgba(205, 220, 57, 1)', 'rgba(255, 235, 59, 1)'],
-                    borderWidth: 1
-                }]
+                    borderWidth: 1 }]
             },
             options: { scales: { y: { beginAtZero: true } }, indexAxis: 'y', responsive: true, plugins: { legend: { display: false } } }
         });
@@ -1072,10 +1064,7 @@ window.carregarOpcoesDropdowns = async function() {
         const [tiposRes, lotacoesRes] = await Promise.all([ fetch('/admin/tipos'), fetch('/admin/lotacoes') ]);
         window.opcoesTipos = await tiposRes.json();
         window.opcoesLotacoes = await lotacoesRes.json();
-    } catch (err) {
-        console.error("Erro ao carregar opções de dropdowns:", err);
-        alert("Não foi possível carregar as listas de opções.");
-    }
+    } catch (err) { console.error("Erro ao carregar opções de dropdowns:", err); alert("Não foi possível carregar as listas de opções."); }
 };
 window.popularDropdown = function(selectId, opcoes) {
     const select = document.getElementById(selectId);
@@ -1135,7 +1124,7 @@ window.alterarStatusItem = async function(tipo, id, novoStatus) {
 window.gerarBackup = async function() {
   const dataInicio = document.getElementById('backupDataInicio').value;
   const dataFim = document.getElementById('backupDataFim').value;
-  if (!dataInicio || !dataFim) { alert("Por favor, selecione o período completo (data início e fim)."); return; }
+  if (!dataInicio || !dataFim) { alert("Por favor, selecione o período completo."); return; }
   try {
     const url = `/protocolos/backup?dataInicio=${dataInicio}&dataFim=${dataFim}`;
     const response = await fetch(url);
@@ -1149,7 +1138,7 @@ window.gerarBackup = async function() {
     a.click();
     a.remove();
     window.URL.revokeObjectURL(urlBlob);
-  } catch (error) { console.error("Erro ao gerar backup:", error); alert("Erro ao gerar backup. Veja console."); }
+  } catch (error) { console.error("Erro ao gerar backup:", error); alert("Erro ao gerar backup."); }
 };
 window.renderizarPaginacao = function(totalItens, paginaAtual, idContainer, callback) {
     const container = document.getElementById(idContainer);
@@ -1196,6 +1185,47 @@ window.preencherCamposServidor = function(servidor) {
       document.getElementById('nome').value = servidor.nome || ''; document.getElementById('lotacao').value = servidor.lotacao || ''; document.getElementById('cargo').value = servidor.cargo || ''; document.getElementById('unidade').value = servidor.unidade_de_exercicio || '';
     }
 };
+window.abrirModalAlterarSenha = function() {
+    document.getElementById('senhaAtual').value = '';
+    document.getElementById('alterarNovaSenha').value = '';
+    document.getElementById('confirmarNovaSenha').value = '';
+    document.getElementById('modalAlterarSenha').style.display = 'flex';
+};
+window.confirmarAlteracaoSenha = async function() {
+    const senhaAtual = document.getElementById('senhaAtual').value;
+    const novaSenha = document.getElementById('alterarNovaSenha').value;
+    const confirmarSenha = document.getElementById('confirmarNovaSenha').value;
+
+    if (novaSenha !== confirmarSenha) {
+        alert('A nova senha e a confirmação não são iguais.');
+        return;
+    }
+    if (novaSenha.length < 4) {
+        alert('A nova senha deve ter pelo menos 4 caracteres.');
+        return;
+    }
+
+    try {
+        const res = await fetch('/usuarios/minha-senha', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                usuarioLogin: window.usuarioLogin,
+                senhaAtual: senhaAtual,
+                novaSenha: novaSenha
+            })
+        });
+        const data = await res.json();
+        alert(data.mensagem);
+        if (data.sucesso) {
+            fecharModal('modalAlterarSenha');
+        }
+    } catch(err) {
+        alert('Erro ao conectar com o servidor para alterar a senha.');
+    }
+};
+
+
     
 </script>
 
