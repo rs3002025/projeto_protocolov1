@@ -24,7 +24,6 @@ app.post('/login', async (req, res) => {
       "SELECT nome, login, tipo, email FROM usuarios WHERE login = $1 AND senha = $2 AND status = 'ativo'",
       [login, senha]
     );
-
     if (result.rows.length > 0) {
       res.json({ sucesso: true, usuario: result.rows[0] });
     } else {
@@ -62,7 +61,30 @@ app.get('/usuarios', async (req, res) => {
   }
 });
 
-// Rota para ATUALIZAR dados de um usuário
+// Rota para o próprio usuário alterar sua senha (ORDEM CORRIGIDA)
+app.put('/usuarios/minha-senha', async (req, res) => {
+    const { usuarioLogin, senhaAtual, novaSenha } = req.body;
+    if (!usuarioLogin || !senhaAtual || !novaSenha) {
+        return res.status(400).json({ sucesso: false, mensagem: "Dados incompletos." });
+    }
+    try {
+        const userResult = await pool.query('SELECT senha FROM usuarios WHERE login = $1', [usuarioLogin]);
+        if (userResult.rows.length === 0) {
+            return res.status(404).json({ sucesso: false, mensagem: "Usuário não encontrado." });
+        }
+        const user = userResult.rows[0];
+        if (user.senha !== senhaAtual) {
+            return res.status(403).json({ sucesso: false, mensagem: "A senha atual está incorreta." });
+        }
+        await pool.query('UPDATE usuarios SET senha = $1 WHERE login = $2', [novaSenha, usuarioLogin]);
+        res.json({ sucesso: true, mensagem: "Senha alterada com sucesso!" });
+    } catch (err) {
+        console.error('Erro ao alterar a própria senha:', err);
+        res.status(500).json({ sucesso: false, mensagem: 'Erro no servidor ao alterar a senha.' });
+    }
+});
+
+// Rota para ATUALIZAR dados de um usuário (Admin)
 app.put('/usuarios/:id', async (req, res) => {
   const { id } = req.params;
   const { nome, login, email, tipo, cpf } = req.body;
@@ -78,7 +100,7 @@ app.put('/usuarios/:id', async (req, res) => {
   }
 });
 
-// Rota para RESETAR A SENHA (Admin)
+// Rota para RESETAR A SENHA de um usuário (Admin)
 app.put('/usuarios/:id/senha', async (req, res) => {
   const { id } = req.params;
   const { novaSenha } = req.body;
@@ -104,30 +126,6 @@ app.put('/usuarios/:id/status', async (req, res) => {
   }
 });
 
-// Rota para o próprio usuário alterar sua senha
-app.put('/usuarios/minha-senha', async (req, res) => {
-    const { usuarioLogin, senhaAtual, novaSenha } = req.body;
-    if (!usuarioLogin || !senhaAtual || !novaSenha) {
-        return res.status(400).json({ sucesso: false, mensagem: "Dados incompletos." });
-    }
-    try {
-        const userResult = await pool.query('SELECT senha FROM usuarios WHERE login = $1', [usuarioLogin]);
-        if (userResult.rows.length === 0) {
-            return res.status(404).json({ sucesso: false, mensagem: "Usuário não encontrado." });
-        }
-        const user = userResult.rows[0];
-        if (user.senha !== senhaAtual) {
-            return res.status(403).json({ sucesso: false, mensagem: "A senha atual está incorreta." });
-        }
-        await pool.query('UPDATE usuarios SET senha = $1 WHERE login = $2', [novaSenha, usuarioLogin]);
-        res.json({ sucesso: true, mensagem: "Senha alterada com sucesso!" });
-    } catch (err) {
-        console.error('Erro ao alterar a própria senha:', err);
-        res.status(500).json({ sucesso: false, mensagem: 'Erro no servidor ao alterar a senha.' });
-    }
-});
-
-
 // Rota PÚBLICA para consulta de protocolo via QR Code
 app.get('/consulta/:ano/:numero', async (req, res) => {
   try {
@@ -137,17 +135,12 @@ app.get('/consulta/:ano/:numero', async (req, res) => {
       'SELECT numero, nome, status FROM protocolos WHERE numero = $1',
       [numeroProtocolo]
     );
-
     if (result.rows.length === 0) {
       return res.status(404).send('<h1>Protocolo não encontrado</h1>');
     }
     const protocolo = result.rows[0];
     res.send(`
-      <!DOCTYPE html>
-      <html lang="pt-BR">
-      <head>
-        <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Consulta de Protocolo</title>
+      <!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Consulta de Protocolo</title>
         <style>
           body { font-family: Arial, sans-serif; background-color: #f0f2f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
           .card { background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); text-align: center; max-width: 90%; }
@@ -160,9 +153,7 @@ app.get('/consulta/:ano/:numero', async (req, res) => {
       </head>
       <body>
         <div class="card">
-          <h1>Consulta de Protocolo</h1>
-          <p><strong>Número:</strong> ${protocolo.numero}</p>
-          <p><strong>Requerente:</strong> ${protocolo.nome}</p>
+          <h1>Consulta de Protocolo</h1><p><strong>Número:</strong> ${protocolo.numero}</p><p><strong>Requerente:</strong> ${protocolo.nome}</p>
           <p><strong>Status:</strong> <span class="status ${protocolo.status.replace(/\s+/g, '.')}">${protocolo.status}</span></p>
         </div>
       </body>
