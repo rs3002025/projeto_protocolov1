@@ -7,6 +7,7 @@
 <style>
     /* --- ESTILOS GERAIS --- */
     body { margin: 0; font-family: Arial, sans-serif; background: #f5f5f5; }
+    body.loading { visibility: hidden; }
     .container { max-width: 1500px; margin: 40px auto; background: #fff; border-radius: 16px; box-shadow: 0 0 10px rgba(0,0,0,0.1); overflow: hidden; padding-bottom: 30px; }
     .header { background: #2e7d32; color: white; padding: 20px; text-align: center; border-radius: 0 0 15px 15px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); position: relative; }
     .header img { height: 60px; width: auto; }
@@ -29,7 +30,7 @@
     th { background-color: #e0e0e0; }
     .filtros { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; background: #f5f5f5; padding: 15px; border-radius: 8px; }
     .filtros input, .filtros select { padding: 8px; border-radius: 4px; border: 1px solid #ccc; }
-    #modeloProtocolo { display: none; }
+    #modeloProtocolo, #modeloRelatorio { display: none; }
 
     /* --- ESTILOS DA TELA DE LOGIN --- */
     .login-screen.active { display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 40px 20px; }
@@ -63,7 +64,7 @@
 <script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body>
+<body class="loading">
 <div class="container">
   <div class="header">
     <img src="/img/logo.png" alt="Logo" class="logo">
@@ -75,7 +76,7 @@
     </div>
   </div>
 
-  <div id="login" class="login-screen content active">
+  <div id="login" class="login-screen content">
     <div class="login-form-container">
       <h3>Acesso ao Sistema</h3>
       <label for="usuario">Usuário</label>
@@ -99,10 +100,18 @@
 
   <div id="dashboard" class="dashboard-screen content">
     <h3>Dashboard Gerencial</h3>
+    <div class="filtros">
+        <input type="date" id="dashDataInicio" title="Data de Início">
+        <input type="date" id="dashDataFim" title="Data Final">
+        <select id="dashStatus"><option value="">Todos os Status</option></select>
+        <select id="dashTipo"><option value="">Todo tipo de Requerimento</option></select>
+        <select id="dashLotacao"><option value="">Todas as Lotações</option></select>
+        <button onclick="carregarDashboard()">Filtrar</button>
+    </div>
     <div class="dashboard-cards">
         <div class="stat-card">
             <div class="stat-value" id="stat-novos">0</div>
-            <div class="stat-label">Protocolos na Semana</div>
+            <div class="stat-label" id="stat-novos-label">Novos no Período</div>
         </div>
         <div class="stat-card">
             <div class="stat-value" id="stat-pendentes">0</div>
@@ -110,7 +119,7 @@
         </div>
     </div>
     <div class="chart-container">
-        <h4>Top 5 Tipos de Requerimento</h4>
+        <h4>Top 5 Tipos de Requerimento (no período)</h4>
         <canvas id="tiposChart"></canvas>
     </div>
     <button onclick="mostrarTela('menu')">🔙 Voltar</button>
@@ -138,14 +147,13 @@
         <div class="form-group full-row"><label>Informações Complementares</label><textarea id="complemento" rows="8"></textarea></div>
       </form>
       <button onclick="enviarRequerimento()">Enviar Requerimento</button>
-      <button onclick="window.print()">Imprimir</button>
+      <button onclick="previsualizarPDF(null, true)">Imprimir</button>
       <button onclick="mostrarTela('menu')">Voltar</button>
-      <div id="log" class="log-area"></div>
   </div>
 
   <div id="relatorios" class="relatorios-screen content">
     <h3>🔍 Relatórios e Pesquisa Avançada</h3>
-    <div class="filtros">
+    <form class="filtros">
         <input type="text" id="filtroNumero" placeholder="Número do Protocolo">
         <input type="text" id="filtroNome" placeholder="Nome do Requerente">
         <select id="filtroStatus">
@@ -153,16 +161,17 @@
         <option value="Em análise">Em análise</option>
         <option value="Pendente de documento">Pendente de documento</option>
         <option value="Finalizado">Finalizado</option>
+        <option value="Concluído">Concluído</option>
         <option value="Encaminhado">Encaminhado</option>
         </select>
         <input type="date" id="filtroDataInicio" title="Data de Início">
         <input type="date" id="filtroDataFim" title="Data Final">
         <select id="filtroTipo"><option value="">Todo tipo de Requerimento</option></select>
         <select id="filtroLotacao"><option value="">Todas as Lotações</option></select>
-    </div>
+    </form>
     <div>
         <button onclick="pesquisarProtocolos()">Pesquisar</button>
-        <button onclick="gerarRelatorioPDF()">📄 Gerar PDF</button>
+        <button onclick="previsualizarRelatorioPDF()">📄 Pré-visualizar PDF</button>
         <button onclick="exportarRelatorioExcel()">📊 Exportar para Excel</button>
         <button onclick="limparFiltrosRelatorio()">Limpar Filtros</button>
         <button onclick="mostrarTela('menu')">🔙 Voltar</button>
@@ -338,6 +347,13 @@
     <div style="text-align: center; padding: 10px; border-top: 1px solid #ddd;"><button onclick="gerarPDF()">Gerar e Salvar PDF</button></div>
   </div>
 </div>
+<div id="relatorioModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.6);">
+    <div style="background-color: #fefefe; margin: 20px auto; padding: 0; border: 1px solid #888; width: 95%; max-width: 900px; box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2), 0 6px 20px 0 rgba(0,0,0,0.19);">
+      <div style="text-align: right; background: #2e7d32; padding: 5px 15px;"><span style="color: white; font-size: 28px; font-weight: bold; cursor: pointer;" onclick="fecharModal('relatorioModal')">&times;</span></div>
+      <div id="relatorioContent" style="padding: 20px; max-height: 80vh; overflow-y: auto;"></div>
+      <div style="text-align: center; padding: 10px; border-top: 1px solid #ddd;"><button onclick="salvarRelatorioPDF()">Salvar PDF</button></div>
+    </div>
+</div>
 <div id="modalEncaminhar" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center;">
   <div style="background:#fff; padding:20px; border-radius:8px; box-shadow:0 0 10px rgba(0,0,0,0.3); width:300px; max-width:90%;">
     <h3>Encaminhar Protocolo</h3>
@@ -359,6 +375,7 @@
       <option value="Em análise">Em análise</option>
       <option value="Pendente de documento">Pendente de documento</option>
       <option value="Finalizado">Finalizado</option>
+      <option value="Concluído">Concluído</option>
       <option value="Outro">Outro (digitar)</option>
     </select>
     <input type="text" id="statusCustom" placeholder="Digite o status personalizado" style="display:none; width:100%; padding:8px; margin-bottom:10px; box-sizing: border-box;">
@@ -408,6 +425,7 @@
 </div>
 
 <script defer>
+
 // Variáveis Globais
 const itensPorPagina = 10;
 let paginaAtualTodos = 1;
@@ -423,13 +441,14 @@ document.addEventListener('DOMContentLoaded', () => {
     window.nivelUsuario = localStorage.getItem('nivelUsuario') || "";
     window.usuarioLogin = localStorage.getItem('usuarioLogin') || "";
     
+    document.body.classList.remove('loading');
+
     if (window.usuarioLogado) {
         document.getElementById('btnDashboard').style.display = (window.nivelUsuario === 'admin' || window.nivelUsuario === 'padrao') ? 'flex' : 'none';
         document.getElementById('btnConfig').style.display = window.nivelUsuario === "admin" ? "flex" : "none";
         document.getElementById('btnNovo').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "flex" : "none";
         document.getElementById('btnRelatorios').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "flex" : "none";
 
-        // Carrega dados iniciais essenciais
         carregarOpcoesDropdowns().then(() => {
             if (window.nivelUsuario === "comum") {
                 mostrarTela('meusProtocolos');
@@ -443,7 +462,6 @@ document.addEventListener('DOMContentLoaded', () => {
         mostrarTela('login');
     }
 
-    // Adiciona os listeners que dependem do DOM estar carregado
     document.getElementById('matricula').addEventListener('blur', async function() {
         const matricula = this.value.trim();
         if (!matricula) {
@@ -483,7 +501,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-// Funções Globais (acessíveis via onclick)
 window.logar = async function() {
     const user = document.getElementById('usuario').value;
     const senha = document.getElementById('senha').value;
@@ -499,24 +516,7 @@ window.logar = async function() {
             localStorage.setItem('usuarioLogado', data.usuario.nome);
             localStorage.setItem('usuarioLogin', data.usuario.login);
             localStorage.setItem('nivelUsuario', data.usuario.tipo);
-            window.usuarioLogado = data.usuario.nome;
-            window.usuarioLogin = data.usuario.login;
-            window.nivelUsuario = data.usuario.tipo;
-
-            await carregarOpcoesDropdowns();
-            verificarNotificacoes();
-
-            document.getElementById('btnDashboard').style.display = (window.nivelUsuario === 'admin' || window.nivelUsuario === 'padrao') ? 'flex' : 'none';
-            document.getElementById('btnConfig').style.display = window.nivelUsuario === "admin" ? "flex" : "none";
-            document.getElementById('btnNovo').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "flex" : "none";
-            document.getElementById('btnRelatorios').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "flex" : "none";
-
-            if (window.nivelUsuario === "comum") {
-                mostrarTela('meusProtocolos');
-            } else {
-                mostrarTela('menu');
-            }
-            msg.textContent = "";
+            window.location.reload();
         } else {
             msg.textContent = "Usuário ou senha incorretos.";
         }
@@ -525,22 +525,16 @@ window.logar = async function() {
         msg.textContent = "Erro ao conectar ao servidor.";
     }
 };
+
 window.sair = function() {
     localStorage.clear();
-    window.usuarioLogado = "";
-    window.nivelUsuario = "";
-    window.usuarioLogin = "";
-    document.getElementById('notification-bell').style.display = 'none';
     window.location.reload();
 };
+
 window.mostrarTela = async function(tela) {
     ['login','menu','dashboard','form','config','protocolos','meusProtocolos','relatorios'].forEach(id => {
         document.getElementById(id)?.classList.remove('active');
     });
-    if (window.nivelUsuario && tela === 'relatorios' && window.nivelUsuario === 'comum') {
-        alert('Acesso restrito!');
-        return;
-    }
     document.getElementById(tela).classList.add('active');
 
     if (tela === 'meusProtocolos') {
@@ -552,12 +546,11 @@ window.mostrarTela = async function(tela) {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ usuarioLogin })
                 });
-                await verificarNotificacoes(); // Re-verifica para zerar o contador
+                await verificarNotificacoes();
             } catch (err) { console.error('Erro ao marcar notificações como lidas:', err); }
         }
     }
     
-    // Carrega os dados específicos da tela
     if (tela === 'protocolos') listarProtocolos();
     if (tela === 'meusProtocolos') listarMeusProtocolos();
     if (tela === 'form') { popularDropdownsFormulario(); gerarNumeroProtocolo(); }
@@ -565,6 +558,7 @@ window.mostrarTela = async function(tela) {
     if (tela === 'relatorios') { popularFiltrosRelatorio(); pesquisarProtocolos(); }
     if (tela === 'dashboard') carregarDashboard();
 };
+
 window.gerarNumeroProtocolo = async function() {
   const anoAtual = new Date().getFullYear();
   try {
@@ -578,6 +572,7 @@ window.gerarNumeroProtocolo = async function() {
     document.getElementById('numeroProtocolo').value = `0001/${anoAtual}`;
   }
 };
+
 window.enviarRequerimento = function() {
   const numeroProtocolo = document.getElementById('numeroProtocolo').value;
   if (!numeroProtocolo) { alert("❗Número de protocolo não gerado."); return; }
@@ -604,6 +599,7 @@ window.enviarRequerimento = function() {
   })
   .catch(err => { alert('❌ Erro na conexão: ' + err.message); });
 };
+
 window.listarProtocolos = async function(pagina = 1) {
   const tbody = document.getElementById('tabelaProtocolos');
   tbody.innerHTML = "<tr><td colspan='7'>Carregando...</td></tr>";
@@ -631,6 +627,7 @@ window.listarProtocolos = async function(pagina = 1) {
     renderizarPaginacao(data.protocolos.length, pagina, 'paginacaoProtocolos', listarProtocolos);
   } catch (error) { console.error("Erro ao listar protocolos:", error); tbody.innerHTML = "<tr><td colspan='7'>Erro ao carregar protocolos.</td></tr>"; }
 };
+
 window.listarMeusProtocolos = async function(pagina = 1) {
     const tbody = document.getElementById('meusProtocolosTabela');
     tbody.innerHTML = "<tr><td colspan='4'>Carregando...</td></tr>";
@@ -668,12 +665,15 @@ window.listarMeusProtocolos = async function(pagina = 1) {
         renderizarPaginacao(data.protocolos.length, pagina, 'paginacaoMeusProtocolos', listarMeusProtocolos);
     } catch (error) { console.error("Erro ao listar meus protocolos:", error); tbody.innerHTML = "<tr><td colspan='4'>Erro ao carregar protocolos.</td></tr>"; }
 };
+
 window.limparFiltrosMeusProtocolos = function() {
     document.getElementById('filtroMeusProtocolosNumero').value = '';
     document.getElementById('filtroMeusProtocolosNome').value = '';
     listarMeusProtocolos();
 };
+
 window.fecharModal = function(modalId) { document.getElementById(modalId).style.display = 'none'; };
+
 window.abrirModalEncaminhar = async function(idProtocolo) {
   try {
     const res = await fetch('/usuarios');
@@ -693,6 +693,7 @@ window.abrirModalEncaminhar = async function(idProtocolo) {
     modal.style.display = 'flex';
   } catch (error) { alert('Erro ao carregar usuários'); console.error(error); }
 };
+
 window.confirmarEncaminhamento = async function() {
   const modal = document.getElementById('modalEncaminhar');
   const idProtocolo = modal.dataset.protocoloId;
@@ -717,6 +718,7 @@ window.confirmarEncaminhamento = async function() {
     }
   } catch (err) { console.error(err); alert('❌ Erro ao encaminhar protocolo'); }
 };
+
 window.abrirAtualizar = async function(id) {
   const modal = document.getElementById('modalAtualizarStatus');
   document.getElementById('statusSelect').value = 'Em análise';
@@ -726,10 +728,12 @@ window.abrirAtualizar = async function(id) {
   modal.dataset.protocoloId = id;
   modal.style.display = 'flex';
 };
+
 window.handleStatusChange = function(selectElement) {
   const customInput = document.getElementById('statusCustom');
   customInput.style.display = selectElement.value === 'Outro' ? 'block' : 'none';
 };
+
 window.confirmarAtualizacaoStatus = async function() {
   const modal = document.getElementById('modalAtualizarStatus');
   const protocoloId = modal.dataset.protocoloId;
@@ -758,50 +762,80 @@ window.confirmarAtualizacaoStatus = async function() {
     }
   } catch (error) { console.error("Erro na atualização:", error); }
 };
-window.previsualizarPDF = async function(id) {
-  try {
-    const res = await fetch(`/protocolos/${id}`);
-    const { protocolo } = await res.json();
-    if (!protocolo) { alert("Protocolo não encontrado"); return; }
-    protocoloParaGerar = protocolo;
-    const modeloOriginal = document.getElementById('modeloProtocolo');
-    const pdfContentDiv = document.getElementById('pdfContent');
-    pdfContentDiv.innerHTML = modeloOriginal.innerHTML; 
-    
-    const qrcodeContainer = pdfContentDiv.querySelector('#qrcode-container');
-    if(qrcodeContainer) {
-        qrcodeContainer.innerHTML = '';
-        const numeroParts = protocolo.numero.split('/');
-        if (numeroParts.length === 2) {
-            const urlConsulta = `${window.location.origin}/consulta/${numeroParts[1]}/${numeroParts[0]}`;
-            new QRCode(qrcodeContainer, { text: urlConsulta, width: 90, height: 90, correctLevel : QRCode.CorrectLevel.H });
-        }
-    }
-    
-    pdfContentDiv.querySelector('#doc_numero').textContent = protocolo.numero ?? 'Não informado';
-    pdfContentDiv.querySelector('#doc_dataSolicitacao').textContent = protocolo.data_solicitacao ? new Date(protocolo.data_solicitacao).toLocaleDateString('pt-BR') : 'Não informada';
-    pdfContentDiv.querySelector('#doc_nome').textContent = protocolo.nome ?? 'Não informado';
-    pdfContentDiv.querySelector('#doc_matricula').textContent = protocolo.matricula ?? 'Não informada';
-    pdfContentDiv.querySelector('#doc_cpf').textContent = protocolo.cpf ?? 'Não informado';
-    pdfContentDiv.querySelector('#doc_rg').textContent = protocolo.rg ?? 'Não informado';
-    pdfContentDiv.querySelector('#doc_endereco').textContent = protocolo.endereco ?? 'Não informado';
-    pdfContentDiv.querySelector('#doc_bairro').textContent = protocolo.bairro ?? 'Não informado';
-    pdfContentDiv.querySelector('#doc_municipio').textContent = protocolo.municipio ?? 'Não informado';
-    pdfContentDiv.querySelector('#doc_cep').textContent = protocolo.cep ?? 'Não informado';
-    pdfContentDiv.querySelector('#doc_telefone').textContent = protocolo.telefone ?? 'Não informado';
-    pdfContentDiv.querySelector('#doc_cargo').textContent = protocolo.cargo ?? 'Não informado';
-    pdfContentDiv.querySelector('#doc_lotacao').textContent = protocolo.lotacao ?? 'Não informado';
-    pdfContentDiv.querySelector('#doc_unidade').textContent = protocolo.unidade_exercicio ?? 'Não informado';
-    pdfContentDiv.querySelector('#doc_tipo').textContent = protocolo.tipo_requerimento ?? 'Não informado';
-    pdfContentDiv.querySelector('#doc_requerAo').textContent = protocolo.requer_ao ?? 'Não informado';
-    pdfContentDiv.querySelector('#doc_complemento').innerHTML = protocolo.observacoes ? protocolo.observacoes.replace(/\n/g, '<br>') : 'Nenhuma informação adicional';
-    
-    document.getElementById('pdfModal').style.display = 'block';
-  } catch (err) {
-    console.error('Erro ao preparar PDF:', err);
-    alert('Erro ao preparar a visualização do PDF. Verifique o console.');
+
+window.previsualizarPDF = async function(id, isPrint = false) {
+  let protocolo;
+  if(id === null && isPrint === true) {
+      // Modo de impressão a partir do formulário
+      protocolo = {
+          numero: document.getElementById('numeroProtocolo').value,
+          data_solicitacao: document.getElementById('dataSolicitacao').value,
+          nome: document.getElementById('nome').value,
+          matricula: document.getElementById('matricula').value,
+          cpf: document.getElementById('cpf').value,
+          rg: document.getElementById('rg').value,
+          endereco: document.getElementById('endereco').value,
+          bairro: document.getElementById('bairro').value,
+          municipio: document.getElementById('municipio').value,
+          cep: document.getElementById('cep').value,
+          telefone: document.getElementById('telefone').value,
+          cargo: document.getElementById('cargo').value,
+          lotacao: document.getElementById('lotacao').value,
+          unidade_exercicio: document.getElementById('unidade').value,
+          tipo_requerimento: document.getElementById('tipo').value,
+          requer_ao: document.getElementById('requerAo').value,
+          observacoes: document.getElementById('complemento').value,
+      };
+  } else {
+      // Modo de visualização de um protocolo existente
+      try {
+          const res = await fetch(`/protocolos/${id}`);
+          const data = await res.json();
+          if(!data.protocolo) { alert("Protocolo não encontrado"); return; }
+          protocolo = data.protocolo;
+      } catch (err) {
+          console.error('Erro ao buscar protocolo:', err);
+          alert('Erro ao buscar dados do protocolo.');
+          return;
+      }
   }
+  
+  protocoloParaGerar = protocolo;
+  const modeloOriginal = document.getElementById('modeloProtocolo');
+  const pdfContentDiv = document.getElementById('pdfContent');
+  pdfContentDiv.innerHTML = modeloOriginal.innerHTML; 
+  
+  const qrcodeContainer = pdfContentDiv.querySelector('#qrcode-container');
+  if(qrcodeContainer && protocolo.numero) {
+      qrcodeContainer.innerHTML = '';
+      const numeroParts = protocolo.numero.split('/');
+      if (numeroParts.length === 2) {
+          const urlConsulta = `${window.location.origin}/consulta/${numeroParts[1]}/${numeroParts[0]}`;
+          new QRCode(qrcodeContainer, { text: urlConsulta, width: 90, height: 90, correctLevel : QRCode.CorrectLevel.H });
+      }
+  }
+  
+  pdfContentDiv.querySelector('#doc_numero').textContent = protocolo.numero ?? 'A ser gerado';
+  pdfContentDiv.querySelector('#doc_dataSolicitacao').textContent = protocolo.data_solicitacao ? new Date(protocolo.data_solicitacao).toLocaleDateString('pt-BR') : 'Não informada';
+  pdfContentDiv.querySelector('#doc_nome').textContent = protocolo.nome ?? '';
+  pdfContentDiv.querySelector('#doc_matricula').textContent = protocolo.matricula ?? '';
+  pdfContentDiv.querySelector('#doc_cpf').textContent = protocolo.cpf ?? '';
+  pdfContentDiv.querySelector('#doc_rg').textContent = protocolo.rg ?? '';
+  pdfContentDiv.querySelector('#doc_endereco').textContent = protocolo.endereco ?? '';
+  pdfContentDiv.querySelector('#doc_bairro').textContent = protocolo.bairro ?? '';
+  pdfContentDiv.querySelector('#doc_municipio').textContent = protocolo.municipio ?? '';
+  pdfContentDiv.querySelector('#doc_cep').textContent = protocolo.cep ?? '';
+  pdfContentDiv.querySelector('#doc_telefone').textContent = protocolo.telefone ?? '';
+  pdfContentDiv.querySelector('#doc_cargo').textContent = protocolo.cargo ?? '';
+  pdfContentDiv.querySelector('#doc_lotacao').textContent = protocolo.lotacao ?? '';
+  pdfContentDiv.querySelector('#doc_unidade').textContent = protocolo.unidade_exercicio ?? '';
+  pdfContentDiv.querySelector('#doc_tipo').textContent = protocolo.tipo_requerimento ?? '';
+  pdfContentDiv.querySelector('#doc_requerAo').textContent = protocolo.requer_ao ?? '';
+  pdfContentDiv.querySelector('#doc_complemento').innerHTML = protocolo.observacoes ? protocolo.observacoes.replace(/\n/g, '<br>') : 'Nenhuma informação adicional.';
+  
+  document.getElementById('pdfModal').style.display = 'block';
 };
+
 window.gerarPDF = async function() {
   if (!protocoloParaGerar) { alert("Nenhum protocolo para gerar."); return; }
   const element = document.getElementById('pdfContent');
@@ -811,12 +845,14 @@ window.gerarPDF = async function() {
     fecharModal('pdfModal');
   } catch (error) { console.error("Erro ao gerar PDF:", error); alert("Ocorreu um erro ao gerar o PDF."); }
 };
+
 window.popularFiltrosRelatorio = function() {
     popularDropdown('filtroTipo', window.opcoesTipos);
     document.getElementById('filtroTipo').firstChild.textContent = "Todo tipo de Requerimento";
     popularDropdown('filtroLotacao', window.opcoesLotacoes);
     document.getElementById('filtroLotacao').firstChild.textContent = "Todas as Lotações";
 };
+
 window.pesquisarProtocolos = async function() {
   const params = new URLSearchParams({ numero: document.getElementById('filtroNumero').value, nome: document.getElementById('filtroNome').value, status: document.getElementById('filtroStatus').value, dataInicio: document.getElementById('filtroDataInicio').value, dataFim: document.getElementById('filtroDataFim').value, tipo: document.getElementById('filtroTipo').value, lotacao: document.getElementById('filtroLotacao').value });
   const tbody = document.getElementById('resultadosPesquisa');
@@ -840,39 +876,56 @@ window.pesquisarProtocolos = async function() {
     }
   } catch (error) { console.error("Erro ao pesquisar protocolos:", error); }
 };
-window.gerarRelatorioPDF = async function() {
-  const params = new URLSearchParams({ numero: document.getElementById('filtroNumero').value, nome: document.getElementById('filtroNome').value, status: document.getElementById('filtroStatus').value, dataInicio: document.getElementById('filtroDataInicio').value, dataFim: document.getElementById('filtroDataFim').value, tipo: document.getElementById('filtroTipo').value, lotacao: document.getElementById('filtroLotacao').value });
-  const res = await fetch(`/protocolos/pesquisa?${params.toString()}`);
-  const data = await res.json();
-  if (!data.protocolos || data.protocolos.length === 0) { alert("Nenhum resultado encontrado para gerar o PDF."); return; }
-  
-  const templatePDF = document.getElementById('modeloProtocolo');
-  let htmlContent = '';
-  
-  data.protocolos.forEach(p => {
-    const tempNode = templatePDF.cloneNode(true);
-    tempNode.style.display = 'block';
-    tempNode.querySelector('#doc_numero').textContent = p.numero || '';
-    tempNode.querySelector('#doc_dataSolicitacao').textContent = p.data_solicitacao ? new Date(p.data_solicitacao).toLocaleDateString('pt-BR') : '';
-    tempNode.querySelector('#doc_nome').textContent = p.nome || '';
-    tempNode.querySelector('#doc_matricula').textContent = p.matricula || '';
-    tempNode.querySelector('#doc_tipo').textContent = p.tipo_requerimento || '';
-    htmlContent += `<div style="page-break-after: always;">${tempNode.innerHTML}</div>`;
-  });
 
-  const tempDiv = document.createElement('div');
-  tempDiv.innerHTML = htmlContent;
-  
-  const opt = { margin: [0, 0, 0, 0], filename: `Relatorio_Protocolos.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, scrollY: 0, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
-  html2pdf().set(opt).from(tempDiv).save();
+window.previsualizarRelatorioPDF = async function() {
+    const params = new URLSearchParams({ numero: document.getElementById('filtroNumero').value, nome: document.getElementById('filtroNome').value, status: document.getElementById('filtroStatus').value, dataInicio: document.getElementById('filtroDataInicio').value, dataFim: document.getElementById('filtroDataFim').value, tipo: document.getElementById('filtroTipo').value, lotacao: document.getElementById('filtroLotacao').value });
+    try {
+        const res = await fetch(`/protocolos/pesquisa?${params.toString()}`);
+        const data = await res.json();
+        if (!data.protocolos || data.protocolos.length === 0) {
+            alert("Nenhum resultado encontrado para gerar o PDF.");
+            return;
+        }
+
+        const templatePDF = document.getElementById('modeloProtocolo').innerHTML;
+        let htmlContent = '';
+        data.protocolos.forEach(p => {
+            let protocoloHtml = templatePDF
+                .replace(/<span id="doc_numero"><\/span>/g, `<span>${p.numero || ''}</span>`)
+                .replace(/<span id="doc_dataSolicitacao"><\/span>/g, `<span>${p.data_solicitacao ? new Date(p.data_solicitacao).toLocaleDateString('pt-BR') : ''}</span>`)
+                .replace(/<span id="doc_nome"><\/span>/g, `<span>${p.nome || ''}</span>`)
+                .replace(/<span id="doc_matricula"><\/span>/g, `<span>${p.matricula || ''}</span>`)
+                .replace(/<span id="doc_tipo"><\/span>/g, `<span>${p.tipo_requerimento || ''}</span>`);
+            htmlContent += `<div style="page-break-after: always;">${protocoloHtml}</div>`;
+        });
+        
+        document.getElementById('relatorioContent').innerHTML = htmlContent;
+        document.getElementById('relatorioModal').style.display = 'block';
+
+    } catch(err) {
+        console.error('Erro ao gerar relatório:', err);
+        alert('Erro ao gerar relatório.');
+    }
 };
+
+window.salvarRelatorioPDF = async function() {
+    const element = document.getElementById('relatorioContent');
+    const opt = { margin: [0, 0, 0, 0], filename: `Relatorio_Protocolos.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
+    try {
+        await html2pdf().set(opt).from(element).save();
+        fecharModal('relatorioModal');
+    } catch(err) {
+        console.error('Erro ao salvar PDF do relatório:', err);
+        alert('Erro ao salvar PDF do relatório.');
+    }
+};
+
 window.exportarRelatorioExcel = function() {
   const params = new URLSearchParams({ numero: document.getElementById('filtroNumero').value, nome: document.getElementById('filtroNome').value, status: document.getElementById('filtroStatus').value, dataInicio: document.getElementById('filtroDataInicio').value, dataFim: document.getElementById('filtroDataFim').value, tipo: document.getElementById('filtroTipo').value, lotacao: document.getElementById('filtroLotacao').value });
   window.location.href = `/protocolos/backup?${params.toString()}`;
 };
 window.limparFiltrosRelatorio = function() {
-    const form = document.querySelector('#relatorios .filtros');
-    if(form) form.reset();
+    document.querySelector('#relatorios .filtros').reset();
     pesquisarProtocolos();
 };
 window.verificarNotificacoes = async function() {
@@ -893,11 +946,20 @@ window.verificarNotificacoes = async function() {
   } catch (err) { console.error('Erro ao verificar notificações:', err); }
 };
 window.carregarDashboard = async function() {
+    const params = new URLSearchParams({
+        dataInicio: document.getElementById('dashDataInicio').value,
+        dataFim: document.getElementById('dashDataFim').value,
+        status: document.getElementById('dashStatus').value,
+        tipo: document.getElementById('dashTipo').value,
+        lotacao: document.getElementById('dashLotacao').value
+    });
     try {
-        const res = await fetch('/protocolos/dashboard-stats');
+        const res = await fetch(`/protocolos/dashboard-stats?${params.toString()}`);
         const stats = await res.json();
-        document.getElementById('stat-novos').textContent = stats.novosNaSemana;
+        document.getElementById('stat-novos').textContent = stats.novosNoPeriodo;
         document.getElementById('stat-pendentes').textContent = stats.pendentesAntigos;
+        document.getElementById('stat-novos-label').textContent = (document.getElementById('dashDataInicio').value || document.getElementById('dashDataFim').value) ? 'Novos no Período' : 'Novos na Semana';
+
         const labels = stats.topTipos.map(item => item.tipo_requerimento);
         const data = stats.topTipos.map(item => item.total);
         const ctx = document.getElementById('tiposChart').getContext('2d');
@@ -1012,15 +1074,14 @@ window.carregarOpcoesDropdowns = async function() {
         window.opcoesLotacoes = await lotacoesRes.json();
     } catch (err) {
         console.error("Erro ao carregar opções de dropdowns:", err);
-        alert("Não foi possível carregar as listas de opções. A página será recarregada.");
-        location.reload();
+        alert("Não foi possível carregar as listas de opções.");
     }
 };
 window.popularDropdown = function(selectId, opcoes) {
     const select = document.getElementById(selectId);
     const primeiraOpcao = select.options[0];
     select.innerHTML = '';
-    select.appendChild(primeiraOpcao);
+    if(primeiraOpcao) select.appendChild(primeiraOpcao);
     opcoes.forEach(opcao => {
         const opt = document.createElement('option');
         opt.value = opcao;
@@ -1135,6 +1196,7 @@ window.preencherCamposServidor = function(servidor) {
       document.getElementById('nome').value = servidor.nome || ''; document.getElementById('lotacao').value = servidor.lotacao || ''; document.getElementById('cargo').value = servidor.cargo || ''; document.getElementById('unidade').value = servidor.unidade_de_exercicio || '';
     }
 };
+    
 </script>
 
 </body>
