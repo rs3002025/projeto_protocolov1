@@ -16,7 +16,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/protocolos', protocoloRoutes);
 app.use('/admin', adminRoutes);
 
-// Rota de login (ATUALIZADA para checar o status)
+// Rota de login
 app.post('/login', async (req, res) => {
   const { login, senha } = req.body;
   try {
@@ -36,7 +36,7 @@ app.post('/login', async (req, res) => {
   }
 });
 
-// Rota para cadastrar novo usuário (ATUALIZADA para incluir o status)
+// Rota para cadastrar novo usuário
 app.post('/usuarios', async (req, res) => {
   const { login, senha, tipo, email, nome, cpf } = req.body;
   try {
@@ -62,7 +62,7 @@ app.get('/usuarios', async (req, res) => {
   }
 });
 
-// Rota para ATUALIZAR dados de um usuário (sem a senha)
+// Rota para ATUALIZAR dados de um usuário
 app.put('/usuarios/:id', async (req, res) => {
   const { id } = req.params;
   const { nome, login, email, tipo, cpf } = req.body;
@@ -78,7 +78,7 @@ app.put('/usuarios/:id', async (req, res) => {
   }
 });
 
-// Rota para RESETAR A SENHA de um usuário
+// Rota para RESETAR A SENHA (Admin)
 app.put('/usuarios/:id/senha', async (req, res) => {
   const { id } = req.params;
   const { novaSenha } = req.body;
@@ -91,7 +91,7 @@ app.put('/usuarios/:id/senha', async (req, res) => {
   }
 });
 
-// Rota para DESATIVAR/REATIVAR um usuário
+// Rota para DESATIVAR/REATIVAR um usuário (Admin)
 app.put('/usuarios/:id/status', async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
@@ -103,6 +103,30 @@ app.put('/usuarios/:id/status', async (req, res) => {
     res.status(500).json({ sucesso: false, mensagem: 'Erro ao alterar status do usuário.' });
   }
 });
+
+// Rota para o próprio usuário alterar sua senha
+app.put('/usuarios/minha-senha', async (req, res) => {
+    const { usuarioLogin, senhaAtual, novaSenha } = req.body;
+    if (!usuarioLogin || !senhaAtual || !novaSenha) {
+        return res.status(400).json({ sucesso: false, mensagem: "Dados incompletos." });
+    }
+    try {
+        const userResult = await pool.query('SELECT senha FROM usuarios WHERE login = $1', [usuarioLogin]);
+        if (userResult.rows.length === 0) {
+            return res.status(404).json({ sucesso: false, mensagem: "Usuário não encontrado." });
+        }
+        const user = userResult.rows[0];
+        if (user.senha !== senhaAtual) {
+            return res.status(403).json({ sucesso: false, mensagem: "A senha atual está incorreta." });
+        }
+        await pool.query('UPDATE usuarios SET senha = $1 WHERE login = $2', [novaSenha, usuarioLogin]);
+        res.json({ sucesso: true, mensagem: "Senha alterada com sucesso!" });
+    } catch (err) {
+        console.error('Erro ao alterar a própria senha:', err);
+        res.status(500).json({ sucesso: false, mensagem: 'Erro no servidor ao alterar a senha.' });
+    }
+});
+
 
 // Rota PÚBLICA para consulta de protocolo via QR Code
 app.get('/consulta/:ano/:numero', async (req, res) => {
@@ -157,5 +181,5 @@ app.get('/', (req, res) => {
 
 // Inicia o servidor
 app.listen(port, () => {
-  console.log(`Servidor rodando em http://localhost:${port}`);
+  console.log(`Servidor rodando na porta ${port}`);
 });
