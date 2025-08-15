@@ -121,7 +121,6 @@ router.get('/backup', async (req, res) => {
     const { numero, nome, status, dataInicio, dataFim, tipo, lotacao } = req.query;
     let query = `SELECT * FROM protocolos WHERE 1=1`;
     const params = [];
-
     if (numero) { params.push(`%${numero}%`); query += ` AND numero LIKE $${params.length}`; }
     if (nome) { params.push(`%${nome}%`); query += ` AND nome ILIKE $${params.length}`; }
     if (status) { params.push(status); query += ` AND status = $${params.length}`; }
@@ -130,17 +129,13 @@ router.get('/backup', async (req, res) => {
     if (tipo) { params.push(tipo); query += ` AND tipo_requerimento = $${params.length}`; }
     if (lotacao) { params.push(lotacao); query += ` AND lotacao = $${params.length}`; }
     query += ' ORDER BY data_solicitacao';
-
     const result = await db.query(query, params);
-
     if (result.rows.length === 0) {
       return res.status(404).send('Nenhum protocolo encontrado com os filtros informados.');
     }
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Backup Protocolos');
-    sheet.columns = [
-        { header: 'Número', key: 'numero' }, { header: 'Matrícula', key: 'matricula' }, { header: 'Nome', key: 'nome' }, { header: 'Endereço', key: 'endereco' }, { header: 'Município', key: 'municipio' }, { header: 'Bairro', key: 'bairro' }, { header: 'CEP', key: 'cep' }, { header: 'Telefone', key: 'telefone' }, { header: 'CPF', key: 'cpf' }, { header: 'RG', key: 'rg' }, { header: 'Cargo', key: 'cargo' }, { header: 'Lotação', key: 'lotacao' }, { header: 'Unidade', key: 'unidade_exercicio' }, { header: 'Tipo de Requerimento', key: 'tipo_requerimento' }, { header: 'Requer ao', key: 'requer_ao' }, { header: 'Data Solicitação', key: 'data_solicitacao' }, { header: 'Observações', key: 'observacoes' }, { header: 'Status', key: 'status' }, { header: 'Responsável', key: 'responsavel' }
-    ];
+    sheet.columns = [ { header: 'Número', key: 'numero' }, { header: 'Matrícula', key: 'matricula' }, { header: 'Nome', key: 'nome' }, { header: 'Endereço', key: 'endereco' }, { header: 'Município', key: 'municipio' }, { header: 'Bairro', key: 'bairro' }, { header: 'CEP', key: 'cep' }, { header: 'Telefone', key: 'telefone' }, { header: 'CPF', key: 'cpf' }, { header: 'RG', key: 'rg' }, { header: 'Cargo', key: 'cargo' }, { header: 'Lotação', key: 'lotacao' }, { header: 'Unidade', key: 'unidade_exercicio' }, { header: 'Tipo de Requerimento', key: 'tipo_requerimento' }, { header: 'Requer ao', key: 'requer_ao' }, { header: 'Data Solicitação', key: 'data_solicitacao' }, { header: 'Observações', key: 'observacoes' }, { header: 'Status', key: 'status' }, { header: 'Responsável', key: 'responsavel' }];
     sheet.addRows(result.rows);
     const fileName = `backup_protocolos.xlsx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -195,7 +190,6 @@ router.get('/notificacoes/:usuarioLogin', async (req, res) => {
     res.status(500).json({ count: 0 });
   }
 });
-
 router.post('/notificacoes/ler', async (req, res) => {
   const { usuarioLogin } = req.body;
   try {
@@ -207,15 +201,33 @@ router.post('/notificacoes/ler', async (req, res) => {
   }
 });
 
-// --- ROTA PARA DASHBOARD ---
+// --- ROTA PARA DASHBOARD (ATUALIZADA COM FILTROS) ---
 router.get('/dashboard-stats', async (req, res) => {
     try {
-        const novosNaSemanaResult = await db.query("SELECT COUNT(id) FROM protocolos WHERE data_solicitacao >= current_date - interval '7 days'");
+        const { dataInicio, dataFim, status, tipo, lotacao } = req.query;
+        let baseQuery = 'FROM protocolos WHERE 1=1';
+        const params = [];
+
+        if (status) { params.push(status); baseQuery += ` AND status = $${params.length}`; }
+        if (dataInicio) { params.push(dataInicio); baseQuery += ` AND data_solicitacao >= $${params.length}`; }
+        if (dataFim) { params.push(dataFim); baseQuery += ` AND data_solicitacao <= $${params.length}`; }
+        if (tipo) { params.push(tipo); baseQuery += ` AND tipo_requerimento = $${params.length}`; }
+        if (lotacao) { params.push(lotacao); baseQuery += ` AND lotacao = $${params.length}`; }
+
+        // Card 1: Protocolos abertos no período (ou últimos 7 dias se sem período)
+        const novosPeriodoQuery = `SELECT COUNT(id) ${baseQuery}`;
+        const novosPeriodoResult = await db.query(novosPeriodoQuery, params);
+
+        // Card 2: Protocolos pendentes antigos (regra não afetada pelo filtro de data)
         const pendentesAntigosResult = await db.query("SELECT COUNT(id) FROM protocolos WHERE status NOT IN ('Finalizado', 'Concluído') AND data_solicitacao <= current_date - interval '15 days'");
-        const topTiposResult = await db.query("SELECT tipo_requerimento, COUNT(id) as total FROM protocolos WHERE tipo_requerimento IS NOT NULL AND tipo_requerimento != '' GROUP BY tipo_requerimento ORDER BY total DESC LIMIT 5");
+
+        // Gráfico: Top 5 tipos de requerimento (afetado pelos filtros)
+        const topTiposQuery = `SELECT tipo_requerimento, COUNT(id) as total ${baseQuery} AND tipo_requerimento IS NOT NULL AND tipo_requerimento != '' GROUP BY tipo_requerimento ORDER BY total DESC LIMIT 5`;
+        const topTiposResult = await db.query(topTiposQuery, params);
+
         const stats = {
-            novosNaSemana: parseInt(novosNaSemanaResult.rows[0].count, 10),
-            pendentesAntigos: parseInt(pendentesAntigosResult.rows[0].count, 10),
+            novosNoPeriodo: novosPeriodoResult.rows.length > 0 ? parseInt(novosPeriodoResult.rows[0].count, 10) : 0,
+            pendentesAntigos: pendentesAntigosResult.rows.length > 0 ? parseInt(pendentesAntigosResult.rows[0].count, 10) : 0,
             topTipos: topTiposResult.rows
         };
         res.json(stats);
