@@ -66,55 +66,6 @@ router.get('/pesquisa', async (req, res) => {
   }
 });
 
-// Buscar histórico de protocolo
-router.get('/historico/:id', async (req, res) => {
-  const protocoloId = req.params.id;
-  try {
-    const result = await db.query(`SELECT * FROM historico_protocolos WHERE protocolo_id = $1 ORDER BY data_movimentacao DESC`, [protocoloId]);
-    res.json({ historico: result.rows });
-  } catch (error) {
-    console.error('❌ Erro ao buscar histórico:', error);
-    res.status(500).json({ sucesso: false, mensagem: 'Erro ao buscar histórico.' });
-  }
-});
-
-// Listar todos os protocolos
-router.get('/', async (req, res) => {
-  try {
-    const result = await db.query(`SELECT id, numero, nome, matricula, tipo_requerimento, status, responsavel FROM protocolos ORDER BY id DESC`);
-    res.json({ protocolos: result.rows });
-  } catch (error) {
-    console.error('❌ Erro ao listar protocolos:', error);
-    res.status(500).json({ sucesso: false, mensagem: 'Erro ao listar protocolos.' });
-  }
-});
-
-// Listar protocolos do responsável (Meus Protocolos)
-router.get('/meus/:responsavel', async (req, res) => {
-  const responsavel = req.params.responsavel;
-  try {
-    const result = await db.query(`SELECT id, numero, nome, matricula, tipo_requerimento, status, responsavel FROM protocolos WHERE responsavel = $1 ORDER BY id DESC`, [responsavel]);
-    res.json({ protocolos: result.rows });
-  } catch (error) {
-    console.error('❌ Erro ao listar protocolos do responsável:', error);
-    res.status(500).json({ sucesso: false, mensagem: 'Erro ao listar seus protocolos.' });
-  }
-});
-
-// Buscar último número de protocolo do ano
-router.get('/ultimoNumero/:ano', async (req, res) => {
-  const { ano } = req.params;
-  try {
-    const { rows } = await db.query(`SELECT numero FROM protocolos WHERE numero LIKE $1`, [`%/${ano}`]);
-    const numeros = rows.map(r => parseInt(r.numero.split('/')[0], 10)).filter(n => !isNaN(n));
-    const max = numeros.length > 0 ? Math.max(...numeros) : 0;
-    res.json({ ultimo: max });
-  } catch (err) {
-    console.error("Erro ao buscar último número:", err);
-    res.status(500).json({ erro: "Erro interno" });
-  }
-});
-
 // Gerar backup/exportar protocolos por período em Excel
 router.get('/backup', async (req, res) => {
   try {
@@ -148,18 +99,43 @@ router.get('/backup', async (req, res) => {
   }
 });
 
-// Buscar protocolo completo pelo ID
-router.get('/:id', async (req, res) => {
+// --- ROTAS ESPECÍFICAS (DEVEM VIR ANTES DE /:id) ---
+
+// Buscar histórico de protocolo
+router.get('/historico/:id', async (req, res) => {
   const protocoloId = req.params.id;
   try {
-    const result = await db.query(`SELECT * FROM protocolos WHERE id = $1`, [protocoloId]);
-    if (result.rows.length === 0) {
-      return res.status(404).json({ sucesso: false, mensagem: 'Protocolo não encontrado.' });
-    }
-    res.json({ protocolo: result.rows[0] });
+    const result = await db.query(`SELECT * FROM historico_protocolos WHERE protocolo_id = $1 ORDER BY data_movimentacao DESC`, [protocoloId]);
+    res.json({ historico: result.rows });
   } catch (error) {
-    console.error('❌ Erro ao buscar protocolo por ID:', error);
-    res.status(500).json({ sucesso: false, mensagem: 'Erro ao buscar protocolo.' });
+    console.error('❌ Erro ao buscar histórico:', error);
+    res.status(500).json({ sucesso: false, mensagem: 'Erro ao buscar histórico.' });
+  }
+});
+
+// Listar protocolos do responsável (Meus Protocolos)
+router.get('/meus/:responsavel', async (req, res) => {
+  const responsavel = req.params.responsavel;
+  try {
+    const result = await db.query(`SELECT id, numero, nome, matricula, tipo_requerimento, status, responsavel FROM protocolos WHERE responsavel = $1 ORDER BY id DESC`, [responsavel]);
+    res.json({ protocolos: result.rows });
+  } catch (error) {
+    console.error('❌ Erro ao listar protocolos do responsável:', error);
+    res.status(500).json({ sucesso: false, mensagem: 'Erro ao listar seus protocolos.' });
+  }
+});
+
+// Buscar último número de protocolo do ano
+router.get('/ultimoNumero/:ano', async (req, res) => {
+  const { ano } = req.params;
+  try {
+    const { rows } = await db.query(`SELECT numero FROM protocolos WHERE numero LIKE $1`, [`%/${ano}`]);
+    const numeros = rows.map(r => parseInt(r.numero.split('/')[0], 10)).filter(n => !isNaN(n));
+    const max = numeros.length > 0 ? Math.max(...numeros) : 0;
+    res.json({ ultimo: max });
+  } catch (err) {
+    console.error("Erro ao buscar último número:", err);
+    res.status(500).json({ erro: "Erro interno" });
   }
 });
 
@@ -183,13 +159,14 @@ router.get('/notificacoes/:usuarioLogin', async (req, res) => {
   const { usuarioLogin } = req.params;
   try {
     const result = await db.query("SELECT COUNT(id) FROM protocolos WHERE responsavel = $1 AND visto = FALSE", [usuarioLogin]);
-    const count = parseInt(result.rows[0].count, 10);
+    const count = result.rows.length > 0 ? parseInt(result.rows[0].count, 10) : 0;
     res.json({ count });
   } catch (err) {
     console.error('Erro ao buscar notificações:', err);
     res.status(500).json({ count: 0 });
   }
 });
+
 router.post('/notificacoes/ler', async (req, res) => {
   const { usuarioLogin } = req.body;
   try {
@@ -201,28 +178,33 @@ router.post('/notificacoes/ler', async (req, res) => {
   }
 });
 
-// --- ROTA PARA DASHBOARD (ATUALIZADA COM FILTROS) ---
+// --- ROTA PARA DASHBOARD (CORRIGIDA E COM FILTROS) ---
 router.get('/dashboard-stats', async (req, res) => {
     try {
         const { dataInicio, dataFim, status, tipo, lotacao } = req.query;
-        let baseQuery = 'FROM protocolos WHERE 1=1';
+        
+        let baseConditions = 'WHERE 1=1';
         const params = [];
 
-        if (status) { params.push(status); baseQuery += ` AND status = $${params.length}`; }
-        if (dataInicio) { params.push(dataInicio); baseQuery += ` AND data_solicitacao >= $${params.length}`; }
-        if (dataFim) { params.push(dataFim); baseQuery += ` AND data_solicitacao <= $${params.length}`; }
-        if (tipo) { params.push(tipo); baseQuery += ` AND tipo_requerimento = $${params.length}`; }
-        if (lotacao) { params.push(lotacao); baseQuery += ` AND lotacao = $${params.length}`; }
+        function addCondition(field, value, operator = '=', caseInsensitive = false) {
+            if (value) {
+                params.push(value);
+                const op = caseInsensitive ? 'ILIKE' : operator;
+                baseConditions += ` AND ${field} ${op} $${params.length}`;
+            }
+        }
+        addCondition('status', status);
+        addCondition('tipo_requerimento', tipo);
+        addCondition('lotacao', lotacao);
+        if (dataInicio) { params.push(dataInicio); baseConditions += ` AND data_solicitacao >= $${params.length}`; }
+        if (dataFim) { params.push(dataFim); baseConditions += ` AND data_solicitacao <= $${params.length}`; }
 
-        // Card 1: Protocolos abertos no período (ou últimos 7 dias se sem período)
-        const novosPeriodoQuery = `SELECT COUNT(id) ${baseQuery}`;
+        const novosPeriodoQuery = `SELECT COUNT(id) FROM protocolos ${baseConditions}`;
         const novosPeriodoResult = await db.query(novosPeriodoQuery, params);
 
-        // Card 2: Protocolos pendentes antigos (regra não afetada pelo filtro de data)
         const pendentesAntigosResult = await db.query("SELECT COUNT(id) FROM protocolos WHERE status NOT IN ('Finalizado', 'Concluído') AND data_solicitacao <= current_date - interval '15 days'");
 
-        // Gráfico: Top 5 tipos de requerimento (afetado pelos filtros)
-        const topTiposQuery = `SELECT tipo_requerimento, COUNT(id) as total ${baseQuery} AND tipo_requerimento IS NOT NULL AND tipo_requerimento != '' GROUP BY tipo_requerimento ORDER BY total DESC LIMIT 5`;
+        const topTiposQuery = `SELECT tipo_requerimento, COUNT(id) as total FROM protocolos ${baseConditions} AND tipo_requerimento IS NOT NULL AND tipo_requerimento != '' GROUP BY tipo_requerimento ORDER BY total DESC LIMIT 5`;
         const topTiposResult = await db.query(topTiposQuery, params);
 
         const stats = {
@@ -235,6 +217,35 @@ router.get('/dashboard-stats', async (req, res) => {
         console.error('Erro ao buscar estatísticas do dashboard:', err);
         res.status(500).json({ erro: 'Erro no servidor ao buscar estatísticas' });
     }
+});
+
+
+// --- ROTAS GLOBAIS (DEVEM VIR POR ÚLTIMO) ---
+
+// Listar todos os protocolos
+router.get('/', async (req, res) => {
+  try {
+    const result = await db.query(`SELECT id, numero, nome, matricula, tipo_requerimento, status, responsavel FROM protocolos ORDER BY id DESC`);
+    res.json({ protocolos: result.rows });
+  } catch (error) {
+    console.error('❌ Erro ao listar protocolos:', error);
+    res.status(500).json({ sucesso: false, mensagem: 'Erro ao listar protocolos.' });
+  }
+});
+
+// Buscar protocolo completo pelo ID (DEVE SER A ÚLTIMA ROTA GET)
+router.get('/:id', async (req, res) => {
+  const protocoloId = req.params.id;
+  try {
+    const result = await db.query(`SELECT * FROM protocolos WHERE id = $1`, [protocoloId]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ sucesso: false, mensagem: 'Protocolo não encontrado.' });
+    }
+    res.json({ protocolo: result.rows[0] });
+  } catch (error) {
+    console.error('❌ Erro ao buscar protocolo por ID:', error);
+    res.status(500).json({ sucesso: false, mensagem: 'Erro ao buscar protocolo.' });
+  }
 });
 
 module.exports = router;
