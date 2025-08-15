@@ -25,11 +25,6 @@
     input, select, textarea { border: 1px solid #ccc; border-radius: 6px; padding: 8px; font-size: 1em; }
     button { padding: 10px 12px; border: none; background: #2e7d32; color: white; border-radius: 8px; cursor: pointer; margin: 5px 10px 5px 0; transition: background-color 0.2s; }
     button:hover { background-color: #1b5e20; }
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; vertical-align: top; word-break: break-word; }
-    th { background-color: #e0e0e0; }
-    details { margin-top: 5px; font-size: 0.9em; }
-    summary { cursor: pointer; font-weight: bold; color: #2e7d32; }
     .filtros { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; background: #f5f5f5; padding: 15px; border-radius: 8px; }
     .filtros input, .filtros select { padding: 8px; border-radius: 4px; border: 1px solid #ccc; }
     #modeloProtocolo, #modeloRelatorio { display: none; }
@@ -61,6 +56,14 @@
     .stat-value { font-size: 3em; font-weight: bold; color: #2e7d32; }
     .stat-label { font-size: 1.1em; color: #6c757d; }
     .chart-container { max-width: 800px; margin: 0 auto; }
+
+    /* --- NOVOS ESTILOS PARA TABELAS --- */
+    table { border: 1px solid #ddd; }
+    th, td { padding: 12px; vertical-align: middle; border-color: #ddd; }
+    tbody tr:nth-of-type(even) { background-color: #f9f9f9; }
+    tbody tr:hover { background-color: #f1f1f1; }
+    .col-acao { text-align: center; width: 120px; }
+    .col-acao button, .col-acao details { display: block; width: 100%; margin: 4px 0; box-sizing: border-box; font-size: 0.9em; padding: 8px 4px; }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs/qrcode.min.js"></script>
@@ -182,7 +185,7 @@
     <table id="tabelaRelatorios">
         <thead>
         <tr>
-            <th>Número</th><th>Requerente</th><th>Matrícula</th><th>Tipo de Requerimento</th><th>Data</th><th>Status</th><th>Responsável</th>
+            <th>Número</th><th>Requerente</th><th>Matrícula</th><th>Tipo</th><th>Data</th><th>Status</th><th>Responsável</th>
         </tr>
         </thead>
         <tbody id="resultadosPesquisa"></tbody>
@@ -453,7 +456,6 @@ window.opcoesLotacoes = [];
 
 // Funções de Inicialização (executadas quando o DOM estiver pronto)
 document.addEventListener('DOMContentLoaded', () => {
-    // Código de inicialização da sessão
     window.usuarioLogado = localStorage.getItem('usuarioLogado') || "";
     window.nivelUsuario = localStorage.getItem('nivelUsuario') || "";
     window.usuarioLogin = localStorage.getItem('usuarioLogin') || "";
@@ -467,11 +469,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('btnRelatorios').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "flex" : "none";
 
         carregarOpcoesDropdowns().then(() => {
-            if (window.nivelUsuario === "comum") {
-                mostrarTela('meusProtocolos');
-            } else {
-                mostrarTela('menu');
-            }
+            mostrarTela('menu'); // Sempre vai para o menu após o login
             verificarNotificacoes();
         });
 
@@ -481,18 +479,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('matricula').addEventListener('blur', async function() {
         const matricula = this.value.trim();
-        if (!matricula) {
-            preencherCamposServidor(null);
-            return;
-        }
+        if (!matricula) { preencherCamposServidor(null); return; }
         try {
             const response = await fetch(`/protocolos/servidor/${encodeURIComponent(matricula)}`);
             if (!response.ok) { return; }
             const servidor = await response.json();
             preencherCamposServidor(servidor);
-        } catch (error) {
-            console.error('Erro ao buscar servidor:', error);
-        }
+        } catch (error) { console.error('Erro ao buscar servidor:', error); }
     });
 
     document.getElementById('cep').addEventListener('blur', async function () {
@@ -504,17 +497,11 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
             const data = await response.json();
-            if (data.erro) {
-                alert('CEP não encontrado!');
-                return;
-            }
+            if (data.erro) { alert('CEP não encontrado!'); return; }
             document.getElementById('endereco').value = data.logradouro || '';
             document.getElementById('bairro').value = data.bairro || '';
             document.getElementById('municipio').value = data.localidade || '';
-        } catch (error) {
-            console.error('Erro ao buscar CEP:', error);
-            alert('Erro ao buscar o CEP. Verifique sua conexão.');
-        }
+        } catch (error) { console.error('Erro ao buscar CEP:', error); alert('Erro ao buscar o CEP.'); }
     });
 });
 
@@ -525,8 +512,7 @@ window.logar = async function() {
     const msg = document.getElementById('loginMsg');
     try {
         const res = await fetch('/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ login: user, senha: senha })
         });
         const data = await res.json();
@@ -538,10 +524,7 @@ window.logar = async function() {
         } else {
             msg.textContent = "Usuário ou senha incorretos.";
         }
-    } catch(err) {
-        console.error("Erro no login:", err);
-        msg.textContent = "Erro ao conectar ao servidor.";
-    }
+    } catch(err) { console.error("Erro no login:", err); msg.textContent = "Erro ao conectar ao servidor."; }
 };
 window.sair = function() {
     localStorage.clear();
@@ -558,8 +541,7 @@ window.mostrarTela = async function(tela) {
         if (usuarioLogin) {
             try {
                 await fetch('/protocolos/notificacoes/ler', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ usuarioLogin })
                 });
                 await verificarNotificacoes();
@@ -607,7 +589,7 @@ window.enviarRequerimento = async function() {
           if (confirm("O número deste protocolo já foi usado. Deseja tentar salvar novamente com um novo número sem perder os dados?")) {
               await gerarNumeroProtocolo();
               protocolo.numero = document.getElementById('numeroProtocolo').value;
-              await enviarRequerimento(); // Tenta novamente com o novo número
+              await enviarRequerimento();
           }
       } else {
           alert('❌ Erro ao enviar protocolo: ' + (data.mensagem || 'Erro desconhecido'));
@@ -629,15 +611,19 @@ window.listarProtocolos = async function(pagina = 1) {
     paginaDados.forEach(p => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td style="width: 120px; text-align: center;">${p.numero}</td> <td>${p.matricula}</td> <td>${p.nome}</td>
-        <td>${p.tipo_requerimento}</td> <td>${p.status}</td> <td>${p.responsavel}</td>
-        <td>
-          <button onclick="abrirAtualizar(${p.id})">Atualizar</button>
-          <button onclick="abrirModalEncaminhar(${p.id})">Encaminhar</button>
-          <button onclick="previsualizarPDF(${p.id})">📄 Documento</button>
-          <details id="hist_${p.id}" ontoggle="carregarHistorico(this, ${p.id})">
-            <summary>Histórico</summary>
-          </details>
+        <td class="col-numero" style="text-align: center;">${p.numero}</td>
+        <td class="col-matricula">${p.matricula}</td>
+        <td class="col-nome">${p.nome}</td>
+        <td class="col-tipo">${p.tipo_requerimento}</td>
+        <td class="col-status">${p.status}</td>
+        <td class="col-responsavel">${p.responsavel}</td>
+        <td class="col-acao">
+            <button onclick="abrirAtualizar(${p.id})">Atualizar</button>
+            <button onclick="abrirModalEncaminhar(${p.id})">Encaminhar</button>
+            <button onclick="previsualizarPDF(${p.id})">Documento</button>
+            <details id="hist_${p.id}" ontoggle="carregarHistorico(this, ${p.id})">
+                <summary>Histórico</summary>
+            </details>
         </td>`;
       tbody.appendChild(tr);
     });
@@ -670,11 +656,13 @@ window.listarMeusProtocolos = async function(pagina = 1) {
         paginaDados.forEach(p => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td>${p.numero}</td> <td>${p.nome}</td> <td>${p.status}</td>
-                <td>
+                <td class="col-numero" style="text-align: center;">${p.numero}</td>
+                <td class="col-nome">${p.nome}</td>
+                <td class="col-status">${p.status}</td>
+                <td class="col-acao">
                   <button onclick="abrirAtualizar(${p.id})">Atualizar</button>
                   <button onclick="abrirModalEncaminhar(${p.id})">Encaminhar</button>
-                  <button onclick="previsualizarPDF(${p.id})">📄 Documento</button>
+                  <button onclick="previsualizarPDF(${p.id})">Documento</button>
                   <details id="hist_${p.id}" ontoggle="carregarHistorico(this, ${p.id})">
                     <summary>Histórico</summary>
                   </details>
@@ -775,9 +763,7 @@ window.confirmarAtualizacaoStatus = async function() {
   } catch (error) { console.error("Erro na atualização:", error); }
 };
 window.carregarHistorico = async function(detailsElement, protocoloId) {
-    if (!detailsElement.open || detailsElement.dataset.loaded === 'true') {
-        return;
-    }
+    if (!detailsElement.open || detailsElement.dataset.loaded === 'true') return;
     const summary = detailsElement.querySelector('summary');
     detailsElement.innerHTML = '';
     detailsElement.appendChild(summary);
