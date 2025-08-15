@@ -57,13 +57,48 @@
     .stat-label { font-size: 1.1em; color: #6c757d; }
     .chart-container { max-width: 800px; margin: 0 auto; }
 
-    /* --- NOVOS ESTILOS PARA TABELAS --- */
-    table { border: 1px solid #ddd; }
-    th, td { padding: 12px; vertical-align: middle; border-color: #ddd; }
-    tbody tr:nth-of-type(even) { background-color: #f9f9f9; }
-    tbody tr:hover { background-color: #f1f1f1; }
-    .col-acao { text-align: center; width: 120px; }
-    .col-acao button, .col-acao details { display: block; width: 100%; margin: 4px 0; box-sizing: border-box; font-size: 0.9em; padding: 8px 4px; }
+    /* --- ESTILOS FINAIS E CORRIGIDOS PARA TABELAS --- */
+table {
+    border-collapse: collapse; /* Garante que as bordas se unam */
+    width: 100%;
+}
+
+th, td {
+    border: 1px solid #ddd; /* Restaura a borda visível */
+    padding: 12px;
+    vertical-align: middle;
+}
+
+th {
+    background-color: #e0e0e0; /* Restaura a cor de fundo do cabeçalho */
+}
+
+tbody tr:nth-of-type(even) {
+    background-color: #f9f9f9;
+}
+
+tbody tr:hover {
+    background-color: #f0f0f0;
+}
+
+/* Organização dos botões de ação */
+.action-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: center;
+}
+.col-acao button {
+    margin: 0;
+    width: auto;
+    flex-grow: 1;
+    padding: 6px 8px;
+    font-size: 0.85em;
+}
+.col-acao details {
+    margin-top: 8px;
+    flex-basis: 100%; /* Faz o 'details' ocupar a linha toda abaixo dos botões */
+}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs/qrcode.min.js"></script>
