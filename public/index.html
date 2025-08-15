@@ -442,6 +442,7 @@
 </div>
 
 <script defer>
+
 // Variáveis Globais
 const itensPorPagina = 10;
 let paginaAtualTodos = 1;
@@ -452,7 +453,6 @@ window.opcoesLotacoes = [];
 
 // Funções de Inicialização (executadas quando o DOM estiver pronto)
 document.addEventListener('DOMContentLoaded', () => {
-    // Código de inicialização da sessão
     window.usuarioLogado = localStorage.getItem('usuarioLogado') || "";
     window.nivelUsuario = localStorage.getItem('nivelUsuario') || "";
     window.usuarioLogin = localStorage.getItem('usuarioLogin') || "";
@@ -601,12 +601,12 @@ window.enviarRequerimento = async function() {
       if (res.ok && data.sucesso) {
           alert('✅ Protocolo enviado e salvo com sucesso!');
           document.querySelector('#form .formulario').reset();
-          gerarNumeroProtocolo();
+          await gerarNumeroProtocolo();
       } else if (res.status === 400) {
           if (confirm("O número deste protocolo já foi usado. Deseja tentar salvar novamente com um novo número sem perder os dados?")) {
               await gerarNumeroProtocolo();
               protocolo.numero = document.getElementById('numeroProtocolo').value;
-              enviarRequerimento(); // Tenta novamente com o novo número
+              await enviarRequerimento(); // Tenta novamente com o novo número
           }
       } else {
           alert('❌ Erro ao enviar protocolo: ' + (data.mensagem || 'Erro desconhecido'));
@@ -634,8 +634,12 @@ window.listarProtocolos = async function(pagina = 1) {
           <button onclick="abrirAtualizar(${p.id})">Atualizar</button>
           <button onclick="abrirModalEncaminhar(${p.id})">Encaminhar</button>
           <button onclick="previsualizarPDF(${p.id})">📄 Documento</button>
+          <details id="hist_${p.id}">
+            <summary>Histórico</summary>
+          </details>
         </td>`;
       tbody.appendChild(tr);
+      setTimeout(() => carregarHistorico(p.id), 100);
     });
     renderizarPaginacao(data.protocolos.length, pagina, 'paginacaoProtocolos', listarProtocolos);
   } catch (error) { console.error("Erro ao listar protocolos:", error); tbody.innerHTML = "<tr><td colspan='7'>Erro ao carregar protocolos.</td></tr>"; }
@@ -671,8 +675,12 @@ window.listarMeusProtocolos = async function(pagina = 1) {
                   <button onclick="abrirAtualizar(${p.id})">Atualizar</button>
                   <button onclick="abrirModalEncaminhar(${p.id})">Encaminhar</button>
                   <button onclick="previsualizarPDF(${p.id})">📄 Documento</button>
+                  <details id="hist_${p.id}">
+                    <summary>Histórico</summary>
+                  </details>
                 </td>`;
             tbody.appendChild(tr);
+            setTimeout(() => carregarHistorico(p.id), 100);
         });
         renderizarPaginacao(data.protocolos.length, pagina, 'paginacaoMeusProtocolos', listarMeusProtocolos);
     } catch (error) { console.error("Erro ao listar meus protocolos:", error); tbody.innerHTML = "<tr><td colspan='4'>Erro ao carregar protocolos.</td></tr>"; }
@@ -932,7 +940,6 @@ window.carregarDashboard = async function() {
         document.getElementById('stat-novos').textContent = stats.novosNoPeriodo;
         document.getElementById('stat-pendentes').textContent = stats.pendentesAntigos;
         document.getElementById('stat-novos-label').textContent = (document.getElementById('dashDataInicio').value || document.getElementById('dashDataFim').value) ? 'Novos no Período' : 'Novos na Semana';
-
         const labels = stats.topTipos.map(item => item.tipo_requerimento);
         const data = stats.topTipos.map(item => item.total);
         const ctx = document.getElementById('tiposChart').getContext('2d');
@@ -1171,7 +1178,10 @@ window.confirmarAlteracaoSenha = async function() {
     const senhaAtual = document.getElementById('senhaAtual').value;
     const novaSenha = document.getElementById('alterarNovaSenha').value;
     const confirmarSenha = document.getElementById('confirmarNovaSenha').value;
-
+    if (!senhaAtual || !novaSenha || !confirmarSenha) {
+        alert('Por favor, preencha todos os campos.');
+        return;
+    }
     if (novaSenha !== confirmarSenha) {
         alert('A nova senha e a confirmação não são iguais.');
         return;
@@ -1180,7 +1190,6 @@ window.confirmarAlteracaoSenha = async function() {
         alert('A nova senha deve ter pelo menos 4 caracteres.');
         return;
     }
-
     try {
         const res = await fetch('/usuarios/minha-senha', {
             method: 'PUT',
@@ -1200,9 +1209,7 @@ window.confirmarAlteracaoSenha = async function() {
         alert('Erro ao conectar com o servidor para alterar a senha.');
     }
 };
-
     
-// JS VAI AQUI
 </script>
 
 </body>
