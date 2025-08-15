@@ -58,47 +58,14 @@
     .chart-container { max-width: 800px; margin: 0 auto; }
 
     /* --- ESTILOS FINAIS E CORRIGIDOS PARA TABELAS --- */
-table {
-    border-collapse: collapse; /* Garante que as bordas se unam */
-    width: 100%;
-}
-
-th, td {
-    border: 1px solid #ddd; /* Restaura a borda visível */
-    padding: 12px;
-    vertical-align: middle;
-}
-
-th {
-    background-color: #e0e0e0; /* Restaura a cor de fundo do cabeçalho */
-}
-
-tbody tr:nth-of-type(even) {
-    background-color: #f9f9f9;
-}
-
-tbody tr:hover {
-    background-color: #f0f0f0;
-}
-
-/* Organização dos botões de ação */
-.action-buttons {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    justify-content: center;
-}
-.col-acao button {
-    margin: 0;
-    width: auto;
-    flex-grow: 1;
-    padding: 6px 8px;
-    font-size: 0.85em;
-}
-.col-acao details {
-    margin-top: 8px;
-    flex-basis: 100%; /* Faz o 'details' ocupar a linha toda abaixo dos botões */
-}
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ddd; padding: 12px; vertical-align: middle; }
+    th { background-color: #e0e0e0; }
+    tbody tr:nth-of-type(even) { background-color: #f9f9f9; }
+    tbody tr:hover { background-color: #f0f0f0; }
+    .action-buttons { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 8px; }
+    .col-acao button { margin: 0; width: auto; flex-grow: 1; padding: 6px 8px; font-size: 0.85em; }
+    .col-acao details { margin-top: 8px; flex-basis: 100%; }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs/qrcode.min.js"></script>
@@ -131,8 +98,8 @@ tbody tr:hover {
   <div id="menu" class="menu content">
     <button id="btnDashboard" onclick="mostrarTela('dashboard')">📈 Dashboard</button>
     <button id="btnNovo" onclick="mostrarTela('form')">📄 Novo Protocolo</button>
-    <button onclick="mostrarTela('protocolos')">🗂️ Todos os Protocolos</button>
-    <button onclick="mostrarTela('relatorios')" id="btnRelatorios">📊 Relatórios</button>
+    <button id="btnTodosProtocolos" onclick="mostrarTela('protocolos')">🗂️ Todos os Protocolos</button>
+    <button id="btnRelatorios" onclick="mostrarTela('relatorios')">📊 Relatórios</button>
     <button onclick="mostrarTela('meusProtocolos')">📂 Meus Protocolos</button>
     <button id="btnConfig" onclick="mostrarTela('config')">⚙️ Configurações</button>
     <button onclick="abrirModalAlterarSenha()">🔑 Alterar Senha</button>
@@ -232,7 +199,7 @@ tbody tr:hover {
     <table>
       <thead>
         <tr>
-            <th>Número</th><th>Matrícula</th><th>Nome</th><th>Tipo</th><th>Status</th><th>Responsável</th><th>Ação</th>
+            <th class="col-numero">Número</th><th class="col-matricula">Matrícula</th><th class="col-nome">Nome</th><th class="col-tipo">Tipo</th><th class="col-status">Status</th><th class="col-responsavel">Responsável</th><th class="col-acao">Ação</th>
         </tr>
       </thead>
       <tbody id="tabelaProtocolos"></tbody>
@@ -252,7 +219,7 @@ tbody tr:hover {
       <table>
         <thead>
           <tr>
-            <th>Número</th><th>Nome</th><th>Status</th><th>Ação</th>
+            <th class="col-numero">Número</th><th class="col-nome">Nome</th><th class="col-status">Status</th><th class="col-acao">Ação</th>
           </tr>
         </thead>
         <tbody id="meusProtocolosTabela"></tbody>
@@ -502,6 +469,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('btnConfig').style.display = window.nivelUsuario === "admin" ? "flex" : "none";
         document.getElementById('btnNovo').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao" || window.nivelUsuario === "usuario") ? "flex" : "none";
         document.getElementById('btnRelatorios').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "flex" : "none";
+        document.getElementById('btnTodosProtocolos').style.display = (window.nivelUsuario === 'admin' || window.nivelUsuario === 'padrao') ? 'flex' : 'none';
 
         carregarOpcoesDropdowns().then(() => {
             mostrarTela('menu'); // Sempre vai para o menu após o login
@@ -646,16 +614,18 @@ window.listarProtocolos = async function(pagina = 1) {
     paginaDados.forEach(p => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td class="col-numero" style="text-align: center;">${p.numero}</td>
+        <td class="col-numero">${p.numero}</td>
         <td class="col-matricula">${p.matricula}</td>
         <td class="col-nome">${p.nome}</td>
         <td class="col-tipo">${p.tipo_requerimento}</td>
         <td class="col-status">${p.status}</td>
         <td class="col-responsavel">${p.responsavel}</td>
         <td class="col-acao">
-            <button onclick="abrirAtualizar(${p.id})">Atualizar</button>
-            <button onclick="abrirModalEncaminhar(${p.id})">Encaminhar</button>
-            <button onclick="previsualizarPDF(${p.id})">Documento</button>
+            <div class="action-buttons">
+                <button onclick="abrirAtualizar(${p.id})">Atualizar</button>
+                <button onclick="abrirModalEncaminhar(${p.id})">Encaminhar</button>
+                <button onclick="previsualizarPDF(${p.id})">Documento</button>
+            </div>
             <details id="hist_${p.id}" ontoggle="carregarHistorico(this, ${p.id})">
                 <summary>Histórico</summary>
             </details>
@@ -691,16 +661,18 @@ window.listarMeusProtocolos = async function(pagina = 1) {
         paginaDados.forEach(p => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td class="col-numero" style="text-align: center;">${p.numero}</td>
+                <td class="col-numero">${p.numero}</td>
                 <td class="col-nome">${p.nome}</td>
                 <td class="col-status">${p.status}</td>
                 <td class="col-acao">
-                  <button onclick="abrirAtualizar(${p.id})">Atualizar</button>
-                  <button onclick="abrirModalEncaminhar(${p.id})">Encaminhar</button>
-                  <button onclick="previsualizarPDF(${p.id})">Documento</button>
-                  <details id="hist_${p.id}" ontoggle="carregarHistorico(this, ${p.id})">
-                    <summary>Histórico</summary>
-                  </details>
+                    <div class="action-buttons">
+                        <button onclick="abrirAtualizar(${p.id})">Atualizar</button>
+                        <button onclick="abrirModalEncaminhar(${p.id})">Encaminhar</button>
+                        <button onclick="previsualizarPDF(${p.id})">Documento</button>
+                    </div>
+                    <details id="hist_${p.id}" ontoggle="carregarHistorico(this, ${p.id})">
+                        <summary>Histórico</summary>
+                    </details>
                 </td>`;
             tbody.appendChild(tr);
         });
@@ -1207,7 +1179,7 @@ window.renderizarPaginacao = function(totalItens, paginaAtual, idContainer, call
     }
 };
 window.voltarDeMeusProtocolos = function() {
-  if (window.nivelUsuario === 'comum' || window.nivelUsuario === 'usuario') { sair(); } else { mostrarTela('menu'); }
+  mostrarTela('menu');
 };
 window.preencherCamposServidor = function(servidor) {
     if (!servidor) {
@@ -1242,7 +1214,6 @@ window.confirmarAlteracaoSenha = async function() {
         }
     } catch(err) { alert('Erro ao conectar com o servidor para alterar a senha.'); }
 };
-
     
 </script>
 
