@@ -247,6 +247,46 @@ window.limparFiltrosMeusProtocolos = function() {
     listarMeusProtocolos();
 };
 window.fecharModal = function(modalId) { document.getElementById(modalId).style.display = 'none'; };
+window.abrirModalEncaminhar = async function(idProtocolo) { /* ...código da função... */ };
+window.confirmarEncaminhamento = async function() { /* ...código da função... */ };
+window.abrirAtualizar = async function(id) { /* ...código da função... */ };
+window.handleStatusChange = function(selectElement) { /* ...código da função... */ };
+window.confirmarAtualizacaoStatus = async function() { /* ...código da função... */ };
+window.carregarHistorico = async function(detailsElement, protocoloId) { /* ...código da função... */ };
+window.previsualizarPDF = async function(id, isPrint = false) { /* ...código da função... */ };
+window.gerarPDF = async function() { /* ...código da função... */ };
+window.popularFiltrosRelatorio = function() { /* ...código da função... */ };
+window.pesquisarProtocolos = async function() { /* ...código da função... */ };
+window.previsualizarRelatorioPDF = async function() { /* ...código da função... */ };
+window.salvarRelatorioPDF = async function() { /* ...código da função... */ };
+window.exportarRelatorioExcel = function() { /* ...código da função... */ };
+window.limparFiltrosRelatorio = function() { /* ...código da função... */ };
+window.verificarNotificacoes = async function() { /* ...código da função... */ };
+window.popularFiltrosDashboard = function() { /* ...código da função... */ };
+window.carregarDashboard = async function() { /* ...código da função... */ };
+window.salvarEmailSistema = function() { /* ...código da função... */ };
+window.cadastrarUsuario = async function() { /* ...código da função... */ };
+window.atualizarListaUsuarios = async function() { /* ...código da função... */ };
+window.abrirModalEditar = function(usuario) { /* ...código da função... */ };
+window.confirmarEdicaoUsuario = async function() { /* ...código da função... */ };
+window.abrirModalResetarSenha = function(id) { /* ...código da função... */ };
+window.confirmarResetSenha = async function() { /* ...código da função... */ };
+window.alterarStatusUsuario = async function(id, novoStatus) { /* ...código da função... */ };
+window.carregarOpcoesDropdowns = async function() { /* ...código da função... */ };
+window.popularDropdown = function(selectId, opcoes) { /* ...código da função... */ };
+window.popularDropdownsFormulario = function() { /* ...código da função... */ };
+window.carregarTabelaGestao = async function(tipo) { /* ...código da função... */ };
+window.adicionarItem = async function(tipo) { /* ...código da função... */ };
+window.alterarStatusItem = async function(tipo, id, novoStatus) { /* ...código da função... */ };
+window.gerarBackup = async function() { /* ...código da função... */ };
+window.renderizarPaginacao = function(totalItens, paginaAtual, idContainer, callback) { /* ...código da função... */ };
+window.voltarDeMeusProtocolos = function() { /* ...código da função... */ };
+window.preencherCamposServidor = function(servidor) { /* ...código da função... */ };
+window.abrirModalAlterarSenha = function() { /* ...código da função... */ };
+window.confirmarAlteracaoSenha = async function() { /* ...código da função... */ };
+
+// *** CÓDIGO CORRIGIDO E COMPLETO DAS FUNÇÕES ABAIXO ***
+
 window.abrirModalEncaminhar = async function(idProtocolo) {
   try {
     const res = await fetch('/usuarios');
@@ -358,83 +398,6 @@ window.carregarHistorico = async function(detailsElement, protocoloId) {
     } catch (error) {
         loadingDiv.textContent = 'Erro ao carregar histórico.';
         console.error("Erro ao carregar histórico:", error);
-    }
-};
-window.abrirModalEditarProtocolo = async function(protocoloId) {
-    try {
-        const res = await fetch(`/protocolos/${protocoloId}`);
-        const data = await res.json();
-        if (!data.sucesso || !data.protocolo) {
-            alert(data.mensagem || "Protocolo não encontrado.");
-            return;
-        }
-        const p = data.protocolo;
-        popularDropdown('editLotacao', window.opcoesLotacoes);
-        popularDropdown('editTipo', window.opcoesTipos);
-        document.getElementById('editBairro').innerHTML = document.getElementById('bairro').innerHTML;
-        document.getElementById('editProtocoloId').value = p.id;
-        document.getElementById('editNumeroProtocolo').value = p.numero || '';
-        document.getElementById('editMatricula').value = p.matricula || '';
-        document.getElementById('editNome').value = p.nome || '';
-        document.getElementById('editEndereco').value = p.endereco || '';
-        document.getElementById('editMunicipio').value = p.municipio || '';
-        document.getElementById('editBairro').value = p.bairro || '';
-        document.getElementById('editCep').value = p.cep || '';
-        document.getElementById('editTelefone').value = p.telefone || '';
-        document.getElementById('editCpf').value = p.cpf || '';
-        document.getElementById('editRg').value = p.rg || '';
-        document.getElementById('editDataExpedicao').value = p.data_expedicao ? new Date(p.data_expedicao).toISOString().split('T')[0] : '';
-        document.getElementById('editCargo').value = p.cargo || '';
-        document.getElementById('editLotacao').value = p.lotacao || '';
-        document.getElementById('editUnidade').value = p.unidade_exercicio || '';
-        document.getElementById('editTipo').value = p.tipo_requerimento || '';
-        document.getElementById('editRequerAo').value = p.requer_ao || '';
-        document.getElementById('editDataSolicitacao').value = p.data_solicitacao ? new Date(p.data_solicitacao).toISOString().split('T')[0] : '';
-        document.getElementById('editComplemento').value = p.observacoes || '';
-        document.getElementById('modalEditarProtocolo').style.display = 'flex';
-    } catch (err) {
-        alert("Erro ao carregar dados do protocolo para edição.");
-        console.error(err);
-    }
-};
-window.confirmarEdicaoProtocolo = async function() {
-    const protocoloId = document.getElementById('editProtocoloId').value;
-    const protocolo = {
-        numero: document.getElementById('editNumeroProtocolo').value, matricula: document.getElementById('editMatricula').value,
-        nome: document.getElementById('editNome').value, endereco: document.getElementById('editEndereco').value,
-        municipio: document.getElementById('editMunicipio').value, bairro: document.getElementById('editBairro').value,
-        cep: document.getElementById('editCep').value, telefone: document.getElementById('editTelefone').value,
-        cpf: document.getElementById('editCpf').value, rg: document.getElementById('editRg').value,
-        dataExpedicao: document.getElementById('editDataExpedicao').value, cargo: document.getElementById('editCargo').value,
-        lotacao: document.getElementById('editLotacao').value, unidade: document.getElementById('editUnidade').value,
-        tipo: document.getElementById('editTipo').value, requerAo: document.getElementById('editRequerAo').value,
-        dataSolicitacao: document.getElementById('editDataSolicitacao').value, complemento: document.getElementById('editComplemento').value,
-    };
-    try {
-        const res = await fetch(`/protocolos/${protocoloId}`, {
-            method: 'PUT', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(protocolo)
-        });
-        const data = await res.json();
-        alert(data.mensagem);
-        if (data.sucesso) {
-            fecharModal('modalEditarProtocolo');
-            if (document.getElementById('protocolos').classList.contains('active')) listarProtocolos();
-            if (document.getElementById('meusProtocolos').classList.contains('active')) listarMeusProtocolos();
-        }
-    } catch(err) { alert('Erro ao salvar as alterações.'); console.error(err); }
-};
-window.excluirProtocolo = async function(protocoloId) {
-    if (confirm("ATENÇÃO!\n\nTem certeza que deseja excluir este protocolo?\nEsta ação é irreversível e removerá também todo o seu histórico.")) {
-        try {
-            const res = await fetch(`/protocolos/${protocoloId}`, { method: 'DELETE' });
-            const data = await res.json();
-            alert(data.mensagem);
-            if (data.sucesso) {
-                if (document.getElementById('protocolos').classList.contains('active')) listarProtocolos();
-                if (document.getElementById('meusProtocolos').classList.contains('active')) listarMeusProtocolos();
-            }
-        } catch(err) { alert('Erro ao tentar excluir o protocolo.'); console.error(err); }
     }
 };
 window.previsualizarPDF = async function(id, isPrint = false) {
@@ -561,8 +524,7 @@ window.exportarRelatorioExcel = function() {
   window.location.href = `/protocolos/backup?${params.toString()}`;
 };
 window.limparFiltrosRelatorio = function() {
-    const form = document.querySelector('#relatorios .filtros');
-    if(form) form.reset();
+    document.querySelector('#relatorios .filtros').reset();
     pesquisarProtocolos();
 };
 window.verificarNotificacoes = async function() {
@@ -853,4 +815,81 @@ window.confirmarAlteracaoSenha = async function() {
             fecharModal('modalAlterarSenha');
         }
     } catch(err) { alert('Erro ao conectar com o servidor para alterar a senha.'); }
+};
+window.abrirModalEditarProtocolo = async function(protocoloId) {
+    try {
+        const res = await fetch(`/protocolos/${protocoloId}`);
+        const data = await res.json();
+        if (!data.protocolo) { // A resposta de sucesso agora só tem o protocolo
+            alert(data.mensagem || "Protocolo não encontrado.");
+            return;
+        }
+        const p = data.protocolo;
+        popularDropdown('editProtocoloLotacao', window.opcoesLotacoes);
+        popularDropdown('editProtocoloTipo', window.opcoesTipos);
+        document.getElementById('editProtocoloBairro').innerHTML = document.getElementById('bairro').innerHTML;
+        document.getElementById('editProtocoloId').value = p.id;
+        document.getElementById('editProtocoloNumero').value = p.numero || '';
+        document.getElementById('editProtocoloMatricula').value = p.matricula || '';
+        document.getElementById('editProtocoloNome').value = p.nome || '';
+        document.getElementById('editProtocoloEndereco').value = p.endereco || '';
+        document.getElementById('editProtocoloMunicipio').value = p.municipio || '';
+        document.getElementById('editProtocoloBairro').value = p.bairro || '';
+        document.getElementById('editProtocoloCep').value = p.cep || '';
+        document.getElementById('editProtocoloTelefone').value = p.telefone || '';
+        document.getElementById('editProtocoloCpf').value = p.cpf || '';
+        document.getElementById('editProtocoloRg').value = p.rg || '';
+        document.getElementById('editProtocoloDataExpedicao').value = p.data_expedicao ? new Date(p.data_expedicao).toISOString().split('T')[0] : '';
+        document.getElementById('editProtocoloCargo').value = p.cargo || '';
+        document.getElementById('editProtocoloLotacao').value = p.lotacao || '';
+        document.getElementById('editProtocoloUnidade').value = p.unidade_exercicio || '';
+        document.getElementById('editProtocoloTipo').value = p.tipo_requerimento || '';
+        document.getElementById('editProtocoloRequerAo').value = p.requer_ao || '';
+        document.getElementById('editProtocoloDataSolicitacao').value = p.data_solicitacao ? new Date(p.data_solicitacao).toISOString().split('T')[0] : '';
+        document.getElementById('editProtocoloComplemento').value = p.observacoes || '';
+        document.getElementById('modalEditarProtocolo').style.display = 'flex';
+    } catch (err) {
+        alert("Erro ao carregar dados do protocolo para edição.");
+        console.error(err);
+    }
+};
+window.confirmarEdicaoProtocolo = async function() {
+    const protocoloId = document.getElementById('editProtocoloId').value;
+    const protocolo = {
+        numero: document.getElementById('editProtocoloNumero').value, matricula: document.getElementById('editProtocoloMatricula').value,
+        nome: document.getElementById('editProtocoloNome').value, endereco: document.getElementById('editProtocoloEndereco').value,
+        municipio: document.getElementById('editProtocoloMunicipio').value, bairro: document.getElementById('editProtocoloBairro').value,
+        cep: document.getElementById('editProtocoloCep').value, telefone: document.getElementById('editProtocoloTelefone').value,
+        cpf: document.getElementById('editProtocoloCpf').value, rg: document.getElementById('editProtocoloRg').value,
+        dataExpedicao: document.getElementById('editProtocoloDataExpedicao').value, cargo: document.getElementById('editProtocoloCargo').value,
+        lotacao: document.getElementById('editProtocoloLotacao').value, unidade: document.getElementById('editProtocoloUnidade').value,
+        tipo: document.getElementById('editProtocoloTipo').value, requerAo: document.getElementById('editProtocoloRequerAo').value,
+        dataSolicitacao: document.getElementById('editProtocoloDataSolicitacao').value, complemento: document.getElementById('editProtocoloComplemento').value,
+    };
+    try {
+        const res = await fetch(`/protocolos/${protocoloId}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(protocolo)
+        });
+        const data = await res.json();
+        alert(data.mensagem);
+        if (data.sucesso) {
+            fecharModal('modalEditarProtocolo');
+            if (document.getElementById('protocolos').classList.contains('active')) listarProtocolos();
+            if (document.getElementById('meusProtocolos').classList.contains('active')) listarMeusProtocolos();
+        }
+    } catch(err) { alert('Erro ao salvar as alterações.'); console.error(err); }
+};
+window.excluirProtocolo = async function(protocoloId) {
+    if (confirm("ATENÇÃO!\n\nTem certeza que deseja excluir este protocolo?\nEsta ação é irreversível e removerá também todo o seu histórico.")) {
+        try {
+            const res = await fetch(`/protocolos/${protocoloId}`, { method: 'DELETE' });
+            const data = await res.json();
+            alert(data.mensagem);
+            if (data.sucesso) {
+                if (document.getElementById('protocolos').classList.contains('active')) listarProtocolos();
+                if (document.getElementById('meusProtocolos').classList.contains('active')) listarMeusProtocolos();
+            }
+        } catch(err) { alert('Erro ao tentar excluir o protocolo.'); console.error(err); }
+    }
 };
