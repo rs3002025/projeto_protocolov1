@@ -161,8 +161,17 @@ window.listarProtocolos = async function(pagina = 1) {
     const fim = inicio + itensPorPagina;
     const paginaDados = data.protocolos.slice(inicio, fim);
     if (paginaDados.length === 0) tbody.innerHTML = "<tr><td colspan='7'>Nenhum protocolo encontrado.</td></tr>";
+    
     paginaDados.forEach(p => {
       const tr = document.createElement('tr');
+      
+      // Lógica para mostrar botões de admin
+      const isAdmin = window.nivelUsuario === 'admin' || window.nivelUsuario === 'padrao';
+      const adminButtons = isAdmin ? `
+        <button onclick="abrirModalEditar(${p.id})">Editar</button>
+        <button onclick="excluirProtocolo(${p.id})" style="background-color:#c82333;">Excluir</button>
+      ` : '';
+
       tr.innerHTML = `
         <td class="col-numero">${p.numero}</td>
         <td class="col-matricula">${p.matricula}</td>
@@ -175,6 +184,7 @@ window.listarProtocolos = async function(pagina = 1) {
                 <button onclick="abrirAtualizar(${p.id})">Atualizar</button>
                 <button onclick="abrirModalEncaminhar(${p.id})">Encaminhar</button>
                 <button onclick="previsualizarPDF(${p.id})">Documento</button>
+                ${adminButtons}
             </div>
             <details id="hist_${p.id}" ontoggle="carregarHistorico(this, ${p.id})">
                 <summary>Histórico</summary>
@@ -208,8 +218,17 @@ window.listarMeusProtocolos = async function(pagina = 1) {
         const fim = inicio + itensPorPagina;
         const paginaDados = data.protocolos.slice(inicio, fim);
         if (paginaDados.length === 0) tbody.innerHTML = "<tr><td colspan='4'>Nenhum protocolo encontrado.</td></tr>";
+        
         paginaDados.forEach(p => {
             const tr = document.createElement('tr');
+
+            // Lógica para mostrar botões de admin
+            const isAdmin = window.nivelUsuario === 'admin' || window.nivelUsuario === 'padrao';
+            const adminButtons = isAdmin ? `
+                <button onclick="abrirModalEditar(${p.id})">Editar</button>
+                <button onclick="excluirProtocolo(${p.id})" style="background-color:#c82333;">Excluir</button>
+            ` : '';
+
             tr.innerHTML = `
                 <td class="col-numero">${p.numero}</td>
                 <td class="col-nome">${p.nome}</td>
@@ -219,6 +238,7 @@ window.listarMeusProtocolos = async function(pagina = 1) {
                         <button onclick="abrirAtualizar(${p.id})">Atualizar</button>
                         <button onclick="abrirModalEncaminhar(${p.id})">Encaminhar</button>
                         <button onclick="previsualizarPDF(${p.id})">Documento</button>
+                        ${adminButtons}
                     </div>
                     <details id="hist_${p.id}" ontoggle="carregarHistorico(this, ${p.id})">
                         <summary>Histórico</summary>
@@ -744,6 +764,113 @@ window.abrirModalAlterarSenha = function() {
     document.getElementById('confirmarNovaSenha').value = '';
     document.getElementById('modalAlterarSenha').style.display = 'flex';
 };
+
+// ADICIONE ESTAS NOVAS FUNÇÕES
+
+async function abrirModalEditar(protocoloId) {
+    try {
+        const res = await fetch(`/protocolos/${protocoloId}`);
+        const data = await res.json();
+        if (!data.sucesso || !data.protocolo) {
+            alert(data.mensagem || "Protocolo não encontrado.");
+            return;
+        }
+        const p = data.protocolo;
+
+        // Popula os dropdowns do modal de edição
+        popularDropdown('editLotacao', window.opcoesLotacoes);
+        popularDropdown('editTipo', window.opcoesTipos);
+        document.getElementById('editBairro').innerHTML = document.getElementById('bairro').innerHTML;
+
+        // Preenche os campos do formulário
+        document.getElementById('editProtocoloId').value = p.id;
+        document.getElementById('editNumeroProtocolo').value = p.numero || '';
+        document.getElementById('editMatricula').value = p.matricula || '';
+        document.getElementById('editNome').value = p.nome || '';
+        document.getElementById('editEndereco').value = p.endereco || '';
+        document.getElementById('editMunicipio').value = p.municipio || '';
+        document.getElementById('editBairro').value = p.bairro || '';
+        document.getElementById('editCep').value = p.cep || '';
+        document.getElementById('editTelefone').value = p.telefone || '';
+        document.getElementById('editCpf').value = p.cpf || '';
+        document.getElementById('editRg').value = p.rg || '';
+        document.getElementById('editDataExpedicao').value = p.data_expedicao ? new Date(p.data_expedicao).toISOString().split('T')[0] : '';
+        document.getElementById('editCargo').value = p.cargo || '';
+        document.getElementById('editLotacao').value = p.lotacao || '';
+        document.getElementById('editUnidade').value = p.unidade_exercicio || '';
+        document.getElementById('editTipo').value = p.tipo_requerimento || '';
+        document.getElementById('editRequerAo').value = p.requer_ao || '';
+        document.getElementById('editDataSolicitacao').value = p.data_solicitacao ? new Date(p.data_solicitacao).toISOString().split('T')[0] : '';
+        document.getElementById('editComplemento').value = p.observacoes || '';
+
+        document.getElementById('modalEditarProtocolo').style.display = 'flex';
+
+    } catch (err) {
+        alert("Erro ao carregar dados do protocolo para edição.");
+        console.error(err);
+    }
+}
+
+async function confirmarEdicaoProtocolo() {
+    const protocoloId = document.getElementById('editProtocoloId').value;
+    const protocolo = {
+        numero: document.getElementById('editNumeroProtocolo').value,
+        matricula: document.getElementById('editMatricula').value,
+        nome: document.getElementById('editNome').value,
+        endereco: document.getElementById('editEndereco').value,
+        municipio: document.getElementById('editMunicipio').value,
+        bairro: document.getElementById('editBairro').value,
+        cep: document.getElementById('editCep').value,
+        telefone: document.getElementById('editTelefone').value,
+        cpf: document.getElementById('editCpf').value,
+        rg: document.getElementById('editRg').value,
+        dataExpedicao: document.getElementById('editDataExpedicao').value,
+        cargo: document.getElementById('editCargo').value,
+        lotacao: document.getElementById('editLotacao').value,
+        unidade: document.getElementById('editUnidade').value,
+        tipo: document.getElementById('editTipo').value,
+        requerAo: document.getElementById('editRequerAo').value,
+        dataSolicitacao: document.getElementById('editDataSolicitacao').value,
+        complemento: document.getElementById('editComplemento').value,
+    };
+
+    try {
+        const res = await fetch(`/protocolos/${protocoloId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(protocolo)
+        });
+        const data = await res.json();
+        alert(data.mensagem);
+        if (data.sucesso) {
+            fecharModal('modalEditarProtocolo');
+            if (document.getElementById('protocolos').classList.contains('active')) listarProtocolos();
+            if (document.getElementById('meusProtocolos').classList.contains('active')) listarMeusProtocolos();
+        }
+    } catch(err) {
+        alert('Erro ao salvar as alterações.');
+        console.error(err);
+    }
+}
+
+async function excluirProtocolo(protocoloId) {
+    if (confirm("ATENÇÃO!\n\nTem certeza que deseja excluir este protocolo?\nEsta ação é irreversível e removerá também todo o seu histórico.")) {
+        try {
+            const res = await fetch(`/protocolos/${protocoloId}`, {
+                method: 'DELETE'
+            });
+            const data = await res.json();
+            alert(data.mensagem);
+            if (data.sucesso) {
+                if (document.getElementById('protocolos').classList.contains('active')) listarProtocolos();
+                if (document.getElementById('meusProtocolos').classList.contains('active')) listarMeusProtocolos();
+            }
+        } catch(err) {
+            alert('Erro ao tentar excluir o protocolo.');
+            console.error(err);
+        }
+    }
+}
 window.confirmarAlteracaoSenha = async function() {
     const senhaAtual = document.getElementById('senhaAtual').value;
     const novaSenha = document.getElementById('alterarNovaSenha').value;
@@ -764,3 +891,5 @@ window.confirmarAlteracaoSenha = async function() {
         }
     } catch(err) { alert('Erro ao conectar com o servidor para alterar a senha.'); }
 };
+
+
