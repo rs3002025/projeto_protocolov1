@@ -576,7 +576,6 @@ window.limparFiltrosRelatorio = function() {
 };
 
 // FIM DA PARTE 4 de 5
-Aqui está a **PARTE 5 de 5**, a parte final.
 
 ```javascript
 // Funções de Notificação
