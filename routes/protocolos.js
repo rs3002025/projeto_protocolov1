@@ -248,4 +248,52 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// ROTA PARA ATUALIZAR (EDITAR) UM PROTOCOLO COMPLETO
+router.put('/:id', async (req, res) => {
+    const { id } = req.params;
+    const { 
+        numero, nome, matricula, endereco, municipio, bairro, cep, telefone, 
+        cpf, rg, cargo, lotacao, unidade, tipo, requerAo, dataSolicitacao, complemento 
+    } = req.body;
+
+    try {
+        await db.query(`
+            UPDATE protocolos SET
+                numero = $1, nome = $2, matricula = $3, endereco = $4, municipio = $5, bairro = $6,
+                cep = $7, telefone = $8, cpf = $9, rg = $10, cargo = $11, lotacao = $12, 
+                unidade_exercicio = $13, tipo_requerimento = $14, requer_ao = $15, 
+                data_solicitacao = $16, observacoes = $17
+            WHERE id = $18
+        `, [
+            numero, nome, matricula, endereco, municipio, bairro, cep, telefone, 
+            cpf, rg, cargo, lotacao, unidade, tipo, requerAo, dataSolicitacao, complemento, id
+        ]);
+        res.json({ sucesso: true, mensagem: 'Protocolo atualizado com sucesso!' });
+    } catch (err) {
+        console.error('❌ Erro ao atualizar protocolo:', err);
+        res.status(500).json({ sucesso: false, mensagem: 'Erro no servidor ao atualizar o protocolo.' });
+    }
+});
+
+// ROTA PARA EXCLUIR UM PROTOCOLO
+router.delete('/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        // Primeiro, deleta o histórico associado para evitar registros órfãos
+        await db.query('DELETE FROM historico_protocolos WHERE protocolo_id = $1', [id]);
+        
+        // Depois, deleta o protocolo principal
+        const result = await db.query('DELETE FROM protocolos WHERE id = $1', [id]);
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({ sucesso: false, mensagem: 'Protocolo não encontrado para exclusão.' });
+        }
+
+        res.json({ sucesso: true, mensagem: 'Protocolo e seu histórico foram excluídos com sucesso!' });
+    } catch (err) {
+        console.error('❌ Erro ao excluir protocolo:', err);
+        res.status(500).json({ sucesso: false, mensagem: 'Erro no servidor ao excluir o protocolo.' });
+    }
+});
+
 module.exports = router;
