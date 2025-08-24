@@ -100,7 +100,6 @@
   </div>
 
   <div id="relatorios" class="relatorios-screen content">
-    <h3>🔍 Relatórios e Pesquisa Avançada</h3>
     <form class="filtros" onsubmit="pesquisarProtocolos(); return false;">
         <input type="text" id="filtroNumero" placeholder="Número do Protocolo">
         <input type="text" id="filtroNome" placeholder="Nome do Requerente">
@@ -385,30 +384,29 @@
     </div>
   </div>
 </div>
-
-  <div id="modalEditarProtocolo" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:10000; align-items:center; justify-content:center; overflow-y: auto;">
-  <div style="background:#fff; padding:20px; border-radius:8px; width:90%; max-width:1200px; margin: 20px auto;">
+<div id="modalEditarProtocolo" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:10000; align-items:flex-start; justify-content:center; overflow-y: auto; padding: 20px 0;">
+  <div style="background:#fff; padding:20px; border-radius:8px; width:90%; max-width:1200px; margin: auto;">
     <h3>Editar Protocolo</h3>
-    <input type="hidden" id="editProtocoloId">
+    <input type="hidden" id="p_edit_id">
     <form class="formulario" id="formEdicao" onsubmit="return false;">
-        <div class="form-group span-3"><label>Número do Protocolo</label><input type="text" id="editNumeroProtocolo"></div>
-        <div class="form-group span-3"><label>Matrícula</label><input type="text" id="editMatricula"></div>
-        <div class="form-group span-6"><label>Nome Completo</label><input type="text" id="editNome"></div>
-        <div class="form-group span-6"><label>Endereço</label><input type="text" id="editEndereco"></div>
-        <div class="form-group span-3"><label>Município</label><input type="text" id="editMunicipio"></div>
-        <div class="form-group span-3"><label>Bairro</label><select id="editBairro"></select></div>
-        <div class="form-group span-3"><label>CEP</label><input type="text" id="editCep"></div>
-        <div class="form-group span-3"><label>Telefone</label><input type="text" id="editTelefone"></div>
-        <div class="form-group span-3"><label>CPF</label><input type="text" id="editCpf"></div>
-        <div class="form-group span-3"><label>RG</label><input type="text" id="editRg"></div>
-        <div class="form-group span-3"><label>Data de Expedição</label><input type="date" id="editDataExpedicao"></div>
-        <div class="form-group span-3"><label>Cargo/Função</label><input type="text" id="editCargo"></div>
-        <div class="form-group span-6"><label>Lotação</label><select id="editLotacao"></select></div>
-        <div class="form-group span-6"><label>Unidade de Exercício</label><input type="text" id="editUnidade"></div>
-        <div class="form-group span-6"><label>Tipo de Requerimento</label><select id="editTipo"></select></div>
-        <div class="form-group span-6"><label>Requer ao</label><select id="editRequerAo"><option value="">Selecione...</option><option value="SECRETÁRIO">SECRETÁRIO</option><option value="COORDENADOR DE RH">COORDENADOR DE RH</option><option value="PREFEITA">PREFEITA</option></select></div>
-        <div class="form-group span-3"><label>Data Solicitação</label><input type="date" id="editDataSolicitacao"></div>
-        <div class="form-group full-row"><label>Informações Complementares</label><textarea id="editComplemento" rows="8"></textarea></div>
+        <div class="form-group span-3"><label>Número do Protocolo</label><input type="text" id="p_edit_numero"></div>
+        <div class="form-group span-3"><label>Matrícula</label><input type="text" id="p_edit_matricula"></div>
+        <div class="form-group span-6"><label>Nome Completo</label><input type="text" id="p_edit_nome"></div>
+        <div class="form-group span-6"><label>Endereço</label><input type="text" id="p_edit_endereco"></div>
+        <div class="form-group span-3"><label>Município</label><input type="text" id="p_edit_municipio"></div>
+        <div class="form-group span-3"><label>Bairro</label><select id="p_edit_bairro"></select></div>
+        <div class="form-group span-3"><label>CEP</label><input type="text" id="p_edit_cep"></div>
+        <div class="form-group span-3"><label>Telefone</label><input type="text" id="p_edit_telefone"></div>
+        <div class="form-group span-3"><label>CPF</label><input type="text" id="p_edit_cpf"></div>
+        <div class="form-group span-3"><label>RG</label><input type="text" id="p_edit_rg"></div>
+        <div class="form-group span-3"><label>Data de Expedição</label><input type="date" id="p_edit_dataExpedicao"></div>
+        <div class="form-group span-3"><label>Cargo/Função</label><input type="text" id="p_edit_cargo"></div>
+        <div class="form-group span-6"><label>Lotação</label><select id="p_edit_lotacao"></select></div>
+        <div class="form-group span-6"><label>Unidade de Exercício</label><input type="text" id="p_edit_unidade"></div>
+        <div class="form-group span-6"><label>Tipo de Requerimento</label><select id="p_edit_tipo"></select></div>
+        <div class="form-group span-6"><label>Requer ao</label><select id="p_edit_requerAo"><option value="">Selecione...</option><option value="SECRETÁRIO">SECRETÁRIO</option><option value="COORDENADOR DE RH">COORDENADOR DE RH</option><option value="PREFEITA">PREFEITA</option></select></div>
+        <div class="form-group span-3"><label>Data Solicitação</label><input type="date" id="p_edit_dataSolicitacao"></div>
+        <div class="form-group full-row"><label>Informações Complementares</label><textarea id="p_edit_complemento" rows="8"></textarea></div>
     </form>
     <div style="text-align:right; margin-top:15px;">
       <button onclick="confirmarEdicaoProtocolo()">Salvar Alterações</button>
