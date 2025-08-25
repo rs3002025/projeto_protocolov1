@@ -180,21 +180,26 @@
       <button onclick="salvarEmailSistema()">Salvar Email</button>
     </div>
     <hr style="margin: 20px 0;">
+
     <h4>Adicionar Novo Usuário</h4>
-    <div class="form-group full-row">
-      <input type="text" id="nomeCompleto" placeholder="Nome completo" />
-      <input type="text" id="novoUsuario" placeholder="Nome de usuário" />
-      <input type="text" id="cpfUsuario" placeholder="CPF (somente números)" />
-      <input type="password" id="novaSenha" placeholder="Senha" />
-      <input type="email" id="novoEmail" placeholder="E-mail do usuário" />
-      <select id="nivelUsuario">
-        <option value="usuario">Usuário</option>
-        <option value="comum">Comum</option>
-        <option value="padrao">Padrão</option>
-        <option value="admin">Administrador</option>
-      </select>
-      <button onclick="cadastrarUsuario()">Cadastrar Usuário</button>
-    </div>
+    <form class="formulario" onsubmit="return false;" style="gap: 15px;">
+        <div class="form-group span-6"><input type="text" id="nomeCompleto" placeholder="Nome completo" /></div>
+        <div class="form-group span-3"><input type="text" id="novoUsuario" placeholder="Nome de usuário" /></div>
+        <div class="form-group span-3"><input type="text" id="cpfUsuario" placeholder="CPF (somente números)" /></div>
+        <div class="form-group span-6"><input type="email" id="novoEmail" placeholder="E-mail do usuário" /></div>
+        <div class="form-group span-3"><input type="password" id="novaSenha" placeholder="Senha" /></div>
+        <div class="form-group span-3">
+            <select id="nivelUsuario">
+                <option value="usuario">Usuário</option>
+                <option value="comum">Comum</option>
+                <option value="padrao">Padrão</option>
+                <option value="admin">Administrador</option>
+            </select>
+        </div>
+        <div class="form-group full-row">
+            <button onclick="cadastrarUsuario()">Cadastrar Usuário</button>
+        </div>
+    </form>
     <hr style="margin: 20px 0;">
     <h4>Usuários Cadastrados</h4>
     <table style="width:100%;">
@@ -405,7 +410,7 @@
         <div class="form-group span-3"><label>CPF</label><input type="text" id="p_edit_cpf"></div>
         <div class="form-group span-3"><label>RG</label><input type="text" id="p_edit_rg"></div>
         <div class="form-group span-3"><label>Data de Expedição</label><input type="date" id="p_edit_dataExpedicao"></div>
-        <div class="form-group span-3"><label>Cargo/Função</label><input type="text" id="p_edit_cargo"></div>
+        <div class.form-group span-3"><label>Cargo/Função</label><input type="text" id="p_edit_cargo"></div>
         <div class="form-group span-6"><label>Lotação</label><select id="p_edit_lotacao"></select></div>
         <div class="form-group span-6"><label>Unidade de Exercício</label><input type="text" id="p_edit_unidade"></div>
         <div class="form-group span-6"><label>Tipo de Requerimento</label><select id="p_edit_tipo"></select></div>
