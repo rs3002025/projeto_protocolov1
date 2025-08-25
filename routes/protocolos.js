@@ -3,25 +3,125 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const ExcelJS = require('exceljs');
+const multer = require('multer');
+const supabase = require('../supabase-client');
+const path = require('path');
 
-// Salvar novo protocolo
+// Configuração do Multer para upload de arquivos em memória
+const storage = multer.memoryStorage();
+const upload = multer({ 
+    storage: storage,
+    limits: { fileSize: 10 * 1024 * 1024 } // Limite de 10MB
+});
+
+// Salvar novo protocolo (VERSÃO CORRIGIDA E COMPLETA)
 router.post('/', async (req, res) => {
   try {
     const { numero, nome, matricula, endereco, municipio, bairro, cep, telefone, cpf, rg, cargo, lotacao, unidade, tipo, requerAo, dataSolicitacao, complemento, status, responsavel } = req.body;
-    const existente = await db.query(`SELECT id FROM protocolos WHERE numero = $1`, [numero]);
-    if (existente.rows.length > 0) {
+    
+    // CORREÇÃO APLICADA: 20 colunas, 20 placeholders ($1...$20) e 20 valores.
+    const result = await db.query(`
+      INSERT INTO protocolos (numero, nome, matricula, endereco, municipio, bairro, cep, telefone, cpf, rg, cargo, lotacao, unidade_exercicio, tipo_requerimento, requer_ao, data_solicitacao, observacoes, status, responsavel, visto)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+      RETURNING id
+    `, [
+        numero || '', nome || '', matricula || '', endereco || '', municipio || '', bairro || '', cep || '', telefone || '', cpf || '', rg || '', 
+        cargo || '', lotacao || '', unidade || '', tipo || '', requerAo || '', dataSolicitacao || null, complemento || '', status || 'Aberto', 
+        responsavel || '', 
+        false // <-- 20º valor para a coluna "visto"
+    ]);
+    
+    const novoProtocoloId = result.rows[0].id;
+    res.json({ sucesso: true, mensagem: 'Protocolo salvo com sucesso.', novoProtocoloId: novoProtocoloId });
+
+  } catch (error) {
+    if (error.code === '23505') { 
       return res.status(400).json({ sucesso: false, mensagem: 'Número de protocolo já existe!' });
     }
-    await db.query(`
-      INSERT INTO protocolos (numero, nome, matricula, endereco, municipio, bairro, cep, telefone, cpf, rg, cargo, lotacao, unidade_exercicio, tipo_requerimento, requer_ao, data_solicitacao, observacoes, status, responsavel, visto)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, FALSE)
-    `, [numero || '', nome || '', matricula || '', endereco || '', municipio || '', bairro || '', cep || '', telefone || '', cpf || '', rg || '', cargo || '', lotacao || '', unidade || '', tipo || '', requerAo || '', dataSolicitacao || null, complemento || '', status || 'Aberto', responsavel || '']);
-    res.json({ sucesso: true, mensagem: 'Protocolo salvo com sucesso.' });
-  } catch (error) {
     console.error('❌ Erro ao salvar protocolo:', error);
     res.status(500).json({ sucesso: false, mensagem: 'Erro no servidor.' });
   }
 });
+
+
+// ROTA PARA FAZER UPLOAD DE ANEXOS
+router.post('/:id/anexos', upload.single('anexo'), async (req, res) => {
+    const { id } = req.params;
+    const file = req.file;
+    if (!file) {
+        return res.status(400).json({ sucesso: false, mensagem: "Nenhum arquivo enviado." });
+    }
+    const fileName = `${Date.now()}-${file.originalname.replace(/\s/g, '_')}`;
+    const filePath = `${id}/${fileName}`;
+    try {
+        const { error: uploadError } = await supabase.storage
+            .from('protocolos')
+            .upload(filePath, file.buffer, { contentType: file.mimetype });
+        if (uploadError) throw uploadError;
+        await db.query(`
+            INSERT INTO anexos (protocolo_id, file_name, storage_path, file_size, mime_type)
+            VALUES ($1, $2, $3, $4, $5)
+        `, [id, file.originalname, filePath, file.size, file.mimetype]);
+        res.json({ sucesso: true, mensagem: 'Anexo enviado com sucesso!' });
+    } catch (error) {
+        console.error("❌ Erro no upload do anexo:", error);
+        res.status(500).json({ sucesso: false, mensagem: "Erro no servidor ao enviar anexo." });
+    }
+});
+
+// ROTA PARA LISTAR ANEXOS DE UM PROTOCOLO
+router.get('/:id/anexos', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const result = await db.query(
+            "SELECT id, file_name, created_at, file_size FROM anexos WHERE protocolo_id = $1 ORDER BY created_at DESC",
+            [id]
+        );
+        res.json({ sucesso: true, anexos: result.rows });
+    } catch (error) {
+        console.error("❌ Erro ao listar anexos:", error);
+        res.status(500).json({ sucesso: false, mensagem: "Erro ao buscar anexos." });
+    }
+});
+
+// ROTA PARA GERAR LINK DE DOWNLOAD DE UM ANEXO
+router.get('/anexos/:anexo_id/download', async (req, res) => {
+    const { anexo_id } = req.params;
+    try {
+        const anexoResult = await db.query("SELECT storage_path FROM anexos WHERE id = $1", [anexo_id]);
+        if (anexoResult.rows.length === 0) {
+            return res.status(404).json({ sucesso: false, mensagem: "Anexo não encontrado." });
+        }
+        const storagePath = anexoResult.rows[0].storage_path;
+        const { data, error } = await supabase.storage
+            .from('protocolos')
+            .createSignedUrl(storagePath, 60); // Link válido por 60 segundos
+        if (error) throw error;
+        res.json({ sucesso: true, url: data.signedUrl });
+    } catch (error) {
+        console.error("❌ Erro ao gerar link de download:", error);
+        res.status(500).json({ sucesso: false, mensagem: "Erro ao gerar link de download." });
+    }
+});
+
+// ROTA PARA EXCLUIR UM ANEXO ESPECÍFICO
+router.delete('/anexos/:anexo_id', async (req, res) => {
+    const { anexo_id } = req.params;
+    try {
+        const anexoResult = await db.query("SELECT storage_path FROM anexos WHERE id = $1", [anexo_id]);
+        if (anexoResult.rows.length === 0) {
+            return res.status(404).json({ sucesso: false, mensagem: "Anexo não encontrado." });
+        }
+        const storagePath = anexoResult.rows[0].storage_path;
+        await supabase.storage.from('protocolos').remove([storagePath]);
+        await db.query("DELETE FROM anexos WHERE id = $1", [anexo_id]);
+        res.json({ sucesso: true, mensagem: "Anexo excluído com sucesso." });
+    } catch (error) {
+        console.error("❌ Erro ao excluir anexo:", error);
+        res.status(500).json({ sucesso: false, mensagem: "Erro ao excluir anexo." });
+    }
+});
+
 
 // Atualizar status/responsável e registrar histórico
 router.post('/atualizar', async (req, res) => {
@@ -49,13 +149,13 @@ router.get('/pesquisa', async (req, res) => {
     let query = `SELECT id, numero, nome, matricula, tipo_requerimento, status, responsavel, data_solicitacao FROM protocolos WHERE 1=1`;
     const params = [];
 
-    if (numero) { params.push(`%${numero}%`); query += ` AND numero LIKE $${params.length}`; }
-    if (nome) { params.push(`%${nome}%`); query += ` AND nome ILIKE $${params.length}`; }
-    if (status) { params.push(status); query += ` AND status = $${params.length}`; }
-    if (dataInicio) { params.push(dataInicio); query += ` AND data_solicitacao >= $${params.length}`; }
-    if (dataFim) { params.push(dataFim); query += ` AND data_solicitacao <= $${params.length}`; }
-    if (tipo) { params.push(tipo); query += ` AND tipo_requerimento = $${params.length}`; }
-    if (lotacao) { params.push(lotacao); query += ` AND lotacao = $${params.length}`; }
+    if (numero) { params.push(`%${numero}%`); query += ` AND numero LIKE $${params.length + 1}`; }
+    if (nome) { params.push(`%${nome}%`); query += ` AND nome ILIKE $${params.length + 1}`; }
+    if (status) { params.push(status); query += ` AND status = $${params.length + 1}`; }
+    if (dataInicio) { params.push(dataInicio); query += ` AND data_solicitacao >= $${params.length + 1}`; }
+    if (dataFim) { params.push(dataFim); query += ` AND data_solicitacao <= $${params.length + 1}`; }
+    if (tipo) { params.push(tipo); query += ` AND tipo_requerimento = $${params.length + 1}`; }
+    if (lotacao) { params.push(lotacao); query += ` AND lotacao = $${params.length + 1}`; }
 
     query += ' ORDER BY data_solicitacao DESC';
     const result = await db.query(query, params);
@@ -72,13 +172,13 @@ router.get('/backup', async (req, res) => {
     const { numero, nome, status, dataInicio, dataFim, tipo, lotacao } = req.query;
     let query = `SELECT * FROM protocolos WHERE 1=1`;
     const params = [];
-    if (numero) { params.push(`%${numero}%`); query += ` AND numero LIKE $${params.length}`; }
-    if (nome) { params.push(`%${nome}%`); query += ` AND nome ILIKE $${params.length}`; }
-    if (status) { params.push(status); query += ` AND status = $${params.length}`; }
-    if (dataInicio) { params.push(dataInicio); query += ` AND data_solicitacao >= $${params.length}`; }
-    if (dataFim) { params.push(dataFim); query += ` AND data_solicitacao <= $${params.length}`; }
-    if (tipo) { params.push(tipo); query += ` AND tipo_requerimento = $${params.length}`; }
-    if (lotacao) { params.push(lotacao); query += ` AND lotacao = $${params.length}`; }
+    if (numero) { params.push(`%${numero}%`); query += ` AND numero LIKE $${params.length + 1}`; }
+    if (nome) { params.push(`%${nome}%`); query += ` AND nome ILIKE $${params.length + 1}`; }
+    if (status) { params.push(status); query += ` AND status = $${params.length + 1}`; }
+    if (dataInicio) { params.push(dataInicio); query += ` AND data_solicitacao >= $${params.length + 1}`; }
+    if (dataFim) { params.push(dataFim); query += ` AND data_solicitacao <= $${params.length + 1}`; }
+    if (tipo) { params.push(tipo); query += ` AND tipo_requerimento = $${params.length + 1}`; }
+    if (lotacao) { params.push(lotacao); query += ` AND lotacao = $${params.length + 1}`; }
     query += ' ORDER BY data_solicitacao';
     const result = await db.query(query, params);
     if (result.rows.length === 0) {
