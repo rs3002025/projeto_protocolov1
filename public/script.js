@@ -3,6 +3,7 @@ const itensPorPagina = 10;
 let paginaAtualTodos = 1;
 let paginaAtualMeus = 1;
 let tiposChartInstance = null;
+let protocoloParaGerar = null; // Adicionado para a função de PDF
 window.opcoesTipos = [];
 window.opcoesLotacoes = [];
 
@@ -143,13 +144,18 @@ window.enviarRequerimento = async function() {
           if (confirm("O número deste protocolo já foi usado. Deseja tentar salvar novamente com um novo número sem perder os dados?")) {
               await gerarNumeroProtocolo();
               protocolo.numero = document.getElementById('numeroProtocolo').value;
-              await enviarRequerimento();
+              await enviarRequerimento(); // Cuidado com recursão infinita aqui
           }
       } else {
           alert('❌ Erro ao enviar protocolo: ' + (data.mensagem || 'Erro desconhecido'));
       }
   } catch(err) { alert('❌ Erro na conexão: ' + err.message); }
 };
+
+// ================================================================= //
+// ========= ALTERAÇÃO PRINCIPAL PARA ADICIONAR O BOTÃO ============ //
+// ================================================================= //
+
 window.listarProtocolos = async function(pagina = 1) {
   const tbody = document.getElementById('tabelaProtocolos');
   tbody.innerHTML = "<tr><td colspan='7'>Carregando...</td></tr>";
@@ -165,10 +171,14 @@ window.listarProtocolos = async function(pagina = 1) {
     paginaDados.forEach(p => {
       const tr = document.createElement('tr');
       const isAdmin = window.nivelUsuario === 'admin' || window.nivelUsuario === 'padrao';
+      
+      // ===== BOTÃO 'ANEXOS' ADICIONADO AQUI DENTRO =====
       const adminButtons = isAdmin ? `
         <button onclick="abrirModalEditarProtocolo(${p.id})">Editar</button>
+        <button onclick="abrirModalAnexos(${p.id})">Anexos</button>
         <button onclick="excluirProtocolo(${p.id})" style="background-color:#c82333;">Excluir</button>
       ` : '';
+
       tr.innerHTML = `
         <td class="col-numero">${p.numero}</td>
         <td class="col-matricula">${p.matricula}</td>
@@ -192,6 +202,7 @@ window.listarProtocolos = async function(pagina = 1) {
     renderizarPaginacao(data.protocolos.length, pagina, 'paginacaoProtocolos', listarProtocolos);
   } catch (error) { console.error("Erro ao listar protocolos:", error); tbody.innerHTML = "<tr><td colspan='7'>Erro ao carregar protocolos.</td></tr>"; }
 };
+
 window.listarMeusProtocolos = async function(pagina = 1) {
     const tbody = document.getElementById('meusProtocolosTabela');
     tbody.innerHTML = "<tr><td colspan='4'>Carregando...</td></tr>";
@@ -218,10 +229,14 @@ window.listarMeusProtocolos = async function(pagina = 1) {
         paginaDados.forEach(p => {
             const tr = document.createElement('tr');
             const isAdmin = window.nivelUsuario === 'admin' || window.nivelUsuario === 'padrao';
+
+            // ===== BOTÃO 'ANEXOS' ADICIONADO AQUI DENTRO TAMBÉM =====
             const adminButtons = isAdmin ? `
                 <button onclick="abrirModalEditarProtocolo(${p.id})">Editar</button>
+                <button onclick="abrirModalAnexos(${p.id})">Anexos</button>
                 <button onclick="excluirProtocolo(${p.id})" style="background-color:#c82333;">Excluir</button>
             ` : '';
+
             tr.innerHTML = `
                 <td class="col-numero">${p.numero}</td>
                 <td class="col-nome">${p.nome}</td>
@@ -242,6 +257,22 @@ window.listarMeusProtocolos = async function(pagina = 1) {
         renderizarPaginacao(data.protocolos.length, pagina, 'paginacaoMeusProtocolos', listarMeusProtocolos);
     } catch (error) { console.error("Erro ao listar meus protocolos:", error); tbody.innerHTML = "<tr><td colspan='4'>Erro ao carregar protocolos.</td></tr>"; }
 };
+
+// ================================================================= //
+// ============ FIM DAS ALTERAÇÕES PRINCIPAIS ====================== //
+// ================================================================= //
+
+
+// ===== ADICIONE ESTA NOVA FUNÇÃO (MESMO QUE VAZIA POR ENQUANTO) ====
+// ===== PARA EVITAR ERROS DE "FUNÇÃO NÃO DEFINIDA" =================
+window.abrirModalAnexos = function(id) {
+    alert("Função para abrir anexos do protocolo ID: " + id);
+    // Aqui você colocaria a lógica para mostrar o modal de anexos
+    // Ex: document.getElementById('modalAnexos').style.display = 'flex';
+}
+// =================================================================
+
+
 window.limparFiltrosMeusProtocolos = function() {
     document.getElementById('filtroMeusProtocolosNumero').value = '';
     document.getElementById('filtroMeusProtocolosNome').value = '';
@@ -321,7 +352,7 @@ window.confirmarAtualizacaoStatus = async function() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ protocoloId: protocoloId, novoStatus: novoStatus, novoResponsavel: window.usuarioLogin, observacao: observacaoFinal, usuarioLogado: window.usuarioLogado })
     });
-    const data = await res.json();
+    const data = await response.json();
     if (data.sucesso) {
       alert("✅ Status atualizado!");
       fecharModal('modalAtualizarStatus');
