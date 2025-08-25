@@ -182,6 +182,7 @@ window.listarProtocolos = async function(pagina = 1) {
                 <button onclick="abrirAtualizar(${p.id})">Atualizar</button>
                 <button onclick="abrirModalEncaminhar(${p.id})">Encaminhar</button>
                 <button onclick="previsualizarPDF(${p.id})">Documento</button>
+                <button onclick="abrirModalAnexos(${p.id})">Anexos</button>
                 ${adminButtons}
             </div>
             <details id="hist_${p.id}" ontoggle="carregarHistorico(this, ${p.id})">
@@ -232,6 +233,7 @@ window.listarMeusProtocolos = async function(pagina = 1) {
                         <button onclick="abrirAtualizar(${p.id})">Atualizar</button>
                         <button onclick="abrirModalEncaminhar(${p.id})">Encaminhar</button>
                         <button onclick="previsualizarPDF(${p.id})">Documento</button>
+                        <button onclick="abrirModalAnexos(${p.id})">Anexos</button>
                         ${adminButtons}
                     </div>
                     <details id="hist_${p.id}" ontoggle="carregarHistorico(this, ${p.id})">
