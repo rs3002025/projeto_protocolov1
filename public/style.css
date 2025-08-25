@@ -136,3 +136,8 @@ tbody tr:hover { background-color: #f0f0f0; }
     padding-top: 20px;
     border-top: 1px solid #ccc;
 }
+
+/* Correção para a tabela de protocolos */
+#protocolos table, #meusProtocolos table {
+  table-layout: auto;
+}
