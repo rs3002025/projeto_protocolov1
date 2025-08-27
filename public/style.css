@@ -1,137 +1,43 @@
 /* --- ESTILOS GERAIS --- */
-:root {
-    --primary-color: #2e7d32;
-    --primary-dark: #1b5e20;
-    --background-color: #f5f5f5;
-    --container-bg: #ffffff;
-    --text-color: #333;
-    --text-light: #6c757d;
-    --border-color: #ddd;
-    --shadow-light: rgba(0,0,0,0.05);
-    --shadow-medium: rgba(0,0,0,0.1);
-}
-
-body { 
-    margin: 0; 
-    font-family: 'Inter', sans-serif; 
-    background: var(--background-color);
-    color: var(--text-color);
-}
+body { margin: 0; font-family: Arial, sans-serif; background: #f5f5f5; }
 body.loading { visibility: hidden; }
-
-.container { 
-    max-width: 1500px; 
-    margin: 40px auto; 
-    background: var(--container-bg); 
-    border-radius: 16px; 
-    box-shadow: 0 4px 12px var(--shadow-medium); 
-    overflow: hidden; 
-    padding-bottom: 30px; 
-}
-
-.header { 
-    background: var(--primary-color); 
-    color: white; 
-    padding: 20px; 
-    text-align: center; 
-    border-radius: 0 0 15px 15px; 
-    box-shadow: 0 4px 8px var(--shadow-medium); 
-    position: relative; 
-}
+.container { max-width: 1500px; margin: 40px auto; background: #fff; border-radius: 16px; box-shadow: 0 0 10px rgba(0,0,0,0.1); overflow: hidden; padding-bottom: 30px; }
+.header { background: #2e7d32; color: white; padding: 20px; text-align: center; border-radius: 0 0 15px 15px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); position: relative; }
 .header img { height: 60px; width: auto; }
 .header h2, .header h3 { margin: 5px 0; }
-
 .content { padding: 20px 30px; display: none; }
 .content.active { display: block; }
-
 .menu, .login-screen, .form-screen, .protocolos-screen, .config-screen, .meus-protocolos-screen, .relatorios-screen, .dashboard-screen { display: none; }
 .active { display: block; }
-
 .formulario { display: grid; grid-template-columns: repeat(12, 1fr); gap: 15px 20px; }
 .form-group { display: flex; flex-direction: column; }
 .full-row { grid-column: span 12; }
 .span-6 { grid-column: span 6; }
 .span-3 { grid-column: span 3; }
-
 label { margin-bottom: 5px; font-weight: 600; }
-input, select, textarea { 
-    border: 1px solid var(--border-color); 
-    border-radius: 6px; 
-    padding: 8px; 
-    font-size: 1em;
-    transition: border-color 0.2s;
-}
-input:focus, select:focus, textarea:focus {
-    outline: none;
-    border-color: var(--primary-color);
-}
-
-button { 
-    padding: 10px 16px; 
-    border: none; 
-    background: var(--primary-color); 
-    color: white; 
-    border-radius: 8px; 
-    cursor: pointer; 
-    transition: background-color 0.2s, transform 0.2s, box-shadow 0.2s; 
-    font-weight: 600;
-}
-button:hover { 
-    background-color: var(--primary-dark);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px var(--shadow-medium);
-}
-button:active {
-    transform: translateY(0);
-}
-
-.filtros { 
-    display: grid; 
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); 
-    gap: 15px; 
-    margin-bottom: 20px; 
-    background: var(--background-color); 
-    padding: 15px; 
-    border-radius: 8px; 
-}
-.filtros input, .filtros select, .filtros button { padding: 10px; }
-
+input, select, textarea { border: 1px solid #ccc; border-radius: 6px; padding: 8px; font-size: 1em; }
+button { padding: 10px 12px; border: none; background: #2e7d32; color: white; border-radius: 8px; cursor: pointer; margin: 5px 10px 5px 0; transition: background-color 0.2s; }
+button:hover { background-color: #1b5e20; }
+.filtros { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; background: #f5f5f5; padding: 15px; border-radius: 8px; }
+.filtros input, .filtros select { padding: 8px; border-radius: 4px; border: 1px solid #ccc; }
 #modeloProtocolo, #modeloRelatorio { display: none; }
 
 /* --- ESTILOS DA TELA DE LOGIN --- */
 .login-screen.active { display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 40px 20px; }
-.login-form-container { 
-    width: 100%; 
-    max-width: 400px; 
-    padding: 30px; 
-    background-color: var(--container-bg); 
-    border-radius: 12px; 
-    box-shadow: 0 5px 15px var(--shadow-medium); 
-    box-sizing: border-box; 
-}
-.login-form-container h3 { text-align: center; color: var(--text-color); margin-top: 0; }
-.login-form-container label { width: 100%; text-align: left; margin-bottom: 8px; font-size: 0.9em; color: var(--text-light); }
+.login-form-container { width: 100%; max-width: 400px; padding: 30px; background-color: #ffffff; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); box-sizing: border-box; }
+.login-form-container h3 { text-align: center; color: #333; margin-top: 0; }
+.login-form-container label { width: 100%; text-align: left; margin-bottom: 8px; font-size: 0.9em; color: #555; }
 .login-form-container input { width: 100%; padding: 12px; margin-bottom: 20px; box-sizing: border-box; }
-.login-form-container button { width: 100%; padding: 12px; margin-top: 10px; margin-left: 0; font-size: 1.1em; }
+.login-form-container button { width: 100%; padding: 12px; margin-top: 10px; margin-left: 0; font-size: 1.1em; font-weight: bold; }
 
 /* --- ESTILOS DO MENU PRINCIPAL --- */
 .menu.active { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 25px; padding: 40px; }
-.menu button { 
-    margin: 0; 
-    min-height: 110px; 
-    font-size: 1.1em; 
-    font-weight: bold; 
-    display: flex; 
-    flex-direction: column; 
-    align-items: center; 
-    justify-content: center; 
-    gap: 10px; 
-    box-shadow: 0 4px 6px var(--shadow-light); 
-}
+.menu button { margin: 0; min-height: 110px; font-size: 1.1em; font-weight: bold; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; transition: transform 0.2s ease, box-shadow 0.2s ease; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+.menu button:hover { transform: translateY(-5px); box-shadow: 0 8px 15px rgba(0,0,0,0.15); }
 
 /* Paginação */
 #paginacaoProtocolos, #paginacaoMeusProtocolos { text-align: center; margin-top: 20px; }
-#paginacaoProtocolos span, #paginacaoMeusProtocolos span { margin: 0 5px; color: var(--text-light); }
+#paginacaoProtocolos span, #paginacaoMeusProtocolos span { margin: 0 5px; color: #888; }
 
 /* Notificações */
 #notification-bell { position: absolute; top: 25px; right: 30px; font-size: 24px; cursor: pointer; display: none; }
@@ -139,77 +45,62 @@ button:active {
 
 /* Dashboard */
 .dashboard-cards { display: flex; flex-wrap: wrap; gap: 20px; margin-bottom: 40px; }
-.stat-card { 
-    flex: 1; 
-    min-width: 200px; 
-    background-color: var(--background-color); 
-    padding: 20px; 
-    border-radius: 8px; 
-    text-align: center; 
-    box-shadow: 0 2px 4px var(--shadow-light); 
-}
-.stat-value { font-size: 3em; font-weight: bold; color: var(--primary-color); }
-.stat-label { font-size: 1.1em; color: var(--text-light); }
+.stat-card { flex: 1; min-width: 200px; background-color: #f8f9fa; padding: 20px; border-radius: 8px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+.stat-value { font-size: 3em; font-weight: bold; color: #2e7d32; }
+.stat-label { font-size: 1.1em; color: #6c757d; }
 .chart-container { max-width: 800px; margin: 0 auto; }
 
 /* --- ESTILOS PARA TABELAS --- */
-table { 
-    border-collapse: collapse; 
-    width: 100%; 
-    table-layout: fixed; 
-}
-th, td { 
-    border: 1px solid var(--border-color); 
-    padding: 12px; 
-    vertical-align: middle; 
-    word-wrap: break-word;
-}
+table { border-collapse: collapse; width: 100%; table-layout: fixed; /* Garante que as colunas tenham larguras fixas */ }
+th, td { border: 1px solid #ddd; padding: 12px; vertical-align: middle; word-wrap: break-word; /* Evita quebra de layout em palavras longas */ }
 th { background-color: #e0e0e0; }
 tbody tr:nth-of-type(even) { background-color: #f9f9f9; }
 tbody tr:hover { background-color: #f0f0f0; }
 
 /* Estilo para a coluna de Ação em todas as tabelas */
 .col-acao {
-    width: 280px; /* Largura para acomodar todos os botões sem quebrar */
+    width: 250px; /* Largura mínima para a coluna de ação */
 }
 
+/* Container para os botões dentro da célula */
 .action-buttons {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px; 
+    gap: 4px; /* Espaço entre os botões */
     justify-content: center;
-    margin-bottom: 8px;
 }
+
+/* Estilo para todos os botões de ação */
 .col-acao button {
     margin: 0;
-    width: auto;
     flex-grow: 1;
-    padding: 6px 8px;
-    font-size: 0.85em;
+    padding: 6px 6px;
+    font-size: 0.8em;
 }
-.col-acao details { 
-    margin-top: 8px; 
-    flex-basis: 100%; 
+
+.col-acao details {
+    margin-top: 8px;
+    flex-basis: 100%; /* Garante que o histórico fique em uma nova linha */
 }
 
 /* --- ESTILOS PARA TABELAS DE CONFIGURAÇÕES (para evitar quebras) --- */
 #tabelaUsuarios th, #tabelaUsuarios td,
 #tabelaTipos th, #tabelaTipos td,
 #tabelaLotacoes th, #tabelaLotacoes td {
-    white-space: nowrap; 
+    white-space: nowrap; /* Impede a quebra de linha em nomes */
     overflow: hidden;
-    text-overflow: ellipsis; 
+    text-overflow: ellipsis; /* Adiciona '...' se o texto for muito longo */
 }
 
 #tabelaUsuarios th:last-child, #tabelaUsuarios td:last-child {
-    width: 280px; 
+    width: 280px; /* Garante espaço suficiente para os botões de ação */
 }
 
 /* --- NOVOS ESTILOS PARA ANEXOS --- */
 .file-preview {
     margin-top: 10px;
     padding: 10px;
-    border: 1px dashed var(--border-color);
+    border: 1px dashed #ccc;
     border-radius: 6px;
 }
 .file-preview-item {
@@ -217,7 +108,7 @@ tbody tr:hover { background-color: #f0f0f0; }
     justify-content: space-between;
     align-items: center;
     padding: 5px;
-    background-color: var(--background-color);
+    background-color: #f9f9f9;
     border-radius: 4px;
     margin-bottom: 5px;
 }
@@ -230,7 +121,7 @@ tbody tr:hover { background-color: #f0f0f0; }
     justify-content: space-between;
     align-items: center;
     padding: 10px;
-    border-bottom: 1px solid var(--border-color);
+    border-bottom: 1px solid #eee;
 }
 #anexos-lista li:last-child {
     border-bottom: none;
@@ -243,5 +134,10 @@ tbody tr:hover { background-color: #f0f0f0; }
 .upload-area {
     margin-top: 20px;
     padding-top: 20px;
-    border-top: 1px solid var(--border-color);
+    border-top: 1px solid #ccc;
+}
+
+/* Correção para a tabela de protocolos */
+#protocolos table, #meusProtocolos table {
+  table-layout: auto;
 }
