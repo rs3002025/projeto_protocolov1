@@ -10,9 +10,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 </head>
 <body class="loading">
 <div class="container">
@@ -247,104 +244,59 @@
 </div>
 
 <div id="modeloProtocolo" style="display: none;">
-  <style>
-    .pdf-body { font-family: "Segoe UI", "Open Sans", sans-serif; color: #000; margin: 0; padding: 0; box-sizing: border-box; }
-    .doc-container { background: white; width: 100%; max-width: 800px; margin: 20px auto; padding: 40px 50px; border: 1px solid #ccc; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-    .pdf-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #ddd; padding-bottom: 15px; margin-bottom: 20px;}
-    .logo-pdf img { height: 80px; }
-    #qrcode-container { padding-left: 20px; }
-    .titulo-principal-pdf { text-align: center; margin: 2px 0; font-size: 22px; }
-    .titulo-central-pdf { text-align: center; margin-bottom: 20px; }
-    .titulo-central-pdf span { background: #2e7d32; color: white; font-size: 16px; padding: 8px 20px; border-radius: 4px; display: inline-block; font-weight: bold; }
-    .info-pdf { margin-bottom: 20px; display: flex; justify-content: space-between; gap: 20px; }
-    .campo-destaque-pdf { font-weight: bold; font-size: 14px; background-color: #2e7d32; color: white; padding: 8px 12px; border-radius: 5px; margin: 4px 0; flex: 1; text-align: center; }
-    .section-title-pdf { background: #f0f0f0; font-weight: bold; padding: 6px 10px; border-left: 4px solid #4caf50; margin-top: 20px; }
-    .grid-pdf { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 30px; margin-top: 10px; }
-    .grid-pdf div { font-size: 14px; }
-    .box-pdf { border: 1px solid #ddd; padding: 10px; border-radius: 6px; background: #fafafa; margin-top: 10px; font-style: italic; }
-    
-    .assinaturas-pdf { 
-        display: flex; 
-        justify-content: space-between; 
-        margin-top: 80px; /* Reduz um pouco a margem para caber o campo de recebimento */
-        page-break-inside: avoid; 
-    }
-    .assinatura-pdf { 
-        text-align: center; 
-        width: 45%; 
-    }
-    .linha-pdf { 
-        border-top: 1px solid #000; 
-        margin-top: 40px; 
-    }
-
-    /* Estilos para o novo campo de recebimento */
-    .recebido-pdf {
-        margin-top: 60px; /* Ajusta a margem superior para não colar nas assinaturas */
-        page-break-inside: avoid;
-        width: 100%;
-        display: flex; /* Usa flexbox para alinhar "Recebido em" e a linha */
-        align-items: flex-end; /* Alinha o texto na parte de baixo da linha */
-    }
-    .recebido-pdf p {
-        margin: 0;
-        font-size: 14px;
-        white-space: nowrap; /* Evita que o texto quebre a linha */
-        padding-right: 10px; /* Espaço entre o texto e a linha */
-    }
-    .recebido-pdf .linha-pdf {
-        flex-grow: 1; /* Faz a linha ocupar o espaço restante */
-        margin-top: 0; /* Remove a margem superior da linha aqui, pois o flexbox já cuida */
-        border-top: 1px solid #000;
-    }
-    .recebido-texto-assinatura {
-        text-align: center; 
-        font-size: 14px;
-        margin-left: -50%; /* Ajusta o alinhamento central da "Assinatura de Recebimento" */
-        margin-top: 5px; /* Espaço acima do texto */
-        width: 100%; /* Garante que o texto ocupe a largura */
-    }
-
-    .rodape-pdf { text-align: center; margin-top: 40px; page-break-inside: avoid; }
-    .rodape-pdf img { max-width: 100%; height: auto; }
-  </style>
-  <div class="pdf-body doc-container">
-    <div class="pdf-header">
-      <div class="logo-pdf"><img src="/img/logo.png" alt="Logo Prefeitura" /></div>
-      <div id="qrcode-container"></div>
-    </div>
-    <h1 class="titulo-principal-pdf">Secretaria da Administração</h1>
-    <div class="titulo-central-pdf"><span>PROTOCOLO DE REQUERIMENTO</span></div>
-    <div class="info-pdf">
-      <p class="campo-destaque-pdf"><strong>Número do Protocolo:</strong> <span id="doc_numero"></span></p>
-      <p class="campo-destaque-pdf"><strong>Data da Solicitação:</strong> <span id="doc_dataSolicitacao"></span></p>
-    </div>
-    <div class="section-title-pdf">DADOS DO REQUERENTE</div>
-    <div class="grid-pdf">
-      <div><strong>Nome:</strong> <span id="doc_nome"></span></div><div><strong>Bairro:</strong> <span id="doc_bairro"></span></div>
-      <div><strong>Matrícula:</strong> <span id="doc_matricula"></span></div><div><strong>Município:</strong> <span id="doc_municipio"></span></div>
-      <div><strong>CPF:</strong> <span id="doc_cpf"></span></div><div><strong>CEP:</strong> <span id="doc_cep"></span></div>
-      <div><strong>RG:</strong> <span id="doc_rg"></span></div><div><strong>Lotação:</strong> <span id="doc_lotacao"></span></div>
-      <div><strong>Endereço:</strong> <span id="doc_endereco"></span></div><div><strong>Unidade de Exercício:</strong> <span id="doc_unidade"></span></div>
-      <div><strong>Telefone:</strong> <span id="doc_telefone"></span></div><div><strong>Cargo/Função:</strong> <span id="doc_cargo"></span></div>
-    </div>
-    <div class="section-title-pdf">DADOS DO REQUERIMENTO</div>
-    <div style="margin-top: 10px;">
-      <div style="margin-bottom: 6px;"><strong>Tipo de Requerimento:</strong> <span id="doc_tipo"></span></div>
-      <div style="margin-bottom: 10px;"><strong>Requer ao:</strong> <span id="doc_requerAo"></span></div>
-    </div>
-    <div class="box-pdf" id="doc_complemento"></div>
-    <div class="assinaturas-pdf">
-      <div class="assinatura-pdf"><div class="linha-pdf"></div>Assinatura do Requerente</div>
-      <div class="assinatura-pdf"><div class="linha-pdf"></div>Responsável pelo Protocolo</div>
-    </div>
-    <div class="recebido-pdf">
-      <p><strong>Recebido em:</strong></p>
-      <div class="linha-pdf"></div>
-    </div>
-    <p class="recebido-texto-assinatura">Assinatura de Recebimento</p>
-    <div class="rodape-pdf"><img src="/img/rodape.jpg" alt="Rodapé" /></div>
-  </div>
+  <style>
+    .pdf-body { font-family: "Segoe UI", "Open Sans", sans-serif; color: #000; margin: 0; padding: 0; box-sizing: border-box; }
+    .doc-container { background: white; width: 100%; max-width: 800px; margin: 20px auto; padding: 40px 50px; border: 1px solid #ccc; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    .pdf-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #ddd; padding-bottom: 15px; margin-bottom: 20px;}
+    .logo-pdf img { height: 80px; }
+    #qrcode-container { padding-left: 20px; }
+    .titulo-principal-pdf { text-align: center; margin: 2px 0; font-size: 22px; }
+    .titulo-central-pdf { text-align: center; margin-bottom: 20px; }
+    .titulo-central-pdf span { background: #2e7d32; color: white; font-size: 16px; padding: 8px 20px; border-radius: 4px; display: inline-block; font-weight: bold; }
+    .info-pdf { margin-bottom: 20px; display: flex; justify-content: space-between; gap: 20px; }
+    .campo-destaque-pdf { font-weight: bold; font-size: 14px; background-color: #2e7d32; color: white; padding: 8px 12px; border-radius: 5px; margin: 4px 0; flex: 1; text-align: center; }
+    .section-title-pdf { background: #f0f0f0; font-weight: bold; padding: 6px 10px; border-left: 4px solid #4caf50; margin-top: 20px; }
+    .grid-pdf { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 30px; margin-top: 10px; }
+    .grid-pdf div { font-size: 14px; }
+    .box-pdf { border: 1px solid #ddd; padding: 10px; border-radius: 6px; background: #fafafa; margin-top: 10px; font-style: italic; }
+    .assinaturas-pdf { display: flex; justify-content: space-between; margin-top: 100px; page-break-inside: avoid; }
+    .assinatura-pdf { text-align: center; width: 45%; }
+    .linha-pdf { border-top: 1px solid #000; margin-top: 40px; }
+    .rodape-pdf { text-align: center; margin-top: 40px; page-break-inside: avoid; }
+    .rodape-pdf img { max-width: 100%; height: auto; }
+  </style>
+  <div class="pdf-body doc-container">
+    <div class="pdf-header">
+      <div class="logo-pdf"><img src="/img/logo.png" alt="Logo Prefeitura" /></div>
+      <div id="qrcode-container"></div>
+    </div>
+    <h1 class="titulo-principal-pdf">Secretaria da Administração</h1>
+    <div class="titulo-central-pdf"><span>PROTOCOLO DE REQUERIMENTO</span></div>
+    <div class="info-pdf">
+      <p class="campo-destaque-pdf"><strong>Número do Protocolo:</strong> <span id="doc_numero"></span></p>
+      <p class="campo-destaque-pdf"><strong>Data da Solicitação:</strong> <span id="doc_dataSolicitacao"></span></p>
+    </div>
+    <div class="section-title-pdf">DADOS DO REQUERENTE</div>
+    <div class="grid-pdf">
+      <div><strong>Nome:</strong> <span id="doc_nome"></span></div><div><strong>Bairro:</strong> <span id="doc_bairro"></span></div>
+      <div><strong>Matrícula:</strong> <span id="doc_matricula"></span></div><div><strong>Município:</strong> <span id="doc_municipio"></span></div>
+      <div><strong>CPF:</strong> <span id="doc_cpf"></span></div><div><strong>CEP:</strong> <span id="doc_cep"></span></div>
+      <div><strong>RG:</strong> <span id="doc_rg"></span></div><div><strong>Lotação:</strong> <span id="doc_lotacao"></span></div>
+      <div><strong>Endereço:</strong> <span id="doc_endereco"></span></div><div><strong>Unidade de Exercício:</strong> <span id="doc_unidade"></span></div>
+      <div><strong>Telefone:</strong> <span id="doc_telefone"></span></div><div><strong>Cargo/Função:</strong> <span id="doc_cargo"></span></div>
+    </div>
+    <div class="section-title-pdf">DADOS DO REQUERIMENTO</div>
+    <div style="margin-top: 10px;">
+      <div style="margin-bottom: 6px;"><strong>Tipo de Requerimento:</strong> <span id="doc_tipo"></span></div>
+      <div style="margin-bottom: 10px;"><strong>Requer ao:</strong> <span id="doc_requerAo"></span></div>
+    </div>
+    <div class="box-pdf" id="doc_complemento"></div>
+    <div class="assinaturas-pdf">
+      <div class="assinatura-pdf"><div class="linha-pdf"></div>Assinatura do Requerente</div>
+      <div class="assinatura-pdf"><div class="linha-pdf"></div>Responsável pelo Protocolo</div>
+    </div>
+    <div class="rodape-pdf"><img src="/img/rodape.jpg" alt="Rodapé" /></div>
+  </div>
 </div>
 <div id="pdfModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.6);">
   <div style="background-color: #fefefe; margin: 20px auto; padding: 0; border: 1px solid #888; width: 95%; max-width: 800px; box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2), 0 6px 20px 0 rgba(0,0,0,0.19);">
