@@ -248,26 +248,28 @@
 
 <div id="modeloProtocolo" style="display: none;">
   <style>
-    .pdf-body { font-family: "Segoe UI", "Open Sans", sans-serif; color: #000; margin: 0; padding: 0; box-sizing: border-box; }
-    .doc-container { background: white; width: 100%; max-width: 800px; margin: 20px auto; padding: 40px 50px; border: 1px solid #ccc; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-    .pdf-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #ddd; padding-bottom: 15px; margin-bottom: 20px;}
-    .logo-pdf img { height: 80px; }
-    #qrcode-container { padding-left: 20px; }
-    .titulo-principal-pdf { text-align: center; margin: 2px 0; font-size: 22px; }
-    .titulo-central-pdf { text-align: center; margin-bottom: 20px; }
-    .titulo-central-pdf span { background: #2e7d32; color: white; font-size: 16px; padding: 8px 20px; border-radius: 4px; display: inline-block; font-weight: bold; }
-    .info-pdf { margin-bottom: 20px; display: flex; justify-content: space-between; gap: 20px; }
-    .campo-destaque-pdf { font-weight: bold; font-size: 14px; background-color: #2e7d32; color: white; padding: 8px 12px; border-radius: 5px; margin: 4px 0; flex: 1; text-align: center; }
-    .section-title-pdf { background: #f0f0f0; font-weight: bold; padding: 6px 10px; border-left: 4px solid #4caf50; margin-top: 20px; }
-    .grid-pdf { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 30px; margin-top: 10px; }
-    .grid-pdf div { font-size: 14px; }
-    .box-pdf { border: 1px solid #ddd; padding: 10px; border-radius: 6px; background: #fafafa; margin-top: 10px; font-style: italic; }
-    .assinaturas-pdf { display: flex; justify-content: space-between; margin-top: 100px; page-break-inside: avoid; }
-    .assinatura-pdf { text-align: center; width: 45%; }
-    .linha-pdf { border-top: 1px solid #000; margin-top: 40px; }
-    .rodape-pdf { text-align: center; margin-top: 40px; page-break-inside: avoid; }
-    .rodape-pdf img { max-width: 100%; height: auto; }
-  </style>
+    .pdf-body { font-family: "Segoe UI", "Open Sans", sans-serif; color: #000; margin: 0; padding: 0; box-sizing: border-box; }
+    .doc-container { background: white; width: 100%; max-width: 800px; margin: 20px auto; padding: 40px 50px; border: 1px solid #ccc; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    .pdf-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #ddd; padding-bottom: 15px; margin-bottom: 20px;}
+    .logo-pdf img { height: 80px; }
+    #qrcode-container { padding-left: 20px; }
+    .titulo-principal-pdf { text-align: center; margin: 2px 0; font-size: 22px; }
+    .titulo-central-pdf { text-align: center; margin-bottom: 20px; }
+    .titulo-central-pdf span { background: #2e7d32; color: white; font-size: 16px; padding: 8px 20px; border-radius: 4px; display: inline-block; font-weight: bold; }
+    .info-pdf { margin-bottom: 20px; display: flex; justify-content: space-between; gap: 20px; }
+    .campo-destaque-pdf { font-weight: bold; font-size: 14px; background-color: #2e7d32; color: white; padding: 8px 12px; border-radius: 5px; margin: 4px 0; flex: 1; text-align: center; }
+    .section-title-pdf { background: #f0f0f0; font-weight: bold; padding: 6px 10px; border-left: 4px solid #4caf50; margin-top: 20px; }
+    .grid-pdf { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 30px; margin-top: 10px; }
+    .grid-pdf div { font-size: 14px; }
+    .box-pdf { border: 1px solid #ddd; padding: 10px; border-radius: 6px; background: #fafafa; margin-top: 10px; font-style: italic; }
+    .assinaturas-pdf { display: flex; justify-content: space-between; margin-top: 100px; page-break-inside: avoid; }
+    .assinatura-pdf { text-align: center; width: 45%; }
+    .linha-pdf { border-top: 1px solid #000; margin-top: 40px; }
+    .recebido-pdf { margin-top: 40px; page-break-inside: avoid; }
+    .recebido-pdf p { margin: 0; font-size: 14px; }
+    .rodape-pdf { text-align: center; margin-top: 40px; page-break-inside: avoid; }
+    .rodape-pdf img { max-width: 100%; height: auto; }
+</style>
   <div class="pdf-body doc-container">
     <div class="pdf-header">
       <div class="logo-pdf"><img src="/img/logo.png" alt="Logo Prefeitura" /></div>
