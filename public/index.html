@@ -261,7 +261,7 @@
         .box-pdf { border: 1px solid #ddd; padding: 10px; border-radius: 6px; background: #fafafa; margin-top: 10px; font-style: italic; }
         
         .assinaturas-container {
-            margin-top: 100px;
+            margin-top: 80px;
             page-break-inside: avoid;
         }
 
@@ -278,33 +278,63 @@
 
         .linha-assinatura {
             border-top: 1px solid #000;
-            margin-top: 60px; /* Aumenta a distância da linha do texto acima */
+            margin-top: 40px;
             margin-bottom: 5px;
         }
         
+        /* Estilos para o campo "Recebido em" */
         .recebido-container {
             margin-top: 40px;
             page-break-inside: avoid;
-        }
-
-        .recebido-flex {
             display: flex;
             align-items: flex-end;
-            gap: 10px;
+            justify-content: space-between;
         }
 
-        .recebido-flex p {
-            margin: 0;
+        .recebido-data {
             font-size: 14px;
+            font-weight: bold;
+            white-space: nowrap;
         }
         
-        .recebido-flex .linha-recebimento {
-            border-top: 1px solid #000;
-            flex-grow: 1;
-            margin-bottom: 5px; /* Alinha a linha com o texto */
+        .recebido-data .data-input {
+            display: inline-block;
+            border-bottom: 1px solid #000;
+            text-align: center;
+            min-width: 25px;
         }
 
-        .rodape-pdf { text-align: center; margin-top: 40px; page-break-inside: avoid; }
+        .recebido-data .data-input-ano {
+            display: inline-block;
+            border-bottom: 1px solid #000;
+            text-align: center;
+            min-width: 50px;
+        }
+
+        .recebido-data .separador {
+            font-weight: bold;
+            margin: 0 2px;
+        }
+
+        .linha-assinatura-recebimento {
+            flex-grow: 1;
+            border-top: 1px solid #000;
+            margin-left: 20px;
+            margin-bottom: 5px;
+        }
+
+        .texto-assinatura-recebimento {
+            text-align: right;
+            font-size: 12px;
+            margin-top: 5px;
+            padding-right: 0px;
+        }
+
+        .rodape-pdf { 
+            text-align: center; 
+            margin-top: 20px;
+            page-break-inside: avoid; 
+        }
         .rodape-pdf img { max-width: 100%; height: auto; }
     </style>
     <div class="pdf-body doc-container">
@@ -346,12 +376,17 @@
             </div>
         </div>
         <div class="recebido-container">
-            <div class="recebido-flex">
-                <p><strong>Recebido em:</strong></p>
-                <div class="linha-recebimento"></div>
-            </div>
-            <p style="text-align: center; margin-top: 5px;">Assinatura de Recebimento</p>
+            <p class="recebido-data">
+                <strong>Recebido em:</strong>
+                <span class="data-input">___</span>
+                <span class="separador">/</span>
+                <span class="data-input">___</span>
+                <span class="separador">/</span>
+                <span class="data-input-ano">______</span>
+            </p>
+            <div class="linha-assinatura-recebimento"></div>
         </div>
+        <p class="texto-assinatura-recebimento">Assinatura de Recebimento</p>
         <div class="rodape-pdf"><img src="/img/rodape.jpg" alt="Rodapé" /></div>
     </div>
 </div>
