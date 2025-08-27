@@ -9,17 +9,16 @@ const path = require('path');
 
 // Configuração do Multer para upload de arquivos em memória
 const storage = multer.memoryStorage();
-const upload = multer({ 
+const upload = multer({
     storage: storage,
     limits: { fileSize: 10 * 1024 * 1024 } // Limite de 10MB
 });
 
-// Salvar novo protocolo (VERSÃO CORRIGIDA E COMPLETA)
+// Salvar novo protocolo
 router.post('/', async (req, res) => {
   try {
     const { numero, nome, matricula, endereco, municipio, bairro, cep, telefone, cpf, rg, cargo, lotacao, unidade, tipo, requerAo, dataSolicitacao, complemento, status, responsavel } = req.body;
     
-    // CORREÇÃO APLICADA: 20 colunas, 20 placeholders ($1...$20) e 20 valores.
     const result = await db.query(`
       INSERT INTO protocolos (numero, nome, matricula, endereco, municipio, bairro, cep, telefone, cpf, rg, cargo, lotacao, unidade_exercicio, tipo_requerimento, requer_ao, data_solicitacao, observacoes, status, responsavel, visto)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
@@ -149,13 +148,14 @@ router.get('/pesquisa', async (req, res) => {
     let query = `SELECT id, numero, nome, matricula, tipo_requerimento, status, responsavel, data_solicitacao FROM protocolos WHERE 1=1`;
     const params = [];
 
-    if (numero) { params.push(`%${numero}%`); query += ` AND numero LIKE $${params.length + 1}`; }
-    if (nome) { params.push(`%${nome}%`); query += ` AND nome ILIKE $${params.length + 1}`; }
-    if (status) { params.push(status); query += ` AND status = $${params.length + 1}`; }
-    if (dataInicio) { params.push(dataInicio); query += ` AND data_solicitacao >= $${params.length + 1}`; }
-    if (dataFim) { params.push(dataFim); query += ` AND data_solicitacao <= $${params.length + 1}`; }
-    if (tipo) { params.push(tipo); query += ` AND tipo_requerimento = $${params.length + 1}`; }
-    if (lotacao) { params.push(lotacao); query += ` AND lotacao = $${params.length + 1}`; }
+    // CORREÇÃO AQUI: Removido o "+ 1"
+    if (numero) { params.push(`%${numero}%`); query += ` AND numero LIKE $${params.length}`; }
+    if (nome) { params.push(`%${nome}%`); query += ` AND nome ILIKE $${params.length}`; }
+    if (status) { params.push(status); query += ` AND status = $${params.length}`; }
+    if (dataInicio) { params.push(dataInicio); query += ` AND data_solicitacao >= $${params.length}`; }
+    if (dataFim) { params.push(dataFim); query += ` AND data_solicitacao <= $${params.length}`; }
+    if (tipo) { params.push(tipo); query += ` AND tipo_requerimento = $${params.length}`; }
+    if (lotacao) { params.push(lotacao); query += ` AND lotacao = $${params.length}`; }
 
     query += ' ORDER BY data_solicitacao DESC';
     const result = await db.query(query, params);
@@ -172,13 +172,16 @@ router.get('/backup', async (req, res) => {
     const { numero, nome, status, dataInicio, dataFim, tipo, lotacao } = req.query;
     let query = `SELECT * FROM protocolos WHERE 1=1`;
     const params = [];
-    if (numero) { params.push(`%${numero}%`); query += ` AND numero LIKE $${params.length + 1}`; }
-    if (nome) { params.push(`%${nome}%`); query += ` AND nome ILIKE $${params.length + 1}`; }
-    if (status) { params.push(status); query += ` AND status = $${params.length + 1}`; }
-    if (dataInicio) { params.push(dataInicio); query += ` AND data_solicitacao >= $${params.length + 1}`; }
-    if (dataFim) { params.push(dataFim); query += ` AND data_solicitacao <= $${params.length + 1}`; }
-    if (tipo) { params.push(tipo); query += ` AND tipo_requerimento = $${params.length + 1}`; }
-    if (lotacao) { params.push(lotacao); query += ` AND lotacao = $${params.length + 1}`; }
+
+    // CORREÇÃO AQUI: Removido o "+ 1"
+    if (numero) { params.push(`%${numero}%`); query += ` AND numero LIKE $${params.length}`; }
+    if (nome) { params.push(`%${nome}%`); query += ` AND nome ILIKE $${params.length}`; }
+    if (status) { params.push(status); query += ` AND status = $${params.length}`; }
+    if (dataInicio) { params.push(dataInicio); query += ` AND data_solicitacao >= $${params.length}`; }
+    if (dataFim) { params.push(dataFim); query += ` AND data_solicitacao <= $${params.length}`; }
+    if (tipo) { params.push(tipo); query += ` AND tipo_requerimento = $${params.length}`; }
+    if (lotacao) { params.push(lotacao); query += ` AND lotacao = $${params.length}`; }
+
     query += ' ORDER BY data_solicitacao';
     const result = await db.query(query, params);
     if (result.rows.length === 0) {
