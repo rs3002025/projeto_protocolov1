@@ -261,7 +261,7 @@
         .box-pdf { border: 1px solid #ddd; padding: 10px; border-radius: 6px; background: #fafafa; margin-top: 10px; font-style: italic; }
         
         .assinaturas-container {
-            margin-top: 80px;
+            margin-top: 60px;
             page-break-inside: avoid;
         }
 
@@ -284,7 +284,7 @@
         
         /* Estilos para o campo "Recebido em" */
         .recebido-container {
-            margin-top: 40px;
+            margin-top: 30px;
             page-break-inside: avoid;
             display: flex;
             align-items: flex-end;
@@ -294,26 +294,25 @@
         .recebido-data {
             font-size: 14px;
             font-weight: bold;
-            white-space: nowrap;
+            display: flex;
+            align-items: flex-end;
         }
         
-        .recebido-data .data-input {
-            display: inline-block;
+        .recebido-data span {
             border-bottom: 1px solid #000;
             text-align: center;
-            min-width: 25px;
         }
 
-        .recebido-data .data-input-ano {
-            display: inline-block;
-            border-bottom: 1px solid #000;
-            text-align: center;
-            min-width: 50px;
+        .recebido-data .data-dia, .recebido-data .data-mes {
+            width: 25px; /* Tamanho para 2 dígitos */
+        }
+        
+        .recebido-data .data-ano {
+            width: 50px; /* Tamanho para 4 dígitos */
         }
 
         .recebido-data .separador {
-            font-weight: bold;
-            margin: 0 2px;
+            margin: 0 4px;
         }
 
         .linha-assinatura-recebimento {
@@ -352,10 +351,10 @@
         <div class="grid-pdf">
             <div><strong>Nome:</strong> <span id="doc_nome"></span></div><div><strong>Bairro:</strong> <span id="doc_bairro"></span></div>
             <div><strong>Matrícula:</strong> <span id="doc_matricula"></span></div><div><strong>Município:</strong> <span id="doc_municipio"></span></div>
-            <div><strong>CPF:</strong> <span id="doc_cpf"></span></div><div><strong>CEP:</strong> <span id="doc_cep"></span></div>
-            <div><strong>RG:</strong> <span id="doc_rg"></span></div><div><strong>Lotação:</strong> <span id="doc_lotacao"></span></div>
-            <div><strong>Endereço:</strong> <span id="doc_endereco"></span></div><div><strong>Unidade de Exercício:</strong> <span id="doc_unidade"></span></div>
-            <div><strong>Telefone:</strong> <span id="doc_telefone"></span></div><div><strong>Cargo/Função:</strong> <span id="doc_cargo"></span></div>
+            <div><strong>CPF:</strong> <span id="doc_cpf"></span></div><div><strong>RG:</strong> <span id="doc_rg"></span></div>
+            <div><strong>Lotação:</strong> <span id="doc_lotacao"></span></div><div><strong>Endereço:</strong> <span id="doc_endereco"></span></div>
+            <div><strong>Unidade de Exercício:</strong> <span id="doc_unidade"></span></div><div><strong>Telefone:</strong> <span id="doc_telefone"></span></div>
+            <div><strong>Cargo/Função:</strong> <span id="doc_cargo"></span></div><div><strong>CEP:</strong> <span id="doc_cep"></span></div>
         </div>
         <div class="section-title-pdf">DADOS DO REQUERIMENTO</div>
         <div style="margin-top: 10px;">
@@ -378,11 +377,11 @@
         <div class="recebido-container">
             <p class="recebido-data">
                 <strong>Recebido em:</strong>
-                <span class="data-input">___</span>
+                <span class="data-dia"></span>
                 <span class="separador">/</span>
-                <span class="data-input">___</span>
+                <span class="data-mes"></span>
                 <span class="separador">/</span>
-                <span class="data-input-ano">______</span>
+                <span class="data-ano"></span>
             </p>
             <div class="linha-assinatura-recebimento"></div>
         </div>
