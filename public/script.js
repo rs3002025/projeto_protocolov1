@@ -496,9 +496,39 @@ window.pesquisarProtocolos = async function() {
     }
   } catch (error) { console.error("Erro ao pesquisar protocolos:", error); }
 };
-window.exportarRelatorioExcel = function() {
-  const params = new URLSearchParams({ numero: document.getElementById('filtroNumero').value, nome: document.getElementById('filtroNome').value, status: document.getElementById('filtroStatus').value, dataInicio: document.getElementById('filtroDataInicio').value, dataFim: document.getElementById('filtroDataFim').value, tipo: document.getElementById('filtroTipo').value, lotacao: document.getElementById('filtroLotacao').value });
-  window.location.href = `/protocolos/backup?${params.toString()}`;
+window.exportarRelatorioExcel = async function() {
+  const params = new URLSearchParams({
+    numero: document.getElementById('filtroNumero').value,
+    nome: document.getElementById('filtroNome').value,
+    status: document.getElementById('filtroStatus').value,
+    dataInicio: document.getElementById('filtroDataInicio').value,
+    dataFim: document.getElementById('filtroDataFim').value,
+    tipo: document.getElementById('filtroTipo').value,
+    lotacao: document.getElementById('filtroLotacao').value
+  });
+
+  const url = `/protocolos/backup?${params.toString()}`;
+
+  try {
+    const response = await fetchWithAuth(url);
+    if (!response.ok) {
+      const textoErro = await response.text();
+      alert(`Erro ao gerar relatório Excel: ${textoErro || response.statusText}`);
+      return;
+    }
+    const blob = await response.blob();
+    const urlBlob = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = urlBlob;
+    a.download = `relatorio_protocolos.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(urlBlob);
+  } catch (error) {
+    console.error("Erro ao exportar para Excel:", error);
+    alert("Ocorreu um erro ao tentar exportar o relatório para Excel.");
+  }
 };
 window.limparFiltrosRelatorio = function() {
     document.querySelector('#relatorios .filtros')?.reset();
