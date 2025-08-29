@@ -496,6 +496,36 @@ window.pesquisarProtocolos = async function() {
     }
   } catch (error) { console.error("Erro ao pesquisar protocolos:", error); }
 };
+window.previsualizarRelatorioPDF = async function() {
+    const params = new URLSearchParams({ numero: document.getElementById('filtroNumero').value, nome: document.getElementById('filtroNome').value, status: document.getElementById('filtroStatus').value, dataInicio: document.getElementById('filtroDataInicio').value, dataFim: document.getElementById('filtroDataFim').value, tipo: document.getElementById('filtroTipo').value, lotacao: document.getElementById('filtroLotacao').value });
+    try {
+        const res = await fetch(`/protocolos/pesquisa?${params.toString()}`);
+        const data = await res.json();
+        if (!data.protocolos || data.protocolos.length === 0) { alert("Nenhum resultado encontrado para gerar o PDF."); return; }
+        const templatePDF = document.getElementById('modeloProtocolo');
+        let htmlContent = '';
+        data.protocolos.forEach(p => {
+            const tempNode = templatePDF.cloneNode(true);
+            tempNode.style.display = 'block';
+            tempNode.querySelector('#doc_numero').textContent = p.numero || '';
+            tempNode.querySelector('#doc_dataSolicitacao').textContent = p.data_solicitacao ? new Date(p.data_solicitacao).toLocaleDateString('pt-BR', {timeZone: 'UTC'}) : '';
+            tempNode.querySelector('#doc_nome').textContent = p.nome || '';
+            tempNode.querySelector('#doc_matricula').textContent = p.matricula || '';
+            tempNode.querySelector('#doc_tipo').textContent = p.tipo_requerimento || '';
+            htmlContent += `<div style="page-break-after: always;">${tempNode.innerHTML}</div>`;
+        });
+        document.getElementById('relatorioContent').innerHTML = htmlContent;
+        document.getElementById('relatorioModal').style.display = 'block';
+    } catch(err) { console.error('Erro ao gerar relatório:', err); alert('Erro ao gerar relatório.'); }
+};
+window.salvarRelatorioPDF = async function() {
+    const element = document.getElementById('relatorioContent');
+    const opt = { margin: [0, 0, 0, 0], filename: `Relatorio_Protocolos.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
+    try {
+        await html2pdf().set(opt).from(element).save();
+        fecharModal('relatorioModal');
+    } catch(err) { console.error('Erro ao salvar PDF do relatório:', err); alert('Erro ao salvar PDF do relatório.'); }
+};
 window.exportarRelatorioExcel = async function() {
   const params = new URLSearchParams({
     numero: document.getElementById('filtroNumero').value,
