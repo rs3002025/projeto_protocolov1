@@ -108,15 +108,16 @@ app.get('/usuarios', authMiddleware, adminMiddleware, async (req, res) => {
 });
 
 // Rota para o próprio usuário alterar sua senha (Apenas autenticado)
+// CÓDIGO CORRIGIDO
 app.put('/usuarios/minha-senha', authMiddleware, async (req, res) => {
-    const { usuarioLogin } = req.user;
+    const { login } = req.user; // <-- MUDANÇA AQUI: de 'usuarioLogin' para 'login'
     const { senhaAtual, novaSenha } = req.body;
 
-    if (!usuarioLogin || !senhaAtual || !novaSenha) {
+    if (!login || !senhaAtual || !novaSenha) { // <-- E AQUI
         return res.status(400).json({ sucesso: false, mensagem: "Dados incompletos." });
     }
     try {
-        const userResult = await pool.query('SELECT id, senha FROM usuarios WHERE login = $1', [usuarioLogin]);
+        const userResult = await pool.query('SELECT id, senha FROM usuarios WHERE login = $1', [login]); // <-- E AQUI
         if (userResult.rows.length === 0) {
             return res.status(404).json({ sucesso: false, mensagem: "Usuário não encontrado." });
         }
@@ -137,7 +138,7 @@ app.put('/usuarios/minha-senha', authMiddleware, async (req, res) => {
 
         const saltRounds = 10;
         const hashedNewPassword = await bcrypt.hash(novaSenha, saltRounds);
-        await pool.query('UPDATE usuarios SET senha = $1 WHERE login = $2', [hashedNewPassword, usuarioLogin]);
+        await pool.query('UPDATE usuarios SET senha = $1 WHERE login = $2', [hashedNewPassword, login]); // <-- E AQUI
         res.json({ sucesso: true, mensagem: "Senha alterada com sucesso!" });
     } catch (err) {
         console.error('Erro ao alterar a própria senha:', err);
