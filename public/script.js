@@ -31,7 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.body.classList.remove('loading');
 
-   if (window.usuarioLogado) {
+  if (window.usuarioLogado) {
     // Define a visibilidade dos botões
     document.getElementById('btnDashboard').style.display = (window.nivelUsuario === 'admin' || window.nivelUsuario === 'padrao') ? 'flex' : 'none';
     document.getElementById('btnConfig').style.display = window.nivelUsuario === "admin" ? "flex" : "none";
@@ -39,13 +39,13 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btnRelatorios').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "flex" : "none";
     document.getElementById('btnTodosProtocolos').style.display = (window.nivelUsuario === 'admin' || window.nivelUsuario === 'padrao') ? 'flex' : 'none';
 
-    // VERIFICA O NÍVEL ANTES DE CARREGAR DADOS SENSÍVEIS
-    if (window.nivelUsuario === 'admin' || window.nivelUsuario === 'padrao') {
+    // ✅ CORREÇÃO DEFINITIVA: Apenas 'admin' pode carregar os dados de admin
+    if (window.nivelUsuario === 'admin') {
         carregarOpcoesDropdowns().then(() => {
             mostrarTela('menu');
             verificarNotificacoes();
         });
-    } else { // Se for um 'usuario' comum, não chama a função de admin
+    } else { // Se for 'padrão' ou 'usuario', não chama a função de admin
         mostrarTela('menu');
         verificarNotificacoes();
     }
