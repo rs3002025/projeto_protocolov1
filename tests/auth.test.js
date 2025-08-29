@@ -1,18 +1,18 @@
 const request = require('supertest');
-const app = require('../server'); // Precisamos exportar o app de server.js
+const app = require('../server');
 const pool = require('../db');
 const bcrypt = require('bcrypt');
 
-// Silenciar os logs de erro esperados durante os testes
 beforeAll(() => {
   jest.spyOn(console, 'error').mockImplementation(() => {});
+  jest.spyOn(console, 'warn').mockImplementation(() => {});
 });
 
 afterAll(async () => {
-  // Limpar dados de teste e fechar a conexão com o banco
   await pool.query("DELETE FROM usuarios WHERE login LIKE 'testuser%'");
   pool.end();
   console.error.mockRestore();
+  console.warn.mockRestore();
 });
 
 describe('Auth Endpoints', () => {
@@ -20,7 +20,6 @@ describe('Auth Endpoints', () => {
   let userToken;
 
   beforeAll(async () => {
-    // Criar usuários de teste
     const adminPassword = 'password123';
     const userPassword = 'password456';
     const adminHash = await bcrypt.hash(adminPassword, 10);
