@@ -1,11 +1,5 @@
 const jwt = require('jsonwebtoken');
-
-// Use o segredo do ambiente ou um segredo padrão INSEGURO com um aviso.
-const JWT_SECRET = process.env.JWT_SECRET || 'DEFAULT_INSECURE_SECRET_REPLACE_IN_PRODUCTION';
-
-if (process.env.NODE_ENV !== 'test' && !process.env.JWT_SECRET) {
-  console.warn('\n!!! ATENÇÃO: A variável de ambiente JWT_SECRET não está definida. Usando um segredo padrão inseguro. Defina esta variável em produção! !!!\n');
-}
+const { JWT_SECRET } = require('../config');
 
 const authMiddleware = (req, res, next) => {
   const authHeader = req.headers.authorization;
