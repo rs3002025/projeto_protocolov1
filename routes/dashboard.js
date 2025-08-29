@@ -27,7 +27,7 @@ router.post('/notificacoes/ler', authMiddleware, async (req, res, next) => {
 });
 
 // --- ROTA PARA DASHBOARD ---
-router.get('/stats', authMiddleware, async (req, res, next) => {
+router.get('/dashboard-stats', authMiddleware, async (req, res, next) => {
     try {
         const { dataInicio, dataFim, status, tipo, lotacao } = req.query;
 
