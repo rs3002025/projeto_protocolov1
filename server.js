@@ -1,10 +1,14 @@
 // server.js
+require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
 const pool = require('./db');
 const protocoloRoutes = require('./routes/protocolos');
 const adminRoutes = require('./routes/admin');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const { authMiddleware, adminMiddleware } = require('./middleware/auth');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -14,20 +18,63 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/protocolos', protocoloRoutes);
-app.use('/admin', adminRoutes);
+// Protegendo todas as rotas de admin com autenticação e verificação de admin
+app.use('/admin', authMiddleware, adminMiddleware, adminRoutes);
 
 // Rota de login
 app.post('/login', async (req, res) => {
   const { login, senha } = req.body;
+  if (!login || !senha) {
+    return res.status(400).json({ sucesso: false, mensagem: 'Login e senha são obrigatórios.' });
+  }
+
   try {
     const result = await pool.query(
-      "SELECT nome, login, tipo, email FROM usuarios WHERE login = $1 AND senha = $2 AND status = 'ativo'",
-      [login, senha]
+      "SELECT id, nome, login, tipo, email, senha as password_or_hash FROM usuarios WHERE login = $1 AND status = 'ativo'",
+      [login]
     );
-    if (result.rows.length > 0) {
-      res.json({ sucesso: true, usuario: result.rows[0] });
+
+    if (result.rows.length === 0) {
+      return res.status(401).json({ sucesso: false, mensagem: 'Login ou senha inválidos.' });
+    }
+
+    const user = result.rows[0];
+    const storedPassword = user.password_or_hash;
+    let passwordIsValid = false;
+
+    // Verifica se a senha armazenada é um hash bcrypt ou texto plano
+    if (storedPassword && (storedPassword.startsWith('$2a$') || storedPassword.startsWith('$2b$'))) {
+      passwordIsValid = await bcrypt.compare(senha, storedPassword);
     } else {
-      res.json({ sucesso: false, mensagem: 'Login ou senha inválidos.' });
+      // É uma senha em texto plano (legado), parte da migração transparente
+      passwordIsValid = (senha === storedPassword);
+      if (passwordIsValid) {
+        // Migra a senha para hash de forma transparente
+        const saltRounds = 10;
+        const hash = await bcrypt.hash(senha, saltRounds);
+        await pool.query('UPDATE usuarios SET senha = $1 WHERE id = $2', [hash, user.id]);
+      }
+    }
+
+    if (passwordIsValid) {
+      // Não enviar a senha de volta para o cliente
+      const userResponse = {
+          nome: user.nome,
+          login: user.login,
+          tipo: user.tipo,
+          email: user.email
+      };
+
+      // Gerar o token JWT
+      const token = jwt.sign(
+        { login: user.login, tipo: user.tipo },
+        process.env.JWT_SECRET,
+        { expiresIn: '8h' } // Token expira em 8 horas
+      );
+
+      res.json({ sucesso: true, usuario: userResponse, token: token });
+    } else {
+      res.status(401).json({ sucesso: false, mensagem: 'Login ou senha inválidos.' });
     }
   } catch (err) {
     console.error('Erro no login:', err);
@@ -38,20 +85,25 @@ app.post('/login', async (req, res) => {
 // Rota para cadastrar novo usuário
 app.post('/usuarios', async (req, res) => {
   const { login, senha, tipo, email, nome, cpf } = req.body;
+   if (!login || !senha) {
+      return res.status(400).json({ sucesso: false, mensagem: "Login e senha são obrigatórios." });
+  }
   try {
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(senha, saltRounds);
     await pool.query(`
       INSERT INTO usuarios (login, senha, tipo, email, nome, cpf, status)
       VALUES ($1, $2, $3, $4, $5, $6, 'ativo')
-    `, [login, senha, tipo, email, nome, cpf]);
-    res.json({ sucesso: true, mensagem: 'Usuário cadastrado com sucesso.' });
+    `, [login, hashedPassword, tipo, email, nome, cpf]);
+    res.status(201).json({ sucesso: true, mensagem: 'Usuário cadastrado com sucesso.' });
   } catch (err) {
     console.error('Erro ao cadastrar usuário:', err);
     res.status(500).json({ sucesso: false, mensagem: 'Erro ao cadastrar usuário.' });
   }
 });
 
-// Rota para listar todos os usuários
-app.get('/usuarios', async (req, res) => {
+// Rota para listar todos os usuários (Admin)
+app.get('/usuarios', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const result = await pool.query('SELECT id, nome, login, email, cpf, tipo, status FROM usuarios ORDER BY nome ASC');
     res.json({ usuarios: result.rows });
@@ -61,22 +113,38 @@ app.get('/usuarios', async (req, res) => {
   }
 });
 
-// Rota para o próprio usuário alterar sua senha (ORDEM CORRIGIDA)
-app.put('/usuarios/minha-senha', async (req, res) => {
-    const { usuarioLogin, senhaAtual, novaSenha } = req.body;
+// Rota para o próprio usuário alterar sua senha (Apenas autenticado)
+app.put('/usuarios/minha-senha', authMiddleware, async (req, res) => {
+    // O login do usuário vem do token decodificado, não do corpo da requisição
+    const { usuarioLogin } = req.user;
+    const { senhaAtual, novaSenha } = req.body;
+
     if (!usuarioLogin || !senhaAtual || !novaSenha) {
         return res.status(400).json({ sucesso: false, mensagem: "Dados incompletos." });
     }
     try {
-        const userResult = await pool.query('SELECT senha FROM usuarios WHERE login = $1', [usuarioLogin]);
+        const userResult = await pool.query('SELECT id, senha FROM usuarios WHERE login = $1', [usuarioLogin]);
         if (userResult.rows.length === 0) {
             return res.status(404).json({ sucesso: false, mensagem: "Usuário não encontrado." });
         }
+
         const user = userResult.rows[0];
-        if (user.senha !== senhaAtual) {
+        const storedPassword = user.senha;
+        let passwordIsValid = false;
+
+        if (storedPassword && (storedPassword.startsWith('$2a$') || storedPassword.startsWith('$2b$'))) {
+            passwordIsValid = await bcrypt.compare(senhaAtual, storedPassword);
+        } else {
+            passwordIsValid = (senhaAtual === storedPassword);
+        }
+
+        if (!passwordIsValid) {
             return res.status(403).json({ sucesso: false, mensagem: "A senha atual está incorreta." });
         }
-        await pool.query('UPDATE usuarios SET senha = $1 WHERE login = $2', [novaSenha, usuarioLogin]);
+
+        const saltRounds = 10;
+        const hashedNewPassword = await bcrypt.hash(novaSenha, saltRounds);
+        await pool.query('UPDATE usuarios SET senha = $1 WHERE login = $2', [hashedNewPassword, usuarioLogin]);
         res.json({ sucesso: true, mensagem: "Senha alterada com sucesso!" });
     } catch (err) {
         console.error('Erro ao alterar a própria senha:', err);
@@ -85,7 +153,7 @@ app.put('/usuarios/minha-senha', async (req, res) => {
 });
 
 // Rota para ATUALIZAR dados de um usuário (Admin)
-app.put('/usuarios/:id', async (req, res) => {
+app.put('/usuarios/:id', authMiddleware, adminMiddleware, async (req, res) => {
   const { id } = req.params;
   const { nome, login, email, tipo, cpf } = req.body;
   try {
@@ -101,11 +169,16 @@ app.put('/usuarios/:id', async (req, res) => {
 });
 
 // Rota para RESETAR A SENHA de um usuário (Admin)
-app.put('/usuarios/:id/senha', async (req, res) => {
+app.put('/usuarios/:id/senha', authMiddleware, adminMiddleware, async (req, res) => {
   const { id } = req.params;
   const { novaSenha } = req.body;
+  if (!novaSenha) {
+      return res.status(400).json({ sucesso: false, mensagem: "A nova senha é obrigatória." });
+  }
   try {
-    await pool.query('UPDATE usuarios SET senha = $1 WHERE id = $2', [novaSenha, id]);
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(novaSenha, saltRounds);
+    await pool.query('UPDATE usuarios SET senha = $1 WHERE id = $2', [hashedPassword, id]);
     res.json({ sucesso: true, mensagem: 'Senha atualizada com sucesso.' });
   } catch (err) {
     console.error('Erro ao resetar senha:', err);
@@ -114,7 +187,7 @@ app.put('/usuarios/:id/senha', async (req, res) => {
 });
 
 // Rota para DESATIVAR/REATIVAR um usuário (Admin)
-app.put('/usuarios/:id/status', async (req, res) => {
+app.put('/usuarios/:id/status', authMiddleware, adminMiddleware, async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
   try {
@@ -170,7 +243,11 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Inicia o servidor
-app.listen(port, () => {
-  console.log(`Servidor rodando na porta ${port}`);
-});
+// Inicia o servidor apenas se não estiver em ambiente de teste
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(port, () => {
+    console.log(`Servidor rodando na porta ${port}`);
+  });
+}
+
+module.exports = app; // Exporta o app para ser usado nos testes

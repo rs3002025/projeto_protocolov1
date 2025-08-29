@@ -2,6 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const { authMiddleware } = require('../middleware/auth');
 const ExcelJS = require('exceljs');
 const multer = require('multer');
 const supabase = require('../supabase-client');
@@ -15,7 +16,7 @@ const upload = multer({
 });
 
 // Salvar novo protocolo
-router.post('/', async (req, res) => {
+router.post('/', authMiddleware, async (req, res) => {
   try {
     const { numero, nome, matricula, endereco, municipio, bairro, cep, telefone, cpf, rg, cargo, lotacao, unidade, tipo, requerAo, dataSolicitacao, complemento, status, responsavel } = req.body;
     
@@ -44,7 +45,7 @@ router.post('/', async (req, res) => {
 
 
 // ROTA PARA FAZER UPLOAD DE ANEXOS
-router.post('/:id/anexos', upload.single('anexo'), async (req, res) => {
+router.post('/:id/anexos', authMiddleware, upload.single('anexo'), async (req, res) => {
     const { id } = req.params;
     const file = req.file;
     if (!file) {
@@ -69,7 +70,7 @@ router.post('/:id/anexos', upload.single('anexo'), async (req, res) => {
 });
 
 // ROTA PARA LISTAR ANEXOS DE UM PROTOCOLO
-router.get('/:id/anexos', async (req, res) => {
+router.get('/:id/anexos', authMiddleware, async (req, res) => {
     const { id } = req.params;
     try {
         const result = await db.query(
@@ -84,7 +85,7 @@ router.get('/:id/anexos', async (req, res) => {
 });
 
 // ROTA PARA GERAR LINK DE DOWNLOAD DE UM ANEXO
-router.get('/anexos/:anexo_id/download', async (req, res) => {
+router.get('/anexos/:anexo_id/download', authMiddleware, async (req, res) => {
     const { anexo_id } = req.params;
     try {
         const anexoResult = await db.query("SELECT storage_path FROM anexos WHERE id = $1", [anexo_id]);
@@ -104,7 +105,7 @@ router.get('/anexos/:anexo_id/download', async (req, res) => {
 });
 
 // ROTA PARA EXCLUIR UM ANEXO ESPECÍFICO
-router.delete('/anexos/:anexo_id', async (req, res) => {
+router.delete('/anexos/:anexo_id', authMiddleware, async (req, res) => {
     const { anexo_id } = req.params;
     try {
         const anexoResult = await db.query("SELECT storage_path FROM anexos WHERE id = $1", [anexo_id]);
@@ -123,9 +124,10 @@ router.delete('/anexos/:anexo_id', async (req, res) => {
 
 
 // Atualizar status/responsável e registrar histórico
-router.post('/atualizar', async (req, res) => {
+router.post('/atualizar', authMiddleware, async (req, res) => {
   try {
-    const { protocoloId, novoStatus, novoResponsavel, observacao, usuarioLogado } = req.body;
+    const { protocoloId, novoStatus, novoResponsavel, observacao } = req.body;
+    const { login: usuarioLogado } = req.user; // Pega o usuário logado do token
     await db.query(`
       UPDATE protocolos SET status = $1, responsavel = $2, visto = FALSE
       WHERE id = $3
@@ -142,7 +144,7 @@ router.post('/atualizar', async (req, res) => {
 });
 
 // Pesquisa de protocolos com filtros avançados
-router.get('/pesquisa', async (req, res) => {
+router.get('/pesquisa', authMiddleware, async (req, res) => {
   try {
     const { numero, nome, status, dataInicio, dataFim, tipo, lotacao } = req.query;
     let query = `SELECT id, numero, nome, matricula, tipo_requerimento, status, responsavel, data_solicitacao FROM protocolos WHERE 1=1`;
@@ -167,7 +169,7 @@ router.get('/pesquisa', async (req, res) => {
 });
 
 // Gerar backup/exportar protocolos por período em Excel
-router.get('/backup', async (req, res) => {
+router.get('/backup', authMiddleware, async (req, res) => {
   try {
     const { numero, nome, status, dataInicio, dataFim, tipo, lotacao } = req.query;
     let query = `SELECT * FROM protocolos WHERE 1=1`;
@@ -205,7 +207,7 @@ router.get('/backup', async (req, res) => {
 // --- ROTAS ESPECÍFICAS (DEVEM VIR ANTES DE /:id) ---
 
 // Buscar histórico de protocolo
-router.get('/historico/:id', async (req, res) => {
+router.get('/historico/:id', authMiddleware, async (req, res) => {
   const protocoloId = req.params.id;
   try {
     const result = await db.query(`SELECT * FROM historico_protocolos WHERE protocolo_id = $1 ORDER BY data_movimentacao DESC`, [protocoloId]);
@@ -217,7 +219,7 @@ router.get('/historico/:id', async (req, res) => {
 });
 
 // Listar protocolos do responsável (Meus Protocolos)
-router.get('/meus/:responsavel', async (req, res) => {
+router.get('/meus/:responsavel', authMiddleware, async (req, res) => {
   const responsavel = req.params.responsavel;
   try {
     const result = await db.query(`SELECT id, numero, nome, matricula, tipo_requerimento, status, responsavel FROM protocolos WHERE responsavel = $1 ORDER BY id DESC`, [responsavel]);
@@ -229,7 +231,7 @@ router.get('/meus/:responsavel', async (req, res) => {
 });
 
 // Buscar último número de protocolo do ano
-router.get('/ultimoNumero/:ano', async (req, res) => {
+router.get('/ultimoNumero/:ano', authMiddleware, async (req, res) => {
   const { ano } = req.params;
   try {
     const { rows } = await db.query(`SELECT numero FROM protocolos WHERE numero LIKE $1`, [`%/${ano}`]);
@@ -243,7 +245,7 @@ router.get('/ultimoNumero/:ano', async (req, res) => {
 });
 
 // GET /protocolos/servidor/:matricula
-router.get('/servidor/:matricula', async (req, res) => {
+router.get('/servidor/:matricula', authMiddleware, async (req, res) => {
   const matricula = req.params.matricula;
   try {
     const result = await db.query(`SELECT matricula, nome, lotacao, cargo, unidade_de_exercicio FROM servidores WHERE matricula = $1 LIMIT 1`, [matricula]);
@@ -258,7 +260,7 @@ router.get('/servidor/:matricula', async (req, res) => {
 });
 
 // --- ROTAS PARA NOTIFICAÇÕES ---
-router.get('/notificacoes/:usuarioLogin', async (req, res) => {
+router.get('/notificacoes/:usuarioLogin', authMiddleware, async (req, res) => {
   const { usuarioLogin } = req.params;
   try {
     const result = await db.query("SELECT COUNT(id) FROM protocolos WHERE responsavel = $1 AND visto = FALSE", [usuarioLogin]);
@@ -270,7 +272,7 @@ router.get('/notificacoes/:usuarioLogin', async (req, res) => {
   }
 });
 
-router.post('/notificacoes/ler', async (req, res) => {
+router.post('/notificacoes/ler', authMiddleware, async (req, res) => {
   const { usuarioLogin } = req.body;
   try {
     await db.query("UPDATE protocolos SET visto = TRUE WHERE responsavel = $1 AND visto = FALSE", [usuarioLogin]);
@@ -282,7 +284,7 @@ router.post('/notificacoes/ler', async (req, res) => {
 });
 
 // --- ROTA PARA DASHBOARD (CORRIGIDA E COM FILTROS) ---
-router.get('/dashboard-stats', async (req, res) => {
+router.get('/dashboard-stats', authMiddleware, async (req, res) => {
     try {
         const { dataInicio, dataFim, status, tipo, lotacao } = req.query;
         
@@ -326,7 +328,7 @@ router.get('/dashboard-stats', async (req, res) => {
 // --- ROTAS GLOBAIS (DEVEM VIR POR ÚLTIMO) ---
 
 // Listar todos os protocolos
-router.get('/', async (req, res) => {
+router.get('/', authMiddleware, async (req, res) => {
   try {
     const result = await db.query(`SELECT id, numero, nome, matricula, tipo_requerimento, status, responsavel FROM protocolos ORDER BY id DESC`);
     res.json({ protocolos: result.rows });
@@ -337,7 +339,7 @@ router.get('/', async (req, res) => {
 });
 
 // Buscar protocolo completo pelo ID (DEVE SER A ÚLTIMA ROTA GET)
-router.get('/:id', async (req, res) => {
+router.get('/:id', authMiddleware, async (req, res) => {
   const protocoloId = req.params.id;
   try {
     const result = await db.query(`SELECT * FROM protocolos WHERE id = $1`, [protocoloId]);
@@ -352,7 +354,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // ROTA PARA ATUALIZAR (EDITAR) UM PROTOCOLO COMPLETO
-router.put('/:id', async (req, res) => {
+router.put('/:id', authMiddleware, async (req, res) => {
     const { id } = req.params;
     const { 
         numero, nome, matricula, endereco, municipio, bairro, cep, telefone, 
@@ -379,7 +381,7 @@ router.put('/:id', async (req, res) => {
 });
 
 // ROTA PARA EXCLUIR UM PROTOCOLO
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', authMiddleware, async (req, res) => {
     const { id } = req.params;
     try {
         // Primeiro, deleta o histórico associado para evitar registros órfãos
