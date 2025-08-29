@@ -31,21 +31,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.body.classList.remove('loading');
 
-    if (window.usuarioLogado) {
-        document.getElementById('btnDashboard').style.display = (window.nivelUsuario === 'admin' || window.nivelUsuario === 'padrao') ? 'flex' : 'none';
-        document.getElementById('btnConfig').style.display = window.nivelUsuario === "admin" ? "flex" : "none";
-        document.getElementById('btnNovo').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao" || window.nivelUsuario === "usuario") ? "flex" : "none";
-        document.getElementById('btnRelatorios').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "flex" : "none";
-        document.getElementById('btnTodosProtocolos').style.display = (window.nivelUsuario === 'admin' || window.nivelUsuario === 'padrao') ? 'flex' : 'none';
+   if (window.usuarioLogado) {
+    // Define a visibilidade dos botões
+    document.getElementById('btnDashboard').style.display = (window.nivelUsuario === 'admin' || window.nivelUsuario === 'padrao') ? 'flex' : 'none';
+    document.getElementById('btnConfig').style.display = window.nivelUsuario === "admin" ? "flex" : "none";
+    document.getElementById('btnNovo').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao" || window.nivelUsuario === "usuario") ? "flex" : "none";
+    document.getElementById('btnRelatorios').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "flex" : "none";
+    document.getElementById('btnTodosProtocolos').style.display = (window.nivelUsuario === 'admin' || window.nivelUsuario === 'padrao') ? 'flex' : 'none';
 
+    // VERIFICA O NÍVEL ANTES DE CARREGAR DADOS SENSÍVEIS
+    if (window.nivelUsuario === 'admin' || window.nivelUsuario === 'padrao') {
         carregarOpcoesDropdowns().then(() => {
             mostrarTela('menu');
             verificarNotificacoes();
         });
-
-    } else {
-        mostrarTela('login');
+    } else { // Se for um 'usuario' comum, não chama a função de admin
+        mostrarTela('menu');
+        verificarNotificacoes();
     }
+
+} else {
+    mostrarTela('login');
+}
 
     document.getElementById('matricula').addEventListener('blur', async function() {
         const matricula = this.value.trim();
