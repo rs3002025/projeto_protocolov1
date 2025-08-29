@@ -24,8 +24,11 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Mount routers
 app.use('/', authRoutes); // Handles /login
 app.use('/usuarios', userRoutes); // Handles /usuarios, /usuarios/:id, etc.
-app.use('/protocolos', protocoloRoutes);
-app.use('/dashboard', dashboardRoutes); // Handles /dashboard/stats, /dashboard/notificacoes, etc.
+
+// Mount specific protocol routes BEFORE generic ones to avoid conflicts with /:id
+app.use('/protocolos', dashboardRoutes); // Handles /protocolos/dashboard-stats, /protocolos/notificacoes/*
+app.use('/protocolos', protocoloRoutes); // Handles the rest of the protocol routes
+
 app.use('/admin', authMiddleware, adminMiddleware, adminRoutes);
 
 
