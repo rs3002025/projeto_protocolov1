@@ -1,4 +1,6 @@
 // server.js
+const dns = require('dns');
+dns.setDefaultResultOrder('ipv4first');
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
