@@ -221,11 +221,29 @@ tbody tr:hover { background-color: #f0f0f0; }
   grid-column: span 2;
 }
 
-.chart-container h4 {
-  margin-top: 0;
-  text-align: center;
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.chart-header h4 {
+  margin: 0;
   font-size: 1.1em;
   color: #333;
+}
+
+.chart-filters {
+  display: flex;
+  gap: 10px;
+}
+
+.chart-filters select {
+  padding: 4px 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.9em;
 }
 
 /* --- ESTILOS DE IMPRESSÃO PARA O DASHBOARD --- */
@@ -285,4 +303,12 @@ tbody tr:hover { background-color: #f0f0f0; }
 
 #dashboard-print-area {
   display: none;
+}
+
+#previewContent .dashboard-charts-grid {
+    display: flex;
+    flex-direction: column;
+}
+#previewContent .chart-container.full-width {
+    grid-column: auto;
 }

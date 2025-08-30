@@ -50,7 +50,8 @@
     <div class="dashboard-header">
       <h3>Dashboard Gerencial</h3>
       <div class="dashboard-actions">
-        <button onclick="imprimirDashboard()">🖨️ Imprimir Dashboard</button>
+        <button onclick="imprimirDashboard()">🖨️ Impressão Rápida</button>
+        <button onclick="abrirModalImpressao()">📄 Impressão Personalizada</button>
         <button onclick="mostrarTela('menu')">🔙 Voltar</button>
       </div>
     </div>
@@ -73,20 +74,34 @@
         </div>
         <div class="stat-card" id="card-finalizados">
             <div class="stat-value" id="stat-finalizados">0</div>
-            <div class="stat-label">Finalizados (no filtro)</div>
+            <div class="stat-label">Finalizados (no Período)</div>
         </div>
     </div>
     <div class="dashboard-charts-grid">
       <div class="chart-container">
-          <h4>Top 5 Tipos de Requerimento (no filtro)</h4>
+          <h4>Top 5 Tipos de Requerimento (no Período)</h4>
           <canvas id="tiposChart"></canvas>
       </div>
       <div class="chart-container">
-        <h4>Protocolos por Status (no filtro)</h4>
+        <h4>Protocolos por Status (no Período)</h4>
         <canvas id="statusChart"></canvas>
       </div>
       <div class="chart-container full-width">
-        <h4>Evolução de Novos Protocolos (Últimos 30 dias)</h4>
+        <div class="chart-header">
+            <h4 id="evolucaoChartTitle">Evolução de Novos Protocolos</h4>
+            <div class="chart-filters">
+                <select id="evolucaoPeriodo" onchange="carregarDashboard()">
+                    <option value="7d">Últimos 7 dias</option>
+                    <option value="30d" selected>Últimos 30 dias</option>
+                    <option value="month">Mês Atual</option>
+                    <option value="all">Desde o início</option>
+                </select>
+                <select id="evolucaoAgrupamento" onchange="carregarDashboard()">
+                    <option value="day" selected>Agrupar por Dia</option>
+                    <option value="month">Agrupar por Mês</option>
+                </select>
+            </div>
+        </div>
         <canvas id="evolucaoChart"></canvas>
       </div>
     </div>
@@ -547,6 +562,36 @@
       <button onclick="fecharModal('modalAnexos')">Fechar</button>
     </div>
   </div>
+</div>
+
+<div id="modalImpressaoDashboard" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:10002; align-items:center; justify-content:center;">
+  <div style="background:#fff; padding:20px; border-radius:8px; width:500px; max-width:90%;">
+    <h3>Impressão Personalizada do Dashboard</h3>
+    <p>Selecione os itens que deseja incluir no relatório:</p>
+    <div id="print-options-container" style="margin-top: 15px;">
+      <label><input type="checkbox" name="print-item" value=".dashboard-cards" checked> Cards de Estatísticas</label><br>
+      <label><input type="checkbox" name="print-item" value="#tiposChart" checked> Gráfico: Top 5 Tipos</label><br>
+      <label><input type="checkbox" name="print-item" value="#statusChart" checked> Gráfico: Protocolos por Status</label><br>
+      <label><input type="checkbox" name="print-item" value="#evolucaoChart" checked> Gráfico: Evolução de Protocolos</label><br>
+    </div>
+    <div style="text-align:right; margin-top:20px;">
+      <button onclick="gerarImpressaoPersonalizada()">Gerar Pré-visualização</button>
+      <button onclick="fecharModal('modalImpressaoDashboard')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<div id="modalPreviewImpressao" style="display: none; position: fixed; z-index: 10003; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.6);">
+    <div style="background-color: #fefefe; margin: 20px auto; padding: 0; border: 1px solid #888; width: 95%; max-width: 900px; box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2), 0 6px 20px 0 rgba(0,0,0,0.19);">
+      <div style="display: flex; justify-content: space-between; align-items: center; background: #2e7d32; padding: 5px 15px;">
+        <h4 style="color: white; margin: 0;">Pré-visualização do Relatório</h4>
+        <span style="color: white; font-size: 28px; font-weight: bold; cursor: pointer;" onclick="fecharModal('modalPreviewImpressao')">&times;</span>
+      </div>
+      <div id="previewContent" style="padding: 20px; max-height: 80vh; overflow-y: auto;"></div>
+      <div style="text-align: center; padding: 10px; border-top: 1px solid #ddd;">
+        <button onclick="salvarDashboardPersonalizadoPDF()">Salvar PDF</button>
+      </div>
+    </div>
 </div>
 
 <script src="script.js" defer></script>

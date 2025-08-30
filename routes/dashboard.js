@@ -29,7 +29,7 @@ router.post('/notificacoes/ler', authMiddleware, async (req, res, next) => {
 // --- ROTA PARA DASHBOARD ---
 router.get('/dashboard-stats', authMiddleware, async (req, res, next) => {
     try {
-        let { dataInicio, dataFim, status, tipo, lotacao } = req.query;
+        let { dataInicio, dataFim, status, tipo, lotacao, evolucaoPeriodo = '30d', evolucaoAgrupamento = 'day' } = req.query;
 
         // --- Lógica de Condições e Parâmetros ---
         let baseConditions = 'WHERE 1=1';
@@ -72,7 +72,28 @@ router.get('/dashboard-stats', authMiddleware, async (req, res, next) => {
 
         const statusResult = await db.query(`SELECT status, COUNT(id) as total FROM protocolos ${baseConditions} AND status IS NOT NULL AND status != '' GROUP BY status`, params);
 
-        const evolucaoResult = await db.query(`SELECT DATE(data_solicitacao) as dia, COUNT(id) as total FROM protocolos WHERE data_solicitacao >= current_date - interval '30 days' GROUP BY dia ORDER BY dia ASC`);
+        // --- Lógica da Consulta de Evolução Dinâmica ---
+        let evolucaoQuery;
+        const groupBy = evolucaoAgrupamento === 'month' ? `date_trunc('month', data_solicitacao)` : `DATE(data_solicitacao)`;
+        let whereClause = '';
+
+        switch (evolucaoPeriodo) {
+            case '7d':
+                whereClause = `WHERE data_solicitacao >= current_date - interval '7 days'`;
+                break;
+            case 'month':
+                whereClause = `WHERE date_trunc('month', data_solicitacao) = date_trunc('month', current_date)`;
+                break;
+            case 'all':
+                whereClause = '';
+                break;
+            case '30d':
+            default:
+                whereClause = `WHERE data_solicitacao >= current_date - interval '30 days'`;
+                break;
+        }
+        evolucaoQuery = `SELECT ${groupBy} as "intervalo", COUNT(id) as total FROM protocolos ${whereClause} GROUP BY "intervalo" ORDER BY "intervalo" ASC`;
+        const evolucaoResult = await db.query(evolucaoQuery);
 
         const finalizadosResult = await db.query(`SELECT COUNT(id) FROM protocolos ${baseConditions} AND status IN ('Finalizado', 'Concluído')`, params);
 
