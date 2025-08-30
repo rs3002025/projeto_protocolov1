@@ -141,3 +141,148 @@ tbody tr:hover { background-color: #f0f0f0; }
 #protocolos table, #meusProtocolos table {
   table-layout: auto;
 }
+
+/* --- NOVOS ESTILOS DO DASHBOARD --- */
+
+/* Cabeçalho do Dashboard */
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.dashboard-header h3 {
+  margin: 0;
+}
+
+.dashboard-actions button {
+  margin-left: 10px;
+}
+
+/* Cards com mais cor */
+.dashboard-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 25px;
+  margin-bottom: 40px;
+}
+
+.stat-card {
+  background-color: #fff;
+  padding: 25px;
+  border-radius: 12px;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  border-left: 6px solid;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+}
+
+#card-novos { border-color: #4CAF50; }
+#card-pendentes { border-color: #FFC107; }
+#card-finalizados { border-color: #2196F3; }
+
+.stat-card .stat-value {
+  font-size: 2.8em;
+  font-weight: 700;
+  margin-bottom: 5px;
+}
+
+#card-novos .stat-value { color: #4CAF50; }
+#card-pendentes .stat-value { color: #FFC107; }
+#card-finalizados .stat-value { color: #2196F3; }
+
+.stat-card .stat-label {
+  font-size: 1em;
+  color: #555;
+  font-weight: 500;
+}
+
+/* Grid para os Gráficos */
+.dashboard-charts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+}
+
+.chart-container {
+  background: #fff;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+.chart-container.full-width {
+  grid-column: span 2;
+}
+
+.chart-container h4 {
+  margin-top: 0;
+  text-align: center;
+  font-size: 1.1em;
+  color: #333;
+}
+
+/* --- ESTILOS DE IMPRESSÃO PARA O DASHBOARD --- */
+@media print {
+  body, .container {
+    margin: 0;
+    padding: 0;
+    box-shadow: none;
+    background: #fff;
+  }
+
+  .header, .menu, .filtros, .dashboard-actions, .login-screen, .form-screen, .protocolos-screen, .config-screen, .meus-protocolos-screen, .relatorios-screen {
+    display: none !important;
+  }
+
+  #dashboard.content.active {
+    display: block !important;
+    padding: 10px;
+  }
+
+  .dashboard-header h3 {
+    display: block;
+    width: 100%;
+    text-align: center;
+    font-size: 1.5em;
+    margin-bottom: 20px;
+  }
+
+  .dashboard-cards {
+    display: flex;
+    justify-content: space-around;
+    gap: 15px;
+  }
+
+  .stat-card {
+    box-shadow: none;
+    border: 1px solid #ccc;
+    padding: 10px;
+  }
+
+  .dashboard-charts-grid {
+    display: block; /* Empilha os gráficos na impressão */
+    page-break-inside: avoid;
+  }
+
+  .chart-container {
+    box-shadow: none;
+    border: 1px solid #ccc;
+    margin-top: 20px;
+    page-break-inside: avoid;
+  }
+
+  .chart-container.full-width {
+    grid-column: auto;
+  }
+}
+
+#dashboard-print-area {
+  display: none;
+}

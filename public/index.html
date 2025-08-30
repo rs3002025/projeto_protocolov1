@@ -47,7 +47,13 @@
   </div>
 
   <div id="dashboard" class="dashboard-screen content">
-    <h3>Dashboard Gerencial</h3>
+    <div class="dashboard-header">
+      <h3>Dashboard Gerencial</h3>
+      <div class="dashboard-actions">
+        <button onclick="imprimirDashboard()">🖨️ Imprimir Dashboard</button>
+        <button onclick="mostrarTela('menu')">🔙 Voltar</button>
+      </div>
+    </div>
     <div class="filtros">
         <input type="date" id="dashDataInicio" title="Data de Início">
         <input type="date" id="dashDataFim" title="Data Final">
@@ -57,20 +63,33 @@
         <button onclick="carregarDashboard()">Filtrar</button>
     </div>
     <div class="dashboard-cards">
-        <div class="stat-card">
+        <div class="stat-card" id="card-novos">
             <div class="stat-value" id="stat-novos">0</div>
-            <div class="stat-label" id="stat-novos-label">Novos no Período</div>
+            <div class="stat-label" id="stat-novos-label">Novos na Semana</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card" id="card-pendentes">
             <div class="stat-value" id="stat-pendentes">0</div>
             <div class="stat-label">Pendentes (> 15 dias)</div>
         </div>
+        <div class="stat-card" id="card-finalizados">
+            <div class="stat-value" id="stat-finalizados">0</div>
+            <div class="stat-label">Finalizados (no filtro)</div>
+        </div>
     </div>
-    <div class="chart-container">
-        <h4>Top 5 Tipos de Requerimento (nos filtros)</h4>
-        <canvas id="tiposChart"></canvas>
+    <div class="dashboard-charts-grid">
+      <div class="chart-container">
+          <h4>Top 5 Tipos de Requerimento (no filtro)</h4>
+          <canvas id="tiposChart"></canvas>
+      </div>
+      <div class="chart-container">
+        <h4>Protocolos por Status (no filtro)</h4>
+        <canvas id="statusChart"></canvas>
+      </div>
+      <div class="chart-container full-width">
+        <h4>Evolução de Novos Protocolos (Últimos 30 dias)</h4>
+        <canvas id="evolucaoChart"></canvas>
+      </div>
     </div>
-    <button onclick="mostrarTela('menu')">🔙 Voltar</button>
   </div>
 
   <div id="form" class="form-screen content">
