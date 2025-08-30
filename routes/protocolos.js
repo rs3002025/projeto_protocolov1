@@ -125,7 +125,7 @@ router.post('/atualizar', authMiddleware, async (req, res, next) => {
 router.get('/pesquisa', authMiddleware, async (req, res, next) => {
   try {
     const { numero, nome, status, dataInicio, dataFim, tipo, lotacao } = req.query;
-    let query = `SELECT id, numero, nome, matricula, tipo_requerimento, status, responsavel, data_solicitacao FROM protocolos WHERE 1=1`;
+    let query = `SELECT * FROM protocolos WHERE 1=1`;
     const params = [];
 
     if (numero) { params.push(`%${numero}%`); query += ` AND numero LIKE $${params.length}`; }
