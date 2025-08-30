@@ -83,7 +83,15 @@
           <canvas id="tiposChart"></canvas>
       </div>
       <div class="chart-container">
-        <h4>Protocolos por Status (no Período)</h4>
+        <div class="chart-header">
+            <h4 id="pieChartTitle">Protocolos por Status (no Período)</h4>
+            <div class="chart-filters">
+                <select id="pieChartDataType" onchange="carregarDashboard()">
+                    <option value="status" selected>Por Status</option>
+                    <option value="tipo">Por Tipo de Requerimento</option>
+                </select>
+            </div>
+        </div>
         <canvas id="statusChart"></canvas>
       </div>
       <div class="chart-container full-width">

@@ -85,7 +85,7 @@ router.get('/dashboard-stats', authMiddleware, async (req, res, next) => {
                 whereClause = `WHERE date_trunc('month', data_solicitacao) = date_trunc('month', current_date)`;
                 break;
             case 'all':
-                whereClause = '';
+                whereClause = `WHERE data_solicitacao >= '2025-01-01'`;
                 break;
             case '30d':
             default:
