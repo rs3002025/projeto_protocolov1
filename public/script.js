@@ -499,7 +499,7 @@ window.pesquisarProtocolos = async function() {
 window.previsualizarRelatorioPDF = async function() {
     const params = new URLSearchParams({ numero: document.getElementById('filtroNumero').value, nome: document.getElementById('filtroNome').value, status: document.getElementById('filtroStatus').value, dataInicio: document.getElementById('filtroDataInicio').value, dataFim: document.getElementById('filtroDataFim').value, tipo: document.getElementById('filtroTipo').value, lotacao: document.getElementById('filtroLotacao').value });
     try {
-        const res = await fetch(`/protocolos/pesquisa?${params.toString()}`);
+        const res = await fetchWithAuth(`/protocolos/pesquisa?${params.toString()}`);
         const data = await res.json();
         if (!data.protocolos || data.protocolos.length === 0) { alert("Nenhum resultado encontrado para gerar o PDF."); return; }
         const templatePDF = document.getElementById('modeloProtocolo');
