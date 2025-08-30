@@ -518,10 +518,24 @@ window.previsualizarRelatorioPDF = async function() {
 
         const relatorioContent = document.getElementById('relatorioContent');
         relatorioContent.innerHTML = ''; // Limpa o conteúdo anterior
+
         const templatePDF = document.getElementById('modeloProtocolo');
+        const templateStyle = templatePDF.querySelector('style');
+
+        // Adiciona os estilos uma vez no início do container do relatório
+        if (templateStyle) {
+            relatorioContent.appendChild(templateStyle.cloneNode(true));
+        }
 
         data.protocolos.forEach(p => {
             const protocolNode = templatePDF.cloneNode(true);
+
+            // Remove o <style> do nó clonado para evitar duplicação
+            const clonedStyle = protocolNode.querySelector('style');
+            if (clonedStyle) {
+                clonedStyle.remove();
+            }
+
             protocolNode.removeAttribute('id');
             protocolNode.style.display = 'block';
             protocolNode.style.pageBreakAfter = 'always';
