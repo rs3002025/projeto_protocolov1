@@ -836,94 +836,100 @@ window.abrirModalImpressao = function() {
 
 window.gerarImpressaoPersonalizada = async function() {
     const previewContent = document.getElementById('previewContent');
-    previewContent.innerHTML = '<h4>Carregando pré-visualização...</h4>'; // Feedback para o usuário
+    previewContent.innerHTML = '<h4>Carregando pré-visualização...</h4>';
     fecharModal('modalImpressaoDashboard');
     document.getElementById('modalPreviewImpressao').style.display = 'block';
 
     const checkboxes = document.querySelectorAll('#print-options-container input[name="print-item"]:checked');
     const selectors = Array.from(checkboxes).map(cb => cb.value);
 
-    // Mapeia os seletores aos seus respectivos elementos e títulos
-    const elementsToClone = [
-        { selector: '.dashboard-cards', title: '' },
-        { selector: '#tiposChart', title: 'Top 5 Tipos de Requerimento (no Período)' },
-        { selector: '#statusChart', title: 'Protocolos por Status (no Período)' },
-        { selector: '#evolucaoChart', title: document.getElementById('evolucaoChartTitle').textContent }
-    ];
+    const chartSelectors = ['#tiposChart', '#statusChart', '#evolucaoChart'];
+    const selectedCharts = chartSelectors.filter(sel => selectors.includes(sel));
 
-    // Cria uma lista de promessas para o carregamento das imagens dos gráficos
-    const imagePromises = elementsToClone
-        .filter(el => el.selector.startsWith('#') && selectors.includes(el.selector))
-        .map(el => {
-            return new Promise((resolve) => {
-                const canvas = document.querySelector(el.selector);
-                const img = new Image();
-                img.onload = () => resolve({ ...el, image: img });
-                img.src = canvas.toDataURL('image/png');
-            });
+    const imagePromises = selectedCharts.map(selector => {
+        return new Promise((resolve) => {
+            const canvas = document.querySelector(selector);
+            const img = new Image();
+            img.onload = () => resolve({ selector, image: img });
+            img.src = canvas.toDataURL('image/png');
         });
+    });
 
-    // Espera que todas as imagens dos gráficos sejam carregadas
     const loadedCharts = await Promise.all(imagePromises);
+    const chartImageMap = loadedCharts.reduce((map, item) => {
+        map[item.selector] = item.image;
+        return map;
+    }, {});
 
-    // Limpa o conteúdo de "carregando" e começa a montar o preview final
-    previewContent.innerHTML = '';
-    const header = document.createElement('div');
-    header.innerHTML = `
+    let html = `
         <div style="text-align: center; margin-bottom: 20px; padding: 10px; border-bottom: 1px solid #ccc;">
             <img src="/img/logo.png" alt="Logo" style="height: 60px; margin-bottom: 10px;">
             <h3>Relatório de Desempenho - Dashboard</h3>
             <p style="font-size: 0.9em; color: #555;">Gerado em: ${new Date().toLocaleString('pt-BR')}</p>
         </div>
     `;
-    previewContent.appendChild(header);
 
-    // Adiciona os cards se selecionados
+    html += '<table style="width: 100%; border-collapse: collapse;">';
+
+    // Linha dos Cards
     if (selectors.includes('.dashboard-cards')) {
-        const cards = document.querySelector('.dashboard-cards').cloneNode(true);
-        previewContent.appendChild(cards);
-    }
-
-    // Adiciona um contêiner para os gráficos
-    const chartsGrid = document.createElement('div');
-    chartsGrid.className = 'dashboard-charts-grid';
-    previewContent.appendChild(chartsGrid);
-
-    // Adiciona os gráficos (já carregados como imagens) ao contêiner
-    chartsGrid.style.cssText = 'display: flex; flex-wrap: wrap; justify-content: space-between; gap: 15px; width: 100%;';
-
-    loadedCharts.forEach(chartData => {
-        const originalContainer = document.querySelector(chartData.selector).closest('.chart-container');
-        const chartContainer = document.createElement('div');
-
-        let containerWidth = '48%';
-        if (originalContainer.classList.contains('full-width')) {
-            containerWidth = '100%';
-        }
-
-        chartContainer.style.cssText = `
-            border: 1px solid #eee;
-            border-radius: 8px;
-            padding: 10px;
-            page-break-inside: avoid;
-            width: ${containerWidth};
-            box-sizing: border-box;
+        const cardNovos = document.querySelector('#card-novos').innerHTML;
+        const cardPendentes = document.querySelector('#card-pendentes').innerHTML;
+        const cardFinalizados = document.querySelector('#card-finalizados').innerHTML;
+        html += `
+            <tr style="vertical-align: top;">
+                <td style="width: 33%; border: 1px solid #eee; padding: 10px; border-radius: 8px;">${cardNovos}</td>
+                <td style="width: 33%; border: 1px solid #eee; padding: 10px; border-radius: 8px;">${cardPendentes}</td>
+                <td style="width: 33%; border: 1px solid #eee; padding: 10px; border-radius: 8px;">${cardFinalizados}</td>
+            </tr>
+            <tr><td colspan="3" style="height: 20px;"></td></tr>
         `;
-
-        const titleElement = document.createElement('h4');
-        titleElement.textContent = chartData.title;
-        titleElement.style.cssText = 'font-size: 0.9em; text-align: center; margin: 0 0 10px 0;';
-        chartContainer.appendChild(titleElement);
-
-        chartData.image.style.cssText = 'width: 100%; height: auto; display: block;';
-        chartContainer.appendChild(chartData.image);
-
-        chartsGrid.appendChild(chartContainer);
-    });
-
-    if (chartsGrid.hasChildNodes()) {
-        previewContent.appendChild(chartsGrid);
     }
+
+    // Linha dos Gráficos Menores
+    const tiposChartSelected = selectors.includes('#tiposChart');
+    const statusChartSelected = selectors.includes('#statusChart');
+    if (tiposChartSelected || statusChartSelected) {
+        html += '<tr style="vertical-align: top;">';
+        let tdCount = 0;
+        if (tiposChartSelected) {
+            html += `<td style="width: 50%; padding: 5px;">
+                        <div style="border: 1px solid #eee; border-radius: 8px; padding: 10px; text-align: center;">
+                            <h4>Top 5 Tipos de Requerimento (no Período)</h4>
+                            <img src="${chartImageMap['#tiposChart'].src}" style="width: 100%; height: auto;">
+                        </div>
+                     </td>`;
+            tdCount++;
+        }
+        if (statusChartSelected) {
+            html += `<td style="width: 50%; padding: 5px;">
+                        <div style="border: 1px solid #eee; border-radius: 8px; padding: 10px; text-align: center;">
+                            <h4 id="pieChartTitle">${document.getElementById('pieChartTitle').textContent}</h4>
+                            <img src="${chartImageMap['#statusChart'].src}" style="width: 100%; height: auto;">
+                        </div>
+                     </td>`;
+            tdCount++;
+        }
+        if (tdCount === 1) { // Se apenas um foi selecionado, o outro td fica vazio
+            html += '<td></td>';
+        }
+        html += '</tr><tr><td colspan="3" style="height: 20px;"></td></tr>';
+    }
+
+    // Linha do Gráfico de Evolução
+    if (selectors.includes('#evolucaoChart')) {
+        html += `<tr style="vertical-align: top;">
+                    <td colspan="3" style="padding: 5px;">
+                        <div style="border: 1px solid #eee; border-radius: 8px; padding: 10px; text-align: center;">
+                            <h4>${document.getElementById('evolucaoChartTitle').textContent}</h4>
+                            <img src="${chartImageMap['#evolucaoChart'].src}" style="width: 100%; height: auto;">
+                        </div>
+                    </td>
+                 </tr>`;
+    }
+
+    html += '</table>';
+    previewContent.innerHTML = html;
 };
 
 window.salvarDashboardPersonalizadoPDF = async function() {
