@@ -29,11 +29,11 @@ router.post('/notificacoes/ler', authMiddleware, async (req, res, next) => {
 // --- ROTA PARA DASHBOARD ---
 router.get('/dashboard-stats', authMiddleware, async (req, res, next) => {
     try {
-        const { dataInicio, dataFim, status, tipo, lotacao } = req.query;
+        let { dataInicio, dataFim, status, tipo, lotacao } = req.query;
 
+        // --- Lógica de Condições e Parâmetros ---
         let baseConditions = 'WHERE 1=1';
         const params = [];
-
         function addCondition(field, value, operator = '=', caseInsensitive = false) {
             if (value) {
                 params.push(value);
@@ -44,21 +44,46 @@ router.get('/dashboard-stats', authMiddleware, async (req, res, next) => {
         addCondition('status', status);
         addCondition('tipo_requerimento', tipo);
         addCondition('lotacao', lotacao);
-        if (dataInicio) { params.push(dataInicio); baseConditions += ` AND data_solicitacao >= $${params.length}`; }
-        if (dataFim) { params.push(dataFim); baseConditions += ` AND data_solicitacao <= $${params.length}`; }
 
-        const novosPeriodoQuery = `SELECT COUNT(id) FROM protocolos ${baseConditions}`;
-        const novosPeriodoResult = await db.query(novosPeriodoQuery, params);
+        // --- Tratamento de Datas ---
+        let novosPeriodoConditions = baseConditions;
+        const novosPeriodoParams = [...params];
+        if (dataInicio) {
+            novosPeriodoParams.push(dataInicio);
+            novosPeriodoConditions += ` AND data_solicitacao >= $${novosPeriodoParams.length}`;
+        }
+        if (dataFim) {
+            novosPeriodoParams.push(dataFim);
+            novosPeriodoConditions += ` AND data_solicitacao <= $${novosPeriodoParams.length}`;
+        }
+        // Se não houver data de início, define o padrão de 7 dias para a consulta de "novos no período"
+        if (!dataInicio) {
+            novosPeriodoConditions += ` AND data_solicitacao >= current_date - interval '7 days'`;
+        }
+
+        // --- Execução das Consultas ---
+        const novosPeriodoQuery = `SELECT COUNT(id) FROM protocolos ${novosPeriodoConditions}`;
+        const novosPeriodoResult = await db.query(novosPeriodoQuery, novosPeriodoParams);
 
         const pendentesAntigosResult = await db.query("SELECT COUNT(id) FROM protocolos WHERE status NOT IN ('Finalizado', 'Concluído') AND data_solicitacao <= current_date - interval '15 days'");
 
         const topTiposQuery = `SELECT tipo_requerimento, COUNT(id) as total FROM protocolos ${baseConditions} AND tipo_requerimento IS NOT NULL AND tipo_requerimento != '' GROUP BY tipo_requerimento ORDER BY total DESC LIMIT 5`;
         const topTiposResult = await db.query(topTiposQuery, params);
 
+        const statusResult = await db.query(`SELECT status, COUNT(id) as total FROM protocolos ${baseConditions} AND status IS NOT NULL AND status != '' GROUP BY status`, params);
+
+        const evolucaoResult = await db.query(`SELECT DATE(data_solicitacao) as dia, COUNT(id) as total FROM protocolos WHERE data_solicitacao >= current_date - interval '30 days' GROUP BY dia ORDER BY dia ASC`);
+
+        const finalizadosResult = await db.query(`SELECT COUNT(id) FROM protocolos ${baseConditions} AND status IN ('Finalizado', 'Concluído')`, params);
+
+        // --- Montagem do Objeto de Resposta ---
         const stats = {
             novosNoPeriodo: novosPeriodoResult.rows.length > 0 ? parseInt(novosPeriodoResult.rows[0].count, 10) : 0,
             pendentesAntigos: pendentesAntigosResult.rows.length > 0 ? parseInt(pendentesAntigosResult.rows[0].count, 10) : 0,
-            topTipos: topTiposResult.rows
+            topTipos: topTiposResult.rows,
+            statusProtocolos: statusResult.rows,
+            evolucaoProtocolos: evolucaoResult.rows,
+            totalFinalizados: finalizadosResult.rows.length > 0 ? parseInt(finalizadosResult.rows[0].count, 10) : 0
         };
         res.json(stats);
     } catch (err) {

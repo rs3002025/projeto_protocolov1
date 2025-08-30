@@ -19,6 +19,8 @@ const itensPorPagina = 10;
 let paginaAtualTodos = 1;
 let paginaAtualMeus = 1;
 let tiposChartInstance = null;
+let statusChartInstance = null;
+let evolucaoChartInstance = null;
 let protocoloParaGerar = null;
 window.opcoesTipos = [];
 window.opcoesLotacoes = [];
@@ -130,7 +132,17 @@ window.mostrarTela = async function(tela) {
     if (tela === 'form') { popularDropdownsFormulario(); gerarNumeroProtocolo(); }
     if (tela === 'config') { atualizarListaUsuarios(); carregarTabelaGestao('tipos'); carregarTabelaGestao('lotacoes'); }
     if (tela === 'relatorios') { popularFiltrosRelatorio(); pesquisarProtocolos(); }
-    if (tela === 'dashboard') { popularFiltrosDashboard(); carregarDashboard(); }
+    if (tela === 'dashboard') {
+        popularFiltrosDashboard();
+        // Define a data de início padrão para 7 dias atrás se estiver vazia
+        const dataInicioInput = document.getElementById('dashDataInicio');
+        if (!dataInicioInput.value) {
+            const hoje = new Date();
+            const seteDiasAtras = new Date(hoje.setDate(hoje.getDate() - 7));
+            dataInicioInput.value = seteDiasAtras.toISOString().split('T')[0];
+        }
+        carregarDashboard();
+    }
 };
 window.gerarNumeroProtocolo = async function() {
   const anoAtual = new Date().getFullYear();
@@ -694,19 +706,85 @@ window.popularFiltrosDashboard = function() {
     document.getElementById('dashLotacao').firstChild.textContent = "Todas as Lotações";
 };
 window.carregarDashboard = async function() {
-    const params = new URLSearchParams({ dataInicio: document.getElementById('dashDataInicio').value, dataFim: document.getElementById('dashDataFim').value, status: document.getElementById('dashStatus').value, tipo: document.getElementById('dashTipo').value, lotacao: document.getElementById('dashLotacao').value });
+    const params = new URLSearchParams({
+        dataInicio: document.getElementById('dashDataInicio').value,
+        dataFim: document.getElementById('dashDataFim').value,
+        status: document.getElementById('dashStatus').value,
+        tipo: document.getElementById('dashTipo').value,
+        lotacao: document.getElementById('dashLotacao').value
+    });
+
     try {
         const res = await fetchWithAuth(`/protocolos/dashboard-stats?${params.toString()}`);
         const stats = await res.json();
+
+        // 1. Atualizar Cards
         document.getElementById('stat-novos').textContent = stats.novosNoPeriodo;
         document.getElementById('stat-pendentes').textContent = stats.pendentesAntigos;
-        document.getElementById('stat-novos-label').textContent = (document.getElementById('dashDataInicio').value || document.getElementById('dashDataFim').value) ? 'Novos no Período' : 'Novos na Semana';
-        const labels = stats.topTipos.map(item => item.tipo_requerimento);
-        const data = stats.topTipos.map(item => item.total);
-        const ctx = document.getElementById('tiposChart').getContext('2d');
+        document.getElementById('stat-finalizados').textContent = stats.totalFinalizados;
+        document.getElementById('stat-novos-label').textContent = (document.getElementById('dashDataInicio').value) ? 'Novos no Período' : 'Novos na Semana';
+
+        // 2. Gráfico de Top 5 Tipos (Gráfico de Barras)
         if (tiposChartInstance) { tiposChartInstance.destroy(); }
-        tiposChartInstance = new Chart(ctx, { type: 'bar', data: { labels: labels, datasets: [{ label: 'Total de Protocolos', data: data, backgroundColor: ['rgba(46, 125, 50, 0.7)', 'rgba(76, 175, 80, 0.7)', 'rgba(139, 195, 74, 0.7)', 'rgba(205, 220, 57, 0.7)', 'rgba(255, 235, 59, 0.7)'], borderWidth: 1 }] }, options: { scales: { y: { beginAtZero: true } }, indexAxis: 'y', responsive: true, plugins: { legend: { display: false } } } });
-    } catch (err) { console.error("Erro ao carregar dados do dashboard:", err); alert("Não foi possível carregar os dados do dashboard."); }
+        const tiposCtx = document.getElementById('tiposChart').getContext('2d');
+        tiposChartInstance = new Chart(tiposCtx, {
+            type: 'bar',
+            data: {
+                labels: stats.topTipos.map(item => item.tipo_requerimento),
+                datasets: [{
+                    label: 'Total',
+                    data: stats.topTipos.map(item => item.total),
+                    backgroundColor: ['#4CAF50', '#8BC34A', '#CDDC39', '#FFEB3B', '#FFC107'],
+                    borderColor: '#fff',
+                    borderWidth: 1
+                }]
+            },
+            options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } } }
+        });
+
+        // 3. Gráfico de Status (Gráfico de Pizza)
+        if (statusChartInstance) { statusChartInstance.destroy(); }
+        const statusCtx = document.getElementById('statusChart').getContext('2d');
+        statusChartInstance = new Chart(statusCtx, {
+            type: 'pie',
+            data: {
+                labels: stats.statusProtocolos.map(item => item.status),
+                datasets: [{
+                    label: 'Status',
+                    data: stats.statusProtocolos.map(item => item.total),
+                    backgroundColor: ['#2196F3', '#FF9800', '#F44336', '#9C27B0', '#673AB7', '#009688'],
+                }]
+            },
+            options: { responsive: true, plugins: { legend: { position: 'top' } } }
+        });
+
+        // 4. Gráfico de Evolução (Gráfico de Linha)
+        if (evolucaoChartInstance) { evolucaoChartInstance.destroy(); }
+        const evolucaoCtx = document.getElementById('evolucaoChart').getContext('2d');
+        evolucaoChartInstance = new Chart(evolucaoCtx, {
+            type: 'line',
+            data: {
+                labels: stats.evolucaoProtocolos.map(item => new Date(item.dia).toLocaleDateString('pt-BR', { timeZone: 'UTC' })),
+                datasets: [{
+                    label: 'Novos Protocolos',
+                    data: stats.evolucaoProtocolos.map(item => item.total),
+                    fill: true,
+                    borderColor: '#4CAF50',
+                    backgroundColor: 'rgba(76, 175, 80, 0.2)',
+                    tension: 0.2
+                }]
+            },
+            options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+        });
+
+    } catch (err) {
+        console.error("Erro ao carregar dados do dashboard:", err);
+        alert("Não foi possível carregar os dados do dashboard.");
+    }
+};
+
+window.imprimirDashboard = function() {
+    window.print();
 };
 window.cadastrarUsuario = async function() {
   const nomeCompleto = document.getElementById('nomeCompleto').value.trim();
