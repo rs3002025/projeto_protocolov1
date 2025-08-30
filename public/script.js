@@ -874,20 +874,20 @@ window.gerarImpressaoPersonalizada = async function() {
     if (status) filtrosHtml += `<strong>Status:</strong> ${status} | `;
     if (tipo) filtrosHtml += `<strong>Tipo:</strong> ${tipo} | `;
     if (lotacao) filtrosHtml += `<strong>Lotação:</strong> ${lotacao} | `;
-    if (filtrosHtml) filtrosHtml = filtrosHtml.slice(0, -2); // Remove o último " | "
+    if (filtrosHtml) filtrosHtml = filtrosHtml.slice(0, -2);
 
     let html = `
-        <div style="text-align: center; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #ccc;">
-            <img src="/img/logo.png" alt="Logo" style="height: 50px; margin-bottom: 5px;">
-            <h3 style="margin: 0;">Relatório de Desempenho - Dashboard</h3>
-            <p style="font-size: 0.8em; color: #555; margin: 5px 0 0 0;">Gerado em: ${new Date().toLocaleString('pt-BR')}</p>
+        <div style="text-align: center; margin-bottom: 5px; padding-bottom: 5px; border-bottom: 1px solid #ccc;">
+            <img src="/img/logo.png" alt="Logo" style="height: 45px; margin-bottom: 5px;">
+            <h3 style="margin: 0; font-size: 1.1em;">Relatório de Desempenho - Dashboard</h3>
+            <p style="font-size: 0.7em; color: #555; margin: 2px 0 0 0;">Gerado em: ${new Date().toLocaleString('pt-BR')}</p>
         </div>
-        <div style="font-size: 0.8em; padding: 5px 10px; margin-bottom: 15px; background-color: #f5f5f5; border-radius: 4px;">
+        <div style="font-size: 0.7em; padding: 5px; margin-bottom: 10px; background-color: #f5f5f5; border-radius: 4px; text-align: center;">
             ${filtrosHtml ? filtrosHtml : 'Nenhum filtro principal aplicado.'}
         </div>
     `;
 
-    html += '<table style="width: 100%; border-collapse: collapse; page-break-inside: auto;">';
+    html += '<table style="width: 100%; border-collapse: collapse; page-break-inside: auto;"><tbody>';
 
     // Linha dos Cards
     if (selectors.includes('.dashboard-cards')) {
@@ -895,12 +895,17 @@ window.gerarImpressaoPersonalizada = async function() {
         const cardPendentes = document.querySelector('#card-pendentes').innerHTML;
         const cardFinalizados = document.querySelector('#card-finalizados').innerHTML;
         html += `
-            <tr style="vertical-align: top; text-align: center;">
-                <td style="width: 33%; border: 1px solid #eee; padding: 10px; border-radius: 8px;">${cardNovos}</td>
-                <td style="width: 33%; border: 1px solid #eee; padding: 10px; border-radius: 8px;">${cardPendentes}</td>
-                <td style="width: 33%; border: 1px solid #eee; padding: 10px; border-radius: 8px;">${cardFinalizados}</td>
+            <tr>
+                <td>
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <tr style="vertical-align: top; text-align: center;">
+                            <td style="width: 33%; border: 1px solid #eee; padding: 5px; border-radius: 8px;">${cardNovos}</td>
+                            <td style="width: 33%; border: 1px solid #eee; padding: 5px; border-radius: 8px;">${cardPendentes}</td>
+                            <td style="width: 33%; border: 1px solid #eee; padding: 5px; border-radius: 8px;">${cardFinalizados}</td>
+                        </tr>
+                    </table>
+                </td>
             </tr>
-            <tr><td colspan="3" style="height: 15px;"></td></tr>
         `;
     }
 
@@ -908,39 +913,46 @@ window.gerarImpressaoPersonalizada = async function() {
     const tiposChartSelected = selectors.includes('#tiposChart');
     const statusChartSelected = selectors.includes('#statusChart');
     if (tiposChartSelected || statusChartSelected) {
-        html += '<tr style="vertical-align: top;">';
+        html += `
+            <tr><td style="height: 10px;"></td></tr>
+            <tr>
+                <td>
+                    <table style="width: 100%; border-collapse: collapse;"><tr style="vertical-align: top;">
+        `;
         if (tiposChartSelected) {
-            html += `<td colspan="${statusChartSelected ? '1' : '3'}" style="width: ${statusChartSelected ? '50%' : '100%'}; padding: 5px; text-align: center;">
-                        <div style="border: 1px solid #eee; border-radius: 8px; padding: 10px;">
-                            <h4>Top 5 Tipos de Requerimento</h4>
-                            <img src="${chartImageMap['#tiposChart'].src}" style="width: 95%; height: auto; margin: 0 auto;">
+            html += `<td style="width: 50%; padding-right: 5px; box-sizing: border-box;">
+                        <div style="border: 1px solid #eee; border-radius: 8px; padding: 10px; text-align: center;">
+                            <h4 style="font-size: 0.9em; margin: 0 0 5px 0;">Top 5 Tipos de Requerimento</h4>
+                            <img src="${chartImageMap['#tiposChart'].src}" style="width: 100%; height: auto;">
                         </div>
                      </td>`;
         }
         if (statusChartSelected) {
-            html += `<td colspan="${tiposChartSelected ? '2' : '3'}" style="width: ${tiposChartSelected ? '50%' : '100%'}; padding: 5px; text-align: center;">
-                        <div style="border: 1px solid #eee; border-radius: 8px; padding: 10px;">
-                            <h4>${document.getElementById('pieChartTitle').textContent}</h4>
-                            <img src="${chartImageMap['#statusChart'].src}" style="width: 95%; height: auto; margin: 0 auto;">
+            html += `<td style="width: 50%; padding-left: 5px; box-sizing: border-box;">
+                        <div style="border: 1px solid #eee; border-radius: 8px; padding: 10px; text-align: center;">
+                            <h4 style="font-size: 0.9em; margin: 0 0 5px 0;">${document.getElementById('pieChartTitle').textContent}</h4>
+                            <img src="${chartImageMap['#statusChart'].src}" style="width: 100%; height: auto;">
                         </div>
                      </td>`;
         }
-        html += '</tr><tr><td colspan="3" style="height: 15px;"></td></tr>';
+        html += `</tr></table></td></tr>`;
     }
 
     // Linha do Gráfico de Evolução
     if (selectors.includes('#evolucaoChart')) {
-        html += `<tr style="vertical-align: top;">
-                    <td colspan="3" style="padding: 5px;">
-                        <div style="border: 1px solid #eee; border-radius: 8px; padding: 10px; text-align: center;">
-                            <h4>${document.getElementById('evolucaoChartTitle').textContent}</h4>
-                            <img src="${chartImageMap['#evolucaoChart'].src}" style="width: 95%; height: auto; margin: 0 auto;">
-                        </div>
-                    </td>
-                 </tr>`;
+        html += `
+            <tr><td style="height: 10px;"></td></tr>
+            <tr>
+                <td>
+                    <div style="border: 1px solid #eee; border-radius: 8px; padding: 10px; text-align: center;">
+                        <h4 style="font-size: 0.9em; margin: 0 0 5px 0;">${document.getElementById('evolucaoChartTitle').textContent}</h4>
+                        <img src="${chartImageMap['#evolucaoChart'].src}" style="width: 90%; height: auto; margin: 0 auto;">
+                    </div>
+                </td>
+            </tr>`;
     }
 
-    html += '</table>';
+    html += '</tbody></table>';
     previewContent.innerHTML = html;
 };
 
