@@ -129,7 +129,15 @@ window.mostrarTela = async function(tela) {
 
     if (tela === 'protocolos') listarProtocolos();
     if (tela === 'meusProtocolos') listarMeusProtocolos();
-    if (tela === 'form') { popularDropdownsFormulario(); gerarNumeroProtocolo(); }
+    if (tela === 'form') {
+        popularDropdownsFormulario();
+        gerarNumeroProtocolo();
+        // Define a data de solicitação padrão como hoje
+        const dataSolicitacaoInput = document.getElementById('dataSolicitacao');
+        if (!dataSolicitacaoInput.value) {
+            dataSolicitacaoInput.value = new Date().toISOString().split('T')[0];
+        }
+    }
     if (tela === 'config') { atualizarListaUsuarios(); carregarTabelaGestao('tipos'); carregarTabelaGestao('lotacoes'); }
     if (tela === 'relatorios') { popularFiltrosRelatorio(); pesquisarProtocolos(); }
     if (tela === 'dashboard') {
@@ -153,6 +161,12 @@ window.gerarNumeroProtocolo = async function() {
   } catch (error) { console.error("Erro ao gerar número:", error); document.getElementById('numeroProtocolo').value = `0001/${anoAtual}`; }
 };
 window.enviarRequerimento = async function() {
+  const dataSolicitacao = document.getElementById('dataSolicitacao').value;
+  if (!dataSolicitacao) {
+      alert('❗A Data de Solicitação é um campo obrigatório.');
+      return;
+  }
+
   let numeroProtocolo = document.getElementById('numeroProtocolo').value;
   if (!numeroProtocolo) { alert("❗Número de protocolo não gerado."); return; }
   const protocolo = {
@@ -161,7 +175,7 @@ window.enviarRequerimento = async function() {
     cep: document.getElementById('cep').value, telefone: document.getElementById('telefone').value, cpf: document.getElementById('cpf').value,
     rg: document.getElementById('rg').value, dataExpedicao: document.getElementById('dataExpedicao').value, cargo: document.getElementById('cargo').value,
     lotacao: document.getElementById('lotacao').value, unidade: document.getElementById('unidade').value, tipo: document.getElementById('tipo').value,
-    requerAo: document.getElementById('requerAo').value, dataSolicitacao: document.getElementById('dataSolicitacao').value, complemento: document.getElementById('complemento').value,
+    requerAo: document.getElementById('requerAo').value, dataSolicitacao: dataSolicitacao, complemento: document.getElementById('complemento').value,
     status: "PROTOCOLO GERADO", responsavel: window.usuarioLogin,
   };
 
@@ -876,41 +890,41 @@ window.gerarImpressaoPersonalizada = async function() {
     previewContent.appendChild(chartsGrid);
 
     // Adiciona os gráficos (já carregados como imagens) ao contêiner
-    chartsGrid.style.display = 'flex';
-    chartsGrid.style.flexWrap = 'wrap';
-    chartsGrid.style.justifyContent = 'space-around';
-    chartsGrid.style.gap = '15px';
+    const chartsGrid = document.createElement('div');
+    chartsGrid.style.cssText = 'display: flex; flex-wrap: wrap; justify-content: space-between; gap: 15px; width: 100%;';
 
     loadedCharts.forEach(chartData => {
         const originalContainer = document.querySelector(chartData.selector).closest('.chart-container');
         const chartContainer = document.createElement('div');
 
-        // Estilos para compactar o layout
-        chartContainer.style.border = '1px solid #eee';
-        chartContainer.style.borderRadius = '8px';
-        chartContainer.style.padding = '10px';
-        chartContainer.style.pageBreakInside = 'avoid';
-
+        let containerWidth = '48%';
         if (originalContainer.classList.contains('full-width')) {
-            chartContainer.style.width = '100%';
-        } else {
-            chartContainer.style.width = '48%';
+            containerWidth = '100%';
         }
+
+        chartContainer.style.cssText = `
+            border: 1px solid #eee;
+            border-radius: 8px;
+            padding: 10px;
+            page-break-inside: avoid;
+            width: ${containerWidth};
+            box-sizing: border-box;
+        `;
 
         const titleElement = document.createElement('h4');
         titleElement.textContent = chartData.title;
-        titleElement.style.fontSize = '0.9em';
-        titleElement.style.textAlign = 'center';
-        titleElement.style.margin = '0 0 10px 0';
+        titleElement.style.cssText = 'font-size: 0.9em; text-align: center; margin: 0 0 10px 0;';
         chartContainer.appendChild(titleElement);
 
-        chartData.image.style.width = '100%';
-        chartData.image.style.height = 'auto';
-        chartData.image.style.display = 'block';
+        chartData.image.style.cssText = 'width: 100%; height: auto; display: block;';
         chartContainer.appendChild(chartData.image);
 
         chartsGrid.appendChild(chartContainer);
     });
+
+    if (chartsGrid.hasChildNodes()) {
+        previewContent.appendChild(chartsGrid);
+    }
 };
 
 window.salvarDashboardPersonalizadoPDF = async function() {

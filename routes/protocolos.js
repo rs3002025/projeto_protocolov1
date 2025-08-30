@@ -17,6 +17,11 @@ const upload = multer({
 router.post('/', authMiddleware, async (req, res, next) => {
   try {
     const { numero, nome, matricula, endereco, municipio, bairro, cep, telefone, cpf, rg, cargo, lotacao, unidade, tipo, requerAo, dataSolicitacao, complemento, status, responsavel } = req.body;
+
+    if (!dataSolicitacao) {
+        return res.status(400).json({ sucesso: false, mensagem: 'A data de solicitação é obrigatória.' });
+    }
+
     const result = await db.query(`
       INSERT INTO protocolos (numero, nome, matricula, endereco, municipio, bairro, cep, telefone, cpf, rg, cargo, lotacao, unidade_exercicio, tipo_requerimento, requer_ao, data_solicitacao, observacoes, status, responsavel, visto)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
