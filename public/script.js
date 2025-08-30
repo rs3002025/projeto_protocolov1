@@ -914,22 +914,22 @@ window.gerarImpressaoPersonalizada = async function() {
     const statusChartSelected = selectors.includes('#statusChart');
     if (tiposChartSelected || statusChartSelected) {
         html += `
-            <tr><td style="height: 10px;"></td></tr>
+            <tr><td style="height: 5px;"></td></tr>
             <tr>
                 <td>
-                    <table style="width: 100%; border-collapse: collapse;"><tr style="vertical-align: top;">
+                    <table style="width: 100%; border-collapse: collapse;"><tr style="vertical-align: top; text-align: center;">
         `;
         if (tiposChartSelected) {
-            html += `<td style="width: 50%; padding-right: 5px; box-sizing: border-box;">
-                        <div style="border: 1px solid #eee; border-radius: 8px; padding: 10px; text-align: center;">
+            html += `<td style="width: 50%; padding-right: 2.5px; box-sizing: border-box;">
+                        <div style="border: 1px solid #eee; border-radius: 8px; padding: 10px;">
                             <h4 style="font-size: 0.9em; margin: 0 0 5px 0;">Top 5 Tipos de Requerimento</h4>
                             <img src="${chartImageMap['#tiposChart'].src}" style="width: 100%; height: auto;">
                         </div>
                      </td>`;
         }
         if (statusChartSelected) {
-            html += `<td style="width: 50%; padding-left: 5px; box-sizing: border-box;">
-                        <div style="border: 1px solid #eee; border-radius: 8px; padding: 10px; text-align: center;">
+            html += `<td style="width: 50%; padding-left: 2.5px; box-sizing: border-box;">
+                        <div style="border: 1px solid #eee; border-radius: 8px; padding: 10px;">
                             <h4 style="font-size: 0.9em; margin: 0 0 5px 0;">${document.getElementById('pieChartTitle').textContent}</h4>
                             <img src="${chartImageMap['#statusChart'].src}" style="width: 100%; height: auto;">
                         </div>
@@ -941,7 +941,7 @@ window.gerarImpressaoPersonalizada = async function() {
     // Linha do Gráfico de Evolução
     if (selectors.includes('#evolucaoChart')) {
         html += `
-            <tr><td style="height: 10px;"></td></tr>
+            <tr><td style="height: 5px;"></td></tr>
             <tr>
                 <td>
                     <div style="border: 1px solid #eee; border-radius: 8px; padding: 10px; text-align: center;">
@@ -964,7 +964,7 @@ window.salvarDashboardPersonalizadoPDF = async function() {
     button.disabled = true;
 
     const opt = {
-        margin: 10,
+        margin: 5,
         filename: 'Dashboard_Personalizado.pdf',
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true },
