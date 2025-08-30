@@ -744,17 +744,33 @@ window.carregarDashboard = async function() {
             options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } } }
         });
 
-        // 3. Gráfico de Status (Gráfico de Pizza)
+        // 3. Gráfico de Pizza Dinâmico (Status ou Tipo)
         if (statusChartInstance) { statusChartInstance.destroy(); }
         const statusCtx = document.getElementById('statusChart').getContext('2d');
+        const pieChartDataType = document.getElementById('pieChartDataType').value;
+
+        let pieChartLabels, pieChartData, pieChartTitle;
+
+        if (pieChartDataType === 'status') {
+            pieChartLabels = stats.statusProtocolos.map(item => item.status);
+            pieChartData = stats.statusProtocolos.map(item => item.total);
+            pieChartTitle = 'Protocolos por Status (no Período)';
+        } else { // 'tipo'
+            pieChartLabels = stats.topTipos.map(item => item.tipo_requerimento);
+            pieChartData = stats.topTipos.map(item => item.total);
+            pieChartTitle = 'Top 5 Tipos de Requerimento (no Período)';
+        }
+
+        document.getElementById('pieChartTitle').textContent = pieChartTitle;
+
         statusChartInstance = new Chart(statusCtx, {
             type: 'pie',
             data: {
-                labels: stats.statusProtocolos.map(item => item.status),
+                labels: pieChartLabels,
                 datasets: [{
-                    label: 'Status',
-                    data: stats.statusProtocolos.map(item => item.total),
-                    backgroundColor: ['#2196F3', '#FF9800', '#F44336', '#9C27B0', '#673AB7', '#009688'],
+                    label: 'Total',
+                    data: pieChartData,
+                    backgroundColor: ['#2196F3', '#FF9800', '#4CAF50', '#F44336', '#9C27B0', '#673AB7', '#009688'],
                 }]
             },
             options: { responsive: true, plugins: { legend: { position: 'right' } } }
@@ -806,66 +822,75 @@ window.abrirModalImpressao = function() {
 
 window.gerarImpressaoPersonalizada = async function() {
     const previewContent = document.getElementById('previewContent');
-    previewContent.innerHTML = ''; // Limpa o conteúdo anterior
-
-    // Adiciona um cabeçalho
-    const header = document.createElement('div');
-    header.innerHTML = `
-        <div style="text-align: center; margin-bottom: 20px;">
-            <img src="/img/logo.png" alt="Logo" style="height: 60px;">
-            <h3>Relatório de Desempenho - Dashboard</h3>
-            <p style="font-size: 0.9em;">Gerado em: ${new Date().toLocaleString('pt-BR')}</p>
-        </div>
-    `;
-    previewContent.appendChild(header);
+    previewContent.innerHTML = '<h4>Carregando pré-visualização...</h4>'; // Feedback para o usuário
+    fecharModal('modalImpressaoDashboard');
+    document.getElementById('modalPreviewImpressao').style.display = 'block';
 
     const checkboxes = document.querySelectorAll('#print-options-container input[name="print-item"]:checked');
     const selectors = Array.from(checkboxes).map(cb => cb.value);
 
-    // Para clonar os gráficos corretamente, precisamos converter os canvas em imagens
-    // porque o html2pdf pode ter problemas ao clonar canvas de gráficos complexos.
-    const chartsToClone = [
-        { selector: '#tiposChart', id: 'tiposChart' },
-        { selector: '#statusChart', id: 'statusChart' },
-        { selector: '#evolucaoChart', id: 'evolucaoChart' }
+    // Mapeia os seletores aos seus respectivos elementos e títulos
+    const elementsToClone = [
+        { selector: '.dashboard-cards', title: '' },
+        { selector: '#tiposChart', title: 'Top 5 Tipos de Requerimento (no Período)' },
+        { selector: '#statusChart', title: 'Protocolos por Status (no Período)' },
+        { selector: '#evolucaoChart', title: document.getElementById('evolucaoChartTitle').textContent }
     ];
 
-    const chartImages = {};
-    for (const chartInfo of chartsToClone) {
-        if (selectors.includes(chartInfo.selector)) {
-            const chartCanvas = document.getElementById(chartInfo.id);
-            if(chartCanvas) {
-                chartImages[chartInfo.id] = chartCanvas.toDataURL('image/png');
-            }
-        }
-    }
+    // Cria uma lista de promessas para o carregamento das imagens dos gráficos
+    const imagePromises = elementsToClone
+        .filter(el => el.selector.startsWith('#') && selectors.includes(el.selector))
+        .map(el => {
+            return new Promise((resolve) => {
+                const canvas = document.querySelector(el.selector);
+                const img = new Image();
+                img.onload = () => resolve({ ...el, image: img });
+                img.src = canvas.toDataURL('image/png');
+            });
+        });
 
-    // Clonar cards
+    // Espera que todas as imagens dos gráficos sejam carregadas
+    const loadedCharts = await Promise.all(imagePromises);
+
+    // Limpa o conteúdo de "carregando" e começa a montar o preview final
+    previewContent.innerHTML = '';
+    const header = document.createElement('div');
+    header.innerHTML = `
+        <div style="text-align: center; margin-bottom: 20px; padding: 10px; border-bottom: 1px solid #ccc;">
+            <img src="/img/logo.png" alt="Logo" style="height: 60px; margin-bottom: 10px;">
+            <h3>Relatório de Desempenho - Dashboard</h3>
+            <p style="font-size: 0.9em; color: #555;">Gerado em: ${new Date().toLocaleString('pt-BR')}</p>
+        </div>
+    `;
+    previewContent.appendChild(header);
+
+    // Adiciona os cards se selecionados
     if (selectors.includes('.dashboard-cards')) {
         const cards = document.querySelector('.dashboard-cards').cloneNode(true);
         previewContent.appendChild(cards);
     }
 
-    // Adicionar gráficos como imagens
+    // Adiciona um contêiner para os gráficos
     const chartsGrid = document.createElement('div');
     chartsGrid.className = 'dashboard-charts-grid';
+    previewContent.appendChild(chartsGrid);
 
-    for (const chartInfo of chartsToClone) {
-        if (chartImages[chartInfo.id]) {
-            const originalContainer = document.getElementById(chartInfo.id).parentElement;
-            const chartContainer = document.createElement('div');
-            chartContainer.className = originalContainer.className;
-            chartContainer.innerHTML = `<h4>${originalContainer.querySelector('h4').textContent}</h4><img src="${chartImages[chartInfo.id]}" style="width: 100%; height: auto;">`;
-            chartsGrid.appendChild(chartContainer);
-        }
-    }
+    // Adiciona os gráficos (já carregados como imagens) ao contêiner
+    loadedCharts.forEach(chartData => {
+        const originalContainer = document.querySelector(chartData.selector).closest('.chart-container');
+        const chartContainer = document.createElement('div');
+        chartContainer.className = originalContainer.className;
 
-    if (chartsGrid.hasChildNodes()) {
-        previewContent.appendChild(chartsGrid);
-    }
+        const titleElement = document.createElement('h4');
+        titleElement.textContent = chartData.title;
+        chartContainer.appendChild(titleElement);
 
-    fecharModal('modalImpressaoDashboard');
-    document.getElementById('modalPreviewImpressao').style.display = 'block';
+        chartData.image.style.width = '100%';
+        chartData.image.style.height = 'auto';
+        chartContainer.appendChild(chartData.image);
+
+        chartsGrid.appendChild(chartContainer);
+    });
 };
 
 window.salvarDashboardPersonalizadoPDF = async function() {
