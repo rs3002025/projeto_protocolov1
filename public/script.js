@@ -876,21 +876,36 @@ window.gerarImpressaoPersonalizada = async function() {
     previewContent.appendChild(chartsGrid);
 
     // Adiciona os gráficos (já carregados como imagens) ao contêiner
+    chartsGrid.style.display = 'flex';
+    chartsGrid.style.flexWrap = 'wrap';
+    chartsGrid.style.justifyContent = 'space-around';
+    chartsGrid.style.gap = '15px';
+
     loadedCharts.forEach(chartData => {
         const originalContainer = document.querySelector(chartData.selector).closest('.chart-container');
         const chartContainer = document.createElement('div');
-        chartContainer.className = originalContainer.className;
-        chartContainer.style.padding = '10px'; // Reduz o padding para economizar espaço
+
+        // Estilos para compactar o layout
+        chartContainer.style.border = '1px solid #eee';
+        chartContainer.style.borderRadius = '8px';
+        chartContainer.style.padding = '10px';
+        chartContainer.style.pageBreakInside = 'avoid';
+
+        if (originalContainer.classList.contains('full-width')) {
+            chartContainer.style.width = '100%';
+        } else {
+            chartContainer.style.width = '48%';
+        }
 
         const titleElement = document.createElement('h4');
         titleElement.textContent = chartData.title;
-        titleElement.style.fontSize = '1em'; // Reduz o tamanho da fonte do título
+        titleElement.style.fontSize = '0.9em';
+        titleElement.style.textAlign = 'center';
+        titleElement.style.margin = '0 0 10px 0';
         chartContainer.appendChild(titleElement);
 
-        // Aplica um tamanho menor à imagem do gráfico
-        chartData.image.style.width = '80%';
+        chartData.image.style.width = '100%';
         chartData.image.style.height = 'auto';
-        chartData.image.style.margin = '0 auto';
         chartData.image.style.display = 'block';
         chartContainer.appendChild(chartData.image);
 

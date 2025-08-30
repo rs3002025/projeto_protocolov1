@@ -28,6 +28,13 @@ router.post('/', authMiddleware, async (req, res, next) => {
         false
     ]);
     const novoProtocoloId = result.rows[0].id;
+
+    // Adiciona o primeiro registro ao histórico
+    await db.query(`
+      INSERT INTO historico_protocolos (protocolo_id, status, responsavel, observacao)
+      VALUES ($1, $2, $3, $4)
+    `, [novoProtocoloId, status, responsavel, 'Protocolo criado no sistema.']);
+
     res.json({ sucesso: true, mensagem: 'Protocolo salvo com sucesso.', novoProtocoloId: novoProtocoloId });
   } catch (error) {
     next(error);
