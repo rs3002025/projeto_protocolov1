@@ -711,7 +711,9 @@ window.carregarDashboard = async function() {
         dataFim: document.getElementById('dashDataFim').value,
         status: document.getElementById('dashStatus').value,
         tipo: document.getElementById('dashTipo').value,
-        lotacao: document.getElementById('dashLotacao').value
+        lotacao: document.getElementById('dashLotacao').value,
+        evolucaoPeriodo: document.getElementById('evolucaoPeriodo').value,
+        evolucaoAgrupamento: document.getElementById('evolucaoAgrupamento').value
     });
 
     try {
@@ -755,16 +757,27 @@ window.carregarDashboard = async function() {
                     backgroundColor: ['#2196F3', '#FF9800', '#F44336', '#9C27B0', '#673AB7', '#009688'],
                 }]
             },
-            options: { responsive: true, plugins: { legend: { position: 'top' } } }
+            options: { responsive: true, plugins: { legend: { position: 'right' } } }
         });
 
         // 4. Gráfico de Evolução (Gráfico de Linha)
         if (evolucaoChartInstance) { evolucaoChartInstance.destroy(); }
         const evolucaoCtx = document.getElementById('evolucaoChart').getContext('2d');
+        const evolucaoAgrupamento = document.getElementById('evolucaoAgrupamento').value;
+        const evolucaoPeriodoSelect = document.getElementById('evolucaoPeriodo');
+        const evolucaoPeriodoTexto = evolucaoPeriodoSelect.options[evolucaoPeriodoSelect.selectedIndex].text;
+
+        document.getElementById('evolucaoChartTitle').textContent = `Evolução de Novos Protocolos (${evolucaoPeriodoTexto})`;
+
         evolucaoChartInstance = new Chart(evolucaoCtx, {
             type: 'line',
             data: {
-                labels: stats.evolucaoProtocolos.map(item => new Date(item.dia).toLocaleDateString('pt-BR', { timeZone: 'UTC' })),
+                labels: stats.evolucaoProtocolos.map(item => {
+                    const date = new Date(item.intervalo);
+                    return evolucaoAgrupamento === 'month'
+                        ? date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' })
+                        : date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'UTC' });
+                }),
                 datasets: [{
                     label: 'Novos Protocolos',
                     data: stats.evolucaoProtocolos.map(item => item.total),
@@ -785,6 +798,101 @@ window.carregarDashboard = async function() {
 
 window.imprimirDashboard = function() {
     window.print();
+};
+
+window.abrirModalImpressao = function() {
+    document.getElementById('modalImpressaoDashboard').style.display = 'flex';
+};
+
+window.gerarImpressaoPersonalizada = async function() {
+    const previewContent = document.getElementById('previewContent');
+    previewContent.innerHTML = ''; // Limpa o conteúdo anterior
+
+    // Adiciona um cabeçalho
+    const header = document.createElement('div');
+    header.innerHTML = `
+        <div style="text-align: center; margin-bottom: 20px;">
+            <img src="/img/logo.png" alt="Logo" style="height: 60px;">
+            <h3>Relatório de Desempenho - Dashboard</h3>
+            <p style="font-size: 0.9em;">Gerado em: ${new Date().toLocaleString('pt-BR')}</p>
+        </div>
+    `;
+    previewContent.appendChild(header);
+
+    const checkboxes = document.querySelectorAll('#print-options-container input[name="print-item"]:checked');
+    const selectors = Array.from(checkboxes).map(cb => cb.value);
+
+    // Para clonar os gráficos corretamente, precisamos converter os canvas em imagens
+    // porque o html2pdf pode ter problemas ao clonar canvas de gráficos complexos.
+    const chartsToClone = [
+        { selector: '#tiposChart', id: 'tiposChart' },
+        { selector: '#statusChart', id: 'statusChart' },
+        { selector: '#evolucaoChart', id: 'evolucaoChart' }
+    ];
+
+    const chartImages = {};
+    for (const chartInfo of chartsToClone) {
+        if (selectors.includes(chartInfo.selector)) {
+            const chartCanvas = document.getElementById(chartInfo.id);
+            if(chartCanvas) {
+                chartImages[chartInfo.id] = chartCanvas.toDataURL('image/png');
+            }
+        }
+    }
+
+    // Clonar cards
+    if (selectors.includes('.dashboard-cards')) {
+        const cards = document.querySelector('.dashboard-cards').cloneNode(true);
+        previewContent.appendChild(cards);
+    }
+
+    // Adicionar gráficos como imagens
+    const chartsGrid = document.createElement('div');
+    chartsGrid.className = 'dashboard-charts-grid';
+
+    for (const chartInfo of chartsToClone) {
+        if (chartImages[chartInfo.id]) {
+            const originalContainer = document.getElementById(chartInfo.id).parentElement;
+            const chartContainer = document.createElement('div');
+            chartContainer.className = originalContainer.className;
+            chartContainer.innerHTML = `<h4>${originalContainer.querySelector('h4').textContent}</h4><img src="${chartImages[chartInfo.id]}" style="width: 100%; height: auto;">`;
+            chartsGrid.appendChild(chartContainer);
+        }
+    }
+
+    if (chartsGrid.hasChildNodes()) {
+        previewContent.appendChild(chartsGrid);
+    }
+
+    fecharModal('modalImpressaoDashboard');
+    document.getElementById('modalPreviewImpressao').style.display = 'block';
+};
+
+window.salvarDashboardPersonalizadoPDF = async function() {
+    const content = document.getElementById('previewContent');
+    const button = document.querySelector('#modalPreviewImpressao button');
+
+    button.textContent = 'Gerando...';
+    button.disabled = true;
+
+    const opt = {
+        margin: 10,
+        filename: 'Dashboard_Personalizado.pdf',
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    try {
+        await html2pdf().set(opt).from(content).save();
+    } catch (err) {
+        console.error('Erro ao gerar PDF personalizado:', err);
+        alert('Ocorreu um erro ao gerar o PDF.');
+    } finally {
+        button.textContent = 'Salvar PDF';
+        button.disabled = false;
+        fecharModal('modalPreviewImpressao');
+    }
 };
 window.cadastrarUsuario = async function() {
   const nomeCompleto = document.getElementById('nomeCompleto').value.trim();
