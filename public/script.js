@@ -497,26 +497,73 @@ window.pesquisarProtocolos = async function() {
   } catch (error) { console.error("Erro ao pesquisar protocolos:", error); }
 };
 window.previsualizarRelatorioPDF = async function() {
-    const params = new URLSearchParams({ numero: document.getElementById('filtroNumero').value, nome: document.getElementById('filtroNome').value, status: document.getElementById('filtroStatus').value, dataInicio: document.getElementById('filtroDataInicio').value, dataFim: document.getElementById('filtroDataFim').value, tipo: document.getElementById('filtroTipo').value, lotacao: document.getElementById('filtroLotacao').value });
+    const params = new URLSearchParams({
+        numero: document.getElementById('filtroNumero').value,
+        nome: document.getElementById('filtroNome').value,
+        status: document.getElementById('filtroStatus').value,
+        dataInicio: document.getElementById('filtroDataInicio').value,
+        dataFim: document.getElementById('filtroDataFim').value,
+        tipo: document.getElementById('filtroTipo').value,
+        lotacao: document.getElementById('filtroLotacao').value
+    });
+
     try {
         const res = await fetchWithAuth(`/protocolos/pesquisa?${params.toString()}`);
         const data = await res.json();
-        if (!data.protocolos || data.protocolos.length === 0) { alert("Nenhum resultado encontrado para gerar o PDF."); return; }
+
+        if (!data.protocolos || data.protocolos.length === 0) {
+            alert("Nenhum resultado encontrado para gerar o PDF.");
+            return;
+        }
+
+        const relatorioContent = document.getElementById('relatorioContent');
+        relatorioContent.innerHTML = ''; // Limpa o conteúdo anterior
         const templatePDF = document.getElementById('modeloProtocolo');
-        let htmlContent = '';
+
         data.protocolos.forEach(p => {
-            const tempNode = templatePDF.cloneNode(true);
-            tempNode.style.display = 'block';
-            tempNode.querySelector('#doc_numero').textContent = p.numero || '';
-            tempNode.querySelector('#doc_dataSolicitacao').textContent = p.data_solicitacao ? new Date(p.data_solicitacao).toLocaleDateString('pt-BR', {timeZone: 'UTC'}) : '';
-            tempNode.querySelector('#doc_nome').textContent = p.nome || '';
-            tempNode.querySelector('#doc_matricula').textContent = p.matricula || '';
-            tempNode.querySelector('#doc_tipo').textContent = p.tipo_requerimento || '';
-            htmlContent += `<div style="page-break-after: always;">${tempNode.innerHTML}</div>`;
+            const protocolNode = templatePDF.cloneNode(true);
+            protocolNode.removeAttribute('id');
+            protocolNode.style.display = 'block';
+            protocolNode.style.pageBreakAfter = 'always';
+
+            // Preenche todos os campos do protocolo
+            protocolNode.querySelector('#doc_numero').textContent = p.numero ?? '';
+            protocolNode.querySelector('#doc_dataSolicitacao').textContent = p.data_solicitacao ? new Date(p.data_solicitacao).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '';
+            protocolNode.querySelector('#doc_nome').textContent = p.nome ?? '';
+            protocolNode.querySelector('#doc_matricula').textContent = p.matricula ?? '';
+            protocolNode.querySelector('#doc_cpf').textContent = p.cpf ?? '';
+            protocolNode.querySelector('#doc_rg').textContent = p.rg ?? '';
+            protocolNode.querySelector('#doc_endereco').textContent = p.endereco ?? '';
+            protocolNode.querySelector('#doc_bairro').textContent = p.bairro ?? '';
+            protocolNode.querySelector('#doc_municipio').textContent = p.municipio ?? '';
+            protocolNode.querySelector('#doc_cep').textContent = p.cep ?? '';
+            protocolNode.querySelector('#doc_telefone').textContent = p.telefone ?? '';
+            protocolNode.querySelector('#doc_cargo').textContent = p.cargo ?? '';
+            protocolNode.querySelector('#doc_lotacao').textContent = p.lotacao ?? '';
+            protocolNode.querySelector('#doc_unidade').textContent = p.unidade_exercicio ?? '';
+            protocolNode.querySelector('#doc_tipo').textContent = p.tipo_requerimento ?? '';
+            protocolNode.querySelector('#doc_requerAo').textContent = p.requer_ao ?? '';
+            protocolNode.querySelector('#doc_complemento').innerHTML = p.observacoes ? p.observacoes.replace(/\n/g, '<br>') : 'Nenhuma informação adicional.';
+
+            const qrcodeContainer = protocolNode.querySelector('#qrcode-container');
+            if (qrcodeContainer && p.numero && p.numero.includes('/')) {
+                qrcodeContainer.innerHTML = '';
+                const numeroParts = p.numero.split('/');
+                if (numeroParts.length === 2) {
+                    const urlConsulta = `${window.location.origin}/consulta/${numeroParts[1]}/${numeroParts[0]}`;
+                    new QRCode(qrcodeContainer, { text: urlConsulta, width: 90, height: 90, correctLevel: QRCode.CorrectLevel.H });
+                }
+            }
+
+            relatorioContent.appendChild(protocolNode);
         });
-        document.getElementById('relatorioContent').innerHTML = htmlContent;
+
         document.getElementById('relatorioModal').style.display = 'block';
-    } catch(err) { console.error('Erro ao gerar relatório:', err); alert('Erro ao gerar relatório.'); }
+
+    } catch (err) {
+        console.error('Erro ao gerar relatório:', err);
+        alert('Erro ao gerar relatório.');
+    }
 };
 window.salvarRelatorioPDF = async function() {
     const element = document.getElementById('relatorioContent');
