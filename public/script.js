@@ -861,15 +861,33 @@ window.gerarImpressaoPersonalizada = async function() {
         return map;
     }, {});
 
+    // Monta a seção de filtros
+    let filtrosHtml = '';
+    const dataInicio = document.getElementById('dashDataInicio').value;
+    const dataFim = document.getElementById('dashDataFim').value;
+    const status = document.getElementById('dashStatus').value;
+    const tipo = document.getElementById('dashTipo').value;
+    const lotacao = document.getElementById('dashLotacao').value;
+
+    if (dataInicio) filtrosHtml += `<strong>Data de Início:</strong> ${new Date(dataInicio+'T00:00:00').toLocaleDateString('pt-BR')} | `;
+    if (dataFim) filtrosHtml += `<strong>Data Final:</strong> ${new Date(dataFim+'T00:00:00').toLocaleDateString('pt-BR')} | `;
+    if (status) filtrosHtml += `<strong>Status:</strong> ${status} | `;
+    if (tipo) filtrosHtml += `<strong>Tipo:</strong> ${tipo} | `;
+    if (lotacao) filtrosHtml += `<strong>Lotação:</strong> ${lotacao} | `;
+    if (filtrosHtml) filtrosHtml = filtrosHtml.slice(0, -2); // Remove o último " | "
+
     let html = `
-        <div style="text-align: center; margin-bottom: 20px; padding: 10px; border-bottom: 1px solid #ccc;">
-            <img src="/img/logo.png" alt="Logo" style="height: 60px; margin-bottom: 10px;">
-            <h3>Relatório de Desempenho - Dashboard</h3>
-            <p style="font-size: 0.9em; color: #555;">Gerado em: ${new Date().toLocaleString('pt-BR')}</p>
+        <div style="text-align: center; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #ccc;">
+            <img src="/img/logo.png" alt="Logo" style="height: 50px; margin-bottom: 5px;">
+            <h3 style="margin: 0;">Relatório de Desempenho - Dashboard</h3>
+            <p style="font-size: 0.8em; color: #555; margin: 5px 0 0 0;">Gerado em: ${new Date().toLocaleString('pt-BR')}</p>
+        </div>
+        <div style="font-size: 0.8em; padding: 5px 10px; margin-bottom: 15px; background-color: #f5f5f5; border-radius: 4px;">
+            ${filtrosHtml ? filtrosHtml : 'Nenhum filtro principal aplicado.'}
         </div>
     `;
 
-    html += '<table style="width: 100%; border-collapse: collapse;">';
+    html += '<table style="width: 100%; border-collapse: collapse; page-break-inside: auto;">';
 
     // Linha dos Cards
     if (selectors.includes('.dashboard-cards')) {
@@ -877,12 +895,12 @@ window.gerarImpressaoPersonalizada = async function() {
         const cardPendentes = document.querySelector('#card-pendentes').innerHTML;
         const cardFinalizados = document.querySelector('#card-finalizados').innerHTML;
         html += `
-            <tr style="vertical-align: top;">
+            <tr style="vertical-align: top; text-align: center;">
                 <td style="width: 33%; border: 1px solid #eee; padding: 10px; border-radius: 8px;">${cardNovos}</td>
                 <td style="width: 33%; border: 1px solid #eee; padding: 10px; border-radius: 8px;">${cardPendentes}</td>
                 <td style="width: 33%; border: 1px solid #eee; padding: 10px; border-radius: 8px;">${cardFinalizados}</td>
             </tr>
-            <tr><td colspan="3" style="height: 20px;"></td></tr>
+            <tr><td colspan="3" style="height: 15px;"></td></tr>
         `;
     }
 
@@ -891,29 +909,23 @@ window.gerarImpressaoPersonalizada = async function() {
     const statusChartSelected = selectors.includes('#statusChart');
     if (tiposChartSelected || statusChartSelected) {
         html += '<tr style="vertical-align: top;">';
-        let tdCount = 0;
         if (tiposChartSelected) {
-            html += `<td style="width: 50%; padding: 5px;">
-                        <div style="border: 1px solid #eee; border-radius: 8px; padding: 10px; text-align: center;">
-                            <h4>Top 5 Tipos de Requerimento (no Período)</h4>
-                            <img src="${chartImageMap['#tiposChart'].src}" style="width: 100%; height: auto;">
+            html += `<td colspan="${statusChartSelected ? '1' : '3'}" style="width: ${statusChartSelected ? '50%' : '100%'}; padding: 5px; text-align: center;">
+                        <div style="border: 1px solid #eee; border-radius: 8px; padding: 10px;">
+                            <h4>Top 5 Tipos de Requerimento</h4>
+                            <img src="${chartImageMap['#tiposChart'].src}" style="width: 95%; height: auto; margin: 0 auto;">
                         </div>
                      </td>`;
-            tdCount++;
         }
         if (statusChartSelected) {
-            html += `<td style="width: 50%; padding: 5px;">
-                        <div style="border: 1px solid #eee; border-radius: 8px; padding: 10px; text-align: center;">
-                            <h4 id="pieChartTitle">${document.getElementById('pieChartTitle').textContent}</h4>
-                            <img src="${chartImageMap['#statusChart'].src}" style="width: 100%; height: auto;">
+            html += `<td colspan="${tiposChartSelected ? '2' : '3'}" style="width: ${tiposChartSelected ? '50%' : '100%'}; padding: 5px; text-align: center;">
+                        <div style="border: 1px solid #eee; border-radius: 8px; padding: 10px;">
+                            <h4>${document.getElementById('pieChartTitle').textContent}</h4>
+                            <img src="${chartImageMap['#statusChart'].src}" style="width: 95%; height: auto; margin: 0 auto;">
                         </div>
                      </td>`;
-            tdCount++;
         }
-        if (tdCount === 1) { // Se apenas um foi selecionado, o outro td fica vazio
-            html += '<td></td>';
-        }
-        html += '</tr><tr><td colspan="3" style="height: 20px;"></td></tr>';
+        html += '</tr><tr><td colspan="3" style="height: 15px;"></td></tr>';
     }
 
     // Linha do Gráfico de Evolução
@@ -922,7 +934,7 @@ window.gerarImpressaoPersonalizada = async function() {
                     <td colspan="3" style="padding: 5px;">
                         <div style="border: 1px solid #eee; border-radius: 8px; padding: 10px; text-align: center;">
                             <h4>${document.getElementById('evolucaoChartTitle').textContent}</h4>
-                            <img src="${chartImageMap['#evolucaoChart'].src}" style="width: 100%; height: auto;">
+                            <img src="${chartImageMap['#evolucaoChart'].src}" style="width: 95%; height: auto; margin: 0 auto;">
                         </div>
                     </td>
                  </tr>`;
