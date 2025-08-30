@@ -70,6 +70,9 @@ router.get('/dashboard-stats', authMiddleware, async (req, res, next) => {
         const topTiposQuery = `SELECT tipo_requerimento, COUNT(id) as total FROM protocolos ${baseConditions} AND tipo_requerimento IS NOT NULL AND tipo_requerimento != '' GROUP BY tipo_requerimento ORDER BY total DESC LIMIT 5`;
         const topTiposResult = await db.query(topTiposQuery, params);
 
+        const todosTiposQuery = `SELECT tipo_requerimento, COUNT(id) as total FROM protocolos ${baseConditions} AND tipo_requerimento IS NOT NULL AND tipo_requerimento != '' GROUP BY tipo_requerimento ORDER BY total DESC`;
+        const todosTiposResult = await db.query(todosTiposQuery, params);
+
         const statusResult = await db.query(`SELECT status, COUNT(id) as total FROM protocolos ${baseConditions} AND status IS NOT NULL AND status != '' GROUP BY status`, params);
 
         // --- Lógica da Consulta de Evolução Dinâmica ---
@@ -102,6 +105,7 @@ router.get('/dashboard-stats', authMiddleware, async (req, res, next) => {
             novosNoPeriodo: novosPeriodoResult.rows.length > 0 ? parseInt(novosPeriodoResult.rows[0].count, 10) : 0,
             pendentesAntigos: pendentesAntigosResult.rows.length > 0 ? parseInt(pendentesAntigosResult.rows[0].count, 10) : 0,
             topTipos: topTiposResult.rows,
+            todosTipos: todosTiposResult.rows,
             statusProtocolos: statusResult.rows,
             evolucaoProtocolos: evolucaoResult.rows,
             totalFinalizados: finalizadosResult.rows.length > 0 ? parseInt(finalizadosResult.rows[0].count, 10) : 0

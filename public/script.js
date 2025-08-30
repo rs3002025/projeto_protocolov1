@@ -162,7 +162,7 @@ window.enviarRequerimento = async function() {
     rg: document.getElementById('rg').value, dataExpedicao: document.getElementById('dataExpedicao').value, cargo: document.getElementById('cargo').value,
     lotacao: document.getElementById('lotacao').value, unidade: document.getElementById('unidade').value, tipo: document.getElementById('tipo').value,
     requerAo: document.getElementById('requerAo').value, dataSolicitacao: document.getElementById('dataSolicitacao').value, complemento: document.getElementById('complemento').value,
-    status: "Enviado", responsavel: window.usuarioLogin,
+    status: "PROTOCOLO GERADO", responsavel: window.usuarioLogin,
   };
 
   try {
@@ -756,9 +756,9 @@ window.carregarDashboard = async function() {
             pieChartData = stats.statusProtocolos.map(item => item.total);
             pieChartTitle = 'Protocolos por Status (no Período)';
         } else { // 'tipo'
-            pieChartLabels = stats.topTipos.map(item => item.tipo_requerimento);
-            pieChartData = stats.topTipos.map(item => item.total);
-            pieChartTitle = 'Top 5 Tipos de Requerimento (no Período)';
+            pieChartLabels = stats.todosTipos.map(item => item.tipo_requerimento);
+            pieChartData = stats.todosTipos.map(item => item.total);
+            pieChartTitle = 'Protocolos por Tipo (no Período)';
         }
 
         document.getElementById('pieChartTitle').textContent = pieChartTitle;
@@ -770,7 +770,7 @@ window.carregarDashboard = async function() {
                 datasets: [{
                     label: 'Total',
                     data: pieChartData,
-                    backgroundColor: ['#2196F3', '#FF9800', '#4CAF50', '#F44336', '#9C27B0', '#673AB7', '#009688'],
+                    backgroundColor: ['#2196F3', '#FF9800', '#4CAF50', '#F44336', '#9C27B0', '#673AB7', '#009688', '#FF5722', '#795548', '#607D8B'],
                 }]
             },
             options: { responsive: true, plugins: { legend: { position: 'right' } } }
@@ -880,13 +880,18 @@ window.gerarImpressaoPersonalizada = async function() {
         const originalContainer = document.querySelector(chartData.selector).closest('.chart-container');
         const chartContainer = document.createElement('div');
         chartContainer.className = originalContainer.className;
+        chartContainer.style.padding = '10px'; // Reduz o padding para economizar espaço
 
         const titleElement = document.createElement('h4');
         titleElement.textContent = chartData.title;
+        titleElement.style.fontSize = '1em'; // Reduz o tamanho da fonte do título
         chartContainer.appendChild(titleElement);
 
-        chartData.image.style.width = '100%';
+        // Aplica um tamanho menor à imagem do gráfico
+        chartData.image.style.width = '80%';
         chartData.image.style.height = 'auto';
+        chartData.image.style.margin = '0 auto';
+        chartData.image.style.display = 'block';
         chartContainer.appendChild(chartData.image);
 
         chartsGrid.appendChild(chartContainer);
