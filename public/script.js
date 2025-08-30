@@ -580,12 +580,56 @@ window.previsualizarRelatorioPDF = async function() {
     }
 };
 window.salvarRelatorioPDF = async function() {
-    const element = document.getElementById('relatorioContent');
-    const opt = { margin: [0, 0, 0, 0], filename: `Relatorio_Protocolos.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
+    const modal = document.getElementById('relatorioModal');
+    const content = document.getElementById('relatorioContent');
+    const button = document.querySelector('#relatorioModal button');
+
+    const opt = {
+        margin: 5, // Margem em mm
+        filename: 'Relatorio_Protocolos.pdf',
+        image: { type: 'jpeg', quality: 0.95 },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    // Salva os estilos originais para restaurar depois
+    const originalModalStyle = modal.style.cssText;
+    const originalContentStyle = content.style.cssText;
+
+    // Desativa o botão e mostra feedback
+    if(button) {
+        button.textContent = 'Gerando...';
+        button.disabled = true;
+    }
+
+    // Prepara o DOM para a captura, garantindo que todo o conteúdo seja visível
+    modal.style.position = 'absolute';
+    modal.style.left = '-9999px'; // Move para fora da tela
+    modal.style.top = '0px';
+    modal.style.overflow = 'visible';
+    modal.style.height = 'auto';
+    content.style.maxHeight = 'none';
+    content.style.overflow = 'visible';
+
     try {
-        await html2pdf().set(opt).from(element).save();
+        await html2pdf().set(opt).from(content).save();
+    } catch (err) {
+        console.error('Erro ao salvar PDF do relatório:', err);
+        alert('Ocorreu um erro ao gerar o PDF do relatório.');
+    } finally {
+        // Restaura os estilos originais
+        modal.style.cssText = originalModalStyle;
+        content.style.cssText = originalContentStyle;
+
+        // Reativa o botão
+        if(button) {
+            button.textContent = 'Salvar PDF';
+            button.disabled = false;
+        }
+
+        // Fecha o modal (a restauração dos estilos pode causar um piscar, mas fechar em seguida resolve)
         fecharModal('relatorioModal');
-    } catch(err) { console.error('Erro ao salvar PDF do relatório:', err); alert('Erro ao salvar PDF do relatório.'); }
+    }
 };
 window.exportarRelatorioExcel = async function() {
   const params = new URLSearchParams({
