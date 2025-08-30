@@ -890,7 +890,6 @@ window.gerarImpressaoPersonalizada = async function() {
     previewContent.appendChild(chartsGrid);
 
     // Adiciona os gráficos (já carregados como imagens) ao contêiner
-    const chartsGrid = document.createElement('div');
     chartsGrid.style.cssText = 'display: flex; flex-wrap: wrap; justify-content: space-between; gap: 15px; width: 100%;';
 
     loadedCharts.forEach(chartData => {
