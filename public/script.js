@@ -42,15 +42,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btnTodosProtocolos').style.display = (window.nivelUsuario === 'admin' || window.nivelUsuario === 'padrao') ? 'flex' : 'none';
 
     // ✅ CORREÇÃO DEFINITIVA: Apenas 'admin' pode carregar os dados de admin
-    if (window.nivelUsuario === 'admin') {
-        carregarOpcoesDropdowns().then(() => {
-            mostrarTela('menu');
-            verificarNotificacoes();
-        });
-    } else { // Se for 'padrão' ou 'usuario', não chama a função de admin
+    carregarOpcoesDropdowns().then(() => {
         mostrarTela('menu');
         verificarNotificacoes();
-    }
+    });
 
 } else {
     mostrarTela('login');
@@ -1062,7 +1057,7 @@ window.alterarStatusUsuario = async function(id, novoStatus) {
 };
 window.carregarOpcoesDropdowns = async function() {
     try {
-        const [tiposRes, lotacoesRes] = await Promise.all([ fetchWithAuth('/admin/tipos'), fetchWithAuth('/admin/lotacoes') ]);
+        const [tiposRes, lotacoesRes] = await Promise.all([ fetchWithAuth('/api/tipos'), fetchWithAuth('/api/lotacoes') ]);
         window.opcoesTipos = await tiposRes.json();
         window.opcoesLotacoes = await lotacoesRes.json();
     } catch (err) { console.error("Erro ao carregar opções de dropdowns:", err); }

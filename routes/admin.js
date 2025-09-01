@@ -13,12 +13,6 @@ router.get('/tipos/all', async (req, res, next) => {
     } catch (err) { next(err); }
 });
 
-router.get('/tipos', async (req, res, next) => {
-    try {
-        const result = await db.query("SELECT nome FROM tipos_requerimento WHERE ativo = TRUE ORDER BY nome ASC");
-        res.json(result.rows.map(r => r.nome));
-    } catch (err) { next(err); }
-});
 
 router.post('/tipos', async (req, res, next) => {
     const { nome } = req.body;
@@ -47,12 +41,6 @@ router.get('/lotacoes/all', async (req, res, next) => {
     } catch (err) { next(err); }
 });
 
-router.get('/lotacoes', async (req, res, next) => {
-    try {
-        const result = await db.query("SELECT nome FROM lotacoes WHERE ativo = TRUE ORDER BY nome ASC");
-        res.json(result.rows.map(r => r.nome));
-    } catch (err) { next(err); }
-});
 
 router.post('/lotacoes', async (req, res, next) => {
     const { nome } = req.body;

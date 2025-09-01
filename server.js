@@ -13,6 +13,7 @@ const adminRoutes = require('./routes/admin');
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/usuarios');
 const dashboardRoutes = require('./routes/dashboard');
+const apiRoutes = require('./routes/api');
 
 const app = express();
 
@@ -24,13 +25,11 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Mount routers
 app.use('/', authRoutes); // Handles /login
 app.use('/usuarios', userRoutes); // Handles /usuarios, /usuarios/:id, etc.
+app.use('/api', authMiddleware, apiRoutes);
 
 // Mount specific protocol routes BEFORE generic ones to avoid conflicts with /:id
 app.use('/protocolos', dashboardRoutes); // Handles /protocolos/dashboard-stats, /protocolos/notificacoes/*
 app.use('/protocolos', protocoloRoutes); // Handles the rest of the protocol routes
-
-app.use('/admin', authMiddleware, adminMiddleware, adminRoutes);
-
 
 // Rota PÚBLICA para consulta de protocolo via QR Code
 const pool = require('./db');
