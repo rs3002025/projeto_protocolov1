@@ -27,16 +27,16 @@ const adminMiddleware = (req, res, next) => {
   }
 };
 
-const padraoAdminMiddleware = (req, res, next) => {
-  if (req.user && (req.user.tipo === 'admin' || req.user.tipo === 'padrao')) {
+const authTodosUsuariosLogadosMiddleware = (req, res, next) => {
+  if (req.user && (req.user.tipo === 'admin' || req.user.tipo === 'padrao' || req.user.tipo === 'usuario')) {
     next();
   } else {
-    res.status(403).json({ sucesso: false, mensagem: 'Acesso negado. Requer permissão de administrador ou padrão.' });
+    res.status(403).json({ sucesso: false, mensagem: 'Acesso negado. Requer permissão de administrador, padrão ou usuário.' });
   }
 };
 
 module.exports = {
   authMiddleware,
   adminMiddleware,
-  padraoAdminMiddleware,
+  authTodosUsuariosLogadosMiddleware,
 };

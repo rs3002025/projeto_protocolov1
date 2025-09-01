@@ -24,6 +24,7 @@ let evolucaoChartInstance = null;
 let protocoloParaGerar = null;
 window.opcoesTipos = [];
 window.opcoesLotacoes = [];
+window.opcoesBairros = [];
 
 // Funções de Inicialização (executadas quando o DOM estiver pronto)
 document.addEventListener('DOMContentLoaded', () => {
@@ -73,8 +74,25 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
             if (data.erro) { alert('CEP não encontrado!'); return; }
             document.getElementById('endereco').value = data.logradouro || '';
-            document.getElementById('bairro').value = data.bairro || '';
             document.getElementById('municipio').value = data.localidade || '';
+
+            const bairroSelect = document.getElementById('bairro');
+            const bairroNome = data.bairro || '';
+
+            if (bairroNome) {
+                let optionExists = false;
+                for (let i = 0; i < bairroSelect.options.length; i++) {
+                    if (bairroSelect.options[i].value.toLowerCase() === bairroNome.toLowerCase()) {
+                        bairroSelect.selectedIndex = i;
+                        optionExists = true;
+                        break;
+                    }
+                }
+                if (!optionExists) {
+                    const newOption = new Option(bairroNome, bairroNome, true, true);
+                    bairroSelect.add(newOption);
+                }
+            }
         } catch (error) { console.error('Erro ao buscar CEP:', error); alert('Erro ao buscar o CEP.'); }
     });
 });
@@ -1057,9 +1075,14 @@ window.alterarStatusUsuario = async function(id, novoStatus) {
 };
 window.carregarOpcoesDropdowns = async function() {
     try {
-        const [tiposRes, lotacoesRes] = await Promise.all([ fetchWithAuth('/api/tipos'), fetchWithAuth('/api/lotacoes') ]);
+        const [tiposRes, lotacoesRes, bairrosRes] = await Promise.all([
+            fetchWithAuth('/api/tipos'),
+            fetchWithAuth('/api/lotacoes'),
+            fetchWithAuth('/api/bairros')
+        ]);
         window.opcoesTipos = await tiposRes.json();
         window.opcoesLotacoes = await lotacoesRes.json();
+        window.opcoesBairros = await bairrosRes.json();
     } catch (err) { console.error("Erro ao carregar opções de dropdowns:", err); }
 };
 window.popularDropdown = function(selectId, opcoes) {
@@ -1074,7 +1097,7 @@ window.popularDropdown = function(selectId, opcoes) {
         select.appendChild(opt);
     });
 };
-window.popularDropdownsFormulario = function() { popularDropdown('tipo', window.opcoesTipos); popularDropdown('lotacao', window.opcoesLotacoes); };
+window.popularDropdownsFormulario = function() { popularDropdown('tipo', window.opcoesTipos); popularDropdown('lotacao', window.opcoesLotacoes); popularDropdown('bairro', window.opcoesBairros); };
 window.carregarTabelaGestao = async function(tipo) {
     const tbody = document.getElementById(tipo === 'tipos' ? 'tabelaTipos' : 'tabelaLotacoes');
     tbody.innerHTML = '';
