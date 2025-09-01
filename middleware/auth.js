@@ -28,7 +28,7 @@ const adminMiddleware = (req, res, next) => {
 };
 
 const authTodosUsuariosLogadosMiddleware = (req, res, next) => {
-  if (req.user && (req.user.tipo === 'admin' || req.user.tipo === 'padrao' || req.user.tipo === 'usuario')) {
+  if (req.user && (req.user.tipo === 'admin' || req.user.tipo === 'padrao' || req.user.tipo === 'usuario' || req.user.tipo === 'comum')) {
     next();
   } else {
     res.status(403).json({ sucesso: false, mensagem: 'Acesso negado. Requer permissão de administrador, padrão ou usuário.' });
