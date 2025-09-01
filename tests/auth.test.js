@@ -91,4 +91,25 @@ describe('Auth Endpoints', () => {
     expect(res.statusCode).toEqual(200);
     expect(Array.isArray(res.body.usuarios)).toBe(true);
   });
+
+  it('GET /usuarios - should be successful for padrao user', async () => {
+    const padraoPassword = 'password789';
+    const padraoHash = await bcrypt.hash(padraoPassword, 10);
+    await pool.query(
+      "INSERT INTO usuarios (login, senha, tipo, email, nome, cpf, status) VALUES ('testuserpadrao', $1, 'padrao', 'padrao@test.com', 'Padrao Test', '99988877766', 'ativo') ON CONFLICT (login) DO NOTHING",
+      [padraoHash]
+    );
+    const loginRes = await request(app)
+      .post('/login')
+      .send({
+        login: 'testuserpadrao',
+        senha: padraoPassword,
+      });
+    const padraoToken = loginRes.body.token;
+    const res = await request(app)
+      .get('/usuarios')
+      .set('Authorization', `Bearer ${padraoToken}`);
+    expect(res.statusCode).toEqual(200);
+    expect(Array.isArray(res.body.usuarios)).toBe(true);
+  });
 });

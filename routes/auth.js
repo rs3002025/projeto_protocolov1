@@ -54,4 +54,8 @@ router.post('/login', async (req, res, next) => {
   }
 });
 
+const adminRoutes = require('./admin');
+const { authMiddleware, adminMiddleware } = require('../middleware/auth');
+router.use('/admin', authMiddleware, adminMiddleware, adminRoutes);
+
 module.exports = router;

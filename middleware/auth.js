@@ -27,7 +27,16 @@ const adminMiddleware = (req, res, next) => {
   }
 };
 
+const padraoAdminMiddleware = (req, res, next) => {
+  if (req.user && (req.user.tipo === 'admin' || req.user.tipo === 'padrao')) {
+    next();
+  } else {
+    res.status(403).json({ sucesso: false, mensagem: 'Acesso negado. Requer permissão de administrador ou padrão.' });
+  }
+};
+
 module.exports = {
   authMiddleware,
   adminMiddleware,
+  padraoAdminMiddleware,
 };
