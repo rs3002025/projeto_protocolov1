@@ -21,4 +21,12 @@ router.get('/lotacoes', async (req, res, next) => {
     } catch (err) { next(err); }
 });
 
+// Rota para obter bairros distintos
+router.get('/bairros', async (req, res, next) => {
+    try {
+        const result = await db.query("SELECT DISTINCT bairro FROM protocolos WHERE bairro IS NOT NULL AND bairro <> '' ORDER BY bairro ASC");
+        res.json(result.rows.map(r => r.bairro));
+    } catch (err) { next(err); }
+});
+
 module.exports = router;

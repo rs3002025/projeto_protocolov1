@@ -3,7 +3,7 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt');
 const pool = require('../db');
-const { authMiddleware, adminMiddleware, padraoAdminMiddleware } = require('../middleware/auth');
+const { authMiddleware, adminMiddleware, authTodosUsuariosLogadosMiddleware } = require('../middleware/auth');
 const { validate, userCreationSchema } = require('../middleware/validators');
 
 // Rota para cadastrar novo usuário
@@ -25,7 +25,7 @@ router.post('/', validate(userCreationSchema), async (req, res, next) => {
 
 // Rota para listar todos os usuários (Admin)
 // Path: /usuarios
-router.get('/', authMiddleware, padraoAdminMiddleware, async (req, res, next) => {
+router.get('/', authMiddleware, authTodosUsuariosLogadosMiddleware, async (req, res, next) => {
   try {
     const result = await pool.query('SELECT id, nome, login, email, cpf, tipo, status FROM usuarios ORDER BY nome ASC');
     res.json({ usuarios: result.rows });
