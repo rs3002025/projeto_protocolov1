@@ -1082,7 +1082,20 @@ window.carregarOpcoesDropdowns = async function() {
         ]);
         window.opcoesTipos = await tiposRes.json();
         window.opcoesLotacoes = await lotacoesRes.json();
-        window.opcoesBairros = await bairrosRes.json();
+        const bairrosDinamicos = await bairrosRes.json();
+
+        const bairrosEstaticos = [
+            "Centro", "Girilândia", "Padre Assis Monteiro", "Hermógenes Henrique Girão",
+            "São José", "Nossa Senhora da Conceição", "Planalto Aeroporto", "Júlia Santiago",
+            "São Francisco", "Nova Morada", "Divino Espírito Santo", "Alto Tiradentes",
+            "Capitão Dionísio Matos de Fontes", "Irapuan Nobre", "Dois de Agosto",
+            "Cristo Rei", "Sede Rural", "Outro"
+        ];
+
+        const bairrosCombinados = [...new Set([...bairrosEstaticos, ...bairrosDinamicos])];
+        bairrosCombinados.sort((a, b) => a.localeCompare(b));
+        window.opcoesBairros = bairrosCombinados;
+
     } catch (err) { console.error("Erro ao carregar opções de dropdowns:", err); }
 };
 window.popularDropdown = function(selectId, opcoes) {
