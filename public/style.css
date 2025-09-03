@@ -312,3 +312,19 @@ tbody tr:hover { background-color: #f0f0f0; }
 #previewContent .chart-container.full-width {
     grid-column: auto;
 }
+
+/* Estilos para o modal de busca de servidor */
+.resultado-servidor {
+  padding: 10px;
+  border-bottom: 1px solid #eee;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.resultado-servidor:hover {
+  background-color: #f0f0f0;
+}
+
+.resultado-servidor:last-child {
+  border-bottom: none;
+}

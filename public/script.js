@@ -95,9 +95,56 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (error) { console.error('Erro ao buscar CEP:', error); alert('Erro ao buscar o CEP.'); }
     });
+
+    document.getElementById('buscaNomeInput').addEventListener('input', async function() {
+        const searchTerm = this.value.trim();
+        const resultadosDiv = document.getElementById('buscaNomeResultados');
+
+        if (searchTerm.length < 3) {
+            resultadosDiv.innerHTML = '<p style="text-align: center; color: #666;">Digite ao menos 3 caracteres para buscar.</p>';
+            return;
+        }
+
+        try {
+            const response = await fetchWithAuth(`/protocolos/servidores/search?nome=${encodeURIComponent(searchTerm)}`);
+            if (!response.ok) {
+                resultadosDiv.innerHTML = '<p style="color: red;">Erro ao buscar servidores.</p>';
+                return;
+            }
+            const servidores = await response.json();
+
+            if (servidores.length === 0) {
+                resultadosDiv.innerHTML = '<p style="text-align: center;">Nenhum servidor encontrado.</p>';
+                return;
+            }
+
+            resultadosDiv.innerHTML = ''; // Limpa resultados anteriores
+            servidores.forEach(servidor => {
+                const servidorDiv = document.createElement('div');
+                servidorDiv.className = 'resultado-servidor';
+                servidorDiv.innerHTML = `<strong>${servidor.nome}</strong><br><small>Matrícula: ${servidor.matricula}</small>`;
+                servidorDiv.onclick = function() {
+                    preencherCamposServidor(servidor);
+                    fecharModal('modalBuscaServidor');
+                };
+                resultadosDiv.appendChild(servidorDiv);
+            });
+
+        } catch (error) {
+            console.error('Erro ao buscar servidor por nome:', error);
+            resultadosDiv.innerHTML = '<p style="color: red;">Erro na conexão ao buscar servidores.</p>';
+        }
+    });
 });
 
 // Funções Globais (acessíveis via onclick)
+window.abrirModalBuscaServidor = function() {
+    document.getElementById('buscaNomeInput').value = '';
+    document.getElementById('buscaNomeResultados').innerHTML = '';
+    document.getElementById('modalBuscaServidor').style.display = 'flex';
+    document.getElementById('buscaNomeInput').focus();
+}
+
 window.logar = async function() {
     const user = document.getElementById('usuario').value;
     const senha = document.getElementById('senha').value;
@@ -1189,8 +1236,19 @@ window.renderizarPaginacao = function(totalItens, paginaAtual, idContainer, call
 };
 window.voltarDeMeusProtocolos = function() { mostrarTela('menu'); };
 window.preencherCamposServidor = function(servidor) {
-    if (!servidor) { document.getElementById('nome').value = ''; document.getElementById('lotacao').value = ''; document.getElementById('cargo').value = ''; document.getElementById('unidade').value = ''; } 
-    else { document.getElementById('nome').value = servidor.nome || ''; document.getElementById('lotacao').value = servidor.lotacao || ''; document.getElementById('cargo').value = servidor.cargo || ''; document.getElementById('unidade').value = servidor.unidade_de_exercicio || ''; }
+    if (!servidor) {
+        document.getElementById('matricula').value = '';
+        document.getElementById('nome').value = '';
+        document.getElementById('lotacao').value = '';
+        document.getElementById('cargo').value = '';
+        document.getElementById('unidade').value = '';
+    } else {
+        document.getElementById('matricula').value = servidor.matricula || '';
+        document.getElementById('nome').value = servidor.nome || '';
+        document.getElementById('lotacao').value = servidor.lotacao || '';
+        document.getElementById('cargo').value = servidor.cargo || '';
+        document.getElementById('unidade').value = servidor.unidade_de_exercicio || '';
+    }
 };
 window.abrirModalAlterarSenha = function() {
     document.getElementById('senhaAtual').value = '';

@@ -221,6 +221,26 @@ router.get('/ultimoNumero/:ano', authMiddleware, async (req, res, next) => {
   }
 });
 
+router.get('/servidores/search', authMiddleware, async (req, res, next) => {
+  const { nome } = req.query;
+  if (!nome) {
+    return res.status(400).json({ mensagem: 'O parâmetro de busca "nome" é obrigatório.' });
+  }
+  try {
+    const result = await db.query(
+      `SELECT matricula, nome, lotacao, cargo, unidade_de_exercicio
+       FROM servidores
+       WHERE nome ILIKE $1
+       ORDER BY nome ASC
+       LIMIT 10`,
+      [`%${nome}%`]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get('/servidor/:matricula', authMiddleware, async (req, res, next) => {
   const matricula = req.params.matricula;
   try {
