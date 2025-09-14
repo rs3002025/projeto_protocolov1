@@ -1,4 +1,4 @@
-from . import db
+from .extensions import db
 from sqlalchemy.sql import func
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -11,6 +11,7 @@ class Tenant(db.Model):
     name = db.Column(db.String(100), nullable=False)
     client_code = db.Column(db.String(50), unique=True, nullable=False)
     schema_name = db.Column(db.String(50), unique=True, nullable=False)
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime(timezone=True), server_default=func.now())
 
     def __repr__(self):

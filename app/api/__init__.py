@@ -20,6 +20,13 @@ def before_request_handler():
     try:
         verify_jwt_in_request()
         claims = get_jwt()
+
+        # Se for super_admin, o schema é sempre 'public' e não precisa de claim 'schema'
+        if claims.get('role') == 'super_admin':
+            set_tenant_schema_for_request('public')
+            return
+
+        # Para usuários normais, a claim 'schema' é obrigatória
         schema = claims.get('schema')
         if not schema:
             return jsonify({"msg": "Token JWT inválido: 'schema' ausente."}), 401
@@ -35,4 +42,6 @@ def before_request_handler():
 
 # Importar as rotas no final para evitar importação circular.
 from . import auth
-# Futuramente: from . import protocolos, usuarios, etc.
+from . import protocolos
+from . import reports
+from . import usuarios

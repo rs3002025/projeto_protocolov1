@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Sistema de Protocolo{% endblock %}
+
+{% block content %}
+<div id="dashboard" class="dashboard-screen content active">
+    <div class="dashboard-header">
+      <h3>Dashboard Gerencial</h3>
+      <div class="dashboard-actions">
+        <button onclick="imprimirDashboard()">🖨️ Impressão Rápida</button>
+        <button onclick="abrirModalImpressao()">📄 Impressão Personalizada</button>
+        <a href="{{ url_for('main.menu') }}" class="button-link">🔙 Voltar</a>
+      </div>
+    </div>
+    <div class="filtros">
+        <input type="date" id="dashDataInicio" title="Data de Início">
+        <input type="date" id="dashDataFim" title="Data Final">
+        <select id="dashStatus"><option value="">Todos os Status</option></select>
+        <select id="dashTipo"><option value="">Todo tipo de Requerimento</option></select>
+        <select id="dashLotacao"><option value="">Todas as Lotações</option></select>
+        <button onclick="carregarDashboard()">Filtrar</button>
+    </div>
+    <div class="dashboard-cards">
+        <div class="stat-card" id="card-novos">
+            <div class="stat-value" id="stat-novos">0</div>
+            <div class="stat-label" id="stat-novos-label">Novos na Semana</div>
+        </div>
+        <div class="stat-card" id="card-pendentes">
+            <div class="stat-value" id="stat-pendentes">0</div>
+            <div class="stat-label">Pendentes (> 15 dias)</div>
+        </div>
+        <div class="stat-card" id="card-finalizados">
+            <div class="stat-value" id="stat-finalizados">0</div>
+            <div class="stat-label">Finalizados (no Período)</div>
+        </div>
+    </div>
+    <div class="dashboard-charts-grid">
+      <div class="chart-container">
+          <h4>Top 5 Tipos de Requerimento (no Período)</h4>
+          <canvas id="tiposChart"></canvas>
+      </div>
+      <div class="chart-container">
+        <div class="chart-header">
+            <h4 id="pieChartTitle">Protocolos por Status (no Período)</h4>
+            <div class="chart-filters">
+                <select id="pieChartDataType" onchange="carregarDashboard()">
+                    <option value="status" selected>Por Status</option>
+                    <option value="tipo">Por Tipo de Requerimento</option>
+                </select>
+            </div>
+        </div>
+        <canvas id="statusChart"></canvas>
+      </div>
+      <div class="chart-container full-width">
+        <div class="chart-header">
+            <h4 id="evolucaoChartTitle">Evolução de Novos Protocolos</h4>
+            <div class="chart-filters">
+                <select id="evolucaoPeriodo" onchange="carregarDashboard()">
+                    <option value="7d">Últimos 7 dias</option>
+                    <option value="30d" selected>Últimos 30 dias</option>
+                    <option value="month">Mês Atual</option>
+                    <option value="all">Desde o início</option>
+                </select>
+                <select id="evolucaoAgrupamento" onchange="carregarDashboard()">
+                    <option value="day" selected>Agrupar por Dia</option>
+                    <option value="month">Agrupar por Mês</option>
+                </select>
+            </div>
+        </div>
+        <canvas id="evolucaoChart"></canvas>
+      </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        popularFiltrosDashboard();
+        const dataInicioInput = document.getElementById('dashDataInicio');
+        if (!dataInicioInput.value) {
+            const hoje = new Date();
+            const seteDiasAtras = new Date(hoje.setDate(hoje.getDate() - 7));
+            dataInicioInput.value = seteDiasAtras.toISOString().split('T')[0];
+        }
+        carregarDashboard();
+    });
+</script>
+{% endblock %}
