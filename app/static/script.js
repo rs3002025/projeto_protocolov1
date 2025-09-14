@@ -202,11 +202,7 @@ window.enviarRequerimento = async function() {
   };
 
   try {
-      const res = await fetchWithAuth('/protocolos', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(protocolo)
-      });
+      const res = await fetchWithAuth('/protocolos', { method: 'POST', body: JSON.stringify(protocolo) });
       const data = await res.json();
       if (res.ok && data.sucesso) {
           alert('✅ Protocolo enviado e salvo com sucesso!');
@@ -486,31 +482,6 @@ window.previsualizarPDF = async function(id, isPrint = false) {
   protocoloParaGerar = protocolo;
   const pdfContentDiv = document.getElementById('pdfContent');
   pdfContentDiv.innerHTML = document.getElementById('modeloProtocolo').innerHTML;
-
-  // Pega a URL do logo do header principal da página
-  const logoUrl = document.querySelector('.header .logo').src;
-
-  // Converte o logo para Base64 para embutir no PDF e evitar erros de CORS
-  try {
-    const logoResponse = await fetch(logoUrl);
-    const logoBlob = await logoResponse.blob();
-    const reader = new FileReader();
-    const dataUrlPromise = new Promise((resolve, reject) => {
-        reader.onloadend = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(logoBlob);
-    });
-    const logoDataUrl = await dataUrlPromise;
-    const logoImg = pdfContentDiv.querySelector('img');
-    if (logoImg) {
-        logoImg.src = logoDataUrl;
-    }
-  } catch (error) {
-      console.error("Erro ao embutir a imagem do logo no PDF:", error);
-      const logoImg = pdfContentDiv.querySelector('img');
-      if (logoImg) logoImg.style.display = 'none'; // Apenas esconde se falhar
-  }
-
   const qrcodeContainer = pdfContentDiv.querySelector('#qrcode-container');
   if(qrcodeContainer && protocolo.numero && protocolo.numero.includes('/')) {
       qrcodeContainer.innerHTML = '';
