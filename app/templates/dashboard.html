@@ -3,13 +3,13 @@
 {% block title %}Dashboard - Sistema de Protocolo{% endblock %}
 
 {% block content %}
-<div id="dashboard" class="dashboard-screen content active">
+<div class="dashboard-screen content active">
     <div class="dashboard-header">
-      <h3>Dashboard Gerencial</h3>
+      <h3>📈 Dashboard Gerencial</h3>
       <div class="dashboard-actions">
         <button onclick="imprimirDashboard()">🖨️ Impressão Rápida</button>
         <button onclick="abrirModalImpressao()">📄 Impressão Personalizada</button>
-        <a href="{{ url_for('main.menu') }}" class="button-link">🔙 Voltar</a>
+        <a href="{{ url_for('main.menu') }}" class="button-link" style="background-color: #6c757d;">Voltar ao Menu</a>
       </div>
     </div>
     <div class="filtros">
@@ -36,18 +36,16 @@
     </div>
     <div class="dashboard-charts-grid">
       <div class="chart-container">
-          <h4>Top 5 Tipos de Requerimento (no Período)</h4>
+          <div class="chart-header"><h4>Top 5 Tipos de Requerimento</h4></div>
           <canvas id="tiposChart"></canvas>
       </div>
       <div class="chart-container">
         <div class="chart-header">
-            <h4 id="pieChartTitle">Protocolos por Status (no Período)</h4>
-            <div class="chart-filters">
-                <select id="pieChartDataType" onchange="carregarDashboard()">
-                    <option value="status" selected>Por Status</option>
-                    <option value="tipo">Por Tipo de Requerimento</option>
-                </select>
-            </div>
+            <h4 id="pieChartTitle">Protocolos por Status</h4>
+            <select id="pieChartDataType" onchange="carregarDashboard()" class="chart-filters">
+                <option value="status" selected>Por Status</option>
+                <option value="tipo">Por Tipo</option>
+            </select>
         </div>
         <canvas id="statusChart"></canvas>
       </div>
