@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}Menu Principal - Sistema de Protocolo{% endblock %}
+
+{% block content %}
+<div id="menu" class="menu content active">
+    <a href="{{ url_for('main.dashboard') }}" class="button-link" id="btnDashboard">📈 Dashboard</a>
+    <a href="{{ url_for('main.form') }}" class="button-link" id="btnNovo">📄 Novo Protocolo</a>
+    <a href="{{ url_for('main.protocolos') }}" class="button-link" id="btnTodosProtocolos">🗂️ Todos os Protocolos</a>
+    <a href="{{ url_for('main.relatorios') }}" class="button-link" id="btnRelatorios">📊 Relatórios</a>
+    <a href="{{ url_for('main.meus_protocolos') }}" class="button-link">📂 Meus Protocolos</a>
+    <a href="{{ url_for('main.config') }}" class="button-link" id="btnConfig">⚙️ Configurações</a>
+    <button onclick="abrirModalAlterarSenha()">🔑 Alterar Senha</button>
+    <button onclick="sair()">🚪 Sair</button>
+</div>
+
+<script>
+    // Lógica de visibilidade dos botões, adaptada para o MPA
+    document.addEventListener('DOMContentLoaded', () => {
+        const nivelUsuario = localStorage.getItem('nivelUsuario') || "";
+
+        const btnDashboard = document.getElementById('btnDashboard');
+        const btnConfig = document.getElementById('btnConfig');
+        const btnNovo = document.getElementById('btnNovo');
+        const btnRelatorios = document.getElementById('btnRelatorios');
+        const btnTodosProtocolos = document.getElementById('btnTodosProtocolos');
+
+        if (btnDashboard) btnDashboard.style.display = (nivelUsuario === 'admin' || nivelUsuario === 'padrao') ? 'flex' : 'none';
+        if (btnConfig) btnConfig.style.display = nivelUsuario === "admin" ? "flex" : "none";
+        if (btnNovo) btnNovo.style.display = (nivelUsuario === "admin" || nivelUsuario === "padrao" || nivelUsuario === "usuario") ? "flex" : "none";
+        if (btnRelatorios) btnRelatorios.style.display = (nivelUsuario === "admin" || nivelUsuario === "padrao") ? "flex" : "none";
+        if (btnTodosProtocolos) btnTodosProtocolos.style.display = (nivelUsuario === 'admin' || nivelUsuario === 'padrao') ? 'flex' : 'none';
+    });
+</script>
+{% endblock %}

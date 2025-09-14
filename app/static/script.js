@@ -34,23 +34,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.body.classList.remove('loading');
 
-  if (window.usuarioLogado) {
-    // Define a visibilidade dos botões
-    document.getElementById('btnDashboard').style.display = (window.nivelUsuario === 'admin' || window.nivelUsuario === 'padrao') ? 'flex' : 'none';
-    document.getElementById('btnConfig').style.display = window.nivelUsuario === "admin" ? "flex" : "none";
-    document.getElementById('btnNovo').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao" || window.nivelUsuario === "usuario") ? "flex" : "none";
-    document.getElementById('btnRelatorios').style.display = (window.nivelUsuario === "admin" || window.nivelUsuario === "padrao") ? "flex" : "none";
-    document.getElementById('btnTodosProtocolos').style.display = (window.nivelUsuario === 'admin' || window.nivelUsuario === 'padrao') ? 'flex' : 'none';
-
-    // ✅ CORREÇÃO DEFINITIVA: Apenas 'admin' pode carregar os dados de admin
-    carregarOpcoesDropdowns().then(() => {
-        mostrarTela('menu');
-        verificarNotificacoes();
-    });
-
-} else {
-    mostrarTela('login');
-}
+    // Lógica de autenticação agora é tratada pela página de login e redirecionamento.
+    // A visibilidade dos botões é tratada em cada página respectiva (ex: menu.html).
+    // A inicialização de cada página (ex: listarProtocolos) é feita no seu próprio template.
 
     document.getElementById('matricula').addEventListener('blur', async function() {
         const matricula = this.value.trim();
@@ -146,72 +132,48 @@ window.abrirModalBuscaServidor = function() {
 }
 
 window.logar = async function() {
+    const client_code = document.getElementById('client_code').value;
     const user = document.getElementById('usuario').value;
     const senha = document.getElementById('senha').value;
     const msg = document.getElementById('loginMsg');
+    msg.textContent = 'Autenticando...';
+
     try {
-        const res = await fetch('/login', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ login: user, senha: senha })
+        const res = await fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                client_code: client_code,
+                login: user,
+                password: senha // API espera 'password'
+            })
         });
+
         const data = await res.json();
-        if (data.sucesso && data.usuario && data.token) {
-            localStorage.setItem('protocolo-token', data.token);
-            localStorage.setItem('usuarioLogado', data.usuario.nome);
-            localStorage.setItem('usuarioLogin', data.usuario.login);
-            localStorage.setItem('nivelUsuario', data.usuario.tipo);
-            window.location.reload();
+
+        if (res.ok && data.access_token) {
+            localStorage.setItem('protocolo-token', data.access_token);
+
+            // Decodificar o token para obter as claims (apenas para info do usuário)
+            // Esta é uma maneira simples, sem bibliotecas, de obter o payload.
+            const payload = JSON.parse(atob(data.access_token.split('.')[1]));
+            localStorage.setItem('usuarioLogin', payload.login || 'super_admin');
+            localStorage.setItem('nivelUsuario', payload.role);
+
+            window.location.href = '/menu';
         } else {
-            msg.textContent = data.mensagem || "Usuário ou senha incorretos.";
+            msg.textContent = data.msg || "Usuário ou senha incorretos.";
         }
-    } catch(err) { console.error("Erro no login:", err); msg.textContent = "Erro ao conectar ao servidor."; }
+    } catch(err) {
+        console.error("Erro no login:", err);
+        msg.textContent = "Erro ao conectar ao servidor.";
+    }
 };
 window.sair = function() {
     localStorage.clear();
-    window.location.reload();
+    window.location.href = '/login'; // Redireciona para a página de login
 };
-window.mostrarTela = async function(tela) {
-    ['login','menu','dashboard','form','config','protocolos','meusProtocolos','relatorios'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.classList.remove('active');
-    });
-    document.getElementById(tela).classList.add('active');
-
-    if (tela === 'meusProtocolos') {
-        const usuarioLogin = localStorage.getItem('usuarioLogin');
-        if (usuarioLogin) {
-            try {
-                await fetchWithAuth('/protocolos/notificacoes/ler', { method: 'POST', body: JSON.stringify({ usuarioLogin }) });
-                await verificarNotificacoes();
-            } catch (err) { console.error('Erro ao marcar notificações como lidas:', err); }
-        }
-    }
-
-    if (tela === 'protocolos') listarProtocolos();
-    if (tela === 'meusProtocolos') listarMeusProtocolos();
-    if (tela === 'form') {
-        popularDropdownsFormulario();
-        gerarNumeroProtocolo();
-        // Define a data de solicitação padrão como hoje
-        const dataSolicitacaoInput = document.getElementById('dataSolicitacao');
-        if (!dataSolicitacaoInput.value) {
-            dataSolicitacaoInput.value = new Date().toISOString().split('T')[0];
-        }
-    }
-    if (tela === 'config') { atualizarListaUsuarios(); carregarTabelaGestao('tipos'); carregarTabelaGestao('lotacoes'); }
-    if (tela === 'relatorios') { popularFiltrosRelatorio(); pesquisarProtocolos(); }
-    if (tela === 'dashboard') {
-        popularFiltrosDashboard();
-        // Define a data de início padrão para 7 dias atrás se estiver vazia
-        const dataInicioInput = document.getElementById('dashDataInicio');
-        if (!dataInicioInput.value) {
-            const hoje = new Date();
-            const seteDiasAtras = new Date(hoje.setDate(hoje.getDate() - 7));
-            dataInicioInput.value = seteDiasAtras.toISOString().split('T')[0];
-        }
-        carregarDashboard();
-    }
-};
+// A função mostrarTela foi removida pois a navegação agora é feita por páginas (MPA)
 window.gerarNumeroProtocolo = async function() {
   const anoAtual = new Date().getFullYear();
   try {
@@ -1045,31 +1007,28 @@ window.salvarDashboardPersonalizadoPDF = async function() {
 window.cadastrarUsuario = async function() {
   const nomeCompleto = document.getElementById('nomeCompleto').value.trim();
   const login = document.getElementById('novoUsuario').value.trim();
-  const cpf = document.getElementById('cpfUsuario').value.trim();
   const senha = document.getElementById('novaSenha').value.trim();
-  const email = document.getElementById('novoEmail').value.trim();
   const tipo = document.getElementById('nivelUsuario').value;
-  if (!nomeCompleto || !login || !cpf || !senha || !email || !tipo) { alert('Por favor, preencha todos os campos.'); return; }
+  if (!nomeCompleto || !login || !senha || !tipo) { alert('Por favor, preencha todos os campos.'); return; }
   try {
-    const res = await fetchWithAuth('/usuarios', { method: 'POST', body: JSON.stringify({ nome: nomeCompleto, login, cpf, senha, email, tipo }) });
+    const res = await fetchWithAuth('/api/usuarios', { method: 'POST', body: JSON.stringify({ nome: nomeCompleto, login, senha, tipo }) });
     const data = await res.json();
-    alert(data.mensagem || 'Usuário cadastrado!');
+    alert(data.msg || 'Usuário cadastrado!');
     if (data.sucesso) {
-        document.getElementById('nomeCompleto').value = ''; document.getElementById('novoUsuario').value = ''; document.getElementById('cpfUsuario').value = ''; document.getElementById('novaSenha').value = ''; document.getElementById('novoEmail').value = '';
+        document.getElementById('nomeCompleto').value = ''; document.getElementById('novoUsuario').value = ''; document.getElementById('novaSenha').value = '';
         atualizarListaUsuarios();
     }
   } catch (error) { console.error('Erro ao cadastrar usuário:', error); alert('Erro ao cadastrar usuário.'); }
 };
 window.atualizarListaUsuarios = async function() {
   try {
-    const response = await fetchWithAuth('/usuarios');
+    const response = await fetchWithAuth('/api/usuarios');
     const data = await response.json();
     const tbody = document.getElementById('tabelaUsuarios');
     tbody.innerHTML = "";
     data.usuarios.forEach(u => {
       const tr = document.createElement('tr');
-      const statusClasse = u.status === 'ativo' ? 'color:green;' : 'color:red;';
-      tr.innerHTML = `<td>${u.nome}</td> <td>${u.login}</td> <td>${u.email}</td> <td>${u.tipo}</td> <td style="font-weight:bold; ${statusClasse}">${u.status}</td><td><button onclick='abrirModalEditar(${JSON.stringify(u)})'>Editar</button><button onclick='abrirModalResetarSenha(${u.id})'>Resetar Senha</button>${u.status === 'ativo' ? `<button onclick="alterarStatusUsuario(${u.id}, 'inativo')" style="background-color:#c82333;">Desativar</button>` : `<button onclick="alterarStatusUsuario(${u.id}, 'ativo')" style="background-color:#218838;">Reativar</button>`}</td>`;
+      tr.innerHTML = `<td>${u.nome}</td> <td>${u.login}</td> <td>${u.role}</td><td><button onclick='abrirModalEditar(${JSON.stringify(u)})'>Editar</button><button onclick='abrirModalResetarSenha(${u.id})'>Resetar Senha</button><button onclick="alterarStatusUsuario(${u.id}, 'inativo')" style="background-color:#c82333;">Desativar</button></td>`;
       tbody.appendChild(tr);
     });
   } catch (error) { alert('Erro ao carregar usuários: ' + error.message); }
@@ -1078,16 +1037,14 @@ window.abrirModalEditar = function(usuario) {
   document.getElementById('editUserId').value = usuario.id;
   document.getElementById('editNomeCompleto').value = usuario.nome;
   document.getElementById('editLogin').value = usuario.login;
-  document.getElementById('editEmail').value = usuario.email;
-  document.getElementById('editCpf').value = usuario.cpf;
-  document.getElementById('editTipo').value = usuario.tipo;
+  document.getElementById('editTipo').value = usuario.role; // API usa 'role'
   document.getElementById('modalEditarUsuario').style.display = 'flex';
 };
 window.confirmarEdicaoUsuario = async function() {
   const id = document.getElementById('editUserId').value;
-  const usuario = { nome: document.getElementById('editNomeCompleto').value, login: document.getElementById('editLogin').value, email: document.getElementById('editEmail').value, cpf: document.getElementById('editCpf').value, tipo: document.getElementById('editTipo').value };
+  const usuario = { nome: document.getElementById('editNomeCompleto').value, login: document.getElementById('editLogin').value, tipo: document.getElementById('editTipo').value };
   try {
-    const res = await fetchWithAuth(`/usuarios/${id}`, { method: 'PUT', body: JSON.stringify(usuario) });
+    const res = await fetchWithAuth(`/api/usuarios/${id}`, { method: 'PUT', body: JSON.stringify(usuario) });
     const data = await res.json();
     alert(data.mensagem);
     if (data.sucesso) { fecharModal('modalEditarUsuario'); atualizarListaUsuarios(); }
