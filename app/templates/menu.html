@@ -3,7 +3,7 @@
 {% block title %}Menu Principal - Sistema de Protocolo{% endblock %}
 
 {% block content %}
-<div id="menu" class="menu-screen content active">
+<div class="menu-screen content active">
     <a href="{{ url_for('main.dashboard') }}" class="menu-button" id="btnDashboard"><span class="icon">📈</span>Dashboard</a>
     <a href="{{ url_for('main.form') }}" class="menu-button" id="btnNovo"><span class="icon">📄</span>Novo Protocolo</a>
     <a href="{{ url_for('main.protocolos') }}" class="menu-button" id="btnTodosProtocolos"><span class="icon">🗂️</span>Todos os Protocolos</a>

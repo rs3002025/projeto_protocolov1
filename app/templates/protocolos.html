@@ -3,8 +3,8 @@
 {% block title %}Todos os Protocolos - Sistema de Protocolo{% endblock %}
 
 {% block content %}
-<div id="protocolos" class="protocolos-screen content active">
-    <h3>📋 Lista de Protocolos Enviados</h3>
+<div class="protocolos-screen content active">
+    <h3>📋 Lista de Todos os Protocolos</h3>
     <table>
       <thead>
         <tr>
@@ -13,8 +13,8 @@
       </thead>
       <tbody id="tabelaProtocolos"></tbody>
     </table>
-    <a href="{{ url_for('main.menu') }}" class="button-link">Voltar</a>
-    <div id="paginacaoProtocolos"></div>
+    <div id="paginacaoProtocolos" style="margin-top: 20px; text-align: center;"></div>
+    <a href="{{ url_for('main.menu') }}" class="button-link" style="margin-top: 20px;">Voltar ao Menu</a>
 </div>
 
 <script>
