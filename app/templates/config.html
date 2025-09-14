@@ -4,20 +4,22 @@
 
 {% block content %}
 <div id="config" class="config-screen content active">
-    <h3>⚙️ Configurações</h3>
-    <div class="form-group full-row">
-      <label>Email do Sistema:</label>
-      <input type="email" id="emailSistemaConfig" />
-      <button onclick="salvarEmailSistema()">Salvar Email</button>
-    </div>
-    <hr style="margin: 20px 0;">
+    <h3>⚙️ Configurações Gerais</h3>
 
-    <h4>Adicionar Novo Usuário</h4>
-    <form class="formulario" onsubmit="return false;" style="gap: 15px;">
-        <div class="form-group span-6"><input type="text" id="nomeCompleto" placeholder="Nome completo" /></div>
-        <div class="form-group span-6"><input type="text" id="novoUsuario" placeholder="Nome de usuário" /></div>
-        <div class="form-group span-6"><input type="password" id="novaSenha" placeholder="Senha" /></div>
-        <div class="form-group span-6">
+    <div class="form-group">
+        <label for="emailSistemaConfig">Email do Sistema</label>
+        <div style="display: flex; gap: 10px;">
+            <input type="email" id="emailSistemaConfig" style="flex-grow: 1;"/>
+            <button onclick="salvarEmailSistema()" style="margin-top: 0;">Salvar</button>
+        </div>
+    </div>
+
+    <h4 style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border-color);">Adicionar Novo Usuário</h4>
+    <form class="formulario" onsubmit="cadastrarUsuario(); return false;">
+        <div class="form-group span-3"><label for="nomeCompleto">Nome Completo</label><input type="text" id="nomeCompleto" placeholder="Nome completo do usuário" /></div>
+        <div class="form-group span-3"><label for="novoUsuario">Login</label><input type="text" id="novoUsuario" placeholder="Nome de usuário" /></div>
+        <div class="form-group span-3"><label for="novaSenha">Senha</label><input type="password" id="novaSenha" placeholder="Senha inicial" /></div>
+        <div class="form-group span-3"><label for="nivelUsuario">Tipo de Acesso</label>
             <select id="nivelUsuario">
                 <option value="usuario">Usuário</option>
                 <option value="comum">Comum</option>
@@ -26,12 +28,12 @@
             </select>
         </div>
         <div class="form-group full-row">
-            <button onclick="cadastrarUsuario()">Cadastrar Usuário</button>
+            <button type="submit">Cadastrar Usuário</button>
         </div>
     </form>
-    <hr style="margin: 20px 0;">
-    <h4>Usuários Cadastrados</h4>
-    <table style="width:100%;">
+
+    <h4 style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border-color);">Usuários Cadastrados</h4>
+    <table>
       <thead>
         <tr>
           <th>Nome</th><th>Login</th><th>Tipo</th><th style="width: 280px;">Ações</th>
@@ -39,34 +41,39 @@
       </thead>
       <tbody id="tabelaUsuarios"></tbody>
     </table>
-    <hr style="margin: 20px 0;">
-    <h4>Gerenciar Listas</h4>
+
+    <h4 style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border-color);">Gerenciar Listas</h4>
     <h5>Tipos de Requerimento</h5>
-    <div class="form-group" style="flex-direction: row; gap: 10px; align-items: center;">
-        <input type="text" id="novoTipoNome" placeholder="Nome do novo tipo" style="flex-grow: 1;">
-        <button onclick="adicionarItem('tipos')">Adicionar</button>
+    <div class="form-group">
+        <div style="display: flex; gap: 10px;">
+            <input type="text" id="novoTipoNome" placeholder="Nome do novo tipo" style="flex-grow: 1;">
+            <button onclick="adicionarItem('tipos')" style="margin-top: 0;">Adicionar</button>
+        </div>
     </div>
-    <table style="width:100%;">
+    <table>
         <thead><tr><th>Nome</th><th>Status</th><th style="width: 120px;">Ações</th></tr></thead>
         <tbody id="tabelaTipos"></tbody>
     </table>
     <br>
     <h5>Lotações</h5>
-    <div class="form-group" style="flex-direction: row; gap: 10px; align-items: center;">
-        <input type="text" id="novaLotacaoNome" placeholder="Nome da nova lotação" style="flex-grow: 1;">
-        <button onclick="adicionarItem('lotacoes')">Adicionar</button>
+    <div class="form-group">
+        <div style="display: flex; gap: 10px;">
+            <input type="text" id="novaLotacaoNome" placeholder="Nome da nova lotação" style="flex-grow: 1;">
+            <button onclick="adicionarItem('lotacoes')" style="margin-top: 0;">Adicionar</button>
+        </div>
     </div>
-    <table style="width:100%;">
+    <table>
         <thead><tr><th>Nome</th><th>Status</th><th style="width: 120px;">Ações</th></tr></thead>
         <tbody id="tabelaLotacoes"></tbody>
     </table>
-    <hr style="margin: 20px 0;">
-    <h4>Gerar Backup de Protocolos</h4>
-    <label>Data Início:</label>
-    <input type="date" id="backupDataInicio" />
-    <label>Data Fim:</label>
-    <input type="date" id="backupDataFim" />
-    <button onclick="gerarBackup()">Gerar Backup</button>
+
+    <h4 style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border-color);">Gerar Backup de Protocolos</h4>
+    <div class="formulario">
+        <div class="form-group span-3"><label for="backupDataInicio">Data Início</label><input type="date" id="backupDataInicio" /></div>
+        <div class="form-group span-3"><label for="backupDataFim">Data Fim</label><input type="date" id="backupDataFim" /></div>
+        <div class="form-group full-row"><button onclick="gerarBackup()">Gerar Backup</button></div>
+    </div>
+
     <br><br>
     <a href="{{ url_for('main.menu') }}" class="button-link">Voltar</a>
 </div>
