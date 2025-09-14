@@ -3,21 +3,28 @@
 {% block title %}Login - Sistema de Protocolo{% endblock %}
 
 {% block content %}
-<div id="login" class="login-screen content active">
-    <div class="login-form-container">
-      <h3>Acesso ao Sistema</h3>
+<div id="login" class="form-screen content active" style="max-width: 500px; margin: 40px auto;">
+    <form class="login-form-container" onsubmit="logar(); return false;">
+      <h3 style="text-align: center; margin-bottom: 25px;">Acesso ao Sistema de Protocolo</h3>
 
-      <label for="client_code">Código do Cliente (deixe em branco para Super Admin)</label>
-      <input type="text" id="client_code" placeholder="Ex: alpha" />
+      <div class="form-group" style="margin-bottom: 15px;">
+        <label for="client_code">Código do Cliente</label>
+        <input type="text" id="client_code" placeholder="Ex: alpha" value="alpha" />
+        <small style="font-size: 0.8em; color: #666;">Para administradores, deixe em branco.</small>
+      </div>
 
-      <label for="usuario">Usuário</label>
-      <input type="text" id="usuario" />
+      <div class="form-group" style="margin-bottom: 15px;">
+        <label for="usuario">Usuário</label>
+        <input type="text" id="usuario" placeholder="Seu usuário" value="admin" />
+      </div>
 
-      <label for="senha">Senha</label>
-      <input type="password" id="senha" />
+      <div class="form-group" style="margin-bottom: 25px;">
+        <label for="senha">Senha</label>
+        <input type="password" id="senha" placeholder="Sua senha" value="admin" />
+      </div>
 
-      <button onclick="logar()">Entrar</button>
-      <p id="loginMsg" style="color:red;"></p>
-    </div>
+      <button type="submit" style="width: 100%;">Entrar</button>
+      <p id="loginMsg" style="color:red; text-align: center; margin-top: 15px;"></p>
+    </form>
 </div>
 {% endblock %}
