@@ -77,7 +77,7 @@
                             <button type="button" class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#modalEncaminhar" data-protocolo-id="{{ protocolo.id }}">
                                 Encaminhar
                             </button>
-                            <button type="button" class="btn btn-sm btn-outline-dark" onclick="previsualizarPDF({{ protocolo.id }})">Documento</button>
+                            <button type="button" class="btn btn-sm btn-outline-dark" onclick="openPdfModal({{ protocolo.id }})">Documento</button>
                         </td>
                     </tr>
                 {% else %}

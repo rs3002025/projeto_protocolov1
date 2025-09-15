@@ -205,8 +205,6 @@ def admin_create_list_item(item_type):
         flash('Erro ao adicionar item.', 'danger')
     return redirect(url_for('configuracoes'))
 
-from flask import abort
-
 @app.route("/admin/item/<string:item_type>/<int:item_id>/status", methods=['POST'])
 @login_required
 @admin_required
@@ -222,45 +220,6 @@ def admin_toggle_item_status(item_type, item_id):
         item.ativo = not item.ativo
         db.session.commit()
         flash(f'Status do item alterado com sucesso!', 'success')
-    return redirect(url_for('configuracoes'))
-
-@app.route("/admin/usuarios/<int:user_id>/editar", methods=['POST'])
-@login_required
-@admin_required
-def admin_edit_user(user_id):
-    user = Usuario.query.get_or_404(user_id)
-    data = request.form
-    user.nome_completo = data.get('nome_completo')
-    user.login = data.get('login')
-    user.email = data.get('email')
-    user.tipo = data.get('tipo')
-    user.nome = data.get('nome_completo').split(' ')[0]
-    db.session.commit()
-    flash('Usuário atualizado com sucesso!', 'success')
-    return redirect(url_for('configuracoes'))
-
-@app.route("/admin/usuarios/<int:user_id>/status", methods=['POST'])
-@login_required
-@admin_required
-def admin_toggle_user_status(user_id):
-    user = Usuario.query.get_or_404(user_id)
-    user.status = 'inativo' if user.status == 'ativo' else 'ativo'
-    db.session.commit()
-    flash('Status do usuário alterado com sucesso!', 'success')
-    return redirect(url_for('configuracoes'))
-
-@app.route("/admin/usuarios/<int:user_id>/resetar_senha", methods=['POST'])
-@login_required
-@admin_required
-def admin_reset_password(user_id):
-    user = Usuario.query.get_or_404(user_id)
-    new_password = request.form.get('nova_senha')
-    if not new_password or len(new_password) < 6:
-        flash('Senha deve ter ao menos 6 caracteres.', 'danger')
-        return redirect(url_for('configuracoes'))
-    user.senha = bcrypt.generate_password_hash(new_password).decode('utf-8')
-    db.session.commit()
-    flash(f'Senha do usuário {user.login} foi resetada com sucesso!', 'success')
     return redirect(url_for('configuracoes'))
 
 # --- Rotas de Protocolo ---
