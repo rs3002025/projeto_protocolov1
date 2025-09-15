@@ -11,55 +11,48 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container">
-            <a class="navbar-brand" href="{{ url_for('home') }}">Protocolo</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    {% if current_user.is_authenticated %}
-                        <li class="nav-item"><a class="nav-link" href="{{ url_for('home') }}">Dashboard</a></li>
-                        <li class="nav-item"><a class="nav-link" href="{{ url_for('criar_protocolo') }}">Novo Protocolo</a></li>
-                        <li class="nav-item"><a class="nav-link" href="{{ url_for('listar_protocolos') }}">Todos os Protocolos</a></li>
-                        <li class="nav-item"><a class="nav-link" href="{{ url_for('meus_protocolos') }}">Meus Protocolos</a></li>
-                        <li class="nav-item"><a class="nav-link" href="{{ url_for('relatorios') }}">Relatórios</a></li>
-                        <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                {{ current_user.nome }}
-                            </a>
-                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
-                                <li><a class="dropdown-item" href="{{ url_for('configuracoes') }}">Configurações</a></li>
-                                <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item" href="{{ url_for('logout') }}">Sair</a></li>
-                            </ul>
-                        </li>
-                    {% else %}
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('login') }}">Login</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('register') }}">Registrar</a>
-                        </li>
-                    {% endif %}
-                </ul>
+<body class="{% if request.endpoint == 'login' %}login-page-bg{% endif %}">
+
+    {% if current_user.is_authenticated %}
+    <header class="main-header">
+        <div class="header-container">
+            <a href="{{ url_for('home') }}" class="header-logo">
+                <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo">
+                <span>Sistema de Protocolo</span>
+            </a>
+            <nav class="main-nav">
+                <a href="{{ url_for('home') }}" class="nav-link">Dashboard</a>
+                <a href="{{ url_for('criar_protocolo') }}" class="nav-link">Novo Protocolo</a>
+                <a href="{{ url_for('listar_protocolos') }}" class="nav-link">Protocolos</a>
+                <a href="{{ url_for('meus_protocolos') }}" class="nav-link">Meus Protocolos</a>
+                <a href="{{ url_for('relatorios') }}" class="nav-link">Relatórios</a>
+            </nav>
+            <div class="header-user-menu">
+                 <div class="dropdown">
+                    <button class="btn btn-secondary dropdown-toggle user-dropdown-btn" type="button" id="userMenuButton" data-bs-toggle="dropdown" aria-expanded="false">
+                        {{ current_user.nome }}
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userMenuButton">
+                        <li><a class="dropdown-item" href="{{ url_for('configuracoes') }}">Configurações</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{{ url_for('logout') }}">Sair</a></li>
+                    </ul>
+                </div>
             </div>
         </div>
-    </nav>
+    </header>
+    {% endif %}
 
-    <main class="container mt-4">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ category }}">
-                        {{ message }}
-                    </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-        {% block content %}{% endblock %}
+    <main class="main-content">
+        {# On the login page, the content block is the full page #}
+        {# On other pages, it's inside a container #}
+        {% if request.endpoint != 'login' %}
+            <div class="container-fluid mt-4">
+                {% block content %}{% endblock %}
+            </div>
+        {% else %}
+            {% block content %}{% endblock %}
+        {% endif %}
     </main>
 
     <!-- Bootstrap JS Bundle -->
