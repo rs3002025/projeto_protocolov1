@@ -1,100 +1,164 @@
 {% extends "layout.html" %}
+
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-lg-10">
-        <div class="card">
-            <div class="card-header">
-                <h2>{{ legend }}</h2>
-            </div>
-            <div class="card-body">
-                <form method="POST" action="" id="protocol-form">
-                    {{ form.hidden_tag() }}
-                    <fieldset class="form-group">
-                        <div class="row">
-                             <div class="col-md-3 mb-3">
-                                {{ form.matricula.label(class="form-control-label") }}
-                                {{ form.matricula(class="form-control", id="matricula") }}
-                            </div>
-                            <div class="col-md-7 mb-3">
-                                {{ form.nome.label(class="form-control-label") }}
-                                {{ form.nome(class="form-control", id="nome") }}
-                            </div>
-                            <div class="col-md-2 mb-3 align-self-end">
-                                <button type="button" id="btnBuscarServidor" class="btn btn-outline-secondary w-100">Buscar</button>
-                            </div>
-                        </div>
-                        <div class="row">
-                             <div class="col-md-4 mb-3">
-                                {{ form.cargo.label(class="form-control-label") }}
-                                {{ form.cargo(class="form-control", id="cargo") }}
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                {{ form.lotacao.label(class="form-control-label") }}
-                                {{ form.lotacao(class="form-control", id="lotacao") }}
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                {{ form.unidade_exercicio.label(class="form-control-label") }}
-                                {{ form.unidade_exercicio(class="form-control", id="unidade_exercicio") }}
-                            </div>
-                        </div>
-                        <hr>
-                        <div class="row">
-                            <div class="col-md-3 mb-3">
-                                {{ form.cep.label(class="form-control-label") }}
-                                {{ form.cep(class="form-control", id="cep") }}
-                            </div>
-                             <div class="col-md-7 mb-3">
-                                {{ form.endereco.label(class="form-control-label") }}
-                                {{ form.endereco(class="form-control", id="endereco") }}
-                            </div>
-                             <div class="col-md-2 mb-3">
-                                {{ form.municipio.label(class="form-control-label") }}
-                                {{ form.municipio(class="form-control", id="municipio") }}
-                            </div>
-                        </div>
-                         <div class="row">
-                            <div class="col-md-4 mb-3">
-                                {{ form.bairro.label(class="form-control-label") }}
-                                {{ form.bairro(class="form-control", id="bairro") }}
-                            </div>
-                             <div class="col-md-4 mb-3">
-                                {{ form.cpf.label(class="form-control-label") }}
-                                {{ form.cpf(class="form-control", id="cpf") }}
-                            </div>
-                             <div class="col-md-4 mb-3">
-                                {{ form.telefone.label(class="form-control-label") }}
-                                {{ form.telefone(class="form-control", id="telefone") }}
-                            </div>
-                        </div>
-                        <hr>
-                        <div class="row">
-                            <div class="col-md-4 mb-3">
-                                {{ form.numero.label(class="form-control-label") }}
-                                {{ form.numero(class="form-control", id="numero", readonly=true) }}
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                {{ form.data_solicitacao.label(class="form-control-label") }}
-                                {{ form.data_solicitacao(class="form-control", id="data_solicitacao") }}
-                            </div>
-                             <div class="col-md-4 mb-3">
-                                {{ form.tipo_requerimento.label(class="form-control-label") }}
-                                {{ form.tipo_requerimento(class="form-control", id="tipo_requerimento") }}
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            {{ form.observacoes.label(class="form-control-label") }}
-                            {{ form.observacoes(class="form-control", rows=5, id="observacoes") }}
-                        </div>
-                    </fieldset>
-                    <div class="form-group mt-4">
-                        {{ form.submit(class="btn btn-primary") }}
-                        <a href="{{ url_for('listar_protocolos') }}" class="btn btn-secondary">Cancelar</a>
-                    </div>
-                </form>
-            </div>
+<style>
+    /* Basic styles for the form grid */
+    .formulario {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 15px;
+        background-color: #fff;
+        padding: 2rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .form-group {
+        display: flex;
+        flex-direction: column;
+    }
+    .form-group.span-1 { grid-column: span 1; }
+    .form-group.span-2 { grid-column: span 2; }
+    .form-group.span-3 { grid-column: span 3; }
+    .form-group.span-4 { grid-column: span 4; }
+    .form-group.span-5 { grid-column: span 5; }
+    .form-group.span-6 { grid-column: span 6; }
+    .form-group.full-row { grid-column: 1 / -1; }
+
+    .form-group label {
+        margin-bottom: 5px;
+        font-weight: bold;
+        font-size: 0.9rem;
+    }
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 1rem;
+    }
+    .form-actions {
+        grid-column: 1 / -1;
+        display: flex;
+        justify-content: flex-start;
+        gap: 10px;
+        margin-top: 20px;
+    }
+</style>
+
+<div class="container-fluid">
+    <h3>Novo Protocolo</h3>
+    <form class="formulario" method="POST" action="{{ url_for('criar_protocolo') }}" id="protocol-form">
+        <!-- Fields from the old form -->
+        <div class="form-group span-3">
+            <label for="numeroProtocolo">Número do Protocolo</label>
+            <input type="text" id="numeroProtocolo" name="numero" readonly class="form-control">
         </div>
-    </div>
+        <div class="form-group span-3">
+            <label for="matricula">Matrícula</label>
+            <input type="text" id="matricula" name="matricula" class="form-control">
+        </div>
+        <div class="form-group span-5">
+            <label for="nome">Nome Completo</label>
+            <input type="text" id="nome" name="nome" class="form-control">
+        </div>
+        <div class="form-group span-1" style="justify-content: flex-end; align-items: flex-end;">
+            <button type="button" id="btnBuscarNome" class="btn btn-secondary" style="width: 100%; height: 38px;">Buscar</button>
+        </div>
+        <div class="form-group span-6">
+            <label for="endereco">Endereço</label>
+            <input type="text" id="endereco" name="endereco" class="form-control">
+        </div>
+        <div class="form-group span-3">
+            <label for="municipio">Município</label>
+            <input type="text" id="municipio" name="municipio" value="Morada Nova" class="form-control">
+        </div>
+        <div class="form-group span-3">
+            <label for="bairro">Bairro</label>
+            <select id="bairro" name="bairro" class="form-select">
+                <option value="">Selecione um bairro</option>
+            </select>
+        </div>
+        <div class="form-group span-3">
+            <label for="cep">CEP</label>
+            <input type="text" id="cep" name="cep" class="form-control">
+        </div>
+        <div class="form-group span-3">
+            <label for="telefone">Telefone</label>
+            <input type="text" id="telefone" name="telefone" class="form-control">
+        </div>
+        <div class="form-group span-3">
+            <label for="cpf">CPF</label>
+            <input type="text" id="cpf" name="cpf" class="form-control">
+        </div>
+        <div class="form-group span-3">
+            <label for="rg">RG</label>
+            <input type="text" id="rg" name="rg" class="form-control">
+        </div>
+        <div class="form-group span-3">
+            <label for="dataExpedicao">Data de Expedição</label>
+            <input type="date" id="dataExpedicao" name="data_expedicao" class="form-control">
+        </div>
+        <div class="form-group span-3">
+            <label for="cargo">Cargo/Função</label>
+            <input type="text" id="cargo" name="cargo" class="form-control">
+        </div>
+        <div class="form-group span-6">
+            <label for="lotacao">Lotação</label>
+            <select id="lotacao" name="lotacao" class="form-select">
+                <option value="">Selecione...</option>
+            </select>
+        </div>
+        <div class="form-group span-6">
+            <label for="unidade">Unidade de Exercício</label>
+            <input type="text" id="unidade" name="unidade_exercicio" class="form-control">
+        </div>
+        <div class="form-group span-6">
+            <label for="tipo">Tipo de Requerimento</label>
+            <select id="tipo" name="tipo_requerimento" class="form-select">
+                <option value="">Selecione...</option>
+            </select>
+        </div>
+        <div class="form-group span-6">
+            <label for="requerAo">Requer ao</label>
+            <select id="requerAo" name="requer_ao" class="form-select">
+                <option value="">Selecione...</option>
+                <option value="SECRETÁRIO">SECRETÁRIO</option>
+                <option value="COORDENADOR DE RH">COORDENADOR DE RH</option>
+                <option value="PREFEITA">PREFEITA</option>
+            </select>
+        </div>
+        <div class="form-group span-3">
+            <label for="dataSolicitacao">Data Solicitação</label>
+            <input type="date" id="dataSolicitacao" name="data_solicitacao" class="form-control">
+        </div>
+        <div class="form-group full-row">
+            <label for="complemento">Informações Complementares</label>
+            <textarea id="complemento" name="observacoes" rows="8" class="form-control"></textarea>
+        </div>
+
+        <!-- Anexos section can be added later if needed -->
+        <!--
+        <div class="form-group full-row">
+            <label for="anexos">Anexar Documentos (limite de 10MB por arquivo)</label>
+            <input type="file" id="anexos" multiple onchange="previewFiles(this)" class="form-control">
+            <div id="filePreviewContainer" class="file-preview"></div>
+        </div>
+        -->
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Enviar Requerimento</button>
+            <button type="button" id="imprimirBtn" class="btn btn-success">Imprimir</button>
+            <a href="{{ url_for('home') }}" class="btn btn-secondary">Voltar</a>
+        </div>
+    </form>
 </div>
+{% endblock %}
+
+{% block scripts %}
+{# We will add the specific javascript for this page here later #}
+{% endblock %}
 
 <!-- Modal Busca Servidor -->
 <div class="modal fade" id="modalBuscaServidor" tabindex="-1" aria-labelledby="modalBuscaServidorLabel" aria-hidden="true">
@@ -110,13 +174,12 @@
           <input type="text" class="form-control" id="buscaNomeInput" placeholder="Digite para buscar...">
         </div>
         <div id="buscaNomeResultados" class="list-group">
-          <!-- Resultados da busca aparecerão aqui -->
+          <!-- Search results will appear here -->
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
       </div>
     </div>
   </div>
 </div>
-{% endblock content %}
