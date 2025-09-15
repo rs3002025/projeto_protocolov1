@@ -7,6 +7,46 @@
             <a href="{{ url_for('criar_protocolo') }}" class="btn btn-success">Novo Protocolo</a>
         </div>
     </div>
+
+    <!-- Search Form -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('listar_protocolos') }}">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <input type="text" name="numero" class="form-control" placeholder="Número do Protocolo" value="{{ request.args.get('numero', '') }}">
+                    </div>
+                    <div class="col-md-4">
+                        <input type="text" name="nome" class="form-control" placeholder="Nome do Requerente" value="{{ request.args.get('nome', '') }}">
+                    </div>
+                    <div class="col-md-4">
+                         <select name="status" class="form-select">
+                            <option value="">Todos os Status</option>
+                             {% set statuses = ["Aberto", "Em análise", "Pendente de documento", "Finalizado", "Concluído", "Encaminhado"] %}
+                             {% for status in statuses %}
+                                 <option value="{{ status }}" {% if request.args.get('status') == status %}selected{% endif %}>{{ status }}</option>
+                             {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <input type="date" name="data_inicio" class="form-control" title="Data de Início" value="{{ request.args.get('data_inicio', '') }}">
+                    </div>
+                    <div class="col-md-2">
+                        <input type="date" name="data_fim" class="form-control" title="Data Final" value="{{ request.args.get('data_fim', '') }}">
+                    </div>
+                    <div class="col-md-4">
+                         <input type="text" name="tipo" class="form-control" placeholder="Tipo de Requerimento" value="{{ request.args.get('tipo', '') }}">
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-primary w-100">Pesquisar</button>
+                    </div>
+                     <div class="col-md-2">
+                        <a href="{{ url_for('listar_protocolos') }}" class="btn btn-secondary w-100">Limpar</a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
     <div class="table-responsive">
         <table class="table table-striped table-hover">
             <thead>
@@ -30,8 +70,13 @@
                         <td><span class="badge bg-info">{{ protocolo.status }}</span></td>
                         <td>{{ protocolo.responsavel }}</td>
                         <td>
-                            <a href="{{ url_for('detalhe_protocolo', protocolo_id=protocolo.id) }}" class="btn btn-sm btn-outline-primary">Ver</a>
-                            <a href="{{ url_for('editar_protocolo', protocolo_id=protocolo.id) }}" class="btn btn-sm btn-outline-secondary">Editar</a>
+                            <a href="{{ url_for('detalhe_protocolo', protocolo_id=protocolo.id) }}" class="btn btn-sm btn-outline-primary">Detalhes</a>
+                            <button type="button" class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#modalAtualizarStatus" data-protocolo-id="{{ protocolo.id }}">
+                                Atualizar Status
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#modalEncaminhar" data-protocolo-id="{{ protocolo.id }}">
+                                Encaminhar
+                            </button>
                         </td>
                     </tr>
                 {% else %}

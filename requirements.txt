@@ -6,3 +6,4 @@ python-dotenv
 openpyxl
 Flask-Bcrypt
 Flask-WTF
+gunicorn

@@ -1,10 +1,108 @@
 {% extends "layout.html" %}
 {% block content %}
-    <div class="jumbotron">
-        <h1 class="display-4">Bem-vindo(a), {{ current_user.nome }}!</h1>
-        <p class="lead">Você está logado no Sistema de Protocolos.</p>
-        <hr class="my-4">
-        <p>Este é o seu painel de controle. As funcionalidades principais serão construídas aqui.</p>
-        <a class="btn btn-primary btn-lg" href="#" role="button">Ver Protocolos</a>
+<div class="container-fluid">
+    <div class="dashboard-header">
+        <h3>Dashboard Gerencial</h3>
+        <div class="dashboard-actions">
+            <!-- Print functionality can be added later -->
+            <button class="btn btn-secondary btn-sm">🖨️ Impressão Rápida</button>
+        </div>
     </div>
+
+    <!-- Filter Controls -->
+    <div class="card mt-3">
+        <div class="card-body">
+            <h5 class="card-title">Filtros</h5>
+            <div class="row g-3 align-items-center">
+                <div class="col-md-3">
+                    <label for="dashDataInicio" class="form-label">Data de Início</label>
+                    <input type="date" id="dashDataInicio" class="form-control">
+                </div>
+                <div class="col-md-3">
+                    <label for="dashDataFim" class="form-label">Data Final</label>
+                    <input type="date" id="dashDataFim" class="form-control">
+                </div>
+                <div class="col-md-2">
+                    <label for="dashStatus" class="form-label">Status</label>
+                    <select id="dashStatus" class="form-select">
+                        <option value="">Todos</option>
+                        <option value="Aberto">Aberto</option>
+                        <option value="Em análise">Em análise</option>
+                        <option value="Pendente de documento">Pendente de documento</option>
+                        <option value="Finalizado">Finalizado</option>
+                        <option value="Concluído">Concluído</option>
+                        <option value="Encaminhado">Encaminhado</option>
+                    </select>
+                </div>
+                <div class="col-md-2 align-self-end">
+                    <button id="filter-btn" class="btn btn-primary w-100">Filtrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mt-4">
+        <div class="col-md-4">
+            <div class="card text-white bg-primary mb-3 text-center">
+                <div class="card-header">Novos no Período</div>
+                <div class="card-body">
+                    <h2 class="card-title" id="stat-novos">0</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-white bg-warning mb-3 text-center">
+                <div class="card-header">Pendentes (&gt; 15 dias)</div>
+                <div class="card-body">
+                    <h2 class="card-title" id="stat-pendentes">0</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-white bg-success mb-3 text-center">
+                <div class="card-header">Finalizados no Período</div>
+                <div class="card-body">
+                    <h2 class="card-title" id="stat-finalizados">0</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="row mt-4">
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header">
+                    Top 5 Tipos de Requerimento
+                </div>
+                <div class="card-body">
+                    <canvas id="tiposChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header">
+                    Protocolos por Status
+                </div>
+                <div class="card-body">
+                    <canvas id="statusChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row mt-4">
+        <div class="col-12">
+             <div class="card">
+                <div class="card-header">
+                    Evolução de Novos Protocolos
+                </div>
+                <div class="card-body">
+                    <canvas id="evolucaoChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock content %}
