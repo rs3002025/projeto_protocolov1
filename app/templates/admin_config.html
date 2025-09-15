@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}Admin - Gestão de Tenants{% endblock %}
+
+{% block content %}
+<div class="config-screen content active">
+    <h3>👑 Gestão de Tenants (Superadmin)</h3>
+
+    <h4 style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border-color);">Adicionar Novo Tenant</h4>
+    <form class="formulario" id="formNovoTenant">
+        <div class="form-group span-2"><label for="tenantName">Nome do Cliente</label><input type="text" id="tenantName" required></div>
+        <div class="form-group span-2"><label for="tenantClientCode">Código do Cliente (slug)</label><input type="text" id="tenantClientCode" required></div>
+        <div class="form-group span-2"><label for="tenantSchemaName">Nome do Schema</label><input type="text" id="tenantSchemaName" required></div>
+        <div class="form-group full-row">
+            <button type="submit">Criar Novo Tenant</button>
+        </div>
+    </form>
+
+    <h4 style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border-color);">Tenants Existentes</h4>
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Nome do Cliente</th>
+          <th>Código</th>
+          <th>Schema</th>
+          <th>Ativo</th>
+          <th style="width: 150px;">Ações</th>
+        </tr>
+      </thead>
+      <tbody id="tabelaTenants">
+        <!-- Os tenants serão carregados aqui via JavaScript -->
+      </tbody>
+    </table>
+    <br>
+    <a href="{{ url_for('main.menu') }}" class="button-link">Voltar ao Menu</a>
+</div>
+
+<script>
+async function fetchTenants() {
+    const tbody = document.getElementById('tabelaTenants');
+    try {
+        const response = await fetchWithAuth('/api/admin/tenants');
+        if (!response.ok) {
+            tbody.innerHTML = '<tr><td colspan="6">Erro ao carregar tenants.</td></tr>';
+            return;
+        }
+        const tenants = await response.json();
+        tbody.innerHTML = '';
+        tenants.forEach(tenant => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${tenant.id}</td>
+                <td>${tenant.name}</td>
+                <td>${tenant.client_code}</td>
+                <td>${tenant.schema_name}</td>
+                <td>${tenant.is_active ? 'Sim' : 'Não'}</td>
+                <td>
+                    <button onclick="deleteTenant(${tenant.id}, '${tenant.name}')" style="background-color:#c82333;">Excluir</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    } catch (error) {
+        console.error('Erro ao buscar tenants:', error);
+        tbody.innerHTML = '<tr><td colspan="6">Falha na conexão ao carregar tenants.</td></tr>';
+    }
+}
+
+async function createTenant(event) {
+    event.preventDefault();
+    const tenantData = {
+        name: document.getElementById('tenantName').value,
+        client_code: document.getElementById('tenantClientCode').value,
+        schema_name: document.getElementById('tenantSchemaName').value,
+    };
+
+    try {
+        const response = await fetchWithAuth('/api/admin/tenants', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(tenantData),
+        });
+        const result = await response.json();
+        alert(result.msg);
+        if (response.ok) {
+            document.getElementById('formNovoTenant').reset();
+            fetchTenants();
+        }
+    } catch (error) {
+        console.error('Erro ao criar tenant:', error);
+        alert('Falha na conexão ao criar tenant.');
+    }
+}
+
+async function deleteTenant(id, name) {
+    if (!confirm(`Tem certeza que deseja excluir o tenant '${name}'? Esta ação é IRREVERSÍVEL e apagará todo o schema e os dados associados.`)) {
+        return;
+    }
+    try {
+        const response = await fetchWithAuth(`/api/admin/tenants/${id}`, {
+            method: 'DELETE',
+        });
+        const result = await response.json();
+        alert(result.msg);
+        if (response.ok) {
+            fetchTenants();
+        }
+    } catch (error) {
+        console.error('Erro ao excluir tenant:', error);
+        alert('Falha na conexão ao excluir tenant.');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    fetchTenants();
+    document.getElementById('formNovoTenant').addEventListener('submit', createTenant);
+});
+</script>
+{% endblock %}

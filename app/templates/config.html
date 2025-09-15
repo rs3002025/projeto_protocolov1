@@ -4,15 +4,7 @@
 
 {% block content %}
 <div class="config-screen content active">
-    <h3>⚙️ Configurações Gerais</h3>
-
-    <div class="form-group">
-        <label for="emailSistemaConfig">Email do Sistema</label>
-        <div style="display: flex; gap: 10px;">
-            <input type="email" id="emailSistemaConfig" style="flex-grow: 1;"/>
-            <button onclick="salvarEmailSistema()" style="margin-top: 0;">Salvar</button>
-        </div>
-    </div>
+    <h3>⚙️ Configurações Gerais (Admin)</h3>
 
     <h4 style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border-color);">Adicionar Novo Usuário</h4>
     <form class="formulario" onsubmit="cadastrarUsuario(); return false;">
@@ -67,16 +59,10 @@
         <tbody id="tabelaLotacoes"></tbody>
     </table>
 
-    <h4 style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border-color);">Gerar Backup de Protocolos</h4>
-    <div class="formulario">
-        <div class="form-group span-3"><label for="backupDataInicio">Data Início</label><input type="date" id="backupDataInicio" /></div>
-        <div class="form-group span-3"><label for="backupDataFim">Data Fim</label><input type="date" id="backupDataFim" /></div>
-        <div class="form-group full-row"><button onclick="gerarBackup()">Gerar Backup</button></div>
-    </div>
-
     <br><br>
     <a href="{{ url_for('main.menu') }}" class="button-link">Voltar ao Menu</a>
 </div>
+
 <script>
     document.addEventListener('DOMContentLoaded', () => {
         atualizarListaUsuarios();
