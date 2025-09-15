@@ -35,14 +35,15 @@ login_manager.login_message_category = 'info'
 # --- Imports for Routes and Models ---
 from flask import render_template, url_for, flash, redirect, request
 from flask_login import login_user, current_user, logout_user, login_required
-from flask import send_file, Response, jsonify
+from flask import send_file, Response, jsonify, make_response
 from werkzeug.utils import secure_filename
 import io
 from openpyxl import Workbook
 from sqlalchemy import func, cast, Date
 from datetime import datetime, timedelta
-from forms import LoginForm, RegistrationForm, ProtocoloForm, AnexoForm
-from models import Usuario, Protocolo, HistoricoProtocolo, Anexo, db
+from weasyprint import HTML, CSS
+from forms import LoginForm, RegistrationForm, ProtocoloForm, AnexoForm, AdminUserCreationForm, AdminListItemForm
+from models import Usuario, Protocolo, HistoricoProtocolo, Anexo, Lotacao, TipoRequerimento, Servidor, db
 
 # --- Routes ---
 @app.route("/")
@@ -99,6 +100,148 @@ def logout():
     logout_user()
     flash('Você saiu da sua conta.', 'info')
     return redirect(url_for('login'))
+
+@app.route("/meus_protocolos")
+@login_required
+def meus_protocolos():
+    page = request.args.get('page', 1, type=int)
+    protocolos = Protocolo.query.filter_by(responsavel=current_user.login)\
+        .order_by(Protocolo.id.desc())\
+        .paginate(page=page, per_page=10)
+    return render_template('protocolos.html', protocolos=protocolos, title="Meus Protocolos")
+
+from functools import wraps
+
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated or current_user.tipo != 'admin':
+            flash('Acesso negado. Requer permissão de administrador.', 'danger')
+            return redirect(url_for('home'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+@app.route("/relatorios")
+@login_required
+def relatorios():
+    # This route essentially does the same as listar_protocolos but renders a different template
+    # to match the original app's structure.
+    page = request.args.get('page', 1, type=int)
+    query = Protocolo.query
+    # ... (filter logic is identical to listar_protocolos) ...
+    if request.args.get('numero'):
+        query = query.filter(Protocolo.numero.ilike(f"%{request.args.get('numero')}%"))
+    if request.args.get('nome'):
+        query = query.filter(Protocolo.nome.ilike(f"%{request.args.get('nome')}%"))
+    if request.args.get('status'):
+        query = query.filter(Protocolo.status == request.args.get('status'))
+    # Add other filters as needed
+    protocolos = query.order_by(Protocolo.id.desc()).paginate(page=page, per_page=10)
+    return render_template('relatorios.html', protocolos=protocolos, title="Relatórios")
+
+# --- Rotas de Configuração (Admin) ---
+
+@app.route("/configuracoes", methods=['GET', 'POST'])
+@login_required
+@admin_required
+def configuracoes():
+    user_form = AdminUserCreationForm()
+    lotacao_form = AdminListItemForm()
+    tipo_form = AdminListItemForm()
+
+    if user_form.validate_on_submit() and user_form.submit.data:
+        # Lógica de criação de usuário movida para uma rota de API dedicada
+        pass
+
+    users = Usuario.query.all()
+    lotacoes = Lotacao.query.all()
+    tipos = TipoRequerimento.query.all()
+
+    return render_template('configuracoes.html', title="Configurações",
+                           users=users, lotacoes=lotacoes, tipos=tipos,
+                           user_form=user_form, lotacao_form=lotacao_form, tipo_form=tipo_form)
+
+@app.route("/admin/usuarios/novo", methods=['POST'])
+@login_required
+@admin_required
+def admin_create_user():
+    form = AdminUserCreationForm()
+    if form.validate_on_submit():
+        hashed_password = bcrypt.generate_password_hash(form.senha.data).decode('utf-8')
+        user = Usuario(
+            nome_completo=form.nome_completo.data,
+            login=form.login.data,
+            email=form.email.data,
+            senha=hashed_password,
+            nome=form.nome_completo.data.split(' ')[0],
+            tipo=form.tipo.data,
+            status='ativo'
+        )
+        db.session.add(user)
+        db.session.commit()
+        flash('Usuário criado com sucesso!', 'success')
+    else:
+        flash('Erro ao criar usuário. Verifique os dados.', 'danger')
+    return redirect(url_for('configuracoes'))
+
+@app.route("/admin/item/<string:item_type>/novo", methods=['POST'])
+@login_required
+@admin_required
+def admin_create_list_item(item_type):
+    form = AdminListItemForm()
+    if form.validate_on_submit():
+        Model = None
+        if item_type == 'lotacao':
+            Model = Lotacao
+        elif item_type == 'tipo':
+            Model = TipoRequerimento
+
+        if Model:
+            new_item = Model(nome=form.nome.data, ativo=True)
+            db.session.add(new_item)
+            db.session.commit()
+            flash(f'{item_type.capitalize()} adicionado com sucesso!', 'success')
+    else:
+        flash('Erro ao adicionar item.', 'danger')
+    return redirect(url_for('configuracoes'))
+
+@app.route("/admin/item/<string:item_type>/<int:item_id>/status", methods=['POST'])
+@login_required
+@admin_required
+def admin_toggle_item_status(item_type, item_id):
+    Model = None
+    if item_type == 'lotacao':
+        Model = Lotacao
+    elif item_type == 'tipo':
+        Model = TipoRequerimento
+
+    if Model:
+        item = Model.query.get_or_404(item_id)
+        item.ativo = not item.ativo
+        db.session.commit()
+        flash(f'Status do item alterado com sucesso!', 'success')
+    return redirect(url_for('configuracoes'))
+
+# --- Rota de Geração de PDF ---
+
+@app.route('/protocolo/<int:protocolo_id>/pdf')
+@login_required
+def gerar_pdf_protocolo(protocolo_id):
+    protocolo = Protocolo.query.get_or_404(protocolo_id)
+
+    # Renderiza um template HTML com os dados do protocolo
+    # Este template é feito especificamente para ser convertido em PDF
+    rendered_html = render_template('pdf_template.html', protocolo=protocolo)
+
+    # Gera o PDF a partir do HTML renderizado
+    pdf_bytes = HTML(string=rendered_html, base_url=request.base_url).write_pdf()
+
+    # Cria a resposta HTTP com o PDF
+    response = make_response(pdf_bytes)
+    response.headers['Content-Type'] = 'application/pdf'
+    response.headers['Content-Disposition'] = f'inline; filename=protocolo_{protocolo.numero.replace("/", "-")}.pdf'
+
+    return response
 
 # --- Rotas de Protocolo ---
 
@@ -364,6 +507,75 @@ def get_usuarios():
         return jsonify(usuarios_list)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/servidor/<string:matricula>')
+@login_required
+def get_servidor(matricula):
+    servidor = Servidor.query.filter_by(matricula=matricula).first()
+    if servidor:
+        return jsonify({
+            'matricula': servidor.matricula,
+            'nome': servidor.nome,
+            'lotacao': servidor.lotacao,
+            'cargo': servidor.cargo,
+            'unidade_de_exercicio': servidor.unidade_de_exercicio
+        })
+    return jsonify({'error': 'Servidor não encontrado'}), 404
+
+@app.route('/api/servidores/search')
+@login_required
+def search_servidores():
+    query_nome = request.args.get('nome', '')
+    if len(query_nome) < 3:
+        return jsonify({'error': 'A busca requer ao menos 3 caracteres'}), 400
+
+    servidores = Servidor.query.filter(Servidor.nome.ilike(f'%{query_nome}%')).limit(10).all()
+    return jsonify([{
+        'matricula': s.matricula,
+        'nome': s.nome,
+        'lotacao': s.lotacao,
+        'cargo': s.cargo,
+        'unidade_de_exercicio': s.unidade_de_exercicio
+    } for s in servidores])
+
+@app.route('/api/lotacoes')
+@login_required
+def get_lotacoes():
+    lotacoes = Lotacao.query.filter_by(ativo=True).order_by(Lotacao.nome).all()
+    return jsonify([l.nome for l in lotacoes])
+
+@app.route('/api/tipos_requerimento')
+@login_required
+def get_tipos_requerimento():
+    tipos = TipoRequerimento.query.filter_by(ativo=True).order_by(TipoRequerimento.nome).all()
+    return jsonify([t.nome for t in tipos])
+
+@app.route('/api/protocolo/<int:protocolo_id>')
+@login_required
+def get_protocolo_api(protocolo_id):
+    protocolo = Protocolo.query.get_or_404(protocolo_id)
+    return jsonify({
+        'id': protocolo.id,
+        'numero': protocolo.numero,
+        'nome': protocolo.nome,
+        'matricula': protocolo.matricula,
+        'endereco': protocolo.endereco,
+        'municipio': protocolo.municipio,
+        'bairro': protocolo.bairro,
+        'cep': protocolo.cep,
+        'telefone': protocolo.telefone,
+        'cpf': protocolo.cpf,
+        'rg': protocolo.rg,
+        'cargo': protocolo.cargo,
+        'lotacao': protocolo.lotacao,
+        'unidade_exercicio': protocolo.unidade_exercicio,
+        'tipo_requerimento': protocolo.tipo_requerimento,
+        'requer_ao': protocolo.requer_ao,
+        'data_solicitacao': protocolo.data_solicitacao.isoformat() if protocolo.data_solicitacao else None,
+        'observacoes': protocolo.observacoes,
+        'status': protocolo.status,
+        'responsavel': protocolo.responsavel,
+    })
 
 @app.route('/api/dashboard-data')
 @login_required

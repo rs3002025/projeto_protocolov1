@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Protocolo {{ protocolo.numero }}</title>
+    <style>
+        body { font-family: 'Liberation Sans', sans-serif; color: #333; font-size: 12px; }
+        .doc-container { width: 100%; margin: 0 auto; padding: 20px; }
+        .pdf-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #ddd; padding-bottom: 15px; margin-bottom: 20px; }
+        .logo-pdf img { height: 70px; }
+        .titulo-principal-pdf { text-align: center; margin: 2px 0; font-size: 20px; }
+        .titulo-central-pdf { text-align: center; margin-bottom: 20px; }
+        .titulo-central-pdf span { background: #333; color: white; font-size: 14px; padding: 8px 20px; font-weight: bold; }
+        .info-pdf { margin-bottom: 20px; display: flex; justify-content: space-between; gap: 20px; }
+        .campo-destaque-pdf { font-weight: bold; font-size: 13px; background-color: #eee; padding: 8px 12px; margin: 4px 0; flex: 1; text-align: center; }
+        .section-title-pdf { background: #f0f0f0; font-weight: bold; padding: 6px 10px; border-left: 4px solid #555; margin-top: 20px; font-size: 14px; }
+        .grid-pdf { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 30px; margin-top: 10px; }
+        .box-pdf { border: 1px solid #ddd; padding: 10px; margin-top: 10px; }
+        .assinaturas-container { margin-top: 50px; page-break-inside: avoid; }
+        .assinaturas-flex { display: flex; justify-content: space-between; gap: 20px; }
+        .assinatura-pdf { text-align: center; flex: 1; }
+        .linha-assinatura { border-top: 1px solid #000; margin-top: 40px; margin-bottom: 5px; }
+    </style>
+</head>
+<body>
+    <div class="doc-container">
+        <div class="pdf-header">
+            <div class="logo-pdf"><img src="{{ url_for('static', filename='img/logo.png', _external=True) }}" alt="Logo"></div>
+        </div>
+        <h1 class="titulo-principal-pdf">Secretaria da Administração</h1>
+        <div class="titulo-central-pdf"><span>PROTOCOLO DE REQUERIMENTO</span></div>
+        <div class="info-pdf">
+            <div class="campo-destaque-pdf"><strong>Número:</strong> {{ protocolo.numero }}</div>
+            <div class="campo-destaque-pdf"><strong>Data:</strong> {{ protocolo.data_solicitacao.strftime('%d/%m/%Y') if protocolo.data_solicitacao else '' }}</div>
+        </div>
+        <div class="section-title-pdf">DADOS DO REQUERENTE</div>
+        <div class="grid-pdf">
+            <div><strong>Nome:</strong> {{ protocolo.nome or 'N/A' }}</div>
+            <div><strong>Endereço:</strong> {{ protocolo.endereco or 'N/A' }}</div>
+            <div><strong>Matrícula:</strong> {{ protocolo.matricula or 'N/A' }}</div>
+            <div><strong>Bairro:</strong> {{ protocolo.bairro or 'N/A' }}</div>
+            <div><strong>CPF:</strong> {{ protocolo.cpf or 'N/A' }}</div>
+            <div><strong>Município:</strong> {{ protocolo.municipio or 'N/A' }}</div>
+            <div><strong>RG:</strong> {{ protocolo.rg or 'N/A' }}</div>
+            <div><strong>CEP:</strong> {{ protocolo.cep or 'N/A' }}</div>
+            <div><strong>Cargo/Função:</strong> {{ protocolo.cargo or 'N/A' }}</div>
+            <div><strong>Telefone:</strong> {{ protocolo.telefone or 'N/A' }}</div>
+            <div><strong>Lotação:</strong> {{ protocolo.lotacao or 'N/A' }}</div>
+            <div><strong>Unidade de Exercício:</strong> {{ protocolo.unidade_exercicio or 'N/A' }}</div>
+        </div>
+        <div class="section-title-pdf">DADOS DO REQUERIMENTO</div>
+        <div style="margin-top: 10px;">
+            <p><strong>Tipo de Requerimento:</strong> {{ protocolo.tipo_requerimento or 'N/A' }}</p>
+            <p><strong>Requer ao:</strong> {{ protocolo.requer_ao or 'N/A' }}</p>
+        </div>
+        <div class="section-title-pdf">OBSERVAÇÕES</div>
+        <div class="box-pdf">
+            <p>{{ protocolo.observacoes or 'Nenhuma observação.' }}</p>
+        </div>
+        <div class="assinaturas-container">
+            <div class="assinaturas-flex">
+                <div class="assinatura-pdf"><div class="linha-assinatura"></div>Assinatura do Requerente</div>
+                <div class="assinatura-pdf"><div class="linha-assinatura"></div>Responsável pelo Protocolo</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
