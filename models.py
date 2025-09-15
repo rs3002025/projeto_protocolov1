@@ -33,6 +33,7 @@ class Protocolo(db.Model):
     telefone = db.Column(db.String)
     cpf = db.Column(db.String)
     rg = db.Column(db.String)
+    data_expedicao = db.Column(db.Date)
     cargo = db.Column(db.String)
     lotacao = db.Column(db.String)
     unidade_exercicio = db.Column(db.String)
