@@ -101,7 +101,6 @@ def logout():
     return redirect(url_for('login'))
 
 # --- Rotas de Protocolo ---
-# --- Rotas de Protocolo ---
 
 @app.route("/protocolos")
 @login_required
