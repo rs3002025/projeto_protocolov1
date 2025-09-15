@@ -1,57 +1,44 @@
 {% extends "layout.html" %}
 {% block content %}
-    <div class="row justify-content-center">
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header">
-                    <h2>Login</h2>
-                </div>
-                <div class="card-body">
-                    <form method="POST" action="">
-                        {{ form.hidden_tag() }}
-                        <fieldset class="form-group">
-                            <div class="form-group mb-3">
-                                {{ form.login.label(class="form-control-label") }}
-                                {% if form.login.errors %}
-                                    {{ form.login(class="form-control form-control-lg is-invalid") }}
-                                    <div class="invalid-feedback">
-                                        {% for error in form.login.errors %}
-                                            <span>{{ error }}</span>
-                                        {% endfor %}
-                                    </div>
-                                {% else %}
-                                    {{ form.login(class="form-control form-control-lg") }}
-                                {% endif %}
-                            </div>
-                            <div class="form-group mb-3">
-                                {{ form.senha.label(class="form-control-label") }}
-                                {% if form.senha.errors %}
-                                    {{ form.senha(class="form-control form-control-lg is-invalid") }}
-                                    <div class="invalid-feedback">
-                                        {% for error in form.senha.errors %}
-                                            <span>{{ error }}</span>
-                                        {% endfor %}
-                                    </div>
-                                {% else %}
-                                    {{ form.senha(class="form-control form-control-lg") }}
-                                {% endif %}
-                            </div>
-                            <div class="form-check mb-3">
-                                {{ form.remember(class="form-check-input") }}
-                                {{ form.remember.label(class="form-check-label") }}
-                            </div>
-                        </fieldset>
-                        <div class="form-group">
-                            {{ form.submit(class="btn btn-outline-info") }}
-                        </div>
-                    </form>
-                </div>
-                <div class="card-footer text-muted">
-                    <small>
-                        Não tem uma conta? <a href="{{ url_for('register') }}">Registre-se aqui</a>
-                    </small>
-                </div>
+<div class="login-container">
+    <div class="login-box">
+        <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo" class="login-logo">
+        <h2 class="login-title">Sistema de Protocolo</h2>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form method="POST" action="">
+            {{ form.hidden_tag() }}
+            <div class="form-floating mb-3">
+                {{ form.login(class="form-control", id="floatingInput", placeholder="Login") }}
+                {{ form.login.label(for="floatingInput") }}
             </div>
+            <div class="form-floating mb-3">
+                {{ form.senha(class="form-control", id="floatingPassword", placeholder="Senha") }}
+                {{ form.senha.label(for="floatingPassword") }}
+            </div>
+            <div class="form-check mb-3">
+                {{ form.remember(class="form-check-input") }}
+                {{ form.remember.label(class="form-check-label") }}
+            </div>
+            <div class="d-grid">
+                {{ form.submit(class="btn btn-primary btn-lg") }}
+            </div>
+        </form>
+        <div class="mt-3 text-center">
+            <small>
+                Não tem uma conta? <a href="{{ url_for('register') }}">Registre-se aqui</a>
+            </small>
         </div>
     </div>
+</div>
 {% endblock content %}

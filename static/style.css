@@ -20,8 +20,26 @@ body.loading { visibility: hidden; }
 .span-1 { grid-column: span 1; }
 label { margin-bottom: 5px; font-weight: 600; }
 input, select, textarea { border: 1px solid #ccc; border-radius: 6px; padding: 8px; font-size: 1em; }
-button { padding: 10px 12px; border: none; background: #2e7d32; color: white; border-radius: 8px; cursor: pointer; margin: 5px 10px 5px 0; transition: background-color 0.2s; }
-button:hover { background-color: #1b5e20; }
+/* General button style update */
+button, .btn {
+    transition: background-color 0.2s, border-color 0.2s, color 0.2s;
+}
+
+/* Overriding the old green button style and setting a new default */
+button {
+    padding: 10px 12px;
+    border: none;
+    background: #0d6efd; /* New default blue */
+    color: white;
+    border-radius: 8px;
+    cursor: pointer;
+    margin: 5px 10px 5px 0;
+}
+
+button:hover {
+    background-color: #0b5ed7; /* Darker blue on hover */
+}
+
 .filtros { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; background: #f5f5f5; padding: 15px; border-radius: 8px; }
 .filtros input, .filtros select { padding: 8px; border-radius: 4px; border: 1px solid #ccc; }
 #modeloProtocolo, #modeloRelatorio { display: none; }
@@ -54,12 +72,79 @@ button:hover { background-color: #1b5e20; }
 .stat-label { font-size: 1.1em; color: #6c757d; }
 .chart-container { max-width: 800px; margin: 0 auto; }
 
-/* --- ESTILOS PARA TABELAS --- */
-table { border-collapse: collapse; width: 100%; table-layout: fixed; /* Garante que as colunas tenham larguras fixas */ }
-th, td { border: 1px solid #ddd; padding: 12px; vertical-align: middle; word-wrap: break-word; /* Evita quebra de layout em palavras longas */ }
-th { background-color: #e0e0e0; }
-tbody tr:nth-of-type(even) { background-color: #f9f9f9; }
-tbody tr:hover { background-color: #f0f0f0; }
+/* --- ESTILOS MODERNOS PARA TABELAS --- */
+table {
+    border-collapse: collapse;
+    width: 100%;
+    table-layout: fixed;
+    background-color: #fff;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+}
+
+th, td {
+    padding: 1rem;
+    vertical-align: middle;
+    word-wrap: break-word;
+    border-bottom: 1px solid #dee2e6;
+}
+
+th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+    text-align: left;
+    color: #495057;
+}
+
+tbody tr:hover {
+    background-color: #f1f3f5;
+}
+
+/* Remove border from the last row */
+tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* --- ESTILOS MODERNOS PARA FORMULÁRIOS E CABEÇALHOS DE PÁGINA --- */
+
+.page-header {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #343a40;
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #dee2e6;
+}
+
+/* Modernize form inputs */
+input[type="text"],
+input[type="password"],
+input[type="email"],
+input[type="date"],
+input[type="number"],
+select,
+textarea {
+    background-color: #fff;
+    border: 1px solid #ced4da;
+    border-radius: 0.25rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 1rem;
+    color: #212529;
+    transition: border-color .15s ease-in-out,box-shadow .15s ease-in-out;
+}
+
+input[type="text"]:focus,
+input[type="password"]:focus,
+input[type="email"]:focus,
+input[type="date"]:focus,
+input[type="number"]:focus,
+select:focus,
+textarea:focus {
+    border-color: #86b7fe;
+    outline: 0;
+    box-shadow: 0 0 0 0.25rem rgba(13,110,253,.25);
+}
 
 /* Estilo para a coluna de Ação em todas as tabelas */
 .col-acao {
@@ -331,4 +416,115 @@ tbody tr:hover { background-color: #f0f0f0; }
 
 .resultado-servidor:last-child {
   border-bottom: none;
+}
+
+/* --- ESTILOS DA NOVA PÁGINA DE LOGIN --- */
+.login-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 80vh;
+  background-color: #f8f9fa;
+}
+
+.login-box {
+  width: 100%;
+  max-width: 400px;
+  padding: 40px;
+  background-color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+.login-logo {
+  max-height: 70px;
+  margin-bottom: 20px;
+}
+
+.login-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 25px;
+}
+
+.login-box .form-floating label {
+    color: #6c757d;
+}
+
+.login-box .btn-primary {
+    background-color: #0d6efd; /* Cor azul padrão do Bootstrap 5 */
+    border-color: #0d6efd;
+}
+
+/* --- ESTILOS DO NOVO LAYOUT E HEADER --- */
+
+.login-page-bg {
+    background-color: #f8f9fa; /* Light gray background for login page */
+}
+
+.main-header {
+    background-color: #ffffff;
+    padding: 0 2rem;
+    border-bottom: 1px solid #e9ecef;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.header-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 70px;
+}
+
+.header-logo {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+    color: #212529;
+    font-size: 1.25rem;
+    font-weight: 600;
+}
+
+.header-logo img {
+    height: 40px;
+    margin-right: 10px;
+}
+
+.main-nav {
+    display: flex;
+    gap: 1.5rem;
+}
+
+.main-nav .nav-link {
+    text-decoration: none;
+    color: #495057;
+    font-weight: 500;
+    padding: 5px 0;
+    border-bottom: 2px solid transparent;
+    transition: color 0.2s ease, border-bottom-color 0.2s ease;
+}
+
+.main-nav .nav-link:hover,
+.main-nav .nav-link.active { /* Add 'active' class with JS for current page */
+    color: #0d6efd;
+    border-bottom-color: #0d6efd;
+}
+
+.header-user-menu .user-dropdown-btn {
+    background-color: transparent;
+    border: none;
+    color: #495057;
+    font-weight: 500;
+}
+
+.header-user-menu .user-dropdown-btn:hover,
+.header-user-menu .user-dropdown-btn:focus {
+    background-color: #f8f9fa;
+    color: #0d6efd;
+}
+
+.main-content {
+    /* If using a fixed header, add padding-top here */
 }

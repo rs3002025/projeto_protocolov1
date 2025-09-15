@@ -70,11 +70,11 @@
                         <div class="row">
                             <div class="col-md-4 mb-3">
                                 {{ form.numero.label(class="form-control-label") }}
-                                {{ form.numero(class="form-control") }}
+                                {{ form.numero(class="form-control", id="numero") }}
                             </div>
                             <div class="col-md-4 mb-3">
                                 {{ form.data_solicitacao.label(class="form-control-label") }}
-                                {{ form.data_solicitacao(class="form-control") }}
+                                {{ form.data_solicitacao(class="form-control", id="data_solicitacao") }}
                             </div>
                              <div class="col-md-4 mb-3">
                                 {{ form.tipo_requerimento.label(class="form-control-label") }}
@@ -83,7 +83,7 @@
                         </div>
                         <div class="mb-3">
                             {{ form.observacoes.label(class="form-control-label") }}
-                            {{ form.observacoes(class="form-control", rows=5) }}
+                            {{ form.observacoes(class="form-control", rows=5, id="observacoes") }}
                         </div>
                     </fieldset>
                     <div class="form-group mt-4">
@@ -94,5 +94,29 @@
             </div>
         </div>
     </div>
+</div>
+
+<!-- Modal Busca Servidor -->
+<div class="modal fade" id="modalBuscaServidor" tabindex="-1" aria-labelledby="modalBuscaServidorLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalBuscaServidorLabel">Buscar Servidor por Nome</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label for="buscaNomeInput" class="form-label">Nome do Servidor</label>
+          <input type="text" class="form-control" id="buscaNomeInput" placeholder="Digite para buscar...">
+        </div>
+        <div id="buscaNomeResultados" class="list-group">
+          <!-- Resultados da busca aparecerão aqui -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+      </div>
+    </div>
+  </div>
 </div>
 {% endblock content %}
