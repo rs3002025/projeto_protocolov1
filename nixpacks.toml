@@ -1,0 +1,14 @@
+# nixpacks.toml
+
+[phases.setup]
+# Use the Python 3.12 environment provided by Nixpacks
+nixPkgs = ["python312"]
+
+[phases.install]
+# Command to install dependencies from requirements.txt
+cmds = ["pip install --upgrade pip && pip install -r requirements.txt"]
+
+[start]
+# Command to start the application with Gunicorn
+# It binds to all interfaces and uses the port provided by the PORT environment variable.
+cmd = "gunicorn app:app --bind 0.0.0.0:$PORT"

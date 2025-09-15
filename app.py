@@ -3,15 +3,21 @@ from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_bcrypt import Bcrypt
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 app = Flask(__name__)
 
 # --- Configuration ---
-# Secret key for session management (e.g., for Flask-Login)
-app.config['SECRET_KEY'] = 'uma-chave-secreta-muito-segura-e-dificil-de-adivinhar' # Replace with a real secret key
+SECRET_KEY = os.getenv('SECRET_KEY')
+DATABASE_URL = os.getenv('DATABASE_URL')
 
-# Database configuration - Hardcoded as a workaround for .env issues
-DATABASE_URL = "postgresql://postgres:jQxcYjVcLejOYCtPXmPGweRyoQPxQdnt@metro.proxy.rlwy.net:34866/railway"
+if not SECRET_KEY or not DATABASE_URL:
+    raise RuntimeError("SECRET_KEY and DATABASE_URL must be set in the environment or a .env file.")
+
+app.config['SECRET_KEY'] = SECRET_KEY
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -29,10 +35,12 @@ login_manager.login_message_category = 'info'
 # --- Imports for Routes and Models ---
 from flask import render_template, url_for, flash, redirect, request
 from flask_login import login_user, current_user, logout_user, login_required
-from flask import send_file, Response
+from flask import send_file, Response, jsonify
 from werkzeug.utils import secure_filename
 import io
 from openpyxl import Workbook
+from sqlalchemy import func, cast, Date
+from datetime import datetime, timedelta
 from forms import LoginForm, RegistrationForm, ProtocoloForm, AnexoForm
 from models import Usuario, Protocolo, HistoricoProtocolo, Anexo, db
 
@@ -41,8 +49,9 @@ from models import Usuario, Protocolo, HistoricoProtocolo, Anexo, db
 @app.route("/home")
 @login_required
 def home():
-    protocolos = Protocolo.query.order_by(Protocolo.data_solicitacao.desc()).limit(10).all()
-    return render_template('home.html', protocolos=protocolos)
+    # This page will now be rendered with the dashboard structure,
+    # and the data will be fetched client-side.
+    return render_template('home.html', title="Dashboard")
 
 @app.route("/register", methods=['GET', 'POST'])
 def register():
@@ -97,7 +106,32 @@ def logout():
 @login_required
 def listar_protocolos():
     page = request.args.get('page', 1, type=int)
-    protocolos = Protocolo.query.order_by(Protocolo.id.desc()).paginate(page=page, per_page=10)
+    query = Protocolo.query
+
+    # Get filter args
+    numero = request.args.get('numero')
+    nome = request.args.get('nome')
+    status = request.args.get('status')
+    data_inicio = request.args.get('data_inicio')
+    data_fim = request.args.get('data_fim')
+    tipo = request.args.get('tipo')
+
+    # Apply filters
+    if numero:
+        query = query.filter(Protocolo.numero.ilike(f'%{numero}%'))
+    if nome:
+        query = query.filter(Protocolo.nome.ilike(f'%{nome}%'))
+    if status:
+        query = query.filter(Protocolo.status == status)
+    if data_inicio:
+        query = query.filter(Protocolo.data_solicitacao >= data_inicio)
+    if data_fim:
+        query = query.filter(Protocolo.data_solicitacao <= data_fim)
+    if tipo:
+        query = query.filter(Protocolo.tipo_requerimento.ilike(f'%{tipo}%'))
+
+    protocolos = query.order_by(Protocolo.id.desc()).paginate(page=page, per_page=10)
+
     return render_template('protocolos.html', protocolos=protocolos, title="Todos os Protocolos")
 
 @app.route("/protocolo/novo", methods=['GET', 'POST'])
@@ -226,13 +260,64 @@ def deletar_anexo(anexo_id):
     flash('Anexo excluído com sucesso.', 'success')
     return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo_id))
 
+@app.route("/protocolos/atualizar", methods=['POST'])
+@login_required
+def atualizar_protocolo_status():
+    data = request.get_json()
+    protocolo_id = data.get('protocoloId')
+    novo_status = data.get('novoStatus')
+    novo_responsavel = data.get('novoResponsavel') # Pode ser nulo
+    observacao = data.get('observacao')
+
+    if not protocolo_id or not novo_status:
+        return jsonify({'sucesso': False, 'mensagem': 'Dados insuficientes.'}), 400
+
+    protocolo = Protocolo.query.get_or_404(protocolo_id)
+
+    # Atualiza o protocolo
+    protocolo.status = novo_status
+    if novo_responsavel:
+        protocolo.responsavel = novo_responsavel
+
+    # Adiciona registro ao histórico
+    historico = HistoricoProtocolo(
+        protocolo_id=protocolo.id,
+        status=novo_status,
+        responsavel=current_user.login, # Quem fez a ação
+        observacao=observacao
+    )
+    db.session.add(historico)
+
+    try:
+        db.session.commit()
+        return jsonify({'sucesso': True, 'mensagem': 'Protocolo atualizado com sucesso.'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+
 # --- Rota de Backup ---
 
 @app.route('/protocolos/backup/excel')
 @login_required
 def backup_excel():
-    """Gera um arquivo Excel com todos os protocolos."""
-    protocolos = Protocolo.query.order_by(Protocolo.id.asc()).all()
+    """Gera um arquivo Excel com todos os protocolos, aplicando os filtros ativos."""
+    query = Protocolo.query
+
+    # Re-aplica a mesma lógica de filtro da listagem
+    if request.args.get('numero'):
+        query = query.filter(Protocolo.numero.ilike(f"%{request.args.get('numero')}%"))
+    if request.args.get('nome'):
+        query = query.filter(Protocolo.nome.ilike(f"%{request.args.get('nome')}%"))
+    if request.args.get('status'):
+        query = query.filter(Protocolo.status == request.args.get('status'))
+    if request.args.get('data_inicio'):
+        query = query.filter(Protocolo.data_solicitacao >= request.args.get('data_inicio'))
+    if request.args.get('data_fim'):
+        query = query.filter(Protocolo.data_solicitacao <= request.args.get('data_fim'))
+    if request.args.get('tipo'):
+        query = query.filter(Protocolo.tipo_requerimento.ilike(f"%{request.args.get('tipo')}%"))
+
+    protocolos = query.order_by(Protocolo.id.asc()).all()
 
     workbook = Workbook()
     sheet = workbook.active
@@ -265,6 +350,80 @@ def backup_excel():
         as_attachment=True,
         download_name='backup_protocolos.xlsx'
     )
+
+# --- API Routes for Dynamic Data ---
+
+@app.route('/api/usuarios')
+@login_required
+def get_usuarios():
+    """Retorna uma lista de usuários ativos para preencher selects."""
+    try:
+        usuarios = Usuario.query.filter_by(status='ativo').all()
+        # Retornando apenas os campos necessários para evitar expor dados sensíveis
+        usuarios_list = [{'id': u.id, 'login': u.login, 'nome': u.nome} for u in usuarios]
+        return jsonify(usuarios_list)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/dashboard-data')
+@login_required
+def dashboard_data():
+    # Get filter parameters from the request query string
+    data_inicio_str = request.args.get('dataInicio')
+    data_fim_str = request.args.get('dataFim')
+
+    # Base query
+    query = Protocolo.query
+
+    # Apply date filters
+    if data_inicio_str:
+        data_inicio = datetime.strptime(data_inicio_str, '%Y-%m-%d').date()
+        query = query.filter(Protocolo.data_solicitacao >= data_inicio)
+    if data_fim_str:
+        data_fim = datetime.strptime(data_fim_str, '%Y-%m-%d').date()
+        query = query.filter(Protocolo.data_solicitacao <= data_fim)
+
+    # --- Stats Cards Data ---
+    novos_no_periodo = query.count()
+    total_finalizados = query.filter(Protocolo.status.in_(['Finalizado', 'Concluído'])).count()
+
+    # Pendentes a mais de 15 dias (ignora filtros de data)
+    fifteen_days_ago = datetime.now().date() - timedelta(days=15)
+    pendentes_antigos = Protocolo.query.filter(
+        Protocolo.data_solicitacao <= fifteen_days_ago,
+        ~Protocolo.status.in_(['Finalizado', 'Concluído'])
+    ).count()
+
+    # --- Charts Data ---
+    # Top 5 Tipos (Bar Chart)
+    top_tipos = db.session.query(
+        Protocolo.tipo_requerimento,
+        func.count(Protocolo.id).label('total')
+    ).select_from(query.subquery()).group_by(Protocolo.tipo_requerimento).order_by(func.count(Protocolo.id).desc()).limit(5).all()
+
+    # Protocolos por Status (Pie Chart)
+    status_protocolos = db.session.query(
+        Protocolo.status,
+        func.count(Protocolo.id).label('total')
+    ).select_from(query.subquery()).group_by(Protocolo.status).order_by(Protocolo.status).all()
+
+    # Evolução de Protocolos (Line Chart)
+    evolucao_protocolos = db.session.query(
+        cast(Protocolo.data_solicitacao, Date).label('intervalo'),
+        func.count(Protocolo.id).label('total')
+    ).select_from(query.subquery()).group_by('intervalo').order_by('intervalo').all()
+
+    # Prepare data for JSON response
+    dashboard_stats = {
+        'novosNoPeriodo': novos_no_periodo,
+        'pendentesAntigos': pendentes_antigos,
+        'totalFinalizados': total_finalizados,
+        'topTipos': [{'tipo_requerimento': r.tipo_requerimento, 'total': r.total} for r in top_tipos],
+        'statusProtocolos': [{'status': r.status, 'total': r.total} for r in status_protocolos],
+        'evolucaoProtocolos': [{'intervalo': r.intervalo.isoformat(), 'total': r.total} for r in evolucao_protocolos]
+    }
+
+    return jsonify(dashboard_stats)
 
 if __name__ == '__main__':
     # The port must be available. Railway provides the PORT env var.
