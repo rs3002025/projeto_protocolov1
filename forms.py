@@ -53,6 +53,8 @@ class ProtocoloForm(FlaskForm):
     status = StringField('Status Inicial', default='Aberto', validators=[Optional()])
     submit = SubmitField('Salvar Protocolo')
 
+from wtforms import SelectField
+
 class AnexoForm(FlaskForm):
     """Formulário para upload de anexos."""
     anexo = FileField('Selecione o arquivo', validators=[
@@ -60,3 +62,21 @@ class AnexoForm(FlaskForm):
         FileAllowed(['jpg', 'jpeg', 'png', 'gif', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'csv'], 'Tipo de arquivo não permitido!')
     ])
     submit_anexo = SubmitField('Enviar Anexo')
+
+class AdminUserCreationForm(FlaskForm):
+    """Formulário para administradores criarem usuários."""
+    nome_completo = StringField('Nome Completo', validators=[DataRequired()])
+    login = StringField('Login', validators=[DataRequired()])
+    email = StringField('Email', validators=[DataRequired()])
+    senha = PasswordField('Senha', validators=[DataRequired(), Length(min=6)])
+    tipo = SelectField('Tipo', choices=[('user', 'Usuário'), ('admin', 'Administrador')], validators=[DataRequired()])
+    submit = SubmitField('Criar Usuário')
+
+    def validate_login(self, login):
+        if Usuario.query.filter_by(login=login.data).first():
+            raise ValidationError('Este login já está em uso.')
+
+class AdminListItemForm(FlaskForm):
+    """Formulário genérico para adicionar itens de lista (Lotação, Tipo)."""
+    nome = StringField('Nome', validators=[DataRequired()])
+    submit = SubmitField('Adicionar')

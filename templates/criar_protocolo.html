@@ -7,68 +7,83 @@
                 <h2>{{ legend }}</h2>
             </div>
             <div class="card-body">
-                <form method="POST" action="">
+                <form method="POST" action="" id="protocol-form">
                     {{ form.hidden_tag() }}
                     <fieldset class="form-group">
                         <div class="row">
-                            <div class="col-md-6 mb-3">
+                             <div class="col-md-3 mb-3">
+                                {{ form.matricula.label(class="form-control-label") }}
+                                {{ form.matricula(class="form-control", id="matricula") }}
+                            </div>
+                            <div class="col-md-7 mb-3">
+                                {{ form.nome.label(class="form-control-label") }}
+                                {{ form.nome(class="form-control", id="nome") }}
+                            </div>
+                            <div class="col-md-2 mb-3 align-self-end">
+                                <button type="button" id="btnBuscarServidor" class="btn btn-outline-secondary w-100">Buscar</button>
+                            </div>
+                        </div>
+                        <div class="row">
+                             <div class="col-md-4 mb-3">
+                                {{ form.cargo.label(class="form-control-label") }}
+                                {{ form.cargo(class="form-control", id="cargo") }}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                {{ form.lotacao.label(class="form-control-label") }}
+                                {{ form.lotacao(class="form-control", id="lotacao") }}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                {{ form.unidade_exercicio.label(class="form-control-label") }}
+                                {{ form.unidade_exercicio(class="form-control", id="unidade_exercicio") }}
+                            </div>
+                        </div>
+                        <hr>
+                        <div class="row">
+                            <div class="col-md-3 mb-3">
+                                {{ form.cep.label(class="form-control-label") }}
+                                {{ form.cep(class="form-control", id="cep") }}
+                            </div>
+                             <div class="col-md-7 mb-3">
+                                {{ form.endereco.label(class="form-control-label") }}
+                                {{ form.endereco(class="form-control", id="endereco") }}
+                            </div>
+                             <div class="col-md-2 mb-3">
+                                {{ form.municipio.label(class="form-control-label") }}
+                                {{ form.municipio(class="form-control", id="municipio") }}
+                            </div>
+                        </div>
+                         <div class="row">
+                            <div class="col-md-4 mb-3">
+                                {{ form.bairro.label(class="form-control-label") }}
+                                {{ form.bairro(class="form-control", id="bairro") }}
+                            </div>
+                             <div class="col-md-4 mb-3">
+                                {{ form.cpf.label(class="form-control-label") }}
+                                {{ form.cpf(class="form-control", id="cpf") }}
+                            </div>
+                             <div class="col-md-4 mb-3">
+                                {{ form.telefone.label(class="form-control-label") }}
+                                {{ form.telefone(class="form-control", id="telefone") }}
+                            </div>
+                        </div>
+                        <hr>
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
                                 {{ form.numero.label(class="form-control-label") }}
                                 {{ form.numero(class="form-control") }}
                             </div>
-                            <div class="col-md-6 mb-3">
+                            <div class="col-md-4 mb-3">
                                 {{ form.data_solicitacao.label(class="form-control-label") }}
                                 {{ form.data_solicitacao(class="form-control") }}
                             </div>
-                        </div>
-                        <div class="mb-3">
-                            {{ form.nome.label(class="form-control-label") }}
-                            {{ form.nome(class="form-control") }}
-                        </div>
-                        <div class="row">
-                             <div class="col-md-6 mb-3">
-                                {{ form.matricula.label(class="form-control-label") }}
-                                {{ form.matricula(class="form-control") }}
+                             <div class="col-md-4 mb-3">
+                                {{ form.tipo_requerimento.label(class="form-control-label") }}
+                                {{ form.tipo_requerimento(class="form-control", id="tipo_requerimento") }}
                             </div>
-                            <div class="col-md-6 mb-3">
-                                {{ form.cpf.label(class="form-control-label") }}
-                                {{ form.cpf(class="form-control") }}
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            {{ form.endereco.label(class="form-control-label") }}
-                            {{ form.endereco(class="form-control") }}
-                        </div>
-                        <div class="row">
-                            <div class="col-md-4 mb-3">
-                                {{ form.municipio.label(class="form-control-label") }}
-                                {{ form.municipio(class="form-control") }}
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                {{ form.bairro.label(class="form-control-label") }}
-                                {{ form.bairro(class="form-control") }}
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                {{ form.cep.label(class="form-control-label") }}
-                                {{ form.cep(class="form-control") }}
-                            </div>
-                        </div>
-                         <div class="mb-3">
-                            {{ form.tipo_requerimento.label(class="form-control-label") }}
-                            {{ form.tipo_requerimento(class="form-control") }}
                         </div>
                         <div class="mb-3">
                             {{ form.observacoes.label(class="form-control-label") }}
                             {{ form.observacoes(class="form-control", rows=5) }}
-                        </div>
-                         <div class="row">
-                            <div class="col-md-6 mb-3">
-                                {{ form.responsavel.label(class="form-control-label") }}
-                                {{ form.responsavel(class="form-control") }}
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                {{ form.status.label(class="form-control-label") }}
-                                {{ form.status(class="form-control") }}
-                            </div>
                         </div>
                     </fieldset>
                     <div class="form-group mt-4">

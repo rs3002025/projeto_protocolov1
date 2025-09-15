@@ -21,14 +21,28 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     {% if current_user.is_authenticated %}
+                        <li class="nav-item"><a class="nav-link" href="{{ url_for('home') }}">Dashboard</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{{ url_for('criar_protocolo') }}">Novo Protocolo</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{{ url_for('listar_protocolos') }}">Todos os Protocolos</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{{ url_for('meus_protocolos') }}">Meus Protocolos</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{{ url_for('relatorios') }}">Relatórios</a></li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                {{ current_user.nome }}
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
+                                <li><a class="dropdown-item" href="#">Minha Conta</a></li>
+                                <li><a class="dropdown-item" href="#">Configurações</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="{{ url_for('logout') }}">Sair</a></li>
+                            </ul>
+                        </li>
+                    {% else %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('home') }}">Home</a>
+                            <a class="nav-link" href="{{ url_for('login') }}">Login</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="#">Minha Conta</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('logout') }}">Sair</a>
+                            <a class="nav-link" href="{{ url_for('register') }}">Registrar</a>
                         </li>
                     {% else %}
                         <li class="nav-item">
@@ -62,132 +76,6 @@
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 
     <!-- Modals and Hidden Templates -->
-    <div id="modeloProtocolo" style="display: none;">
-        <style>
-            .pdf-body { font-family: 'Inter', 'Segoe UI', 'Open Sans', sans-serif; color: #000; margin: 0; padding: 0; box-sizing: border-box; }
-            .doc-container { background: white; width: 100%; max-width: 700px; margin: 10px auto; padding: 20px; border: 1px solid #ccc; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-            .pdf-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #ddd; padding-bottom: 15px; margin-bottom: 20px;}
-            .logo-pdf img { height: 80px; }
-            #qrcode-container { padding-left: 20px; }
-            .titulo-principal-pdf { text-align: center; margin: 2px 0; font-size: 22px; }
-            .titulo-central-pdf { text-align: center; margin-bottom: 20px; }
-            .titulo-central-pdf span { background: #2e7d32; color: white; font-size: 16px; padding: 8px 20px; border-radius: 4px; display: inline-block; font-weight: bold; }
-            .info-pdf { margin-bottom: 20px; display: flex; justify-content: space-between; gap: 20px; }
-            .campo-destaque-pdf { font-weight: bold; font-size: 14px; background-color: #2e7d32; color: white; padding: 8px 12px; border-radius: 5px; margin: 4px 0; flex: 1; text-align: center; }
-            .section-title-pdf { background: #f0f0f0; font-weight: bold; padding: 6px 10px; border-left: 4px solid #4caf50; margin-top: 20px; }
-            .grid-pdf { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 30px; margin-top: 10px; }
-            .grid-pdf div { font-size: 14px; }
-            .box-pdf { border: 1px solid #ddd; padding: 10px; border-radius: 6px; background: #fafafa; margin-top: 10px; font-style: italic; }
-            .assinaturas-container { margin-top: 60px; page-break-inside: avoid; }
-            .assinaturas-flex { display: flex; justify-content: space-between; gap: 20px; }
-            .assinatura-pdf { text-align: center; flex: 1; }
-            .linha-assinatura { border-top: 1px solid #000; margin-top: 40px; margin-bottom: 5px; }
-            .recebido-container { margin-top: 30px; page-break-inside: avoid; display: flex; align-items: flex-end; justify-content: space-between; }
-            .recebido-data { font-size: 14px; font-weight: bold; display: flex; align-items: flex-end; }
-            .recebido-data span { border-bottom: 1px solid #000; text-align: center; }
-            .recebido-data .data-dia, .recebido-data .data-mes { width: 25px; }
-            .recebido-data .data-ano { width: 50px; }
-            .recebido-data .separador { margin: 0 4px; }
-            .linha-assinatura-recebimento { flex-grow: 1; border-top: 1px solid #000; margin-left: 20px; margin-bottom: 5px; }
-            .texto-assinatura-recebimento { text-align: right; font-size: 12px; margin-top: 5px; padding-right: 0px; }
-            .rodape-pdf { text-align: center; margin-top: 20px; page-break-inside: avoid; }
-            .rodape-pdf img { max-width: 100%; height: auto; }
-        </style>
-        <div class="pdf-body doc-container">
-            <div class="pdf-header">
-                <div class="logo-pdf"><img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo Prefeitura" /></div>
-                <div id="qrcode-container"></div>
-            </div>
-            <h1 class="titulo-principal-pdf">Secretaria da Administração</h1>
-            <div class="titulo-central-pdf"><span>PROTOCOLO DE REQUERIMENTO</span></div>
-            <div class="info-pdf">
-                <p class="campo-destaque-pdf"><strong>Número do Protocolo:</strong> <span id="doc_numero"></span></p>
-                <p class="campo-destaque-pdf"><strong>Data da Solicitação:</strong> <span id="doc_dataSolicitacao"></span></p>
-            </div>
-            <div class="section-title-pdf">DADOS DO REQUERENTE</div>
-            <div class="grid-pdf">
-                <div><strong>Nome:</strong> <span id="doc_nome"></span></div><div><strong>Bairro:</strong> <span id="doc_bairro"></span></div>
-                <div><strong>Matrícula:</strong> <span id="doc_matricula"></span></div><div><strong>Município:</strong> <span id="doc_municipio"></span></div>
-                <div><strong>CPF:</strong> <span id="doc_cpf"></span></div><div><strong>RG:</strong> <span id="doc_rg"></span></div>
-                <div><strong>Lotação:</strong> <span id="doc_lotacao"></span></div><div><strong>Endereço:</strong> <span id="doc_endereco"></span></div>
-                <div><strong>Unidade de Exercício:</strong> <span id="doc_unidade"></span></div><div><strong>Telefone:</strong> <span id="doc_telefone"></span></div>
-                <div><strong>Cargo/Função:</strong> <span id="doc_cargo"></span></div><div><strong>CEP:</strong> <span id="doc_cep"></span></div>
-            </div>
-            <div class="section-title-pdf">DADOS DO REQUERIMENTO</div>
-            <div style="margin-top: 10px;">
-                <div style="margin-bottom: 6px;"><strong>Tipo de Requerimento:</strong> <span id="doc_tipo"></span></div>
-                <div style="margin-bottom: 10px;"><strong>Requer ao:</strong> <span id="doc_requerAo"></span></div>
-            </div>
-            <div class="box-pdf" id="doc_complemento"></div>
-            <div class="assinaturas-container">
-                <div class="assinaturas-flex">
-                    <div class="assinatura-pdf"><div class="linha-assinatura"></div>Assinatura do Requerente</div>
-                    <div class="assinatura-pdf"><div class="linha-assinatura"></div>Responsável pelo Protocolo</div>
-                </div>
-            </div>
-            <div class="recebido-container">
-                <p class="recebido-data"><strong>Recebido em:</strong><span class="data-dia"></span><span class="separador">/</span><span class="data-mes"></span><span class="separador">/</span><span class="data-ano"></span></p>
-                <div class="linha-assinatura-recebimento"></div>
-            </div>
-            <p class="texto-assinatura-recebimento">Assinatura de Recebimento</p>
-            <div class="rodape-pdf"><img src="{{ url_for('static', filename='img/rodape.jpg') }}" alt="Rodapé" /></div>
-        </div>
-    </div>
-    <div id="modalEncaminhar" class="modal fade" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Encaminhar Protocolo</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <input type="hidden" id="encaminharProtocoloId">
-                    <div class="mb-3">
-                        <label for="selectUsuarioEncaminhar" class="form-label">Para o usuário:</label>
-                        <select id="selectUsuarioEncaminhar" class="form-select"></select>
-                    </div>
-                    <div class="mb-3">
-                        <label for="statusEncaminhamento" class="form-label">Definir status como:</label>
-                        <input type="text" id="statusEncaminhamento" class="form-control">
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-primary" onclick="confirmarEncaminhamento()">Confirmar</button>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div id="modalAtualizarStatus" class="modal fade" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                 <div class="modal-header">
-                    <h5 class="modal-title">Atualizar Status do Protocolo</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <input type="hidden" id="atualizarProtocoloId">
-                    <div class="mb-3">
-                        <label for="statusSelect" class="form-label">Status:</label>
-                        <select id="statusSelect" class="form-select">
-                            <option value="Em análise">Em análise</option>
-                            <option value="Pendente de documento">Pendente de documento</option>
-                            <option value="Finalizado">Finalizado</option>
-                            <option value="Concluído">Concluído</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label for="observacaoAtualizacao" class="form-label">Observação (opcional):</label>
-                        <textarea id="observacaoAtualizacao" rows="4" class="form-control"></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-primary" onclick="confirmarAtualizacaoStatus()">Confirmar</button>
-                </div>
-            </div>
-        </div>
-    </div>
 
     {% block scripts %}{% endblock %}
 </body>
