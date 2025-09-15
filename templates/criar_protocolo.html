@@ -1,0 +1,83 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="card">
+            <div class="card-header">
+                <h2>{{ legend }}</h2>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="">
+                    {{ form.hidden_tag() }}
+                    <fieldset class="form-group">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                {{ form.numero.label(class="form-control-label") }}
+                                {{ form.numero(class="form-control") }}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                {{ form.data_solicitacao.label(class="form-control-label") }}
+                                {{ form.data_solicitacao(class="form-control") }}
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            {{ form.nome.label(class="form-control-label") }}
+                            {{ form.nome(class="form-control") }}
+                        </div>
+                        <div class="row">
+                             <div class="col-md-6 mb-3">
+                                {{ form.matricula.label(class="form-control-label") }}
+                                {{ form.matricula(class="form-control") }}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                {{ form.cpf.label(class="form-control-label") }}
+                                {{ form.cpf(class="form-control") }}
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            {{ form.endereco.label(class="form-control-label") }}
+                            {{ form.endereco(class="form-control") }}
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                {{ form.municipio.label(class="form-control-label") }}
+                                {{ form.municipio(class="form-control") }}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                {{ form.bairro.label(class="form-control-label") }}
+                                {{ form.bairro(class="form-control") }}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                {{ form.cep.label(class="form-control-label") }}
+                                {{ form.cep(class="form-control") }}
+                            </div>
+                        </div>
+                         <div class="mb-3">
+                            {{ form.tipo_requerimento.label(class="form-control-label") }}
+                            {{ form.tipo_requerimento(class="form-control") }}
+                        </div>
+                        <div class="mb-3">
+                            {{ form.observacoes.label(class="form-control-label") }}
+                            {{ form.observacoes(class="form-control", rows=5) }}
+                        </div>
+                         <div class="row">
+                            <div class="col-md-6 mb-3">
+                                {{ form.responsavel.label(class="form-control-label") }}
+                                {{ form.responsavel(class="form-control") }}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                {{ form.status.label(class="form-control-label") }}
+                                {{ form.status(class="form-control") }}
+                            </div>
+                        </div>
+                    </fieldset>
+                    <div class="form-group mt-4">
+                        {{ form.submit(class="btn btn-primary") }}
+                        <a href="{{ url_for('listar_protocolos') }}" class="btn btn-secondary">Cancelar</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}

@@ -1,0 +1,122 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h3>Detalhes do Protocolo: {{ protocolo.numero }}</h3>
+        <div>
+            <a href="{{ url_for('editar_protocolo', protocolo_id=protocolo.id) }}" class="btn btn-secondary">Editar</a>
+            <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
+                Excluir
+            </button>
+        </div>
+    </div>
+    <div class="card-body">
+        <h5 class="card-title">Requerente: {{ protocolo.nome }}</h5>
+        <p class="card-text"><strong>Matrícula:</strong> {{ protocolo.matricula or 'Não informado' }}</p>
+        <hr>
+        <div class="row">
+            <div class="col-md-6">
+                <p><strong>Data da Solicitação:</strong> {{ protocolo.data_solicitacao.strftime('%d/%m/%Y') }}</p>
+                <p><strong>Tipo de Requerimento:</strong> {{ protocolo.tipo_requerimento }}</p>
+                <p><strong>CPF:</strong> {{ protocolo.cpf or 'Não informado' }}</p>
+                <p><strong>RG:</strong> {{ protocolo.rg or 'Não informado' }}</p>
+            </div>
+            <div class="col-md-6">
+                <p><strong>Status:</strong> <span class="badge bg-primary">{{ protocolo.status }}</span></p>
+                <p><strong>Responsável Atual:</strong> {{ protocolo.responsavel }}</p>
+                <p><strong>Telefone:</strong> {{ protocolo.telefone or 'Não informado' }}</p>
+            </div>
+        </div>
+        <hr>
+        <h6>Endereço</h6>
+        <p>{{ protocolo.endereco or 'Não informado' }}<br>
+           {{ protocolo.bairro or '' }}, {{ protocolo.municipio or '' }} - CEP: {{ protocolo.cep or '' }}
+        </p>
+        <hr>
+        <h6>Observações</h6>
+        <p>{{ protocolo.observacoes or 'Nenhuma observação.' }}</p>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header">
+        <h4>Histórico de Movimentações</h4>
+    </div>
+    <div class="card-body">
+        <ul class="list-group">
+            {% for h in protocolo.historico|sort(attribute='data_movimentacao', reverse=True) %}
+                <li class="list-group-item">
+                    <strong>{{ h.data_movimentacao.strftime('%d/%m/%Y %H:%M') }}:</strong>
+                    Status alterado para <strong>{{ h.status }}</strong>.
+                    Responsável: <strong>{{ h.responsavel }}</strong>.
+                    <p class="mb-0 mt-1 fst-italic">Observação: {{ h.observacao or 'N/A' }}</p>
+                </li>
+            {% else %}
+                <li class="list-group-item">Nenhum histórico encontrado.</li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header">
+        <h4>Anexos</h4>
+    </div>
+    <div class="card-body">
+        <div class="mb-3">
+            <h5>Adicionar Novo Anexo</h5>
+            <form action="{{ url_for('adicionar_anexo', protocolo_id=protocolo.id) }}" method="POST" enctype="multipart/form-data">
+                {{ anexo_form.hidden_tag() }}
+                <div class="input-group">
+                    {{ anexo_form.anexo(class="form-control") }}
+                    {{ anexo_form.submit_anexo(class="btn btn-primary") }}
+                </div>
+                 {% if anexo_form.anexo.errors %}
+                    <div class="text-danger mt-1">
+                        <small>{{ anexo_form.anexo.errors[0] }}</small>
+                    </div>
+                {% endif %}
+            </form>
+        </div>
+        <hr>
+        <h5>Anexos Existentes</h5>
+        <ul class="list-group">
+            {% for anexo in protocolo.anexos %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <span>{{ anexo.file_name }} ({{ (anexo.file_size / 1024)|round(2) }} KB)</span>
+                    <div>
+                        <a href="{{ url_for('baixar_anexo', anexo_id=anexo.id) }}" class="btn btn-sm btn-success">Download</a>
+                        <form action="{{ url_for('deletar_anexo', anexo_id=anexo.id) }}" method="POST" class="d-inline">
+                             <input type="submit" class="btn btn-sm btn-danger" value="Excluir">
+                        </form>
+                    </div>
+                </li>
+            {% else %}
+                <li class="list-group-item">Nenhum anexo encontrado para este protocolo.</li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+
+
+<!-- Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="deleteModalLabel">Confirmar Exclusão</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        Você tem certeza que deseja excluir o protocolo <strong>{{ protocolo.numero }}</strong>? Esta ação não pode ser desfeita.
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <form action="{{ url_for('deletar_protocolo', protocolo_id=protocolo.id) }}" method="POST">
+            <input type="submit" class="btn btn-danger" value="Excluir">
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}
