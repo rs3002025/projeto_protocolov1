@@ -10,35 +10,13 @@
     </div>
 
     <!-- Filter Controls -->
-    <div class="card mt-3">
-        <div class="card-body">
-            <h5 class="card-title">Filtros</h5>
-            <div class="row g-3 align-items-center">
-                <div class="col-md-3">
-                    <label for="dashDataInicio" class="form-label">Data de Início</label>
-                    <input type="date" id="dashDataInicio" class="form-control">
-                </div>
-                <div class="col-md-3">
-                    <label for="dashDataFim" class="form-label">Data Final</label>
-                    <input type="date" id="dashDataFim" class="form-control">
-                </div>
-                <div class="col-md-2">
-                    <label for="dashStatus" class="form-label">Status</label>
-                    <select id="dashStatus" class="form-select">
-                        <option value="">Todos</option>
-                        <option value="Aberto">Aberto</option>
-                        <option value="Em análise">Em análise</option>
-                        <option value="Pendente de documento">Pendente de documento</option>
-                        <option value="Finalizado">Finalizado</option>
-                        <option value="Concluído">Concluído</option>
-                        <option value="Encaminhado">Encaminhado</option>
-                    </select>
-                </div>
-                <div class="col-md-2 align-self-end">
-                    <button id="filter-btn" class="btn btn-primary w-100">Filtrar</button>
-                </div>
-            </div>
-        </div>
+    <div class="filtros">
+        <input type="date" id="dashDataInicio" title="Data de Início">
+        <input type="date" id="dashDataFim" title="Data Final">
+        <select id="dashStatus"><option value="">Todos os Status</option></select>
+        <select id="dashTipo"><option value="">Todo tipo de Requerimento</option></select>
+        <select id="dashLotacao"><option value="">Todas as Lotações</option></select>
+        <button id="filter-btn">Filtrar</button>
     </div>
 
     <!-- Statistics Cards -->
@@ -70,38 +48,40 @@
     </div>
 
     <!-- Charts -->
-    <div class="row mt-4">
-        <div class="col-lg-6">
-            <div class="card">
-                <div class="card-header">
-                    Top 5 Tipos de Requerimento
-                </div>
-                <div class="card-body">
-                    <canvas id="tiposChart"></canvas>
-                </div>
-            </div>
+    <div class="dashboard-charts-grid">
+        <div class="chart-container">
+            <h4>Top 5 Tipos de Requerimento (no Período)</h4>
+            <canvas id="tiposChart"></canvas>
         </div>
-        <div class="col-lg-6">
-            <div class="card">
-                <div class="card-header">
-                    Protocolos por Status
-                </div>
-                <div class="card-body">
-                    <canvas id="statusChart"></canvas>
+        <div class="chart-container">
+            <div class="chart-header">
+                <h4 id="pieChartTitle">Protocolos por Status (no Período)</h4>
+                <div class="chart-filters">
+                    <select id="pieChartDataType">
+                        <option value="status" selected>Por Status</option>
+                        <option value="tipo">Por Tipo de Requerimento</option>
+                    </select>
                 </div>
             </div>
+            <canvas id="statusChart"></canvas>
         </div>
-    </div>
-    <div class="row mt-4">
-        <div class="col-12">
-             <div class="card">
-                <div class="card-header">
-                    Evolução de Novos Protocolos
-                </div>
-                <div class="card-body">
-                    <canvas id="evolucaoChart"></canvas>
+        <div class="chart-container full-width">
+            <div class="chart-header">
+                <h4 id="evolucaoChartTitle">Evolução de Novos Protocolos</h4>
+                <div class="chart-filters">
+                    <select id="evolucaoPeriodo">
+                        <option value="7d">Últimos 7 dias</option>
+                        <option value="30d" selected>Últimos 30 dias</option>
+                        <option value="month">Mês Atual</option>
+                        <option value="all">Desde o início</option>
+                    </select>
+                    <select id="evolucaoAgrupamento">
+                        <option value="day" selected>Agrupar por Dia</option>
+                        <option value="month">Agrupar por Mês</option>
+                    </select>
                 </div>
             </div>
+            <canvas id="evolucaoChart"></canvas>
         </div>
     </div>
 </div>
