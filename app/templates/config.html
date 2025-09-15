@@ -3,7 +3,7 @@
 {% block title %}Configurações - Sistema de Protocolo{% endblock %}
 
 {% block content %}
-<div class="config-screen content active">
+<div id="config" class="config-screen content active">
     <h3>⚙️ Configurações Gerais</h3>
 
     <div class="form-group">
@@ -75,7 +75,7 @@
     </div>
 
     <br><br>
-    <a href="{{ url_for('main.menu') }}" class="button-link">Voltar ao Menu</a>
+    <a href="{{ url_for('main.menu') }}" class="button-link">Voltar</a>
 </div>
 <script>
     document.addEventListener('DOMContentLoaded', () => {
