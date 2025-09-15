@@ -1,6 +1,16 @@
 # Use an official Python runtime as a parent image
 FROM python:3.12-slim
 
+# Set the locale to pt_BR.UTF-8
+# This avoids potential encoding issues with filenames or content
+RUN apt-get update && apt-get install -y locales && rm -rf /var/lib/apt/lists/* \
+    && echo "pt_BR.UTF-8 UTF-8" >> /etc/locale.gen \
+    && locale-gen pt_BR.UTF-8 \
+    && update-locale LANG=pt_BR.UTF-8
+ENV LANG pt_BR.UTF-8
+ENV LANGUAGE pt_BR:pt
+ENV LC_ALL pt_BR.UTF-8
+
 # Set the working directory in the container
 WORKDIR /app
 
@@ -8,20 +18,14 @@ WORKDIR /app
 COPY requirements.txt .
 
 # Install any needed packages specified in requirements.txt
-# Using --no-cache-dir makes the image smaller
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the application's code to the working directory
 COPY . .
 
-# Make port available to the world outside this container
-# (Gunicorn will bind to the PORT variable provided by Railway)
+# Expose the port the app runs on
 EXPOSE 8080
 
-# Define environment variable for the port
-ENV PORT 8080
-
-# Run app.py when the container launches
-# Use gunicorn for production
-# The 'shell' form of CMD is used here to ensure shell processing of the $PORT variable.
-CMD gunicorn --bind 0.0.0.0:$PORT app:app
+# Run the application with Gunicorn
+# The port is hardcoded to 8080 as per the user's example.
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "app:app"]
