@@ -62,7 +62,7 @@ def login():
         # 4. Se o login for bem-sucedido, criar o token
         additional_claims = {"schema": schema_name, "role": user.role, "login": user.login}
         access_token = create_access_token(
-            identity=user.id, # A identidade principal do token é o ID do usuário
+            identity=user.login, # Usar o login como identidade principal
             additional_claims=additional_claims
         )
 
