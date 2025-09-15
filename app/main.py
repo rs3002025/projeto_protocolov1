@@ -48,16 +48,6 @@ def meus_protocolos():
 def relatorios():
     return render_template('relatorios.html')
 
-from flask_jwt_extended import jwt_required, get_jwt
-
 @main_bp.route('/configuracoes')
-@jwt_required()
 def config():
-    """
-    Renderiza a página de configuração apropriada com base na role do usuário.
-    """
-    claims = get_jwt()
-    if claims.get('role') == 'super_admin':
-        return render_template('admin_config.html')
-    else:
-        return render_template('config.html')
+    return render_template('config.html')

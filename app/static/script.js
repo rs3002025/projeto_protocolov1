@@ -482,30 +482,6 @@ window.previsualizarPDF = async function(id, isPrint = false) {
   protocoloParaGerar = protocolo;
   const pdfContentDiv = document.getElementById('pdfContent');
   pdfContentDiv.innerHTML = document.getElementById('modeloProtocolo').innerHTML;
-
-  const logoUrl = document.querySelector('.header .logo')?.src;
-  if (logoUrl) {
-      try {
-          const logoResponse = await fetch(logoUrl);
-          const logoBlob = await logoResponse.blob();
-          const reader = new FileReader();
-          const dataUrlPromise = new Promise((resolve, reject) => {
-              reader.onloadend = () => resolve(reader.result);
-              reader.onerror = reject;
-              reader.readAsDataURL(logoBlob);
-          });
-          const logoDataUrl = await dataUrlPromise;
-          const logoImg = pdfContentDiv.querySelector('img');
-          if (logoImg) {
-              logoImg.src = logoDataUrl;
-          }
-      } catch (error) {
-          console.error("Erro ao embutir a imagem do logo no PDF:", error);
-          const logoImg = pdfContentDiv.querySelector('img');
-          if (logoImg) logoImg.style.display = 'none';
-      }
-  }
-
   const qrcodeContainer = pdfContentDiv.querySelector('#qrcode-container');
   if(qrcodeContainer && protocolo.numero && protocolo.numero.includes('/')) {
       qrcodeContainer.innerHTML = '';
