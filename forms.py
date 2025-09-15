@@ -32,7 +32,7 @@ class LoginForm(FlaskForm):
 
 class ProtocoloForm(FlaskForm):
     """Formulário para criar ou editar um protocolo."""
-    numero = StringField('Número do Protocolo', validators=[DataRequired()])
+    numero = StringField('Número do Protocolo', validators=[Optional()])
     nome = StringField('Nome do Requerente', validators=[DataRequired()])
     matricula = StringField('Matrícula', validators=[Optional()])
     endereco = TextAreaField('Endereço', validators=[Optional()])

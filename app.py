@@ -277,47 +277,86 @@ def listar_protocolos():
 
     return render_template('protocolos.html', protocolos=protocolos, title="Todos os Protocolos")
 
+def gerar_proximo_numero_protocolo():
+    """Gera o próximo número de protocolo no formato NNNN/ANO."""
+    now = datetime.now()
+    current_year = now.year
+
+    # Busca todos os protocolos do ano corrente para encontrar o maior sequencial
+    protocolos_do_ano = Protocolo.query.filter(
+        Protocolo.numero.like(f'%/{current_year}')
+    ).all()
+
+    if not protocolos_do_ano:
+        # Se não houver nenhum protocolo no ano, começa do 1
+        novo_sequencial = 1
+    else:
+        # Extrai e encontra o maior número sequencial
+        maior_sequencial = 0
+        for p in protocolos_do_ano:
+            try:
+                sequencial_atual = int(p.numero.split('/')[0])
+                if sequencial_atual > maior_sequencial:
+                    maior_sequencial = sequencial_atual
+            except (ValueError, IndexError):
+                # Ignora números de protocolo em formato inesperado
+                continue
+        novo_sequencial = maior_sequencial + 1
+
+    # Formata o novo número com 4 dígitos, preenchendo com zeros à esquerda
+    return f'{str(novo_sequencial).zfill(4)}/{current_year}'
+
 @app.route("/protocolo/novo", methods=['GET', 'POST'])
 @login_required
 def criar_protocolo():
     form = ProtocoloForm()
-    if form.validate_on_submit():
-        protocolo = Protocolo(
-            numero=form.numero.data,
-            nome=form.nome.data,
-            matricula=form.matricula.data,
-            endereco=form.endereco.data,
-            municipio=form.municipio.data,
-            bairro=form.bairro.data,
-            cep=form.cep.data,
-            telefone=form.telefone.data,
-            cpf=form.cpf.data,
-            rg=form.rg.data,
-            cargo=form.cargo.data,
-            lotacao=form.lotacao.data,
-            unidade_exercicio=form.unidade_exercicio.data,
-            tipo_requerimento=form.tipo_requerimento.data,
-            requer_ao=form.requer_ao.data,
-            data_solicitacao=form.data_solicitacao.data,
-            observacoes=form.observacoes.data,
-            responsavel=form.responsavel.data or current_user.login,
-            status=form.status.data or 'Aberto'
-        )
-        db.session.add(protocolo)
-        db.session.commit()
 
-        # Adiciona o primeiro registro ao histórico
-        historico = HistoricoProtocolo(
-            protocolo_id=protocolo.id,
-            status=protocolo.status,
-            responsavel=protocolo.responsavel,
-            observacao='Protocolo criado no sistema.'
-        )
-        db.session.add(historico)
-        db.session.commit()
+    if request.method == 'POST':
+        if form.validate_on_submit():
+            # O número do protocolo é gerado no backend, não pego do form
+            novo_numero = gerar_proximo_numero_protocolo()
 
-        flash('Protocolo criado com sucesso!', 'success')
-        return redirect(url_for('listar_protocolos'))
+            protocolo = Protocolo(
+                numero=novo_numero,
+                nome=form.nome.data,
+                matricula=form.matricula.data,
+                endereco=form.endereco.data,
+                municipio=form.municipio.data,
+                bairro=form.bairro.data,
+                cep=form.cep.data,
+                telefone=form.telefone.data,
+                cpf=form.cpf.data,
+                rg=form.rg.data,
+                cargo=form.cargo.data,
+                lotacao=form.lotacao.data,
+                unidade_exercicio=form.unidade_exercicio.data,
+                tipo_requerimento=form.tipo_requerimento.data,
+                requer_ao=form.requer_ao.data,
+                data_solicitacao=form.data_solicitacao.data,
+                observacoes=form.observacoes.data,
+                responsavel=form.responsavel.data or current_user.login,
+                status=form.status.data or 'Aberto'
+            )
+            db.session.add(protocolo)
+            db.session.commit()
+
+            # Adiciona o primeiro registro ao histórico
+            historico = HistoricoProtocolo(
+                protocolo_id=protocolo.id,
+                status=protocolo.status,
+                responsavel=protocolo.responsavel,
+                observacao='Protocolo criado no sistema.'
+            )
+            db.session.add(historico)
+            db.session.commit()
+
+            flash(f'Protocolo {novo_numero} criado com sucesso!', 'success')
+            return redirect(url_for('listar_protocolos'))
+
+    # Para requisições GET, pré-popula o formulário
+    form.numero.data = gerar_proximo_numero_protocolo()
+    form.data_solicitacao.data = datetime.now().date()
+
     return render_template('criar_protocolo.html', title='Novo Protocolo', form=form, legend='Novo Protocolo')
 
 @app.route("/protocolo/<int:protocolo_id>")
