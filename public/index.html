@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sistema de Protocolo</title>
+
+<link rel="stylesheet" href="style.css">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="loading">
+<div class="container">
+  <div class="header">
+    <img src="/img/logo.png" alt="Logo" class="logo">
+    <h2>Prefeitura de Morada Nova</h2>
+    <h3>Sistema de Protocolo</h3>
+    <div id="notification-bell" onclick="mostrarTela('meusProtocolos')">
+      <span>🔔</span>
+      <span id="notification-count">0</span>
+    </div>
+  </div>
+
+  <div id="login" class="login-screen content">
+    <div class="login-form-container">
+      <h3>Acesso ao Sistema</h3>
+      <label for="usuario">Usuário</label>
+      <input type="text" id="usuario" />
+      <label for="senha">Senha</label>
+      <input type="password" id="senha" />
+      <button onclick="logar()">Entrar</button>
+      <p id="loginMsg" style="color:red;"></p>
+    </div>
+  </div>
+
+  <div id="menu" class="menu content">
+    <button id="btnDashboard" onclick="mostrarTela('dashboard')">📈 Dashboard</button>
+    <button id="btnNovo" onclick="mostrarTela('form')">📄 Novo Protocolo</button>
+    <button id="btnTodosProtocolos" onclick="mostrarTela('protocolos')">🗂️ Todos os Protocolos</button>
+    <button id="btnRelatorios" onclick="mostrarTela('relatorios')">📊 Relatórios</button>
+    <button onclick="mostrarTela('meusProtocolos')">📂 Meus Protocolos</button>
+    <button id="btnConfig" onclick="mostrarTela('config')">⚙️ Configurações</button>
+    <button onclick="abrirModalAlterarSenha()">🔑 Alterar Senha</button>
+    <button onclick="sair()">🚪 Sair</button>
+  </div>
+
+  <div id="dashboard" class="dashboard-screen content">
+    <div class="dashboard-header">
+      <h3>Dashboard Gerencial</h3>
+      <div class="dashboard-actions">
+        <button onclick="imprimirDashboard()">🖨️ Impressão Rápida</button>
+        <button onclick="abrirModalImpressao()">📄 Impressão Personalizada</button>
+        <button onclick="mostrarTela('menu')">🔙 Voltar</button>
+      </div>
+    </div>
+    <div class="filtros">
+        <input type="date" id="dashDataInicio" title="Data de Início">
+        <input type="date" id="dashDataFim" title="Data Final">
+        <select id="dashStatus"><option value="">Todos os Status</option></select>
+        <select id="dashTipo"><option value="">Todo tipo de Requerimento</option></select>
+        <select id="dashLotacao"><option value="">Todas as Lotações</option></select>
+        <button onclick="carregarDashboard()">Filtrar</button>
+    </div>
+    <div class="dashboard-cards">
+        <div class="stat-card" id="card-novos">
+            <div class="stat-value" id="stat-novos">0</div>
+            <div class="stat-label" id="stat-novos-label">Novos na Semana</div>
+        </div>
+        <div class="stat-card" id="card-pendentes">
+            <div class="stat-value" id="stat-pendentes">0</div>
+            <div class="stat-label">Pendentes (> 15 dias)</div>
+        </div>
+        <div class="stat-card" id="card-finalizados">
+            <div class="stat-value" id="stat-finalizados">0</div>
+            <div class="stat-label">Finalizados (no Período)</div>
+        </div>
+    </div>
+    <div class="dashboard-charts-grid">
+      <div class="chart-container">
+          <h4>Top 5 Tipos de Requerimento (no Período)</h4>
+          <canvas id="tiposChart"></canvas>
+      </div>
+      <div class="chart-container">
+        <div class="chart-header">
+            <h4 id="pieChartTitle">Protocolos por Status (no Período)</h4>
+            <div class="chart-filters">
+                <select id="pieChartDataType" onchange="carregarDashboard()">
+                    <option value="status" selected>Por Status</option>
+                    <option value="tipo">Por Tipo de Requerimento</option>
+                </select>
+            </div>
+        </div>
+        <canvas id="statusChart"></canvas>
+      </div>
+      <div class="chart-container full-width">
+        <div class="chart-header">
+            <h4 id="evolucaoChartTitle">Evolução de Novos Protocolos</h4>
+            <div class="chart-filters">
+                <select id="evolucaoPeriodo" onchange="carregarDashboard()">
+                    <option value="7d">Últimos 7 dias</option>
+                    <option value="30d" selected>Últimos 30 dias</option>
+                    <option value="month">Mês Atual</option>
+                    <option value="all">Desde o início</option>
+                </select>
+                <select id="evolucaoAgrupamento" onchange="carregarDashboard()">
+                    <option value="day" selected>Agrupar por Dia</option>
+                    <option value="month">Agrupar por Mês</option>
+                </select>
+            </div>
+        </div>
+        <canvas id="evolucaoChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div id="form" class="form-screen content">
+      <form class="formulario" onsubmit="return false;">
+        <div class="form-group span-3"><label>Número do Protocolo</label><input type="text" id="numeroProtocolo" readonly></div>
+        <div class="form-group span-3"><label>Matrícula</label><input type="text" id="matricula"></div>
+        <div class="form-group span-5">
+            <label>Nome Completo</label>
+            <input type="text" id="nome">
+        </div>
+        <div class="form-group span-1" style="justify-content: flex-end; align-items: flex-end;">
+            <button id="btnBuscarNome" onclick="abrirModalBuscaServidor()" style="width: 100%; height: 38px; padding: 0 15px; cursor: pointer;">Buscar</button>
+        </div>
+        <div class="form-group span-6"><label>Endereço</label><input type="text" id="endereco"></div>
+        <div class="form-group span-3"><label>Município</label><input type="text" id="municipio" value="Morada Nova"></div>
+        <div class="form-group span-3"><label for="bairro">Bairro</label><select id="bairro" name="bairro" class="form-control"><option value="">Selecione um bairro</option></select></div>
+        <div class="form-group span-3"><label>CEP</label><input type="text" id="cep"></div>
+        <div class="form-group span-3"><label>Telefone</label><input type="text" id="telefone"></div>
+        <div class="form-group span-3"><label>CPF</label><input type="text" id="cpf"></div>
+        <div class="form-group span-3"><label>RG</label><input type="text" id="rg"></div>
+        <div class="form-group span-3"><label>Data de Expedição</label><input type="date" id="dataExpedicao"></div>
+        <div class="form-group span-3"><label>Cargo/Função</label><input type="text" id="cargo"></div>
+        <div class="form-group span-6"><label>Lotação</label><select id="lotacao"><option value="">Selecione...</option></select></div>
+        <div class="form-group span-6"><label>Unidade de Exercício</label><input type="text" id="unidade"></div>
+        <div class="form-group span-6"><label>Tipo de Requerimento</label><select id="tipo"><option value="">Selecione...</option></select></div>
+        <div class="form-group span-6"><label>Requer ao</label><select id="requerAo"><option value="">Selecione...</option><option value="SECRETÁRIO">SECRETÁRIO</option><option value="COORDENADOR DE RH">COORDENADOR DE RH</option><option value="PREFEITA">PREFEITA</option></select></div>
+        <div class="form-group span-3"><label>Data Solicitação</label><input type="date" id="dataSolicitacao"></div>
+        <div class="form-group full-row"><label>Informações Complementares</label><textarea id="complemento" rows="8"></textarea></div>
+        <div class="form-group full-row">
+            <label for="anexos">Anexar Documentos (limite de 10MB por arquivo)</label>
+            <input type="file" id="anexos" multiple onchange="previewFiles(this)">
+            <div id="filePreviewContainer" class="file-preview"></div>
+        </div>
+      </form>
+      <button onclick="enviarRequerimento()">Enviar Requerimento</button>
+      <button onclick="previsualizarPDF(null, true)">Imprimir</button>
+      <button onclick="mostrarTela('menu')">Voltar</button>
+  </div>
+
+  <div id="relatorios" class="relatorios-screen content">
+    <form class="filtros" onsubmit="pesquisarProtocolos(); return false;">
+        <input type="text" id="filtroNumero" placeholder="Número do Protocolo">
+        <input type="text" id="filtroNome" placeholder="Nome do Requerente">
+        <select id="filtroStatus">
+        <option value="">Todos os Status</option>
+        <option value="Em análise">Em análise</option>
+        <option value="Pendente de documento">Pendente de documento</option>
+        <option value="Finalizado">Finalizado</option>
+        <option value="Concluído">Concluído</option>
+        <option value="Encaminhado">Encaminhado</option>
+        </select>
+        <input type="date" id="filtroDataInicio" title="Data de Início">
+        <input type="date" id="filtroDataFim" title="Data Final">
+        <select id="filtroTipo"><option value="">Todo tipo de Requerimento</option></select>
+        <select id="filtroLotacao"><option value="">Todas as Lotações</option></select>
+    </form>
+    <div>
+        <button onclick="pesquisarProtocolos()">Pesquisar</button>
+       <button onclick="previsualizarRelatorioPDF()">📄 Pré-visualizar PDF</button>
+        <button onclick="exportarRelatorioExcel()">📊 Exportar para Excel</button>
+        <button onclick="limparFiltrosRelatorio()">Limpar Filtros</button>
+        <button onclick="mostrarTela('menu')">🔙 Voltar</button>
+    </div>
+    <table id="tabelaRelatorios">
+        <thead>
+        <tr>
+            <th>Número</th><th>Requerente</th><th>Matrícula</th><th>Tipo</th><th>Data</th><th>Status</th><th>Responsável</th>
+        </tr>
+        </thead>
+        <tbody id="resultadosPesquisa"></tbody>
+    </table>
+  </div>
+
+  <div id="protocolos" class="protocolos-screen content">
+    <h3>📋 Lista de Protocolos Enviados</h3>
+    <table>
+      <thead>
+        <tr>
+            <th class="col-numero">Número</th><th class="col-matricula">Matrícula</th><th class="col-nome">Nome</th><th class="col-tipo">Tipo</th><th class="col-status">Status</th><th class="col-responsavel">Responsável</th><th class="col-acao">Ação</th>
+        </tr>
+      </thead>
+      <tbody id="tabelaProtocolos"></tbody>
+    </table>
+    <button onclick="mostrarTela('menu')">Voltar</button>
+    <div id="paginacaoProtocolos"></div>
+  </div>
+
+  <div id="meusProtocolos" class="meus-protocolos-screen content">
+      <h3>📂 Meus Protocolos</h3>
+      <div class="filtros" style="padding: 10px 0;">
+        <input type="text" id="filtroMeusProtocolosNumero" placeholder="Filtrar por Número">
+        <input type="text" id="filtroMeusProtocolosNome" placeholder="Filtrar por Nome">
+        <button onclick="listarMeusProtocolos()">Filtrar</button>
+        <button onclick="limparFiltrosMeusProtocolos()">Limpar Filtros</button>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th class="col-numero">Número</th><th class="col-nome">Nome</th><th class="col-status">Status</th><th class="col-acao">Ação</th>
+          </tr>
+        </thead>
+        <tbody id="meusProtocolosTabela"></tbody>
+      </table>
+      <button onclick="voltarDeMeusProtocolos()">Voltar</button>
+      <div id="paginacaoMeusProtocolos"></div>
+  </div>
+
+  <div id="config" class="config-screen content">
+    <h3>⚙️ Configurações</h3>
+    <div class="form-group full-row">
+      <label>Email do Sistema:</label>
+      <input type="email" id="emailSistemaConfig" />
+      <button onclick="salvarEmailSistema()">Salvar Email</button>
+    </div>
+    <hr style="margin: 20px 0;">
+
+    <h4>Adicionar Novo Usuário</h4>
+    <form class="formulario" onsubmit="return false;" style="gap: 15px;">
+        <div class="form-group span-6"><input type="text" id="nomeCompleto" placeholder="Nome completo" /></div>
+        <div class="form-group span-3"><input type="text" id="novoUsuario" placeholder="Nome de usuário" /></div>
+        <div class="form-group span-3"><input type="text" id="cpfUsuario" placeholder="CPF (somente números)" /></div>
+        <div class="form-group span-6"><input type="email" id="novoEmail" placeholder="E-mail do usuário" /></div>
+        <div class="form-group span-3"><input type="password" id="novaSenha" placeholder="Senha" /></div>
+        <div class="form-group span-3">
+            <select id="nivelUsuario">
+                <option value="usuario">Usuário</option>
+                <option value="comum">Comum</option>
+                <option value="padrao">Padrão</option>
+                <option value="admin">Administrador</option>
+            </select>
+        </div>
+        <div class="form-group full-row">
+            <button onclick="cadastrarUsuario()">Cadastrar Usuário</button>
+        </div>
+    </form>
+    <hr style="margin: 20px 0;">
+    <h4>Usuários Cadastrados</h4>
+    <table style="width:100%;">
+      <thead>
+        <tr>
+          <th>Nome</th><th>Login</th><th>Email</th><th>Tipo</th><th>Status</th><th style="width: 280px;">Ações</th>
+        </tr>
+      </thead>
+      <tbody id="tabelaUsuarios"></tbody>
+    </table>
+    <hr style="margin: 20px 0;">
+    <h4>Gerenciar Listas</h4>
+    <h5>Tipos de Requerimento</h5>
+    <div class="form-group" style="flex-direction: row; gap: 10px; align-items: center;">
+        <input type="text" id="novoTipoNome" placeholder="Nome do novo tipo" style="flex-grow: 1;">
+        <button onclick="adicionarItem('tipos')">Adicionar</button>
+    </div>
+    <table style="width:100%;">
+        <thead><tr><th>Nome</th><th>Status</th><th style="width: 120px;">Ações</th></tr></thead>
+        <tbody id="tabelaTipos"></tbody>
+    </table>
+    <br>
+    <h5>Lotações</h5>
+    <div class="form-group" style="flex-direction: row; gap: 10px; align-items: center;">
+        <input type="text" id="novaLotacaoNome" placeholder="Nome da nova lotação" style="flex-grow: 1;">
+        <button onclick="adicionarItem('lotacoes')">Adicionar</button>
+    </div>
+    <table style="width:100%;">
+        <thead><tr><th>Nome</th><th>Status</th><th style="width: 120px;">Ações</th></tr></thead>
+        <tbody id="tabelaLotacoes"></tbody>
+    </table>
+    <hr style="margin: 20px 0;">
+    <h4>Gerar Backup de Protocolos</h4>
+    <label>Data Início:</label>
+    <input type="date" id="backupDataInicio" />
+    <label>Data Fim:</label>
+    <input type="date" id="backupDataFim" />
+    <button onclick="gerarBackup()">Gerar Backup</button>
+    <br><br>
+    <button onclick="mostrarTela('menu')">Voltar</button>
+  </div>
+</div>
+
+<div id="modeloProtocolo" style="display: none;">
+    <style>
+        .pdf-body { font-family: 'Inter', 'Segoe UI', 'Open Sans', sans-serif; color: #000; margin: 0; padding: 0; box-sizing: border-box; }
+        .doc-container { background: white; width: 100%; max-width: 700px; margin: 10px auto; padding: 20px; border: 1px solid #ccc; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        .pdf-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #ddd; padding-bottom: 15px; margin-bottom: 20px;}
+        .logo-pdf img { height: 80px; }
+        #qrcode-container { padding-left: 20px; }
+        .titulo-principal-pdf { text-align: center; margin: 2px 0; font-size: 22px; }
+        .titulo-central-pdf { text-align: center; margin-bottom: 20px; }
+        .titulo-central-pdf span { background: #2e7d32; color: white; font-size: 16px; padding: 8px 20px; border-radius: 4px; display: inline-block; font-weight: bold; }
+        .info-pdf { margin-bottom: 20px; display: flex; justify-content: space-between; gap: 20px; }
+        .campo-destaque-pdf { font-weight: bold; font-size: 14px; background-color: #2e7d32; color: white; padding: 8px 12px; border-radius: 5px; margin: 4px 0; flex: 1; text-align: center; }
+        .section-title-pdf { background: #f0f0f0; font-weight: bold; padding: 6px 10px; border-left: 4px solid #4caf50; margin-top: 20px; }
+        .grid-pdf { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 30px; margin-top: 10px; }
+        .grid-pdf div { font-size: 14px; }
+        .box-pdf { border: 1px solid #ddd; padding: 10px; border-radius: 6px; background: #fafafa; margin-top: 10px; font-style: italic; }
+        
+        .assinaturas-container {
+            margin-top: 60px;
+            page-break-inside: avoid;
+        }
+
+        .assinaturas-flex {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+        }
+
+        .assinatura-pdf {
+            text-align: center;
+            flex: 1;
+        }
+
+        .linha-assinatura {
+            border-top: 1px solid #000;
+            margin-top: 40px;
+            margin-bottom: 5px;
+        }
+        
+        /* Estilos para o campo "Recebido em" */
+        .recebido-container {
+            margin-top: 30px;
+            page-break-inside: avoid;
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+        }
+
+        .recebido-data {
+            font-size: 14px;
+            font-weight: bold;
+            display: flex;
+            align-items: flex-end;
+        }
+        
+        .recebido-data span {
+            border-bottom: 1px solid #000;
+            text-align: center;
+        }
+
+        .recebido-data .data-dia, .recebido-data .data-mes {
+            width: 25px; /* Tamanho para 2 dígitos */
+        }
+        
+        .recebido-data .data-ano {
+            width: 50px; /* Tamanho para 4 dígitos */
+        }
+
+        .recebido-data .separador {
+            margin: 0 4px;
+        }
+
+        .linha-assinatura-recebimento {
+            flex-grow: 1;
+            border-top: 1px solid #000;
+            margin-left: 20px;
+            margin-bottom: 5px;
+        }
+
+        .texto-assinatura-recebimento {
+            text-align: right;
+            font-size: 12px;
+            margin-top: 5px;
+            padding-right: 0px;
+        }
+
+        .rodape-pdf { 
+            text-align: center; 
+            margin-top: 20px;
+            page-break-inside: avoid; 
+        }
+        .rodape-pdf img { max-width: 100%; height: auto; }
+    </style>
+    <div class="pdf-body doc-container">
+        <div class="pdf-header">
+            <div class="logo-pdf"><img src="/img/logo.png" alt="Logo Prefeitura" /></div>
+            <div id="qrcode-container"></div>
+        </div>
+        <h1 class="titulo-principal-pdf">Secretaria da Administração</h1>
+        <div class="titulo-central-pdf"><span>PROTOCOLO DE REQUERIMENTO</span></div>
+        <div class="info-pdf">
+            <p class="campo-destaque-pdf"><strong>Número do Protocolo:</strong> <span id="doc_numero"></span></p>
+            <p class="campo-destaque-pdf"><strong>Data da Solicitação:</strong> <span id="doc_dataSolicitacao"></span></p>
+        </div>
+        <div class="section-title-pdf">DADOS DO REQUERENTE</div>
+        <div class="grid-pdf">
+            <div><strong>Nome:</strong> <span id="doc_nome"></span></div><div><strong>Bairro:</strong> <span id="doc_bairro"></span></div>
+            <div><strong>Matrícula:</strong> <span id="doc_matricula"></span></div><div><strong>Município:</strong> <span id="doc_municipio"></span></div>
+            <div><strong>CPF:</strong> <span id="doc_cpf"></span></div><div><strong>RG:</strong> <span id="doc_rg"></span></div>
+            <div><strong>Lotação:</strong> <span id="doc_lotacao"></span></div><div><strong>Endereço:</strong> <span id="doc_endereco"></span></div>
+            <div><strong>Unidade de Exercício:</strong> <span id="doc_unidade"></span></div><div><strong>Telefone:</strong> <span id="doc_telefone"></span></div>
+            <div><strong>Cargo/Função:</strong> <span id="doc_cargo"></span></div><div><strong>CEP:</strong> <span id="doc_cep"></span></div>
+        </div>
+        <div class="section-title-pdf">DADOS DO REQUERIMENTO</div>
+        <div style="margin-top: 10px;">
+            <div style="margin-bottom: 6px;"><strong>Tipo de Requerimento:</strong> <span id="doc_tipo"></span></div>
+            <div style="margin-bottom: 10px;"><strong>Requer ao:</strong> <span id="doc_requerAo"></span></div>
+        </div>
+        <div class="box-pdf" id="doc_complemento"></div>
+        <div class="assinaturas-container">
+            <div class="assinaturas-flex">
+                <div class="assinatura-pdf">
+                    <div class="linha-assinatura"></div>
+                    Assinatura do Requerente
+                </div>
+                <div class="assinatura-pdf">
+                    <div class="linha-assinatura"></div>
+                    Responsável pelo Protocolo
+                </div>
+            </div>
+        </div>
+        <div class="recebido-container">
+            <p class="recebido-data">
+                <strong>Recebido em:</strong>
+                <span class="data-dia"></span>
+                <span class="separador">/</span>
+                <span class="data-mes"></span>
+                <span class="separador">/</span>
+                <span class="data-ano"></span>
+            </p>
+            <div class="linha-assinatura-recebimento"></div>
+        </div>
+        <p class="texto-assinatura-recebimento">Assinatura de Recebimento</p>
+        <div class="rodape-pdf"><img src="/img/rodape.jpg" alt="Rodapé" /></div>
+    </div>
+</div>
+<div id="pdfModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.6);">
+  <div style="background-color: #fefefe; margin: 20px auto; padding: 0; border: 1px solid #888; width: 95%; max-width: 800px; box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2), 0 6px 20px 0 rgba(0,0,0,0.19);">
+    <div style="text-align: right; background: #2e7d32; padding: 5px 15px;"><span style="color: white; font-size: 28px; font-weight: bold; cursor: pointer;" onclick="fecharModal('pdfModal')">&times;</span></div>
+    <div id="pdfContent" style="padding: 20px;"></div>
+    <div style="text-align: center; padding: 10px; border-top: 1px solid #ddd;"><button onclick="gerarPDF()">Gerar e Salvar PDF</button></div>
+  </div>
+</div>
+<div id="relatorioModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.6);">
+    <div style="background-color: #fefefe; margin: 20px auto; padding: 0; border: 1px solid #888; width: 95%; max-width: 900px; box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2), 0 6px 20px 0 rgba(0,0,0,0.19);">
+      <div style="text-align: right; background: #2e7d32; padding: 5px 15px;"><span style="color: white; font-size: 28px; font-weight: bold; cursor: pointer;" onclick="fecharModal('relatorioModal')">&times;</span></div>
+      <div id="relatorioContent" style="padding: 20px; max-height: 80vh; overflow-y: auto;"></div>
+      <div style="text-align: center; padding: 10px; border-top: 1px solid #ddd;"><button onclick="salvarRelatorioPDF()">Salvar PDF</button></div>
+    </div>
+</div>
+<div id="modalEncaminhar" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center;">
+  <div style="background:#fff; padding:20px; border-radius:8px; box-shadow:0 0 10px rgba(0,0,0,0.3); width:300px; max-width:90%;">
+    <h3>Encaminhar Protocolo</h3>
+    <label for="selectUsuarioEncaminhar" style="display:block; text-align:left; margin-bottom:5px;">Para o usuário:</label>
+    <select id="selectUsuarioEncaminhar" style="width:100%; padding:8px; margin-bottom:10px;"></select>
+    <label for="statusEncaminhamento" style="display:block; text-align:left; margin-bottom:5px;">Definir status como:</label>
+    <input type="text" id="statusEncaminhamento" style="width:100%; padding:8px; margin-bottom:15px; box-sizing: border-box;">
+    <div style="text-align:right;">
+      <button onclick="confirmarEncaminhamento()" style="margin-right:10px;">Confirmar</button>
+      <button onclick="fecharModal('modalEncaminhar')">Cancelar</button>
+    </div>
+  </div>
+</div>
+<div id="modalAtualizarStatus" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center;">
+  <div style="background:#fff; padding:20px; border-radius:8px; box-shadow:0 0 10px rgba(0,0,0,0.3); width:400px; max-width:90%;">
+    <h3>Atualizar Status do Protocolo</h3>
+    <label for="statusSelect">Status:</label>
+    <select id="statusSelect" onchange="handleStatusChange(this)" style="width:100%; padding:8px; margin-bottom:10px;">
+      <option value="Em análise">Em análise</option>
+      <option value="Pendente de documento">Pendente de documento</option>
+      <option value="Finalizado">Finalizado</option>
+      <option value="Concluído">Concluído</option>
+      <option value="Outro">Outro (digitar)</option>
+    </select>
+    <input type="text" id="statusCustom" placeholder="Digite o status personalizado" style="display:none; width:100%; padding:8px; margin-bottom:10px; box-sizing: border-box;">
+    <label for="observacaoAtualizacao">Observação (opcional):</label>
+    <textarea id="observacaoAtualizacao" rows="4" style="width:100%; padding:8px; margin-bottom:15px; box-sizing: border-box;"></textarea>
+    <div style="text-align:right;">
+      <button onclick="confirmarAtualizacaoStatus()" style="margin-right:10px;">Confirmar</button>
+      <button onclick="fecharModal('modalAtualizarStatus')">Cancelar</button>
+    </div>
+  </div>
+</div>
+<div id="modalEditarUsuario" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:10000; align-items:center; justify-content:center;">
+  <div style="background:#fff; padding:20px; border-radius:8px; width:400px; max-width:90%;">
+    <h3>Editar Usuário</h3>
+    <input type="hidden" id="editUserId">
+    <div class="form-group"><label>Nome Completo</label><input type="text" id="editNomeCompleto"></div>
+    <div class="form-group"><label>Login</label><input type="text" id="editLogin"></div>
+    <div class="form-group"><label>Email</label><input type="email" id="editEmail"></div>
+    <div class="form-group"><label>CPF</label><input type="text" id="editCpf"></div>
+    <div class="form-group">
+      <label>Tipo</label>
+      <select id="editTipo">
+        <option value="usuario">Usuário</option>
+        <option value="comum">Comum</option>
+        <option value="padrao">Padrão</option>
+        <option value="admin">Administrador</option>
+      </select>
+    </div>
+    <div style="text-align:right; margin-top:15px;">
+      <button onclick="confirmarEdicaoUsuario()">Salvar Alterações</button>
+      <button onclick="fecharModal('modalEditarUsuario')">Cancelar</button>
+    </div>
+  </div>
+</div>
+<div id="modalResetarSenha" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:10000; align-items:center; justify-content:center;">
+  <div style="background:#fff; padding:20px; border-radius:8px; width:400px; max-width:90%;">
+    <h3>Resetar Senha</h3>
+    <input type="hidden" id="resetUserId">
+    <div class="form-group">
+      <label>Nova Senha</label>
+      <input type="password" id="resetNovaSenha">
+    </div>
+    <div style="text-align:right; margin-top:15px;">
+      <button onclick="confirmarResetSenha()">Confirmar Nova Senha</button>
+      <button onclick="fecharModal('modalResetarSenha')">Cancelar</button>
+    </div>
+  </div>
+</div>
+<div id="modalAlterarSenha" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:10000; align-items:center; justify-content:center;">
+  <div style="background:#fff; padding:20px; border-radius:8px; width:400px; max-width:90%;">
+    <h3>Alterar Minha Senha</h3>
+    <div class="form-group"><label>Senha Atual</label><input type="password" id="senhaAtual"></div>
+    <div class="form-group"><label>Nova Senha</label><input type="password" id="alterarNovaSenha"></div>
+    <div class="form-group"><label>Confirmar Nova Senha</label><input type="password" id="confirmarNovaSenha"></div>
+    <div style="text-align:right; margin-top:15px;">
+      <button onclick="confirmarAlteracaoSenha()">Salvar Nova Senha</button>
+      <button onclick="fecharModal('modalAlterarSenha')">Cancelar</button>
+    </div>
+  </div>
+</div>
+<div id="modalEditarProtocolo" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:10000; align-items:flex-start; justify-content:center; overflow-y: auto; padding: 20px 0;">
+  <div style="background:#fff; padding:20px; border-radius:8px; width:90%; max-width:1200px; margin: auto;">
+    <h3>Editar Protocolo</h3>
+    <input type="hidden" id="p_edit_id">
+    <form class="formulario" id="formEdicao" onsubmit="return false;">
+        <div class="form-group span-3"><label>Número do Protocolo</label><input type="text" id="p_edit_numero"></div>
+        <div class="form-group span-3"><label>Matrícula</label><input type="text" id="p_edit_matricula"></div>
+        <div class="form-group span-6"><label>Nome Completo</label><input type="text" id="p_edit_nome"></div>
+        <div class="form-group span-6"><label>Endereço</label><input type="text" id="p_edit_endereco"></div>
+        <div class="form-group span-3"><label>Município</label><input type="text" id="p_edit_municipio"></div>
+        <div class="form-group span-3"><label>Bairro</label><select id="p_edit_bairro"></select></div>
+        <div class="form-group span-3"><label>CEP</label><input type="text" id="p_edit_cep"></div>
+        <div class="form-group span-3"><label>Telefone</label><input type="text" id="p_edit_telefone"></div>
+        <div class="form-group span-3"><label>CPF</label><input type="text" id="p_edit_cpf"></div>
+        <div class="form-group span-3"><label>RG</label><input type="text" id="p_edit_rg"></div>
+        <div class="form-group span-3"><label>Data de Expedição</label><input type="date" id="p_edit_dataExpedicao"></div>
+        <div class.form-group span-3"><label>Cargo/Função</label><input type="text" id="p_edit_cargo"></div>
+        <div class="form-group span-6"><label>Lotação</label><select id="p_edit_lotacao"></select></div>
+        <div class="form-group span-6"><label>Unidade de Exercício</label><input type="text" id="p_edit_unidade"></div>
+        <div class="form-group span-6"><label>Tipo de Requerimento</label><select id="p_edit_tipo"></select></div>
+        <div class="form-group span-6"><label>Requer ao</label><select id="p_edit_requerAo"><option value="">Selecione...</option><option value="SECRETÁRIO">SECRETÁRIO</option><option value="COORDENADOR DE RH">COORDENADOR DE RH</option><option value="PREFEITA">PREFEITA</option></select></div>
+        <div class="form-group span-3"><label>Data Solicitação</label><input type="date" id="p_edit_dataSolicitacao"></div>
+        <div class="form-group full-row"><label>Informações Complementares</label><textarea id="p_edit_complemento" rows="8"></textarea></div>
+    </form>
+    <div style="text-align:right; margin-top:15px;">
+      <button onclick="confirmarEdicaoProtocolo()">Salvar Alterações</button>
+      <button onclick="fecharModal('modalEditarProtocolo')">Cancelar</button>
+    </div>
+  </div>
+</div>
+<div id="modalAnexos" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:10001; align-items:center; justify-content:center;">
+  <div style="background:#fff; padding:20px; border-radius:8px; width:600px; max-width:90%;">
+    <h3 id="modalAnexosTitulo">Anexos do Protocolo</h3>
+    <ul id="anexos-lista"></ul>
+    <div class="upload-area">
+        <h4>Adicionar Novo Anexo</h4>
+        <input type="file" id="novoAnexoInput">
+        <button onclick="adicionarNovoAnexo()">Enviar</button>
+    </div>
+    <div style="text-align:right; margin-top:15px;">
+      <button onclick="fecharModal('modalAnexos')">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<div id="modalImpressaoDashboard" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:10002; align-items:center; justify-content:center;">
+  <div style="background:#fff; padding:20px; border-radius:8px; width:500px; max-width:90%;">
+    <h3>Impressão Personalizada do Dashboard</h3>
+    <p>Selecione os itens que deseja incluir no relatório:</p>
+    <div id="print-options-container" style="margin-top: 15px;">
+      <label><input type="checkbox" name="print-item" value=".dashboard-cards" checked> Cards de Estatísticas</label><br>
+      <label><input type="checkbox" name="print-item" value="#tiposChart" checked> Gráfico: Top 5 Tipos</label><br>
+      <label><input type="checkbox" name="print-item" value="#statusChart" checked> Gráfico: Protocolos por Status</label><br>
+      <label><input type="checkbox" name="print-item" value="#evolucaoChart" checked> Gráfico: Evolução de Protocolos</label><br>
+    </div>
+    <div style="text-align:right; margin-top:20px;">
+      <button onclick="gerarImpressaoPersonalizada()">Gerar Pré-visualização</button>
+      <button onclick="fecharModal('modalImpressaoDashboard')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<div id="modalPreviewImpressao" style="display: none; position: fixed; z-index: 10003; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.6);">
+    <div style="background-color: #fefefe; margin: 20px auto; padding: 0; border: 1px solid #888; width: 95%; max-width: 900px; box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2), 0 6px 20px 0 rgba(0,0,0,0.19);">
+      <div style="display: flex; justify-content: space-between; align-items: center; background: #2e7d32; padding: 5px 15px;">
+        <h4 style="color: white; margin: 0;">Pré-visualização do Relatório</h4>
+        <span style="color: white; font-size: 28px; font-weight: bold; cursor: pointer;" onclick="fecharModal('modalPreviewImpressao')">&times;</span>
+      </div>
+      <div id="previewContent" style="padding: 20px; max-height: 80vh; overflow-y: auto;"></div>
+      <div style="text-align: center; padding: 10px; border-top: 1px solid #ddd;">
+        <button onclick="salvarDashboardPersonalizadoPDF()">Salvar PDF</button>
+      </div>
+    </div>
+</div>
+
+<div id="modalBuscaServidor" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:10000; align-items:center; justify-content:center;">
+  <div style="background:#fff; padding:20px; border-radius:8px; width:500px; max-width:90%;">
+    <h3>Buscar Servidor por Nome</h3>
+    <div class="form-group">
+      <label>Nome do Servidor</label>
+      <input type="text" id="buscaNomeInput" placeholder="Digite para buscar..." style="width: 100%; box-sizing: border-box;">
+    </div>
+    <div id="buscaNomeResultados" style="max-height: 300px; overflow-y: auto; margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px;">
+      <!-- Resultados da busca aparecerão aqui -->
+    </div>
+    <div style="text-align:right; margin-top:15px;">
+      <button onclick="fecharModal('modalBuscaServidor')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<script src="script.js" defer></script>
+
+</body>
+</html>
