@@ -222,27 +222,6 @@ def admin_toggle_item_status(item_type, item_id):
         flash(f'Status do item alterado com sucesso!', 'success')
     return redirect(url_for('configuracoes'))
 
-# --- Rota de Geração de PDF ---
-
-@app.route('/protocolo/<int:protocolo_id>/pdf')
-@login_required
-def gerar_pdf_protocolo(protocolo_id):
-    protocolo = Protocolo.query.get_or_404(protocolo_id)
-
-    # Renderiza um template HTML com os dados do protocolo
-    # Este template é feito especificamente para ser convertido em PDF
-    rendered_html = render_template('pdf_template.html', protocolo=protocolo)
-
-    # Gera o PDF a partir do HTML renderizado
-    pdf_bytes = HTML(string=rendered_html, base_url=request.base_url).write_pdf()
-
-    # Cria a resposta HTTP com o PDF
-    response = make_response(pdf_bytes)
-    response.headers['Content-Type'] = 'application/pdf'
-    response.headers['Content-Disposition'] = f'inline; filename=protocolo_{protocolo.numero.replace("/", "-")}.pdf'
-
-    return response
-
 # --- Rotas de Protocolo ---
 
 @app.route("/protocolos")
@@ -550,6 +529,26 @@ def get_tipos_requerimento():
     tipos = TipoRequerimento.query.filter_by(ativo=True).order_by(TipoRequerimento.nome).all()
     return jsonify([t.nome for t in tipos])
 
+@app.route('/api/protocolos/ultimoNumero/<int:ano>')
+@login_required
+def get_ultimo_numero(ano):
+    # Filtra os números que correspondem ao padrão 'NNNN/ANO'
+    numeros_do_ano = db.session.query(Protocolo.numero)\
+        .filter(Protocolo.numero.like(f'%/{ano}'))\
+        .all()
+
+    # Extrai a parte numérica e encontra o máximo
+    max_num = 0
+    for num_str, in numeros_do_ano:
+        try:
+            num = int(num_str.split('/')[0])
+            if num > max_num:
+                max_num = num
+        except (ValueError, IndexError):
+            continue
+
+    return jsonify({'ultimo': max_num})
+
 @app.route('/api/protocolo/<int:protocolo_id>')
 @login_required
 def get_protocolo_api(protocolo_id):
@@ -583,55 +582,69 @@ def dashboard_data():
     # Get filter parameters from the request query string
     data_inicio_str = request.args.get('dataInicio')
     data_fim_str = request.args.get('dataFim')
+    status = request.args.get('status')
+    tipo = request.args.get('tipo')
+    lotacao = request.args.get('lotacao')
+    evolucao_periodo = request.args.get('evolucaoPeriodo', '30d')
+    evolucao_agrupamento = request.args.get('evolucaoAgrupamento', 'day')
 
-    # Base query
-    query = Protocolo.query
-
-    # Apply date filters
+    # Base query for period-filtered stats
+    base_query = Protocolo.query
     if data_inicio_str:
-        data_inicio = datetime.strptime(data_inicio_str, '%Y-%m-%d').date()
-        query = query.filter(Protocolo.data_solicitacao >= data_inicio)
+        base_query = base_query.filter(Protocolo.data_solicitacao >= datetime.strptime(data_inicio_str, '%Y-%m-%d').date())
     if data_fim_str:
-        data_fim = datetime.strptime(data_fim_str, '%Y-%m-%d').date()
-        query = query.filter(Protocolo.data_solicitacao <= data_fim)
+        base_query = base_query.filter(Protocolo.data_solicitacao <= datetime.strptime(data_fim_str, '%Y-%m-%d').date())
+    if status:
+        base_query = base_query.filter(Protocolo.status == status)
+    if tipo:
+        base_query = base_query.filter(Protocolo.tipo_requerimento == tipo)
+    if lotacao:
+        base_query = base_query.filter(Protocolo.lotacao == lotacao)
 
     # --- Stats Cards Data ---
-    novos_no_periodo = query.count()
-    total_finalizados = query.filter(Protocolo.status.in_(['Finalizado', 'Concluído'])).count()
+    novos_no_periodo_query = Protocolo.query
+    if data_inicio_str:
+        novos_no_periodo_query = novos_no_periodo_query.filter(Protocolo.data_solicitacao >= datetime.strptime(data_inicio_str, '%Y-%m-%d').date())
+    else: # Default to last 7 days if no start date
+        novos_no_periodo_query = novos_no_periodo_query.filter(Protocolo.data_solicitacao >= (datetime.now().date() - timedelta(days=7)))
+    if data_fim_str:
+        novos_no_periodo_query = novos_no_periodo_query.filter(Protocolo.data_solicitacao <= datetime.strptime(data_fim_str, '%Y-%m-%d').date())
 
-    # Pendentes a mais de 15 dias (ignora filtros de data)
-    fifteen_days_ago = datetime.now().date() - timedelta(days=15)
+    novos_no_periodo = novos_no_periodo_query.count()
+    total_finalizados = base_query.filter(Protocolo.status.in_(['Finalizado', 'Concluído'])).count()
     pendentes_antigos = Protocolo.query.filter(
-        Protocolo.data_solicitacao <= fifteen_days_ago,
+        Protocolo.data_solicitacao <= (datetime.now().date() - timedelta(days=15)),
         ~Protocolo.status.in_(['Finalizado', 'Concluído'])
     ).count()
 
     # --- Charts Data ---
-    # Top 5 Tipos (Bar Chart)
-    top_tipos = db.session.query(
-        Protocolo.tipo_requerimento,
-        func.count(Protocolo.id).label('total')
-    ).select_from(query.subquery()).group_by(Protocolo.tipo_requerimento).order_by(func.count(Protocolo.id).desc()).limit(5).all()
+    top_tipos = db.session.query(Protocolo.tipo_requerimento, func.count(Protocolo.id).label('total')).select_from(base_query.subquery()).group_by(Protocolo.tipo_requerimento).order_by(func.count(Protocolo.id).desc()).limit(5).all()
+    todos_tipos = db.session.query(Protocolo.tipo_requerimento, func.count(Protocolo.id).label('total')).select_from(base_query.subquery()).group_by(Protocolo.tipo_requerimento).order_by(func.count(Protocolo.id).desc()).all()
+    status_protocolos = db.session.query(Protocolo.status, func.count(Protocolo.id).label('total')).select_from(base_query.subquery()).group_by(Protocolo.status).order_by(Protocolo.status).all()
 
-    # Protocolos por Status (Pie Chart)
-    status_protocolos = db.session.query(
-        Protocolo.status,
-        func.count(Protocolo.id).label('total')
-    ).select_from(query.subquery()).group_by(Protocolo.status).order_by(Protocolo.status).all()
+    # Evolution Chart Logic
+    evolucao_query = Protocolo.query
+    if evolucao_periodo == '7d':
+        evolucao_query = evolucao_query.filter(Protocolo.data_solicitacao >= (datetime.now().date() - timedelta(days=7)))
+    elif evolucao_periodo == '30d':
+        evolucao_query = evolucao_query.filter(Protocolo.data_solicitacao >= (datetime.now().date() - timedelta(days=30)))
+    elif evolucao_periodo == 'month':
+        evolucao_query = evolucao_query.filter(func.date_trunc('month', Protocolo.data_solicitacao) == func.date_trunc('month', datetime.now()))
 
-    # Evolução de Protocolos (Line Chart)
+    group_by_trunc = 'month' if evolucao_agrupamento == 'month' else 'day'
     evolucao_protocolos = db.session.query(
-        cast(Protocolo.data_solicitacao, Date).label('intervalo'),
+        func.date_trunc(group_by_trunc, Protocolo.data_solicitacao).label('intervalo'),
         func.count(Protocolo.id).label('total')
-    ).select_from(query.subquery()).group_by('intervalo').order_by('intervalo').all()
+    ).select_from(evolucao_query.subquery()).group_by('intervalo').order_by('intervalo').all()
 
     # Prepare data for JSON response
     dashboard_stats = {
         'novosNoPeriodo': novos_no_periodo,
         'pendentesAntigos': pendentes_antigos,
         'totalFinalizados': total_finalizados,
-        'topTipos': [{'tipo_requerimento': r.tipo_requerimento, 'total': r.total} for r in top_tipos],
-        'statusProtocolos': [{'status': r.status, 'total': r.total} for r in status_protocolos],
+        'topTipos': [{'tipo_requerimento': r[0], 'total': r[1]} for r in top_tipos],
+        'todosTipos': [{'tipo_requerimento': r[0], 'total': r[1]} for r in todos_tipos],
+        'statusProtocolos': [{'status': r[0], 'total': r[1]} for r in status_protocolos],
         'evolucaoProtocolos': [{'intervalo': r.intervalo.isoformat(), 'total': r.total} for r in evolucao_protocolos]
     }
 
