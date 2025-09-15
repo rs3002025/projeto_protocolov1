@@ -1,6 +1,6 @@
 from sqlalchemy import text, event
 from flask import g
-from ..extensions import db
+from app import db
 
 def set_tenant_schema_for_request(schema_name):
     """
@@ -17,7 +17,9 @@ def set_tenant_schema_for_request(schema_name):
         # Em caso de erro, default para public para evitar falhas
         g.schema = 'public'
 
-# A função que será usada como listener. O registro do evento será feito no create_app.
+# Usar o evento 'before_cursor_execute' do SQLAlchemy é mais robusto
+# do que fazer um SET search_path por requisição.
+@event.listens_for(db.engine, "before_cursor_execute")
 def set_schema_on_execute(conn, cursor, statement, parameters, context, executemany):
     """
     Define o search_path em cada execução de cursor.

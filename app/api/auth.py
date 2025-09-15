@@ -1,40 +1,24 @@
-from flask import request, jsonify, current_app
+from flask import request, jsonify
 from flask_jwt_extended import create_access_token
 from . import bp
-from ..models import Tenant, Usuario
-from ..extensions import db
+from app.models import Tenant, Usuario
+from app import db
 from sqlalchemy import text
 
 @bp.route('/login', methods=['POST'])
 def login():
     """
     Autentica um usuário com base no client_code, login e senha.
-    Se client_code for vazio, tenta autenticar como Super Admin.
     Retorna um JWT em caso de sucesso.
     """
     data = request.get_json()
-    client_code = data.get('client_code', '')
+    client_code = data.get('client_code', None)
     login_name = data.get('login', None)
     password = data.get('password', None)
 
-    if not login_name or not password:
-        return jsonify({"msg": "Os campos 'login' e 'password' são obrigatórios."}), 400
+    if not client_code or not login_name or not password:
+        return jsonify({"msg": "Os campos 'client_code', 'login' e 'password' são obrigatórios."}), 400
 
-    # --- Lógica do Super Admin ---
-    if not client_code:
-        sa_login = current_app.config['SUPER_ADMIN_LOGIN']
-        sa_password = current_app.config['SUPER_ADMIN_PASSWORD']
-        if login_name == sa_login and password == sa_password:
-            additional_claims = {"role": "super_admin"}
-            access_token = create_access_token(
-                identity='super_admin',
-                additional_claims=additional_claims
-            )
-            return jsonify(access_token=access_token)
-        else:
-            return jsonify({"msg": "Credenciais de Super Admin inválidas."}), 401
-
-    # --- Lógica do Tenant (usuário normal) ---
     # A sessão começa no schema 'public' por padrão (configurado no before_request)
     # 1. Encontrar as informações do tenant (cliente)
     tenant = db.session.query(Tenant).filter_by(client_code=client_code).first()
@@ -60,9 +44,9 @@ def login():
             return jsonify({"msg": "Login ou senha inválidos."}), 401
 
         # 4. Se o login for bem-sucedido, criar o token
-        additional_claims = {"schema": schema_name, "role": user.role, "login": user.login}
+        additional_claims = {"schema": schema_name, "role": user.role}
         access_token = create_access_token(
-            identity=user.id, # A identidade principal do token é o ID do usuário
+            identity=user.id,
             additional_claims=additional_claims
         )
 
