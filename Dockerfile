@@ -23,4 +23,5 @@ ENV PORT 8080
 
 # Run app.py when the container launches
 # Use gunicorn for production
-CMD ["gunicorn", "--bind", "0.0.0.0:$PORT", "app:app"]
+# The 'shell' form of CMD is used here to ensure shell processing of the $PORT variable.
+CMD gunicorn --bind 0.0.0.0:$PORT app:app
