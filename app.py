@@ -623,7 +623,7 @@ def dashboard_data():
     status_protocolos = db.session.query(Protocolo.status, func.count(Protocolo.id).label('total')).select_from(base_query.subquery()).group_by(Protocolo.status).order_by(Protocolo.status).all()
 
     # Evolution Chart Logic
-    evolucao_query = Protocolo.query
+    evolucao_query = Protocolo.query.filter(Protocolo.data_solicitacao.isnot(None)) # Add filter for non-null dates
     if evolucao_periodo == '7d':
         evolucao_query = evolucao_query.filter(Protocolo.data_solicitacao >= (datetime.now().date() - timedelta(days=7)))
     elif evolucao_periodo == '30d':
