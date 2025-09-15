@@ -317,9 +317,6 @@ def criar_protocolo():
         data_solicitacao_str = request.form.get('data_solicitacao')
         data_solicitacao_obj = datetime.strptime(data_solicitacao_str, '%Y-%m-%d').date() if data_solicitacao_str else datetime.now().date()
 
-        data_expedicao_str = request.form.get('data_expedicao')
-        data_expedicao_obj = datetime.strptime(data_expedicao_str, '%Y-%m-%d').date() if data_expedicao_str else None
-
         protocolo = Protocolo(
             numero=novo_numero,
             nome=request.form.get('nome'),
@@ -331,7 +328,6 @@ def criar_protocolo():
             telefone=request.form.get('telefone'),
             cpf=request.form.get('cpf'),
             rg=request.form.get('rg'),
-            data_expedicao=data_expedicao_obj,
             cargo=request.form.get('cargo'),
             lotacao=request.form.get('lotacao'),
             unidade_exercicio=request.form.get('unidade_exercicio'),
