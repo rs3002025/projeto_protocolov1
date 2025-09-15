@@ -1,11 +1,9 @@
-from flask import Flask
+from flask import Flask, g, request
 from .config import Config
 from sqlalchemy import event
 from .core.tenancy import set_schema_on_execute
 from .extensions import db, jwt
-
-from flask import g, request
-from flask_jwt_extended import get_jwt, verify_jwt_in_request
+from flask_jwt_extended import verify_jwt_in_request, get_jwt
 
 def create_app():
     app = Flask(__name__)
@@ -16,23 +14,33 @@ def create_app():
 
     @app.before_request
     def before_request_handler():
+        """
+        Executado antes de cada requisição.
+        Verifica o JWT (se presente) e define o search_path do banco de dados.
+        """
         g.schema = 'public'
-        # As rotas de frontend não são protegidas por JWT diretamente,
-        # mas as chamadas de API que elas fazem são.
-        # A exceção é a rota de login da API.
-        if request.path.startswith('/api/') and not request.path.startswith('/api/login'):
+        # Rotas que não exigem verificação de JWT ou manipulação de schema de tenant
+        public_endpoints = ['main.login', 'main.consulta_publica', 'api.login']
+        if request.endpoint in public_endpoints:
+            return
+
+        # Para rotas da API, verifica o JWT e tenta definir o schema
+        if request.path.startswith('/api/'):
             try:
                 verify_jwt_in_request()
                 claims = get_jwt()
                 g.schema = claims.get('schema', 'public')
-            except Exception as e:
-                # Deixa o Flask-JWT-Extended lidar com o erro de token inválido/ausente.
-                # O schema permanecerá 'public', o que é seguro.
+            except Exception:
+                # Se o token for inválido ou ausente, a exceção será lançada
+                # e o Flask-JWT-Extended retornará um erro 401.
+                # O g.schema permanecerá 'public', o que é seguro.
                 pass
 
+    # Com a app inicializada, agora é seguro registrar o listener do SQLAlchemy
     with app.app_context():
         event.listen(db.engine, "before_cursor_execute", set_schema_on_execute)
 
+    # Registrar blueprints
     from app.api import bp as api_bp
     app.register_blueprint(api_bp, url_prefix='/api')
 
