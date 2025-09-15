@@ -44,15 +44,11 @@
     {% endif %}
 
     <main class="main-content">
-        {# On the login page, the content block is the full page #}
-        {# On other pages, it's inside a container #}
-        {% if request.endpoint != 'login' %}
-            <div class="container-fluid mt-4">
-                {% block content %}{% endblock %}
-            </div>
-        {% else %}
+        {# On the login page, the content block is not wrapped in a container #}
+        {# On other pages, it is. This structure avoids defining the block twice. #}
+        <div class="{% if request.endpoint != 'login' %}container-fluid mt-4{% endif %}">
             {% block content %}{% endblock %}
-        {% endif %}
+        </div>
     </main>
 
     <!-- Bootstrap JS Bundle -->
