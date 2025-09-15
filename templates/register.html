@@ -1,0 +1,61 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h2>Registrar Nova Conta</h2>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="">
+                    {{ form.hidden_tag() }}
+                    <fieldset class="form-group">
+                        <div class="form-group mb-3">
+                            {{ form.nome_completo.label(class="form-control-label") }}
+                            {{ form.nome_completo(class="form-control form-control-lg") }}
+                        </div>
+                        <div class="form-group mb-3">
+                            {{ form.login.label(class="form-control-label") }}
+                            {% if form.login.errors %}
+                                {{ form.login(class="form-control form-control-lg is-invalid") }}
+                                <div class="invalid-feedback">
+                                    {% for error in form.login.errors %}
+                                        <span>{{ error }}</span>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                {{ form.login(class="form-control form-control-lg") }}
+                            {% endif %}
+                        </div>
+                        <div class="form-group mb-3">
+                            {{ form.senha.label(class="form-control-label") }}
+                            {{ form.senha(class="form-control form-control-lg") }}
+                        </div>
+                        <div class="form-group mb-3">
+                            {{ form.confirmar_senha.label(class="form-control-label") }}
+                             {% if form.confirmar_senha.errors %}
+                                {{ form.confirmar_senha(class="form-control form-control-lg is-invalid") }}
+                                <div class="invalid-feedback">
+                                    {% for error in form.confirmar_senha.errors %}
+                                        <span>{{ error }}</span>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                {{ form.confirmar_senha(class="form-control form-control-lg") }}
+                            {% endif %}
+                        </div>
+                    </fieldset>
+                    <div class="form-group mt-4">
+                        {{ form.submit(class="btn btn-primary") }}
+                    </div>
+                </form>
+            </div>
+            <div class="card-footer text-muted">
+                <small>
+                    Já tem uma conta? <a href="{{ url_for('login') }}">Faça o login aqui</a>
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}
