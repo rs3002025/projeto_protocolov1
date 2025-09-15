@@ -5,7 +5,7 @@
         <h3>Detalhes do Protocolo: {{ protocolo.numero }}</h3>
         <div>
             <a href="{{ url_for('listar_protocolos') }}" class="btn btn-outline-secondary">Voltar à Lista</a>
-            <button type="button" class="btn btn-info" onclick="openPdfModal({{ protocolo.id }})">Gerar Documento</button>
+            <button type="button" class="btn btn-info" onclick="previsualizarPDF({{ protocolo.id }})">Gerar Documento</button>
             <a href="{{ url_for('editar_protocolo', protocolo_id=protocolo.id) }}" class="btn btn-secondary">Editar</a>
             <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
                 Excluir

@@ -310,6 +310,103 @@ async function searchServidorByName() {
     }
 }
 
+// --- Admin Page Logic ---
+window.openEditUserModal = function(user) {
+    const modal = new bootstrap.Modal(document.getElementById('modalEditarUsuario'));
+    document.getElementById('formEditarUsuario').action = `/admin/usuarios/${user.id}/editar`;
+    document.getElementById('editUserId').value = user.id;
+    document.getElementById('editNomeCompleto').value = user.nome_completo;
+    document.getElementById('editLogin').value = user.login;
+    document.getElementById('editEmail').value = user.email;
+    document.getElementById('editTipo').value = user.tipo;
+    modal.show();
+}
+
+window.openResetPasswordModal = function(userId) {
+    const modal = new bootstrap.Modal(document.getElementById('modalResetarSenha'));
+    document.getElementById('formResetarSenha').action = `/admin/usuarios/${userId}/resetar_senha`;
+    modal.show();
+}
+
+// --- PDF Generation (Client-Side) ---
+let protocoloParaGerarPDF = null;
+
+function preencherTemplatePDF(protocolo) {
+    const modeloNode = document.getElementById('modeloProtocolo').cloneNode(true);
+    modeloNode.style.display = 'block';
+
+    const Mapeamento = {
+        '#doc_numero': protocolo.numero,
+        '#doc_dataSolicitacao': new Date(protocolo.data_solicitacao).toLocaleDateString('pt-BR', {timeZone: 'UTC'}),
+        '#doc_nome': protocolo.nome,
+        '#doc_matricula': protocolo.matricula,
+        '#doc_cpf': protocolo.cpf,
+        '#doc_rg': protocolo.rg,
+        '#doc_endereco': protocolo.endereco,
+        '#doc_bairro': protocolo.bairro,
+        '#doc_municipio': protocolo.municipio,
+        '#doc_cep': protocolo.cep,
+        '#doc_telefone': protocolo.telefone,
+        '#doc_cargo': protocolo.cargo,
+        '#doc_lotacao': protocolo.lotacao,
+        '#doc_unidade': protocolo.unidade_exercicio,
+        '#doc_tipo': protocolo.tipo_requerimento,
+        '#doc_requerAo': protocolo.requer_ao,
+        '#doc_complemento': protocolo.observacoes ? protocolo.observacoes.replace(/\n/g, '<br>') : 'Nenhuma.'
+    };
+
+    for(const selector in Mapeamento) {
+        const el = modeloNode.querySelector(selector);
+        if(el) el.innerHTML = Mapeamento[selector] || 'N/A';
+    }
+
+    const qrcodeContainer = modeloNode.querySelector('#qrcode-container');
+    qrcodeContainer.innerHTML = '';
+    if (protocolo.numero && protocolo.numero.includes('/')) {
+        const [num, ano] = protocolo.numero.split('/');
+        const urlConsulta = `${window.location.origin}/consulta/${ano}/${num}`;
+        new QRCode(qrcodeContainer, { text: urlConsulta, width: 90, height: 90, correctLevel: QRCode.CorrectLevel.H });
+    }
+
+    return modeloNode;
+}
+
+
+window.previsualizarPDF = async function(protocoloId) {
+    try {
+        const response = await fetch(`/api/protocolo/${protocoloId}`);
+        if (!response.ok) throw new Error('Falha ao buscar dados do protocolo');
+        const protocolo = await response.json();
+        protocoloParaGerarPDF = protocolo;
+
+        const pdfContentDiv = document.getElementById('pdfContent');
+        pdfContentDiv.innerHTML = '';
+        pdfContentDiv.appendChild(preencherTemplatePDF(protocolo));
+
+        const modal = new bootstrap.Modal(document.getElementById('pdfModal'));
+        modal.show();
+    } catch(err) {
+        console.error("Erro ao pré-visualizar PDF:", err);
+        alert("Erro ao carregar dados do documento.");
+    }
+};
+
+window.gerarPDF = function() {
+    if (!protocoloParaGerarPDF) {
+        alert("Nenhum protocolo para gerar PDF.");
+        return;
+    }
+    const element = preencherTemplatePDF(protocoloParaGerarPDF);
+    const opt = {
+        margin: [5, 5, 5, 5],
+        filename: `Protocolo_${protocoloParaGerarPDF.numero.replace('/', '-')}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+    html2pdf().set(opt).from(element).save();
+};
+
 // --- PDF Generation (Client-Side) ---
 let protocoloParaGerarPDF = null;
 
