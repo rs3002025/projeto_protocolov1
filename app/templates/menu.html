@@ -3,15 +3,15 @@
 {% block title %}Menu Principal - Sistema de Protocolo{% endblock %}
 
 {% block content %}
-<div id="menu" class="menu-screen content active">
-    <a href="{{ url_for('main.dashboard') }}" class="menu-button" id="btnDashboard"><span class="icon">📈</span>Dashboard</a>
-    <a href="{{ url_for('main.form') }}" class="menu-button" id="btnNovo"><span class="icon">📄</span>Novo Protocolo</a>
-    <a href="{{ url_for('main.protocolos') }}" class="menu-button" id="btnTodosProtocolos"><span class="icon">🗂️</span>Todos os Protocolos</a>
-    <a href="{{ url_for('main.relatorios') }}" class="menu-button" id="btnRelatorios"><span class="icon">📊</span>Relatórios</a>
-    <a href="{{ url_for('main.meus_protocolos') }}" class="menu-button"><span class="icon">📂</span>Meus Protocolos</a>
-    <a href="{{ url_for('main.config') }}" class="menu-button" id="btnConfig"><span class="icon">⚙️</span>Configurações</a>
-    <a href="#" onclick="abrirModalAlterarSenha(); return false;" class="menu-button"><span class="icon">🔑</span>Alterar Senha</a>
-    <a href="#" onclick="sair(); return false;" class="menu-button"><span class="icon">🚪</span>Sair</a>
+<div id="menu" class="menu content active">
+    <a href="{{ url_for('main.dashboard') }}" class="button-link" id="btnDashboard">📈 Dashboard</a>
+    <a href="{{ url_for('main.form') }}" class="button-link" id="btnNovo">📄 Novo Protocolo</a>
+    <a href="{{ url_for('main.protocolos') }}" class="button-link" id="btnTodosProtocolos">🗂️ Todos os Protocolos</a>
+    <a href="{{ url_for('main.relatorios') }}" class="button-link" id="btnRelatorios">📊 Relatórios</a>
+    <a href="{{ url_for('main.meus_protocolos') }}" class="button-link">📂 Meus Protocolos</a>
+    <a href="{{ url_for('main.config') }}" class="button-link" id="btnConfig">⚙️ Configurações</a>
+    <button onclick="abrirModalAlterarSenha()">🔑 Alterar Senha</button>
+    <button onclick="sair()">🚪 Sair</button>
 </div>
 
 <script>
@@ -25,13 +25,11 @@
         const btnRelatorios = document.getElementById('btnRelatorios');
         const btnTodosProtocolos = document.getElementById('btnTodosProtocolos');
 
-        // A classe .menu-button usa display: flex, que é o que precisamos.
-        // Ocultamos os botões que não devem aparecer.
-        if (btnDashboard && !(nivelUsuario === 'admin' || nivelUsuario === 'padrao')) btnDashboard.style.display = 'none';
-        if (btnConfig && nivelUsuario !== 'admin') btnConfig.style.display = 'none';
-        if (btnNovo && !['admin', 'padrao', 'usuario'].includes(nivelUsuario)) btnNovo.style.display = 'none';
-        if (btnRelatorios && !(nivelUsuario === 'admin' || nivelUsuario === 'padrao')) btnRelatorios.style.display = 'none';
-        if (btnTodosProtocolos && !(nivelUsuario === 'admin' || nivelUsuario === 'padrao')) btnTodosProtocolos.style.display = 'none';
+        if (btnDashboard) btnDashboard.style.display = (nivelUsuario === 'admin' || nivelUsuario === 'padrao') ? 'flex' : 'none';
+        if (btnConfig) btnConfig.style.display = nivelUsuario === "admin" ? "flex" : "none";
+        if (btnNovo) btnNovo.style.display = (nivelUsuario === "admin" || nivelUsuario === "padrao" || nivelUsuario === "usuario") ? "flex" : "none";
+        if (btnRelatorios) btnRelatorios.style.display = (nivelUsuario === "admin" || nivelUsuario === "padrao") ? "flex" : "none";
+        if (btnTodosProtocolos) btnTodosProtocolos.style.display = (nivelUsuario === 'admin' || nivelUsuario === 'padrao') ? 'flex' : 'none';
     });
 </script>
 {% endblock %}
