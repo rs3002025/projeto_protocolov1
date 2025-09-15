@@ -623,7 +623,13 @@ def dashboard_data():
     status_protocolos = db.session.query(Protocolo.status, func.count(Protocolo.id).label('total')).select_from(base_query.subquery()).group_by(Protocolo.status).order_by(Protocolo.status).all()
 
     # Evolution Chart Logic
-    evolucao_query = Protocolo.query.filter(Protocolo.data_solicitacao.isnot(None)) # Add filter for non-null dates
+    group_by_trunc = 'month' if evolucao_agrupamento == 'month' else 'day'
+    evolucao_query = db.session.query(
+        func.date_trunc(group_by_trunc, Protocolo.data_solicitacao).label('intervalo'),
+        func.count(Protocolo.id).label('total')
+    ).filter(Protocolo.data_solicitacao.isnot(None))
+
+    # Apply filters to the evolution query
     if evolucao_periodo == '7d':
         evolucao_query = evolucao_query.filter(Protocolo.data_solicitacao >= (datetime.now().date() - timedelta(days=7)))
     elif evolucao_periodo == '30d':
@@ -631,11 +637,12 @@ def dashboard_data():
     elif evolucao_periodo == 'month':
         evolucao_query = evolucao_query.filter(func.date_trunc('month', Protocolo.data_solicitacao) == func.date_trunc('month', datetime.now()))
 
-    group_by_trunc = 'month' if evolucao_agrupamento == 'month' else 'day'
-    evolucao_protocolos = db.session.query(
-        func.date_trunc(group_by_trunc, Protocolo.data_solicitacao).label('intervalo'),
-        func.count(Protocolo.id).label('total')
-    ).select_from(evolucao_query.subquery()).group_by('intervalo').order_by('intervalo').all()
+    # Also apply the main dashboard filters to the evolution chart
+    if status: evolucao_query = evolucao_query.filter(Protocolo.status == status)
+    if tipo: evolucao_query = evolucao_query.filter(Protocolo.tipo_requerimento == tipo)
+    if lotacao: evolucao_query = evolucao_query.filter(Protocolo.lotacao == lotacao)
+
+    evolucao_protocolos = evolucao_query.group_by('intervalo').order_by('intervalo').all()
 
     # Prepare data for JSON response
     dashboard_stats = {
@@ -645,7 +652,7 @@ def dashboard_data():
         'topTipos': [{'tipo_requerimento': r[0], 'total': r[1]} for r in top_tipos],
         'todosTipos': [{'tipo_requerimento': r[0], 'total': r[1]} for r in todos_tipos],
         'statusProtocolos': [{'status': r[0], 'total': r[1]} for r in status_protocolos],
-        'evolucaoProtocolos': [{'intervalo': r.intervalo.isoformat(), 'total': r.total} for r in evolucao_protocolos]
+        'evolucaoProtocolos': [{'intervalo': r.intervalo.isoformat() if r.intervalo else None, 'total': r.total} for r in evolucao_protocolos]
     }
 
     return jsonify(dashboard_stats)
