@@ -6,7 +6,8 @@ nixPkgs = ["python312"]
 
 [phases.install]
 # Command to install dependencies from requirements.txt
-cmds = ["pip install --upgrade pip && pip install -r requirements.txt"]
+# Using "python -m pip" is more robust in some environments
+cmds = ["python -m pip install --upgrade pip", "python -m pip install -r requirements.txt"]
 
 [start]
 # Command to start the application with Gunicorn
