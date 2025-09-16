@@ -121,3 +121,7 @@
   </div>
 </div>
 {% endblock content %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/pdf_utils.js') }}"></script>
+{% endblock %}
