@@ -693,6 +693,7 @@ def dashboard_data():
         # Get filter parameters from the request query string
         data_inicio_str = request.args.get('dataInicio')
         data_fim_str = request.args.get('dataFim')
+        status_filter = request.args.get('status')
 
         # Base query for all protocols
         base_query = Protocolo.query
@@ -705,6 +706,8 @@ def dashboard_data():
         if data_fim_str:
             data_fim = datetime.strptime(data_fim_str, '%Y-%m-%d').date()
             query_no_periodo = query_no_periodo.filter(Protocolo.data_solicitacao <= data_fim)
+        if status_filter:
+            query_no_periodo = query_no_periodo.filter(Protocolo.status == status_filter)
 
         # --- Stats Cards Data ---
         # Execute the query once to get the list of protocols in the period
