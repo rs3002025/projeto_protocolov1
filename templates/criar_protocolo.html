@@ -1,9 +1,45 @@
 {% extends "layout.html" %}
 
 {% block content %}
+<style>
+    .formulario {
+        display: grid;
+        grid-template-columns: repeat(12, 1fr); /* Correct 12-column grid */
+        gap: 15px 20px;
+        background-color: #fff;
+        padding: 2rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end; /* Align items to the bottom */
+    }
+    .form-group label {
+        margin-bottom: 5px;
+        font-weight: bold;
+        font-size: 0.9rem;
+    }
+    .form-actions {
+        grid-column: 1 / -1;
+        display: flex;
+        justify-content: flex-start;
+        gap: 10px;
+        margin-top: 20px;
+    }
+    /* Span classes from the original stylesheet */
+    .full-row { grid-column: span 12; }
+    .span-6 { grid-column: span 6; }
+    .span-5 { grid-column: span 5; }
+    .span-4 { grid-column: span 4; }
+    .span-3 { grid-column: span 3; }
+    .span-2 { grid-column: span 2; }
+    .span-1 { grid-column: span 1; }
+</style>
 <div class="container-fluid">
     <h3 class="page-header">Novo Protocolo</h3>
-    <form class="formulario" method="POST" action="{{ url_for('criar_protocolo') }}" id="protocol-form" style="background-color: #fff; padding: 2rem; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+    <form class="formulario" method="POST" action="{{ url_for('criar_protocolo') }}" id="protocol-form">
         <!-- Fields from the old form -->
         <div class="form-group span-3">
             <label for="numeroProtocolo">Número do Protocolo</label>
