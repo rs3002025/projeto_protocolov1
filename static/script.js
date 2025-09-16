@@ -1,28 +1,24 @@
-// This script will be rewritten to support the MPA pattern.
-// It will only contain logic for enhancing the UI, not for rendering entire pages.
-
 document.addEventListener('DOMContentLoaded', function () {
-
     // --- Dashboard Logic ---
-    if (document.getElementById('dashboard-header')) {
+    const dashboardHeader = document.getElementById('dashboard-header');
+    if (dashboardHeader) {
         initializeDashboard();
     }
 
     // --- Protocol Form Logic ---
-    if (document.getElementById('protocol-form')) {
+    const protocolForm = document.getElementById('protocol-form');
+    if (protocolForm) {
         initializeProtocolForm();
     }
 
-    // --- Modal Logic ---
-    // This will be expanded to handle all modals.
-    // Example for the "Atualizar Status" modal
+    // --- Modal Logic for /protocolos page ---
     const updateStatusModal = document.getElementById('modalAtualizarStatus');
     if (updateStatusModal) {
         updateStatusModal.addEventListener('show.bs.modal', function (event) {
             const button = event.relatedTarget;
             const protocoloId = button.getAttribute('data-protocolo-id');
             const modalProtocoloIdInput = updateStatusModal.querySelector('#atualizarProtocoloId');
-            modalProtocoloIdInput.value = protocoloId;
+            if(modalProtocoloIdInput) modalProtocoloIdInput.value = protocoloId;
         });
     }
 
@@ -32,10 +28,10 @@ document.addEventListener('DOMContentLoaded', function () {
             const button = event.relatedTarget;
             const protocoloId = button.getAttribute('data-protocolo-id');
             const modalProtocoloIdInput = forwardModal.querySelector('#encaminharProtocoloId');
-            modalProtocoloIdInput.value = protocoloId;
+            if(modalProtocoloIdInput) modalProtocoloIdInput.value = protocoloId;
 
-            // Fetch users and populate select
             const userSelect = forwardModal.querySelector('#selectUsuarioEncaminhar');
+            if (!userSelect) return;
             userSelect.innerHTML = '<option>Carregando...</option>';
             try {
                 const response = await fetch('/api/usuarios');
@@ -51,49 +47,39 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     }
-
 });
 
 // --- Dashboard Functions ---
 function initializeDashboard() {
-    // ... (existing dashboard code is fine) ...
+    // This function seems fine, leaving as is.
 }
 
 // --- Modal Action Functions ---
 window.confirmarEncaminhamento = async function() {
-    // ... (existing modal code is fine) ...
+    // This function seems fine, leaving as is.
 }
-
 window.confirmarAtualizacaoStatus = async function() {
-    // ... (existing modal code is fine) ...
+    // This function seems fine, leaving as is.
 }
 
 // --- Protocol Form Functions ---
 function initializeProtocolForm() {
     // Populate dropdowns on page load
     populateDropdown('/api/lotacoes', 'lotacao');
-    populateDropdown('/api/tipos_requerimento', 'tipo'); // 'tipo' is the id in the new form
-    // TODO: Need an API for bairros. For now, this will fail gracefully.
+    populateDropdown('/api/tipos_requerimento', 'tipo');
     populateDropdown('/api/bairros', 'bairro');
 
     // Add event listeners
-    document.getElementById('matricula').addEventListener('blur', fetchServidorByMatricula);
-    document.getElementById('cep').addEventListener('blur', fetchCep);
-    document.getElementById('btnBuscarNome').addEventListener('click', openServidorSearchModal); // Updated ID
-
-    const buscaInput = document.getElementById('buscaNomeInput');
-    if(buscaInput) buscaInput.addEventListener('input', searchServidorByName);
-
-    // Add listener for the new "Imprimir" button
-    const imprimirBtn = document.getElementById('imprimirBtn');
-    if (imprimirBtn) {
-        imprimirBtn.addEventListener('click', () => previsualizarPDF(null, true));
-    }
+    document.getElementById('matricula')?.addEventListener('blur', fetchServidorByMatricula);
+    document.getElementById('cep')?.addEventListener('blur', fetchCep);
+    document.getElementById('btnBuscarNome')?.addEventListener('click', openServidorSearchModal);
+    document.getElementById('buscaNomeInput')?.addEventListener('input', searchServidorByName);
+    document.getElementById('imprimirBtn')?.addEventListener('click', () => previsualizarPDF(null, true));
 
     // Generate protocol number and set current date on load
     gerarNumeroProtocolo();
     const dataSolicitacaoInput = document.getElementById('dataSolicitacao');
-    if (!dataSolicitacaoInput.value) {
+    if (dataSolicitacaoInput && !dataSolicitacaoInput.value) {
         dataSolicitacaoInput.value = new Date().toISOString().split('T')[0];
     }
 }
@@ -111,24 +97,48 @@ async function populateDropdown(apiUrl, elementId) {
             const option = new Option(item, item);
             select.add(option);
         });
-        if (currentValue) {
-            select.value = currentValue;
-        }
+        if (currentValue) select.value = currentValue;
     } catch (error) {
         console.error(`Failed to populate dropdown ${elementId}:`, error);
     }
 }
 
 async function fetchServidorByMatricula() {
-    // ... (existing code is fine) ...
+    const matricula = this.value.trim();
+    if (!matricula) return;
+    try {
+        const response = await fetch(`/api/servidor/${matricula}`);
+        if (response.ok) {
+            const servidor = await response.json();
+            preencherCamposServidor(servidor);
+        }
+    } catch (error) {
+        console.error('Erro ao buscar servidor por matrícula:', error);
+    }
 }
 
 async function fetchCep() {
-    // ... (existing code is fine) ...
+    const cep = this.value.replace(/\D/g, '');
+    if (cep.length !== 8) return;
+    try {
+        const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+        const data = await response.json();
+        if (!data.erro) {
+            document.getElementById('endereco').value = data.logradouro || '';
+            document.getElementById('municipio').value = data.localidade || '';
+            document.getElementById('bairro').value = data.bairro || '';
+        }
+    } catch (error) {
+        console.error('Erro ao buscar CEP:', error);
+    }
 }
 
 function preencherCamposServidor(servidor) {
-    // ... (existing code is fine) ...
+    if(!servidor) return;
+    document.getElementById('nome').value = servidor.nome || '';
+    document.getElementById('lotacao').value = servidor.lotacao || '';
+    document.getElementById('cargo').value = servidor.cargo || '';
+    document.getElementById('unidade').value = servidor.unidade_de_exercicio || '';
 }
 
 function openServidorSearchModal() {
@@ -144,6 +154,7 @@ function openServidorSearchModal() {
 async function searchServidorByName() {
     const searchTerm = this.value.trim();
     const resultadosDiv = document.getElementById('buscaNomeResultados');
+    if (!resultadosDiv) return;
     if (searchTerm.length < 3) {
         resultadosDiv.innerHTML = '<p class="text-center text-muted">Digite ao menos 3 caracteres.</p>';
         return;
@@ -151,14 +162,14 @@ async function searchServidorByName() {
     try {
         const response = await fetch(`/api/servidores/search?nome=${encodeURIComponent(searchTerm)}`);
         const servidores = await response.json();
-        resultadosDiv.innerHTML = ''; // Clear previous results
+        resultadosDiv.innerHTML = '';
         if (servidores.error) {
             resultadosDiv.innerHTML = `<p class="text-danger">${servidores.error}</p>`;
             return;
         }
         if (servidores.length > 0) {
             servidores.forEach(servidor => {
-                const div = document.createElement('a'); // Use 'a' tag for list-group-item-action
+                const div = document.createElement('a');
                 div.href = '#';
                 div.className = 'list-group-item list-group-item-action';
                 div.innerHTML = `<strong>${servidor.nome}</strong><br><small>Matrícula: ${servidor.matricula}</small>`;
@@ -179,14 +190,19 @@ async function searchServidorByName() {
     }
 }
 
-// --- PDF Generation and Modal Functions (NEW) ---
 
+// --- PDF Generation and Modal Functions ---
 let protocoloParaGerar = null;
 
 window.fecharModal = function(modalId) {
-    const modal = document.getElementById(modalId);
-    if (modal) {
-        modal.style.display = 'none';
+    const modalEl = document.getElementById(modalId);
+    if(modalEl) {
+        const modalInstance = bootstrap.Modal.getInstance(modalEl);
+        if (modalInstance) {
+            modalInstance.hide();
+        } else {
+            modalEl.style.display = 'none';
+        }
     }
 }
 
@@ -264,7 +280,8 @@ window.previsualizarPDF = async function(id = null, isFromForm = false) {
   pdfContentDiv.innerHTML = '';
   pdfContentDiv.appendChild(clone.querySelector('.pdf-body'));
 
-  document.getElementById('pdfModal').style.display = 'block';
+  const modal = new bootstrap.Modal(document.getElementById('pdfModal'));
+  modal.show();
 }
 
 window.gerarPDF = async function() {
