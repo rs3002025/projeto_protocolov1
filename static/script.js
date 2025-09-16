@@ -62,11 +62,13 @@ let evolucaoChartInstance = null;
 async function fetchAndRenderDashboard() {
     const dataInicio = document.getElementById('dashDataInicio').value;
     const dataFim = document.getElementById('dashDataFim').value;
+    const status = document.getElementById('dashStatus').value;
 
     // Constrói a URL com os parâmetros de data
     const params = new URLSearchParams();
     if (dataInicio) params.append('dataInicio', dataInicio);
     if (dataFim) params.append('dataFim', dataFim);
+    if (status) params.append('status', status);
     const url = `/api/dashboard-data?${params.toString()}`;
 
     try {
@@ -166,19 +168,8 @@ async function fetchAndRenderDashboard() {
 }
 
 function initializeDashboard() {
-    // Define a data de início padrão para 30 dias atrás se estiver vazia
-    const dataInicioInput = document.getElementById('dashDataInicio');
-    if (!dataInicioInput.value) {
-        const hoje = new Date();
-        const trintaDiasAtras = new Date(new Date().setDate(hoje.getDate() - 30));
-        dataInicioInput.value = trintaDiasAtras.toISOString().split('T')[0];
-    }
-     // Define a data final como hoje
-    const dataFimInput = document.getElementById('dashDataFim');
-    if (!dataFimInput.value) {
-        dataFimInput.value = new Date().toISOString().split('T')[0];
-    }
-
+    // NOTE: Default date filters have been removed to show all data initially.
+    // The user can apply filters manually.
 
     // Adiciona o event listener ao botão de filtro
     const filterButton = document.getElementById('filter-btn');
@@ -483,7 +474,7 @@ function preencherCamposServidor(servidor) {
 function openServidorSearchModal() {
     const modalElement = document.getElementById('modalBuscaServidor');
     if (modalElement) {
-        const modal = new bootstrap.Modal(modalElement);
+        const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
         document.getElementById('buscaNomeInput').value = '';
         document.getElementById('buscaNomeResultados').innerHTML = '';
         modal.show();
