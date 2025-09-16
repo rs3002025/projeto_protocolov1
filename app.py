@@ -273,7 +273,11 @@ def listar_protocolos():
     if tipo:
         query = query.filter(Protocolo.tipo_requerimento.ilike(f'%{tipo}%'))
 
-    protocolos = query.order_by(Protocolo.id.desc()).paginate(page=page, per_page=10)
+    # Ordena por ano (descendente) e depois pelo número do protocolo (descendente)
+    protocolos = query.order_by(
+        func.substr(Protocolo.numero, 6, 4).desc(),
+        func.substr(Protocolo.numero, 1, 4).desc()
+    ).paginate(page=page, per_page=10)
 
     return render_template('protocolos.html', protocolos=protocolos, title="Todos os Protocolos")
 
