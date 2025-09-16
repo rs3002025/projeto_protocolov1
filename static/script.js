@@ -281,52 +281,87 @@ window.confirmarAtualizacaoStatus = async function() {
 
 // --- Protocol Form Functions ---
 function initializeProtocolForm() {
-    // Populate dropdowns on page load
-    populateDropdown('/api/lotacoes', 'lotacao');
-    populateDropdown('/api/tipos_requerimento', 'tipo'); // 'tipo' is the id in the new form
-    // TODO: Need an API for bairros. For now, this will fail gracefully.
-    populateDropdown('/api/bairros', 'bairro');
+    // These values are injected by the template in 'edit' mode.
+    const initialData = window.protocoloData || {};
+
+    // Populate dropdowns and then set the initial value if it exists.
+    populateDropdown('/api/lotacoes', 'lotacao', initialData.lotacao);
+    populateDropdown('/api/tipos_requerimento', 'tipo', initialData.tipo_requerimento);
+    populateDropdown('/api/bairros', 'bairro', initialData.bairro);
 
     // Add event listeners
     document.getElementById('matricula').addEventListener('blur', fetchServidorByMatricula);
     document.getElementById('cep').addEventListener('blur', fetchCep);
-    // O gatilho para openServidorSearchModal agora é o 'onclick' diretamente no HTML.
+
+    const btnBuscarNome = document.getElementById('btnBuscarNome');
+    if (btnBuscarNome) {
+        btnBuscarNome.addEventListener('click', openServidorSearchModal);
+    }
 
     const buscaInput = document.getElementById('buscaNomeInput');
-    if(buscaInput) buscaInput.addEventListener('input', searchServidorByName);
+    if (buscaInput) {
+        buscaInput.addEventListener('input', searchServidorByName);
+    }
 
-    // Add listener for the new "Imprimir" button
     const imprimirBtn = document.getElementById('imprimirBtn');
     if (imprimirBtn) {
         imprimirBtn.addEventListener('click', () => previsualizarPDF(null, true));
     }
 
-    // Generate protocol number and set current date on load
-    gerarNumeroProtocolo();
+    // Only generate a new protocol number if we are not in edit mode.
+    if (!initialData.numero) {
+        gerarNumeroProtocolo();
+    }
+
+    // Only set the current date if we are not in edit mode.
     const dataSolicitacaoInput = document.getElementById('dataSolicitacao');
     if (!dataSolicitacaoInput.value) {
         dataSolicitacaoInput.value = new Date().toISOString().split('T')[0];
     }
 }
 
-async function populateDropdown(apiUrl, elementId) {
+async function populateDropdown(apiUrl, elementId, selectedValue = null) {
     const select = document.getElementById(elementId);
-    if (!select) return;
+    if (!select) {
+        console.error(`Dropdown element with id '${elementId}' not found.`);
+        return;
+    }
+
+    // Store the selected value from the template, if any.
+    // This handles the case where the dropdown is pre-filled (e.g., Bairro).
+    const initialValue = selectedValue || select.value;
+
     try {
         const response = await fetch(apiUrl);
-        if (!response.ok) throw new Error('Network response was not ok');
+        if (!response.ok) throw new Error(`Network response was not ok for ${apiUrl}`);
         const data = await response.json();
-        const currentValue = select.value;
+
+        // Clear existing options except for the placeholder
         select.innerHTML = '<option value="">Selecione...</option>';
+
         data.forEach(item => {
+            // Assumes the API returns an array of strings.
+            // If it returns objects, you'll need to adjust this.
             const option = new Option(item, item);
             select.add(option);
         });
-        if (currentValue) {
-            select.value = currentValue;
+
+        // Set the value if it was provided
+        if (initialValue) {
+            select.value = initialValue;
+            // If the value didn't set (e.g., it's not in the new list of options),
+            // it means it's an old/inactive value. We can add it back to the list
+            // so it's not lost in the UI.
+            if (select.value !== initialValue) {
+                console.warn(`Value "${initialValue}" for dropdown ${elementId} not found in active options. Adding it to the list.`);
+                const oldOption = new Option(initialValue, initialValue, true, true);
+                select.add(oldOption);
+            }
         }
     } catch (error) {
         console.error(`Failed to populate dropdown ${elementId}:`, error);
+        // Add a disabled option to show the user something went wrong
+        select.innerHTML = '<option value="" disabled>Erro ao carregar</option>';
     }
 }
 

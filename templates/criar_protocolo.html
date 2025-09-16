@@ -26,7 +26,7 @@
             <input type="text" id="nome" name="nome" class="form-control" value="{{ protocolo.nome if protocolo else '' }}">
         </div>
         <div class="form-group span-1" style="justify-content: flex-end; align-items: flex-end;">
-            <button type="button" id="btnBuscarNome" class="btn btn-secondary" style="width: 100%; height: 38px;" onclick="openServidorSearchModal()">Buscar</button>
+            <button type="button" id="btnBuscarNome" class="btn btn-secondary" style="width: 100%; height: 38px;">Buscar</button>
         </div>
         <div class="form-group span-6">
             <label for="endereco">Endereço</label>
@@ -39,8 +39,7 @@
         <div class="form-group span-3">
             <label for="bairro">Bairro</label>
             <select id="bairro" name="bairro" class="form-select">
-                {# O JS irá popular as opções. Se for edição, o JS também selecionará a opção correta. #}
-                <option value="{{ protocolo.bairro if protocolo else '' }}" selected>{{ protocolo.bairro if protocolo else 'Selecione um bairro' }}</option>
+                <option value="">Selecione um bairro</option>
             </select>
         </div>
         <div class="form-group span-3">
@@ -66,7 +65,7 @@
         <div class="form-group span-6">
             <label for="lotacao">Lotação</label>
             <select id="lotacao" name="lotacao" class="form-select">
-                 <option value="{{ protocolo.lotacao if protocolo else '' }}" selected>{{ protocolo.lotacao if protocolo else 'Selecione...' }}</option>
+                 <option value="">Selecione...</option>
             </select>
         </div>
         <div class="form-group span-6">
@@ -76,7 +75,7 @@
         <div class="form-group span-6">
             <label for="tipo">Tipo de Requerimento</label>
             <select id="tipo" name="tipo_requerimento" class="form-select">
-                 <option value="{{ protocolo.tipo_requerimento if protocolo else '' }}" selected>{{ protocolo.tipo_requerimento if protocolo else 'Selecione...' }}</option>
+                 <option value="">Selecione...</option>
             </select>
         </div>
         <div class="form-group span-6">
@@ -112,34 +111,17 @@
 
 {% block scripts %}
 <script>
-// Este script é executado depois que o DOM está pronto.
-// Ele garante que os dropdowns dinâmicos (Lotação, Tipo, Bairro) sejam populados
-// e que a opção correta seja selecionada se estivermos no modo de edição.
-document.addEventListener('DOMContentLoaded', function() {
-    // A função populateDropdown já está em script.js
-    // Ela será chamada para popular os selects.
-    // A lógica para selecionar o valor correto já está no HTML com o 'selected'
-    // mas o JS pode precisar re-selecionar após popular as opções.
-
-    const lotacaoValue = "{{ protocolo.lotacao if protocolo else '' }}";
-    const tipoReqValue = "{{ protocolo.tipo_requerimento if protocolo else '' }}";
-    const bairroValue = "{{ protocolo.bairro if protocolo else '' }}";
-
-    // Popula Lotação e seleciona o valor correto
-    populateDropdown('/api/lotacoes', 'lotacao').then(() => {
-        if (lotacaoValue) document.getElementById('lotacao').value = lotacaoValue;
-    });
-
-    // Popula Tipo de Requerimento e seleciona o valor correto
-    populateDropdown('/api/tipos_requerimento', 'tipo').then(() => {
-        if (tipoReqValue) document.getElementById('tipo').value = tipoReqValue;
-    });
-
-    // Popula Bairro e seleciona o valor correto
-    populateDropdown('/api/bairros', 'bairro').then(() => {
-        if (bairroValue) document.getElementById('bairro').value = bairroValue;
-    });
-});
+// Injeta os dados do protocolo em um objeto global para que o script.js possa acessá-los
+// de uma maneira limpa e centralizada quando estiver no modo de edição.
+{% if protocolo %}
+window.protocoloData = {
+    numero: "{{ protocolo.numero }}",
+    lotacao: "{{ protocolo.lotacao }}",
+    tipo_requerimento: "{{ protocolo.tipo_requerimento }}",
+    bairro: "{{ protocolo.bairro }}"
+    // Adicione outros campos aqui se o script precisar deles para a inicialização
+};
+{% endif %}
 </script>
 {% endblock %}
 
