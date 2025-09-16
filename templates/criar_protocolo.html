@@ -2,103 +2,107 @@
 
 {% block content %}
 <div class="container-fluid">
-    <h3 class="page-header">Novo Protocolo</h3>
-    <form class="formulario" method="POST" action="{{ url_for('criar_protocolo') }}" id="protocol-form" style="background-color: #fff; padding: 2rem; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-        <!-- Fields from the old form -->
+    {# Define o título da página e a legenda do formulário dinamicamente #}
+    {% set legend = 'Editar Protocolo ' + protocolo.numero if protocolo else 'Novo Protocolo' %}
+    <h3 class="page-header">{{ legend }}</h3>
+
+    {# A action do formulário muda se estamos editando ou criando #}
+    <form class="formulario" method="POST"
+          action="{{ url_for('editar_protocolo', protocolo_id=protocolo.id) if protocolo else url_for('criar_protocolo') }}"
+          id="protocol-form"
+          style="background-color: #fff; padding: 2rem; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+
         <div class="form-group span-3">
             <label for="numeroProtocolo">Número do Protocolo</label>
-            <input type="text" id="numeroProtocolo" name="numero" readonly class="form-control">
+            {# O número do protocolo é somente leitura. Se for um novo, será gerado via JS. Se for edição, é exibido. #}
+            <input type="text" id="numeroProtocolo" name="numero" readonly class="form-control" value="{{ protocolo.numero if protocolo else '' }}">
         </div>
         <div class="form-group span-3">
             <label for="matricula">Matrícula</label>
-            <input type="text" id="matricula" name="matricula" class="form-control">
+            <input type="text" id="matricula" name="matricula" class="form-control" value="{{ protocolo.matricula if protocolo else '' }}">
         </div>
         <div class="form-group span-5">
             <label for="nome">Nome Completo</label>
-            <input type="text" id="nome" name="nome" class="form-control">
+            <input type="text" id="nome" name="nome" class="form-control" value="{{ protocolo.nome if protocolo else '' }}">
         </div>
         <div class="form-group span-1" style="justify-content: flex-end; align-items: flex-end;">
             <button type="button" id="btnBuscarNome" class="btn btn-secondary" style="width: 100%; height: 38px;" onclick="openServidorSearchModal()">Buscar</button>
         </div>
         <div class="form-group span-6">
             <label for="endereco">Endereço</label>
-            <input type="text" id="endereco" name="endereco" class="form-control">
+            <input type="text" id="endereco" name="endereco" class="form-control" value="{{ protocolo.endereco if protocolo else '' }}">
         </div>
         <div class="form-group span-3">
             <label for="municipio">Município</label>
-            <input type="text" id="municipio" name="municipio" value="Morada Nova" class="form-control">
+            <input type="text" id="municipio" name="municipio" class="form-control" value="{{ protocolo.municipio if protocolo else 'Morada Nova' }}">
         </div>
         <div class="form-group span-3">
             <label for="bairro">Bairro</label>
             <select id="bairro" name="bairro" class="form-select">
-                <option value="">Selecione um bairro</option>
+                {# O JS irá popular as opções. Se for edição, o JS também selecionará a opção correta. #}
+                <option value="{{ protocolo.bairro if protocolo else '' }}" selected>{{ protocolo.bairro if protocolo else 'Selecione um bairro' }}</option>
             </select>
         </div>
         <div class="form-group span-3">
             <label for="cep">CEP</label>
-            <input type="text" id="cep" name="cep" class="form-control">
+            <input type="text" id="cep" name="cep" class="form-control" value="{{ protocolo.cep if protocolo else '' }}">
         </div>
         <div class="form-group span-3">
             <label for="telefone">Telefone</label>
-            <input type="text" id="telefone" name="telefone" class="form-control">
+            <input type="text" id="telefone" name="telefone" class="form-control" value="{{ protocolo.telefone if protocolo else '' }}">
         </div>
         <div class="form-group span-3">
             <label for="cpf">CPF</label>
-            <input type="text" id="cpf" name="cpf" class="form-control">
+            <input type="text" id="cpf" name="cpf" class="form-control" value="{{ protocolo.cpf if protocolo else '' }}">
         </div>
         <div class="form-group span-3">
             <label for="rg">RG</label>
-            <input type="text" id="rg" name="rg" class="form-control">
+            <input type="text" id="rg" name="rg" class="form-control" value="{{ protocolo.rg if protocolo else '' }}">
         </div>
         <div class="form-group span-3">
             <label for="cargo">Cargo/Função</label>
-            <input type="text" id="cargo" name="cargo" class="form-control">
+            <input type="text" id="cargo" name="cargo" class="form-control" value="{{ protocolo.cargo if protocolo else '' }}">
         </div>
         <div class="form-group span-6">
             <label for="lotacao">Lotação</label>
             <select id="lotacao" name="lotacao" class="form-select">
-                <option value="">Selecione...</option>
+                 <option value="{{ protocolo.lotacao if protocolo else '' }}" selected>{{ protocolo.lotacao if protocolo else 'Selecione...' }}</option>
             </select>
         </div>
         <div class="form-group span-6">
             <label for="unidade">Unidade de Exercício</label>
-            <input type="text" id="unidade" name="unidade_exercicio" class="form-control">
+            <input type="text" id="unidade" name="unidade_exercicio" class="form-control" value="{{ protocolo.unidade_exercicio if protocolo else '' }}">
         </div>
         <div class="form-group span-6">
             <label for="tipo">Tipo de Requerimento</label>
             <select id="tipo" name="tipo_requerimento" class="form-select">
-                <option value="">Selecione...</option>
+                 <option value="{{ protocolo.tipo_requerimento if protocolo else '' }}" selected>{{ protocolo.tipo_requerimento if protocolo else 'Selecione...' }}</option>
             </select>
         </div>
         <div class="form-group span-6">
             <label for="requerAo">Requer ao</label>
             <select id="requerAo" name="requer_ao" class="form-select">
+                {# Para selects com opções estáticas, podemos usar um loop e uma condição #}
+                {% set requer_ao_options = ["SECRETÁRIO", "COORDENADOR DE RH", "PREFEITA"] %}
                 <option value="">Selecione...</option>
-                <option value="SECRETÁRIO">SECRETÁRIO</option>
-                <option value="COORDENADOR DE RH">COORDENADOR DE RH</option>
-                <option value="PREFEITA">PREFEITA</option>
+                {% for option in requer_ao_options %}
+                    <option value="{{ option }}" {% if protocolo and protocolo.requer_ao == option %}selected{% endif %}>{{ option }}</option>
+                {% endfor %}
             </select>
         </div>
         <div class="form-group span-3">
             <label for="dataSolicitacao">Data Solicitação</label>
-            <input type="date" id="dataSolicitacao" name="data_solicitacao" class="form-control">
+            {# Formata a data para o formato YYYY-MM-DD que o input[type=date] espera #}
+            <input type="date" id="dataSolicitacao" name="data_solicitacao" class="form-control" value="{{ protocolo.data_solicitacao.strftime('%Y-%m-%d') if protocolo and protocolo.data_solicitacao else '' }}">
         </div>
         <div class="form-group full-row">
             <label for="complemento">Informações Complementares</label>
-            <textarea id="complemento" name="observacoes" rows="8" class="form-control"></textarea>
+            <textarea id="complemento" name="observacoes" rows="8" class="form-control">{{ protocolo.observacoes if protocolo else '' }}</textarea>
         </div>
-
-        <!-- Anexos section can be added later if needed -->
-        <!--
-        <div class="form-group full-row">
-            <label for="anexos">Anexar Documentos (limite de 10MB por arquivo)</label>
-            <input type="file" id="anexos" multiple onchange="previewFiles(this)" class="form-control">
-            <div id="filePreviewContainer" class="file-preview"></div>
-        </div>
-        -->
 
         <div class="form-actions">
-            <button type="submit" class="btn btn-primary">Enviar Requerimento</button>
+            {# O texto do botão de submit muda se estamos editando ou criando #}
+            <button type="submit" class="btn btn-primary">{{ 'Atualizar Requerimento' if protocolo else 'Enviar Requerimento' }}</button>
             <button type="button" id="imprimirBtn" class="btn btn-success">Imprimir</button>
             <a href="{{ url_for('home') }}" class="btn btn-secondary">Voltar</a>
         </div>
@@ -107,7 +111,36 @@
 {% endblock %}
 
 {% block scripts %}
-{# We will add the specific javascript for this page here later #}
+<script>
+// Este script é executado depois que o DOM está pronto.
+// Ele garante que os dropdowns dinâmicos (Lotação, Tipo, Bairro) sejam populados
+// e que a opção correta seja selecionada se estivermos no modo de edição.
+document.addEventListener('DOMContentLoaded', function() {
+    // A função populateDropdown já está em script.js
+    // Ela será chamada para popular os selects.
+    // A lógica para selecionar o valor correto já está no HTML com o 'selected'
+    // mas o JS pode precisar re-selecionar após popular as opções.
+
+    const lotacaoValue = "{{ protocolo.lotacao if protocolo else '' }}";
+    const tipoReqValue = "{{ protocolo.tipo_requerimento if protocolo else '' }}";
+    const bairroValue = "{{ protocolo.bairro if protocolo else '' }}";
+
+    // Popula Lotação e seleciona o valor correto
+    populateDropdown('/api/lotacoes', 'lotacao').then(() => {
+        if (lotacaoValue) document.getElementById('lotacao').value = lotacaoValue;
+    });
+
+    // Popula Tipo de Requerimento e seleciona o valor correto
+    populateDropdown('/api/tipos_requerimento', 'tipo').then(() => {
+        if (tipoReqValue) document.getElementById('tipo').value = tipoReqValue;
+    });
+
+    // Popula Bairro e seleciona o valor correto
+    populateDropdown('/api/bairros', 'bairro').then(() => {
+        if (bairroValue) document.getElementById('bairro').value = bairroValue;
+    });
+});
+</script>
 {% endblock %}
 
 <!-- Modal Busca Servidor -->
