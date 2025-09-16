@@ -54,131 +54,142 @@ document.addEventListener('DOMContentLoaded', function () {
 
 });
 
-// --- Dashboard Functions ---
-let tiposChartInstance = null;
-let statusChartInstance = null;
-let evolucaoChartInstance = null;
+// --- New Dashboard Functions ---
+let tiposChart = null;
+let statusChart = null;
+let evolucaoChart = null;
 
-async function fetchAndRenderDashboard() {
+// This function is now called from layout.html for the filter dropdowns in the new dashboard
+function carregarDashboard() {
+    console.log("Carregando dados do dashboard...");
     const dataInicio = document.getElementById('dashDataInicio').value;
     const dataFim = document.getElementById('dashDataFim').value;
     const status = document.getElementById('dashStatus').value;
+    const tipo = document.getElementById('dashTipo').value;
+    const lotacao = document.getElementById('dashLotacao').value;
+    const pieChartDataType = document.getElementById('pieChartDataType').value;
+    const evolucaoPeriodo = document.getElementById('evolucaoPeriodo').value;
+    const evolucaoAgrupamento = document.getElementById('evolucaoAgrupamento').value;
 
-    // Constrói a URL com os parâmetros de data
     const params = new URLSearchParams();
+    // Add params only if they have a value
     if (dataInicio) params.append('dataInicio', dataInicio);
     if (dataFim) params.append('dataFim', dataFim);
     if (status) params.append('status', status);
-    const url = `/api/dashboard-data?${params.toString()}`;
+    if (tipo) params.append('tipo', tipo);
+    if (lotacao) params.append('lotacao', lotacao);
+    if (pieChartDataType) params.append('pieChartDataType', pieChartDataType);
+    if (evolucaoPeriodo) params.append('evolucaoPeriodo', evolucaoPeriodo);
+    if (evolucaoAgrupamento) params.append('evolucaoAgrupamento', evolucaoAgrupamento);
 
     try {
-        const response = await fetch(url);
-        const data = await response.json(); // Lê o corpo da resposta como JSON
-
-        if (!response.ok) {
-            // Se a resposta não for OK, lança um erro com a mensagem do backend ou um padrão
-            const errorMessage = data.error || `Erro HTTP: ${response.status}`;
-            throw new Error(errorMessage);
-        }
-
-        const stats = data; // Agora 'data' é o nosso objeto 'stats'
-
-        // 1. Atualizar Cards
-        document.getElementById('stat-novos').textContent = stats.novosNoPeriodo;
-        document.getElementById('stat-pendentes').textContent = stats.pendentesAntigos;
-        document.getElementById('stat-finalizados').textContent = stats.totalFinalizados;
-
-        // 2. Gráfico de Top 5 Tipos (Gráfico de Barras)
-        if (tiposChartInstance) { tiposChartInstance.destroy(); }
-        const tiposCtx = document.getElementById('tiposChart').getContext('2d');
-        tiposChartInstance = new Chart(tiposCtx, {
-            type: 'bar',
-            data: {
-                labels: stats.topTipos.map(item => item.tipo_requerimento),
-                datasets: [{
-                    label: 'Total',
-                    data: stats.topTipos.map(item => item.total),
-                    backgroundColor: ['#4CAF50', '#8BC34A', '#CDDC39', '#FFEB3B', '#FFC107'],
-                    borderColor: '#fff',
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                indexAxis: 'y',
-                responsive: true,
-                plugins: {
-                    legend: { display: false },
-                    title: { display: true, text: 'Top 5 Tipos de Requerimento' }
+        fetch(`/api/dashboard-data?${params.toString()}`)
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw new Error(err.error || 'Erro na API') });
                 }
-            }
-        });
+                return response.json();
+            })
+            .then(stats => {
+                // Update cards
+                document.getElementById('stat-novos').textContent = stats.novosNoPeriodo || 0;
+                document.getElementById('stat-pendentes').textContent = stats.pendentesAntigos || 0;
+                document.getElementById('stat-finalizados').textContent = stats.totalFinalizados || 0;
 
-        // 3. Gráfico de Protocolos por Status (Gráfico de Pizza)
-        if (statusChartInstance) { statusChartInstance.destroy(); }
-        const statusCtx = document.getElementById('statusChart').getContext('2d');
-        statusChartInstance = new Chart(statusCtx, {
-            type: 'pie',
-            data: {
-                labels: stats.statusProtocolos.map(item => item.status),
-                datasets: [{
-                    label: 'Total',
-                    data: stats.statusProtocolos.map(item => item.total),
-                    backgroundColor: ['#2196F3', '#FF9800', '#4CAF50', '#F44336', '#9C27B0', '#673AB7', '#009688'],
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: { position: 'top' },
-                    title: { display: true, text: 'Protocolos por Status' }
-                }
-            }
-        });
+                // Update Bar Chart (Top 5 Tipos)
+                renderBarChart(stats.topTipos || []);
 
-        // 4. Gráfico de Evolução de Protocolos (Gráfico de Linha)
-        if (evolucaoChartInstance) { evolucaoChartInstance.destroy(); }
-        const evolucaoCtx = document.getElementById('evolucaoChart').getContext('2d');
-        evolucaoChartInstance = new Chart(evolucaoCtx, {
-            type: 'line',
-            data: {
-                labels: stats.evolucaoProtocolos.map(item => new Date(item.intervalo + 'T00:00:00').toLocaleDateString('pt-BR')),
-                datasets: [{
-                    label: 'Novos Protocolos',
-                    data: stats.evolucaoProtocolos.map(item => item.total),
-                    fill: true,
-                    borderColor: '#4CAF50',
-                    backgroundColor: 'rgba(76, 175, 80, 0.2)',
-                    tension: 0.1
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: { display: false },
-                    title: { display: true, text: 'Evolução de Novos Protocolos' }
-                },
-                scales: { y: { beginAtZero: true } }
-            }
-        });
+                // Update Pie Chart (Status or Tipo)
+                const pieData = pieChartDataType === 'status' ? stats.statusProtocolos : stats.todosTipos;
+                const pieLabel = pieChartDataType === 'status' ? 'status' : 'tipo_requerimento';
+                renderPieChart(pieData || [], pieLabel);
 
+                // Update Line Chart (Evolução)
+                renderLineChart(stats.evolucaoProtocolos || [], evolucaoAgrupamento);
+            })
+            .catch(error => {
+                 console.error('Erro ao carregar o dashboard:', error);
+                 alert('Não foi possível carregar os dados do dashboard. Verifique o console para mais detalhes.');
+            });
     } catch (error) {
-        console.error("Erro ao carregar dados do dashboard:", error);
-        // Optionally, display an error message to the user on the page
+        console.error('Erro inesperado no fetch do dashboard:', error);
     }
 }
 
-function initializeDashboard() {
-    // NOTE: Default date filters have been removed to show all data initially.
-    // The user can apply filters manually.
+function renderBarChart(data) {
+    const ctx = document.getElementById('tiposChart').getContext('2d');
+    if (tiposChart) tiposChart.destroy();
+    tiposChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: data.map(d => d.tipo_requerimento),
+            datasets: [{
+                label: 'Total de Protocolos',
+                data: data.map(d => d.total),
+                backgroundColor: '#36A2EB'
+            }]
+        },
+        options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } } }
+    });
+}
 
-    // Adiciona o event listener ao botão de filtro
-    const filterButton = document.getElementById('filter-btn');
-    if (filterButton) {
-        filterButton.addEventListener('click', fetchAndRenderDashboard);
+function renderPieChart(data, labelField) {
+    const ctx = document.getElementById('statusChart').getContext('2d');
+    if (statusChart) statusChart.destroy();
+    statusChart = new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: data.map(d => d[labelField]),
+            datasets: [{
+                data: data.map(d => d.total),
+                backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#C9CBCF'],
+            }]
+        },
+        options: { responsive: true }
+    });
+}
+
+function renderLineChart(data, groupBy) {
+    const ctx = document.getElementById('evolucaoChart').getContext('2d');
+    if (evolucaoChart) evolucaoChart.destroy();
+    evolucaoChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: data.map(d => {
+                const date = new Date(d.intervalo);
+                const userTimezoneOffset = date.getTimezoneOffset() * 60000;
+                return new Date(date.getTime() + userTimezoneOffset).toLocaleDateString('pt-BR', {
+                    day: 'numeric',
+                    month: groupBy === 'day' ? 'numeric' : 'long',
+                    year: 'numeric'
+                });
+            }),
+            datasets: [{
+                label: 'Novos Protocolos',
+                data: data.map(d => d.total),
+                borderColor: '#4BC0C0',
+                fill: false,
+                tension: 0.1
+            }]
+        },
+        options: { responsive: true, scales: { y: { beginAtZero: true } } }
+    });
+}
+
+
+function initializeDashboard() {
+    // Populate filter dropdowns
+    populateDropdown('/api/lotacoes', 'dashLotacao');
+    populateDropdown('/api/tipos_requerimento', 'dashTipo');
+
+    const statusSelect = document.getElementById('dashStatus');
+    if (statusSelect) {
+        const statuses = ['Aberto', 'Em análise', 'Pendente de documento', 'Finalizado', 'Concluído', 'Encaminhado'];
+        statuses.forEach(s => statusSelect.add(new Option(s, s)));
     }
 
-    // Carrega os dados iniciais
-    fetchAndRenderDashboard();
+    // Initial load
+    carregarDashboard();
 }
 
 // --- Modal Action Functions ---
@@ -284,6 +295,7 @@ function initializeProtocolForm() {
     document.getElementById('matricula').addEventListener('blur', fetchServidorByMatricula);
     document.getElementById('cep').addEventListener('blur', fetchCep);
 
+    // This was the fix for the search button, which I am also restoring.
     const btnBuscarNome = document.getElementById('btnBuscarNome');
     if (btnBuscarNome) {
         btnBuscarNome.addEventListener('click', openServidorSearchModal);
@@ -319,7 +331,6 @@ async function populateDropdown(apiUrl, elementId, selectedValue = null) {
     }
 
     // Store the selected value from the template, if any.
-    // This handles the case where the dropdown is pre-filled (e.g., Bairro).
     const initialValue = selectedValue || select.value;
 
     try {
@@ -331,8 +342,6 @@ async function populateDropdown(apiUrl, elementId, selectedValue = null) {
         select.innerHTML = '<option value="">Selecione...</option>';
 
         data.forEach(item => {
-            // Assumes the API returns an array of strings.
-            // If it returns objects, you'll need to adjust this.
             const option = new Option(item, item);
             select.add(option);
         });
@@ -340,9 +349,6 @@ async function populateDropdown(apiUrl, elementId, selectedValue = null) {
         // Set the value if it was provided
         if (initialValue) {
             select.value = initialValue;
-            // If the value didn't set (e.g., it's not in the new list of options),
-            // it means it's an old/inactive value. We can add it back to the list
-            // so it's not lost in the UI.
             if (select.value !== initialValue) {
                 console.warn(`Value "${initialValue}" for dropdown ${elementId} not found in active options. Adding it to the list.`);
                 const oldOption = new Option(initialValue, initialValue, true, true);
@@ -351,7 +357,6 @@ async function populateDropdown(apiUrl, elementId, selectedValue = null) {
         }
     } catch (error) {
         console.error(`Failed to populate dropdown ${elementId}:`, error);
-        // Add a disabled option to show the user something went wrong
         select.innerHTML = '<option value="" disabled>Erro ao carregar</option>';
     }
 }
@@ -474,7 +479,7 @@ function preencherCamposServidor(servidor) {
 function openServidorSearchModal() {
     const modalElement = document.getElementById('modalBuscaServidor');
     if (modalElement) {
-        const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
+        const modal = new bootstrap.Modal(modalElement);
         document.getElementById('buscaNomeInput').value = '';
         document.getElementById('buscaNomeResultados').innerHTML = '';
         modal.show();
