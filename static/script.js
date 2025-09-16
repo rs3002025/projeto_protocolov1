@@ -285,7 +285,7 @@ function initializeProtocolForm() {
     // Add event listeners
     document.getElementById('matricula').addEventListener('blur', fetchServidorByMatricula);
     document.getElementById('cep').addEventListener('blur', fetchCep);
-    document.getElementById('btnBuscarNome').addEventListener('click', openServidorSearchModal); // Updated ID
+    // O gatilho para openServidorSearchModal agora é o 'onclick' diretamente no HTML.
 
     const buscaInput = document.getElementById('buscaNomeInput');
     if(buscaInput) buscaInput.addEventListener('input', searchServidorByName);
