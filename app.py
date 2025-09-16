@@ -309,54 +309,55 @@ def gerar_proximo_numero_protocolo():
 @app.route("/protocolo/novo", methods=['GET', 'POST'])
 @login_required
 def criar_protocolo():
+    form = ProtocoloForm()
+
     if request.method == 'POST':
-        # Dados são pegos diretamente do 'name' dos inputs do formulário
-        novo_numero = request.form.get('numero') or gerar_proximo_numero_protocolo()
+        if form.validate_on_submit():
+            # O número do protocolo é gerado no backend, não pego do form
+            novo_numero = gerar_proximo_numero_protocolo()
 
-        # Converte a data de string para objeto date
-        data_solicitacao_str = request.form.get('data_solicitacao')
-        data_solicitacao_obj = datetime.strptime(data_solicitacao_str, '%Y-%m-%d').date() if data_solicitacao_str else datetime.now().date()
+            protocolo = Protocolo(
+                numero=novo_numero,
+                nome=form.nome.data,
+                matricula=form.matricula.data,
+                endereco=form.endereco.data,
+                municipio=form.municipio.data,
+                bairro=form.bairro.data,
+                cep=form.cep.data,
+                telefone=form.telefone.data,
+                cpf=form.cpf.data,
+                rg=form.rg.data,
+                cargo=form.cargo.data,
+                lotacao=form.lotacao.data,
+                unidade_exercicio=form.unidade_exercicio.data,
+                tipo_requerimento=form.tipo_requerimento.data,
+                requer_ao=form.requer_ao.data,
+                data_solicitacao=form.data_solicitacao.data,
+                observacoes=form.observacoes.data,
+                responsavel=form.responsavel.data or current_user.login,
+                status=form.status.data or 'Aberto'
+            )
+            db.session.add(protocolo)
+            db.session.commit()
 
-        protocolo = Protocolo(
-            numero=novo_numero,
-            nome=request.form.get('nome'),
-            matricula=request.form.get('matricula'),
-            endereco=request.form.get('endereco'),
-            municipio=request.form.get('municipio'),
-            bairro=request.form.get('bairro'),
-            cep=request.form.get('cep'),
-            telefone=request.form.get('telefone'),
-            cpf=request.form.get('cpf'),
-            rg=request.form.get('rg'),
-            cargo=request.form.get('cargo'),
-            lotacao=request.form.get('lotacao'),
-            unidade_exercicio=request.form.get('unidade_exercicio'),
-            tipo_requerimento=request.form.get('tipo_requerimento'),
-            requer_ao=request.form.get('requer_ao'),
-            data_solicitacao=data_solicitacao_obj,
-            observacoes=request.form.get('observacoes'),
-            responsavel=current_user.login,
-            status='PROTOCOLO GERADO' # Status padrão como no sistema antigo
-        )
-        db.session.add(protocolo)
-        db.session.commit()
+            # Adiciona o primeiro registro ao histórico
+            historico = HistoricoProtocolo(
+                protocolo_id=protocolo.id,
+                status=protocolo.status,
+                responsavel=protocolo.responsavel,
+                observacao='Protocolo criado no sistema.'
+            )
+            db.session.add(historico)
+            db.session.commit()
 
-        # Adiciona o primeiro registro ao histórico
-        historico = HistoricoProtocolo(
-            protocolo_id=protocolo.id,
-            status=protocolo.status,
-            responsavel=protocolo.responsavel,
-            observacao='Protocolo criado no sistema.'
-        )
-        db.session.add(historico)
-        db.session.commit()
+            flash(f'Protocolo {novo_numero} criado com sucesso!', 'success')
+            return redirect(url_for('listar_protocolos'))
 
-        flash(f'Protocolo {novo_numero} criado com sucesso!', 'success')
-        return redirect(url_for('listar_protocolos'))
+    # Para requisições GET, pré-popula o formulário
+    form.numero.data = gerar_proximo_numero_protocolo()
+    form.data_solicitacao.data = datetime.now().date()
 
-    # Para requisições GET, apenas renderiza o template.
-    # Os dados serão preenchidos via JavaScript.
-    return render_template('criar_protocolo.html', title='Novo Protocolo', legend='Novo Protocolo')
+    return render_template('criar_protocolo.html', title='Novo Protocolo', form=form, legend='Novo Protocolo')
 
 @app.route("/protocolo/<int:protocolo_id>")
 @login_required
@@ -587,41 +588,6 @@ def get_lotacoes():
 def get_tipos_requerimento():
     tipos = TipoRequerimento.query.filter_by(ativo=True).order_by(TipoRequerimento.nome).all()
     return jsonify([t.nome for t in tipos])
-
-@app.route('/api/bairros')
-@login_required
-def get_bairros():
-    """Retorna uma lista estática de bairros."""
-    bairros = [
-        "Centro", "Girilândia", "Padre Assis Monteiro", "Hermógenes Henrique Girão",
-        "São José", "Nossa Senhora da Conceição", "Planalto Aeroporto", "Júlia Santiago",
-        "São Francisco", "Nova Morada", "Divino Espírito Santo", "Alto Tiradentes",
-        "Capitão Dionísio Matos de Fontes", "Irapuan Nobre", "Dois de Agosto",
-        "Cristo Rei", "Sede Rural", "Outro"
-    ]
-    return jsonify(sorted(bairros))
-
-@app.route('/protocolos/ultimoNumero/<int:ano>')
-@login_required
-def get_ultimo_numero(ano):
-    """Obtém o último número de protocolo para um determinado ano."""
-    protocolos_do_ano = Protocolo.query.filter(
-        Protocolo.numero.like(f'%/{ano}')
-    ).all()
-
-    if not protocolos_do_ano:
-        maior_sequencial = 0
-    else:
-        maior_sequencial = 0
-        for p in protocolos_do_ano:
-            try:
-                sequencial_atual = int(p.numero.split('/')[0])
-                if sequencial_atual > maior_sequencial:
-                    maior_sequencial = sequencial_atual
-            except (ValueError, IndexError):
-                continue
-
-    return jsonify({'ultimo': maior_sequencial})
 
 @app.route('/api/protocolo/<int:protocolo_id>')
 @login_required

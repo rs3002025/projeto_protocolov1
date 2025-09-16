@@ -2,29 +2,16 @@
 // GLOBAL INITIALIZATION
 // =================================================================================
 document.addEventListener('DOMContentLoaded', function () {
-    // --- Page-specific initializers ---
-    initializeDashboard();
     initializeProtocolForm();
-    initializeProtocolListModals();
 });
-
 
 // =================================================================================
 // PAGE-SPECIFIC LOGIC
 // =================================================================================
 
 /**
- * Initializes functionality for the Dashboard page.
- */
-function initializeDashboard() {
-    // Check for a unique element on the page to ensure this code only runs there.
-    if (!document.getElementById('dashboard-header')) return;
-
-    // (Dashboard logic would go here)
-}
-
-/**
  * Initializes all functionality for the Protocol Creation page.
+ * This function is guarded internally, so it's safe to call on any page.
  */
 function initializeProtocolForm() {
     // Check for a unique element on the page to ensure this code only runs there.
@@ -36,7 +23,7 @@ function initializeProtocolForm() {
         if (!select) return;
         try {
             const response = await fetch(apiUrl);
-            if (!response.ok) throw new Error('Network response was not ok');
+            if (!response.ok) throw new Error(`Network response was not ok for ${apiUrl}`);
             const data = await response.json();
             select.innerHTML = '<option value="">Selecione...</option>';
             data.forEach(item => {
@@ -146,17 +133,6 @@ function initializeProtocolForm() {
     if (dataSolicitacaoInput && !dataSolicitacaoInput.value) {
         dataSolicitacaoInput.value = new Date().toISOString().split('T')[0];
     }
-}
-
-/**
- * Initializes modal listeners for the Protocol List page.
- */
-function initializeProtocolListModals() {
-    // Check for a unique element on the page to ensure this code only runs there.
-    if (!document.querySelector('button[data-bs-target="#modalAtualizarStatus"]')) return;
-
-    // The rest of the original modal logic from the baseline script would go here.
-    // Since the baseline was empty, this is also empty for now, but it's the correct structure.
 }
 
 
