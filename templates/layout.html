@@ -61,16 +61,21 @@
 
     <!-- Modals and Hidden Templates -->
 
-    <!-- PDF Preview Modal -->
-    <div id="pdfModal" style="display: none; position: fixed; z-index: 1050; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.6);">
-      <div style="background-color: #fefefe; margin: 20px auto; padding: 0; border: 1px solid #888; width: 95%; max-width: 800px; box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2), 0 6px 20px 0 rgba(0,0,0,0.19);">
-        <div style="display: flex; justify-content: space-between; align-items: center; background: #2e7d32; padding: 5px 15px;">
-            <h5 style="color: white; margin: 0;">Pré-visualização</h5>
-            <button type="button" class="btn-close btn-close-white" aria-label="Close" onclick="fecharModal('pdfModal')"></button>
-        </div>
-        <div id="pdfContent" style="padding: 20px;"></div>
-        <div style="text-align: center; padding: 10px; border-top: 1px solid #ddd;">
-            <button class="btn btn-primary" onclick="gerarPDF()">Gerar e Salvar PDF</button>
+    <!-- PDF Preview Modal (Bootstrap 5) -->
+    <div class="modal fade" id="pdfModal" tabindex="-1" aria-labelledby="pdfModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="pdfModalLabel">Pré-visualização do Documento</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body" id="pdfContent">
+            <!-- PDF content will be injected here -->
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+            <button type="button" class="btn btn-primary" onclick="gerarPDF()">Gerar e Salvar PDF</button>
+          </div>
         </div>
       </div>
     </div>
@@ -159,6 +164,74 @@
             <p class="texto-assinatura-recebimento">Assinatura de Recebimento</p>
             <div class="rodape-pdf"><img src="{{ url_for('static', filename='img/rodape.jpg') }}" alt="Rodapé" /></div>
         </div>
+    </div>
+
+    <!-- Modal para Atualizar Status -->
+    <div class="modal fade" id="modalAtualizarStatus" tabindex="-1" aria-labelledby="modalAtualizarStatusLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="modalAtualizarStatusLabel">Atualizar Status do Protocolo</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="atualizarProtocoloId">
+            <div class="mb-3">
+              <label for="statusSelect" class="form-label">Novo Status</label>
+              <select class="form-select" id="statusSelect" onchange="handleStatusChange(this)">
+                <option selected>PROTOCOLO GERADO</option>
+                <option>Em análise</option>
+                <option>Pendente de documento</option>
+                <option>Finalizado</option>
+                <option>Concluído</option>
+                <option>Encaminhado</option>
+                <option value="Outro">Outro</option>
+              </select>
+            </div>
+            <div class="mb-3" id="statusCustomContainer" style="display: none;">
+              <label for="statusCustom" class="form-label">Status Personalizado</label>
+              <input type="text" class="form-control" id="statusCustom" placeholder="Digite o status">
+            </div>
+            <div class="mb-3">
+              <label for="observacaoAtualizacao" class="form-label">Observação</label>
+              <textarea class="form-control" id="observacaoAtualizacao" rows="3"></textarea>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="button" class="btn btn-primary" onclick="confirmarAtualizacaoStatus()">Confirmar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal para Encaminhar -->
+    <div class="modal fade" id="modalEncaminhar" tabindex="-1" aria-labelledby="modalEncaminharLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="modalEncaminharLabel">Encaminhar Protocolo</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="encaminharProtocoloId">
+            <div class="mb-3">
+                <label for="selectUsuarioEncaminhar" class="form-label">Encaminhar para</label>
+                <select id="selectUsuarioEncaminhar" class="form-select">
+                    <!-- Options will be populated by JavaScript -->
+                </select>
+            </div>
+            <div class="mb-3">
+                <label for="observacaoEncaminhamento" class="form-label">Observação</label>
+                <textarea id="observacaoEncaminhamento" class="form-control" rows="3"></textarea>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="button" class="btn btn-primary" onclick="confirmarEncaminhamento()">Confirmar Encaminhamento</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     {% block scripts %}{% endblock %}
