@@ -694,60 +694,79 @@ def dashboard_data():
         data_inicio_str = request.args.get('dataInicio')
         data_fim_str = request.args.get('dataFim')
 
-        # Base query
-        query = Protocolo.query
+        # Base query for all protocols
+        base_query = Protocolo.query
 
-        # Apply date filters
+        # This query will be filtered by date and used for most stats
+        query_no_periodo = base_query
         if data_inicio_str:
             data_inicio = datetime.strptime(data_inicio_str, '%Y-%m-%d').date()
-            query = query.filter(Protocolo.data_solicitacao >= data_inicio)
+            query_no_periodo = query_no_periodo.filter(Protocolo.data_solicitacao >= data_inicio)
         if data_fim_str:
             data_fim = datetime.strptime(data_fim_str, '%Y-%m-%d').date()
-            query = query.filter(Protocolo.data_solicitacao <= data_fim)
+            query_no_periodo = query_no_periodo.filter(Protocolo.data_solicitacao <= data_fim)
 
         # --- Stats Cards Data ---
-        novos_no_periodo = query.count()
-        total_finalizados = query.filter(Protocolo.status.in_(['Finalizado', 'Concluído'])).count()
+        # Execute the query once to get the list of protocols in the period
+        protocolos_no_periodo = query_no_periodo.all()
 
-        # Pendentes a mais de 15 dias (ignora filtros de data)
-        fifteen_days_ago = datetime.now().date() - timedelta(days=15)
-        pendentes_antigos = Protocolo.query.filter(
+        novos_no_periodo = len(protocolos_no_periodo)
+
+        # Filter in memory to avoid another DB hit for a subset
+        total_finalizados = sum(1 for p in protocolos_no_periodo if p.status in ['Finalizado', 'Concluído'])
+
+        # Pendentes a mais de 15 dias (this query is independent of the date filter)
+        pendentes_antigos = db.session.query(func.count(Protocolo.id)).filter(
             Protocolo.data_solicitacao <= fifteen_days_ago,
             ~Protocolo.status.in_(['Finalizado', 'Concluído'])
-        ).count()
+        ).scalar()
 
         # --- Charts Data ---
+        # The following queries are based on the date-filtered query
+        protocolo_ids_no_periodo = [p.id for p in protocolos_no_periodo]
+
         # Top 5 Tipos (Bar Chart)
-        top_tipos = db.session.query(
+        top_tipos_query = db.session.query(
             Protocolo.tipo_requerimento,
             func.count(Protocolo.id).label('total')
-        ).select_from(query.subquery()).group_by(Protocolo.tipo_requerimento).order_by(func.count(Protocolo.id).desc()).limit(5).all()
+        )
+        if protocolo_ids_no_periodo:
+            top_tipos_query = top_tipos_query.filter(Protocolo.id.in_(protocolo_ids_no_periodo))
+        top_tipos = top_tipos_query.group_by(Protocolo.tipo_requerimento).order_by(func.count(Protocolo.id).desc()).limit(5).all()
 
         # Protocolos por Status (Pie Chart)
-        status_protocolos = db.session.query(
+        status_protocolos_query = db.session.query(
             Protocolo.status,
             func.count(Protocolo.id).label('total')
-        ).select_from(query.subquery()).group_by(Protocolo.status).order_by(Protocolo.status).all()
+        )
+        if protocolo_ids_no_periodo:
+            status_protocolos_query = status_protocolos_query.filter(Protocolo.id.in_(protocolo_ids_no_periodo))
+        status_protocolos = status_protocolos_query.group_by(Protocolo.status).order_by(Protocolo.status).all()
 
         # Evolução de Protocolos (Line Chart)
-        evolucao_protocolos = db.session.query(
+        evolucao_protocolos_query = db.session.query(
             cast(Protocolo.data_solicitacao, Date).label('intervalo'),
             func.count(Protocolo.id).label('total')
-        ).select_from(query.subquery()).group_by('intervalo').order_by('intervalo').all()
+        )
+        if protocolo_ids_no_periodo:
+            evolucao_protocolos_query = evolucao_protocolos_query.filter(Protocolo.id.in_(protocolo_ids_no_periodo))
+        evolucao_protocolos = evolucao_protocolos_query.group_by('intervalo').order_by('intervalo').all()
 
         # Prepare data for JSON response
         dashboard_stats = {
             'novosNoPeriodo': novos_no_periodo,
-            'pendentesAntigos': pendentes_antigos,
+            'pendentesAntigos': pendentes_antigos or 0, # Ensure it's not None
             'totalFinalizados': total_finalizados,
-            'topTipos': [{'tipo_requerimento': r.tipo_requerimento, 'total': r.total} for r in top_tipos],
-            'statusProtocolos': [{'status': r.status, 'total': r.total} for r in status_protocolos],
+            'topTipos': [{'tipo_requerimento': r.tipo_requerimento or 'N/A', 'total': r.total} for r in top_tipos],
+            'statusProtocolos': [{'status': r.status or 'N/A', 'total': r.total} for r in status_protocolos],
             'evolucaoProtocolos': [{'intervalo': r.intervalo.isoformat(), 'total': r.total} for r in evolucao_protocolos]
         }
 
         return jsonify(dashboard_stats)
     except Exception as e:
-        print(f"ERROR in dashboard_data: {e}")
+        # Log the full error for debugging
+        import traceback
+        app.logger.error(f"ERROR in dashboard_data: {e}\n{traceback.format_exc()}")
         return jsonify({'error': f'Ocorreu um erro no servidor ao buscar os dados do dashboard: {str(e)}'}), 500
 
 if __name__ == '__main__':
