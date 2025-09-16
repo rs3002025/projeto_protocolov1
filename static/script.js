@@ -55,18 +55,224 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 // --- Dashboard Functions ---
+let tiposChartInstance = null;
+let statusChartInstance = null;
+let evolucaoChartInstance = null;
+
+async function fetchAndRenderDashboard() {
+    const dataInicio = document.getElementById('dashDataInicio').value;
+    const dataFim = document.getElementById('dashDataFim').value;
+
+    // Constrói a URL com os parâmetros de data
+    const params = new URLSearchParams();
+    if (dataInicio) params.append('dataInicio', dataInicio);
+    if (dataFim) params.append('dataFim', dataFim);
+    const url = `/api/dashboard-data?${params.toString()}`;
+
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const stats = await response.json();
+
+        // 1. Atualizar Cards
+        document.getElementById('stat-novos').textContent = stats.novosNoPeriodo;
+        document.getElementById('stat-pendentes').textContent = stats.pendentesAntigos;
+        document.getElementById('stat-finalizados').textContent = stats.totalFinalizados;
+
+        // 2. Gráfico de Top 5 Tipos (Gráfico de Barras)
+        if (tiposChartInstance) { tiposChartInstance.destroy(); }
+        const tiposCtx = document.getElementById('tiposChart').getContext('2d');
+        tiposChartInstance = new Chart(tiposCtx, {
+            type: 'bar',
+            data: {
+                labels: stats.topTipos.map(item => item.tipo_requerimento),
+                datasets: [{
+                    label: 'Total',
+                    data: stats.topTipos.map(item => item.total),
+                    backgroundColor: ['#4CAF50', '#8BC34A', '#CDDC39', '#FFEB3B', '#FFC107'],
+                    borderColor: '#fff',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                plugins: {
+                    legend: { display: false },
+                    title: { display: true, text: 'Top 5 Tipos de Requerimento' }
+                }
+            }
+        });
+
+        // 3. Gráfico de Protocolos por Status (Gráfico de Pizza)
+        if (statusChartInstance) { statusChartInstance.destroy(); }
+        const statusCtx = document.getElementById('statusChart').getContext('2d');
+        statusChartInstance = new Chart(statusCtx, {
+            type: 'pie',
+            data: {
+                labels: stats.statusProtocolos.map(item => item.status),
+                datasets: [{
+                    label: 'Total',
+                    data: stats.statusProtocolos.map(item => item.total),
+                    backgroundColor: ['#2196F3', '#FF9800', '#4CAF50', '#F44336', '#9C27B0', '#673AB7', '#009688'],
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { position: 'top' },
+                    title: { display: true, text: 'Protocolos por Status' }
+                }
+            }
+        });
+
+        // 4. Gráfico de Evolução de Protocolos (Gráfico de Linha)
+        if (evolucaoChartInstance) { evolucaoChartInstance.destroy(); }
+        const evolucaoCtx = document.getElementById('evolucaoChart').getContext('2d');
+        evolucaoChartInstance = new Chart(evolucaoCtx, {
+            type: 'line',
+            data: {
+                labels: stats.evolucaoProtocolos.map(item => new Date(item.intervalo + 'T00:00:00').toLocaleDateString('pt-BR')),
+                datasets: [{
+                    label: 'Novos Protocolos',
+                    data: stats.evolucaoProtocolos.map(item => item.total),
+                    fill: true,
+                    borderColor: '#4CAF50',
+                    backgroundColor: 'rgba(76, 175, 80, 0.2)',
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: false },
+                    title: { display: true, text: 'Evolução de Novos Protocolos' }
+                },
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+
+    } catch (error) {
+        console.error("Erro ao carregar dados do dashboard:", error);
+        // Optionally, display an error message to the user on the page
+    }
+}
+
 function initializeDashboard() {
-    // ... (existing dashboard code is fine) ...
+    // Define a data de início padrão para 30 dias atrás se estiver vazia
+    const dataInicioInput = document.getElementById('dashDataInicio');
+    if (!dataInicioInput.value) {
+        const hoje = new Date();
+        const trintaDiasAtras = new Date(new Date().setDate(hoje.getDate() - 30));
+        dataInicioInput.value = trintaDiasAtras.toISOString().split('T')[0];
+    }
+     // Define a data final como hoje
+    const dataFimInput = document.getElementById('dashDataFim');
+    if (!dataFimInput.value) {
+        dataFimInput.value = new Date().toISOString().split('T')[0];
+    }
+
+
+    // Adiciona o event listener ao botão de filtro
+    const filterButton = document.getElementById('filter-btn');
+    if (filterButton) {
+        filterButton.addEventListener('click', fetchAndRenderDashboard);
+    }
+
+    // Carrega os dados iniciais
+    fetchAndRenderDashboard();
 }
 
 // --- Modal Action Functions ---
+window.handleStatusChange = function(selectElement) {
+    const customInputContainer = document.getElementById('statusCustomContainer');
+    customInputContainer.style.display = selectElement.value === 'Outro' ? 'block' : 'none';
+};
+
 window.confirmarEncaminhamento = async function() {
-    // ... (existing modal code is fine) ...
-}
+    const protocoloId = document.getElementById('encaminharProtocoloId').value;
+    const novoResponsavel = document.getElementById('selectUsuarioEncaminhar').value;
+    const observacao = document.getElementById('observacaoEncaminhamento').value;
+
+    if (!novoResponsavel) {
+        alert('Por favor, selecione um usuário para encaminhar.');
+        return;
+    }
+
+    const data = {
+        protocoloId: protocoloId,
+        novoStatus: 'Encaminhado', // O status é fixo para 'Encaminhado'
+        novoResponsavel: novoResponsavel,
+        observacao: `Encaminhado para ${novoResponsavel}. Observação: ${observacao}`
+    };
+
+    try {
+        const response = await fetch('/protocolos/atualizar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        const result = await response.json();
+        if (result.sucesso) {
+            alert('Protocolo encaminhado com sucesso!');
+            // Fecha o modal e recarrega a página para ver a mudança
+            const modal = bootstrap.Modal.getInstance(document.getElementById('modalEncaminhar'));
+            modal.hide();
+            window.location.reload();
+        } else {
+            throw new Error(result.mensagem || 'Erro desconhecido');
+        }
+    } catch (error) {
+        alert(`Erro ao encaminhar protocolo: ${error.message}`);
+        console.error(error);
+    }
+};
 
 window.confirmarAtualizacaoStatus = async function() {
-    // ... (existing modal code is fine) ...
-}
+    const protocoloId = document.getElementById('atualizarProtocoloId').value;
+    const statusSelect = document.getElementById('statusSelect');
+    let novoStatus = statusSelect.value;
+
+    if (novoStatus === 'Outro') {
+        novoStatus = document.getElementById('statusCustom').value.trim();
+        if (!novoStatus) {
+            alert('Por favor, digite o status personalizado.');
+            return;
+        }
+    }
+
+    const observacao = document.getElementById('observacaoAtualizacao').value;
+
+    const data = {
+        protocoloId: protocoloId,
+        novoStatus: novoStatus,
+        // Ao apenas atualizar o status, o responsável não muda, a menos que seja um encaminhamento.
+        // O responsável pela ação é o 'current_user' no backend.
+        observacao: observacao
+    };
+
+    try {
+        const response = await fetch('/protocolos/atualizar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        const result = await response.json();
+        if (result.sucesso) {
+            alert('Status do protocolo atualizado com sucesso!');
+            const modal = bootstrap.Modal.getInstance(document.getElementById('modalAtualizarStatus'));
+            modal.hide();
+            window.location.reload();
+        } else {
+            throw new Error(result.mensagem || 'Erro desconhecido');
+        }
+    } catch (error) {
+        alert(`Erro ao atualizar status: ${error.message}`);
+        console.error(error);
+    }
+};
 
 // --- Protocol Form Functions ---
 function initializeProtocolForm() {
@@ -124,7 +330,57 @@ async function fetchServidorByMatricula() {
 }
 
 async function fetchCep() {
-    // ... (existing code is fine) ...
+    const cepInput = document.getElementById('cep');
+    const cep = cepInput.value.replace(/\D/g, ''); // Remove non-digit characters
+
+    if (cep.length !== 8) {
+        // Don't alert if the field is empty, just if it's invalid
+        if (cep.length > 0) {
+            console.warn('CEP inválido.');
+        }
+        return;
+    }
+
+    try {
+        const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+        if (!response.ok) {
+            throw new Error('Erro na resposta da API do ViaCEP');
+        }
+        const data = await response.json();
+
+        if (data.erro) {
+            console.warn('CEP não encontrado!');
+            // Optionally clear fields or notify user
+            return;
+        }
+
+        // Preenche os campos de endereço
+        document.getElementById('endereco').value = data.logradouro || '';
+        document.getElementById('municipio').value = data.localidade || '';
+
+        const bairroSelect = document.getElementById('bairro');
+        const bairroNome = data.bairro || '';
+
+        if (bairroNome) {
+            // Verifica se a opção já existe
+            let optionExists = [...bairroSelect.options].some(option => option.value.toLowerCase() === bairroNome.toLowerCase());
+
+            if (optionExists) {
+                // Seleciona a opção existente
+                bairroSelect.value = [...bairroSelect.options].find(option => option.value.toLowerCase() === bairroNome.toLowerCase()).value;
+            } else {
+                // Adiciona e seleciona a nova opção se não existir
+                // Isso pode não ser o ideal se a lista de bairros for estritamente controlada pelo backend
+                console.warn(`Bairro "${bairroNome}" não encontrado na lista, adicionando temporariamente.`);
+                const newOption = new Option(bairroNome, bairroNome, true, true);
+                bairroSelect.add(newOption);
+            }
+        }
+
+    } catch (error) {
+        console.error('Erro ao buscar CEP:', error);
+        // Optionally notify user of the error
+    }
 }
 
 function preencherCamposServidor(servidor) {
@@ -184,9 +440,12 @@ async function searchServidorByName() {
 let protocoloParaGerar = null;
 
 window.fecharModal = function(modalId) {
-    const modal = document.getElementById(modalId);
-    if (modal) {
-        modal.style.display = 'none';
+    const modalElement = document.getElementById(modalId);
+    if (modalElement) {
+        const modalInstance = bootstrap.Modal.getInstance(modalElement);
+        if (modalInstance) {
+            modalInstance.hide();
+        }
     }
 }
 
@@ -264,7 +523,8 @@ window.previsualizarPDF = async function(id = null, isFromForm = false) {
   pdfContentDiv.innerHTML = '';
   pdfContentDiv.appendChild(clone.querySelector('.pdf-body'));
 
-  document.getElementById('pdfModal').style.display = 'block';
+  const pdfModal = new bootstrap.Modal(document.getElementById('pdfModal'));
+  pdfModal.show();
 }
 
 window.gerarPDF = async function() {

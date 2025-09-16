@@ -528,3 +528,13 @@ textarea:focus {
 .main-content {
     /* If using a fixed header, add padding-top here */
 }
+
+/* --- FIX for Form Actions Buttons --- */
+.form-actions {
+    grid-column: span 12; /* Make it span the full width of the grid */
+    display: flex;
+    justify-content: flex-end; /* Align buttons to the right */
+    gap: 10px; /* Add some space between the buttons */
+    align-items: center; /* Vertically align items */
+    margin-top: 20px; /* Add some space above the buttons */
+}
