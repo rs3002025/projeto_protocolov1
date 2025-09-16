@@ -214,7 +214,7 @@ window.confirmarEncaminhamento = async function() {
     };
 
     try {
-        const response = await fetch('/protocolos/atualizar', {
+        const response = await fetch('/api/protocolos/atualizar', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
@@ -259,7 +259,7 @@ window.confirmarAtualizacaoStatus = async function() {
     };
 
     try {
-        const response = await fetch('/protocolos/atualizar', {
+        const response = await fetch('/api/protocolos/atualizar', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)

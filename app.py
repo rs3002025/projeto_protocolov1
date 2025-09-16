@@ -477,9 +477,9 @@ def deletar_anexo(anexo_id):
     flash('Anexo excluído com sucesso.', 'success')
     return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo_id))
 
-@app.route("/protocolos/atualizar", methods=['POST'])
+@app.route("/api/protocolos/atualizar", methods=['POST'])
 @login_required
-def atualizar_protocolo_status():
+def api_atualizar_protocolo_status():
     data = request.get_json()
     protocolo_id = data.get('protocoloId')
     novo_status = data.get('novoStatus')
