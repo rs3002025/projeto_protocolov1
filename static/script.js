@@ -71,10 +71,15 @@ async function fetchAndRenderDashboard() {
 
     try {
         const response = await fetch(url);
+        const data = await response.json(); // Lê o corpo da resposta como JSON
+
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            // Se a resposta não for OK, lança um erro com a mensagem do backend ou um padrão
+            const errorMessage = data.error || `Erro HTTP: ${response.status}`;
+            throw new Error(errorMessage);
         }
-        const stats = await response.json();
+
+        const stats = data; // Agora 'data' é o nosso objeto 'stats'
 
         // 1. Atualizar Cards
         document.getElementById('stat-novos').textContent = stats.novosNoPeriodo;
