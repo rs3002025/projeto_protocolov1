@@ -331,7 +331,29 @@ async function populateDropdown(apiUrl, elementId) {
 }
 
 async function fetchServidorByMatricula() {
-    // ... (existing code is fine) ...
+    const matriculaInput = document.getElementById('matricula');
+    const matricula = matriculaInput.value.trim();
+
+    if (!matricula) {
+        preencherCamposServidor(null); // Limpa os campos se a matrícula for removida
+        return;
+    }
+
+    try {
+        // Usa a rota correta da API definida em app.py
+        const response = await fetch(`/api/servidor/${encodeURIComponent(matricula)}`);
+        const servidor = await response.json();
+
+        if (response.ok) {
+            preencherCamposServidor(servidor);
+        } else {
+            console.warn(servidor.error || 'Servidor não encontrado');
+            preencherCamposServidor(null); // Limpa os campos se não encontrar
+        }
+    } catch (error) {
+        console.error('Erro ao buscar servidor por matrícula:', error);
+        preencherCamposServidor(null); // Limpa os campos em caso de erro de rede
+    }
 }
 
 async function fetchCep() {
@@ -389,7 +411,38 @@ async function fetchCep() {
 }
 
 function preencherCamposServidor(servidor) {
-    // ... (existing code is fine) ...
+    const nomeInput = document.getElementById('nome');
+    const lotacaoSelect = document.getElementById('lotacao');
+    const cargoInput = document.getElementById('cargo');
+    const unidadeInput = document.getElementById('unidade');
+
+    if (servidor && servidor.nome) {
+        nomeInput.value = servidor.nome;
+        cargoInput.value = servidor.cargo || '';
+        unidadeInput.value = servidor.unidade_de_exercicio || '';
+
+        // Para o select de lotação, precisamos verificar se a opção existe
+        const lotacaoValue = servidor.lotacao || '';
+        let optionExists = [...lotacaoSelect.options].some(opt => opt.value === lotacaoValue);
+
+        if (optionExists) {
+            lotacaoSelect.value = lotacaoValue;
+        } else if (lotacaoValue) {
+            // Se a opção não existe, podemos adicioná-la dinamicamente
+            console.warn(`Lotação "${lotacaoValue}" não encontrada. Adicionando à lista.`);
+            const newOption = new Option(lotacaoValue, lotacaoValue, true, true);
+            lotacaoSelect.add(newOption);
+        } else {
+             lotacaoSelect.value = '';
+        }
+
+    } else {
+        // Limpa os campos se nenhum servidor for encontrado ou se os dados forem nulos
+        nomeInput.value = '';
+        lotacaoSelect.value = '';
+        cargoInput.value = '';
+        unidadeInput.value = '';
+    }
 }
 
 function openServidorSearchModal() {
