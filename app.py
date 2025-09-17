@@ -754,6 +754,7 @@ def dashboard_stats():
 
         # --- Evolução (Line Chart) ---
         evolucao_query = Protocolo.query
+        evolucao_query = evolucao_query.filter(Protocolo.data_solicitacao != None)
         today = datetime.now().date()
         if evolucao_periodo == '7d':
             evolucao_query = evolucao_query.filter(Protocolo.data_solicitacao >= (today - timedelta(days=7)))
