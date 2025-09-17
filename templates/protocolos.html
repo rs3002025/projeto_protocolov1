@@ -70,14 +70,14 @@
                         <td><span class="badge bg-info">{{ protocolo.status }}</span></td>
                         <td>{{ protocolo.responsavel }}</td>
                         <td>
-                            <a href="{{ url_for('detalhe_protocolo', protocolo_id=protocolo.id) }}" class="btn btn-sm btn-outline-primary">Detalhes</a>
-                            <button type="button" class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#modalAtualizarStatus" data-protocolo-id="{{ protocolo.id }}">
+                            <a href="{{ url_for('detalhe_protocolo', protocolo_id=protocolo.id) }}" class="btn btn-sm btn-primary">Detalhes</a>
+                            <button type="button" class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#modalAtualizarStatus" data-protocolo-id="{{ protocolo.id }}">
                                 Atualizar Status
                             </button>
-                            <button type="button" class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#modalEncaminhar" data-protocolo-id="{{ protocolo.id }}">
+                            <button type="button" class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#modalEncaminhar" data-protocolo-id="{{ protocolo.id }}">
                                 Encaminhar
                             </button>
-                            <button type="button" class="btn btn-sm btn-outline-dark" onclick="previsualizarPDF({{ protocolo.id }})">Documento</button>
+                            <button type="button" class="btn btn-sm btn-dark" onclick="previsualizarPDF({{ protocolo.id }})">Documento</button>
                         </td>
                     </tr>
                 {% else %}
