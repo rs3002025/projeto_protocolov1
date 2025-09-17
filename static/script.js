@@ -459,9 +459,12 @@ function initializeProtocolForm() {
     document.getElementById('cep').addEventListener('blur', fetchCep);
 
     // This was the fix for the search button, which I am also restoring.
-    const btnBuscarNome = document.getElementById('btnBuscarNome');
-    if (btnBuscarNome) {
-        btnBuscarNome.addEventListener('click', openServidorSearchModal);
+    const searchModal = document.getElementById('modalBuscaServidor');
+    if(searchModal) {
+        searchModal.addEventListener('show.bs.modal', function() {
+            document.getElementById('buscaNomeInput').value = '';
+            document.getElementById('buscaNomeResultados').innerHTML = '';
+        });
     }
 
     const buscaInput = document.getElementById('buscaNomeInput');
@@ -639,15 +642,6 @@ function preencherCamposServidor(servidor) {
     }
 }
 
-function openServidorSearchModal() {
-    const modalElement = document.getElementById('modalBuscaServidor');
-    if (modalElement) {
-        const modal = new bootstrap.Modal(modalElement);
-        document.getElementById('buscaNomeInput').value = '';
-        document.getElementById('buscaNomeResultados').innerHTML = '';
-        modal.show();
-    }
-}
 
 async function searchServidorByName() {
     const searchTerm = this.value.trim();
