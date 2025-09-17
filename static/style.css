@@ -1,7 +1,7 @@
 :root {
     --primary-green: #2E7D32;
     --primary-green-dark: #256029;
-    --pastel-green: #CCFFCC; /* User specified green */
+    --pastel-green: #00B24C; /* User specified green */
     --dark-text: #343a40;
     --primary-blue: #0d6efd; /* Bootstrap blue for reference */
 }
@@ -564,32 +564,38 @@ textarea:focus {
 
 .main-nav .nav-link {
     text-decoration: none;
-    color: var(--dark-text);
+    color: #FFFFFF;
     font-weight: 500;
     font-size: 1.1rem; /* Larger font size */
     padding: 5px 0;
     border-bottom: 2px solid transparent;
-    transition: color 0.2s ease, border-bottom-color 0.2s ease;
+    transition: color 0.2s ease, border-bottom-color 0.2s ease, opacity 0.2s;
+    opacity: 0.85;
     white-space: nowrap;
 }
 
 .main-nav .nav-link:hover,
 .main-nav .nav-link.active {
-    color: var(--dark-text);
-    border-bottom-color: var(--primary-green);
+    color: #FFFFFF;
+    border-bottom-color: #FFFFFF;
+    opacity: 1;
 }
 
 .header-user-menu .user-dropdown-btn {
     background-color: transparent;
     border: none;
-    color: var(--dark-text);
+    color: #FFFFFF;
     font-weight: 500;
+    opacity: 0.85;
+    font-size: 1.5rem; /* Increase icon size */
+    line-height: 1; /* Adjust line height for icon */
 }
 
 .header-user-menu .user-dropdown-btn:hover,
 .header-user-menu .user-dropdown-btn:focus {
-    background-color: rgba(0, 0, 0, 0.05);
-    color: var(--dark-text);
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #FFFFFF;
+    opacity: 1;
 }
 
 .main-content {
