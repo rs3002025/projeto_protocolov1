@@ -111,17 +111,17 @@
 
 {% block scripts %}
 <script>
-// Injeta os dados do protocolo em um objeto global para que o script.js possa acessá-los
-// de uma maneira limpa e centralizada quando estiver no modo de edição.
-{% if protocolo %}
-window.protocoloData = {
-    numero: "{{ protocolo.numero }}",
-    lotacao: "{{ protocolo.lotacao }}",
-    tipo_requerimento: "{{ protocolo.tipo_requerimento }}",
-    bairro: "{{ protocolo.bairro }}"
-    // Adicione outros campos aqui se o script precisar deles para a inicialização
-};
-{% endif %}
+// --- INLINE SCRIPT TEST ---
+// This test is to determine if ANY JavaScript can run on this page.
+document.addEventListener('DOMContentLoaded', function() {
+    const testBtn = document.getElementById('start-from-scratch-search-btn');
+    if (testBtn) {
+        testBtn.addEventListener('click', function() {
+            testBtn.textContent = 'O CLIQUE FUNCIONOU!';
+            testBtn.style.backgroundColor = '#28a745'; // Green color
+        });
+    }
+});
 </script>
 {% endblock %}
 
