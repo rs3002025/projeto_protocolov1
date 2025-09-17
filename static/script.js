@@ -53,6 +53,15 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    // --- Delegated Event Listeners ---
+    // Use event delegation for buttons that might be on any page.
+    // This is more robust than attaching listeners directly in some cases.
+    document.addEventListener('click', function(e) {
+        // Delegated listener for the server search modal button
+        if (e.target && e.target.id === 'btnBuscarNome') {
+            openServidorSearchModal();
+        }
+    });
 });
 
 // --- NEW DASHBOARD FUNCTIONS ---
@@ -458,14 +467,7 @@ function initializeProtocolForm() {
     document.getElementById('matricula').addEventListener('blur', fetchServidorByMatricula);
     document.getElementById('cep').addEventListener('blur', fetchCep);
 
-    // This was the fix for the search button, which I am also restoring.
-    const searchModal = document.getElementById('modalBuscaServidor');
-    if(searchModal) {
-        searchModal.addEventListener('show.bs.modal', function() {
-            document.getElementById('buscaNomeInput').value = '';
-            document.getElementById('buscaNomeResultados').innerHTML = '';
-        });
-    }
+    // Event listener for the search button is now handled by delegation in the main DOMContentLoaded listener.
 
     const buscaInput = document.getElementById('buscaNomeInput');
     if (buscaInput) {
@@ -642,6 +644,16 @@ function preencherCamposServidor(servidor) {
     }
 }
 
+
+function openServidorSearchModal() {
+    const modalElement = document.getElementById('modalBuscaServidor');
+    if (modalElement) {
+        const modal = new bootstrap.Modal(modalElement);
+        document.getElementById('buscaNomeInput').value = '';
+        document.getElementById('buscaNomeResultados').innerHTML = '';
+        modal.show();
+    }
+}
 
 async function searchServidorByName() {
     const searchTerm = this.value.trim();
