@@ -7,7 +7,7 @@ body.loading { visibility: hidden; }
 .header h2, .header h3 { margin: 5px 0; }
 .content { padding: 20px 30px; display: none; }
 .content.active { display: block; }
-.menu, .login-screen, .form-screen, .protocolos-screen, .config-screen, .meus-protocolos-screen, .relatorios-screen, .dashboard-screen { display: none; }
+.menu, .login-screen, .form-screen, .protocolos-screen, .config-screen, .meus-protocolos-screen, .relatorios-screen { display: none; }
 .active { display: block; }
 .formulario { display: grid; grid-template-columns: repeat(12, 1fr); gap: 15px 20px; }
 .form-group { display: flex; flex-direction: column; }
