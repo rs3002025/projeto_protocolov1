@@ -234,6 +234,58 @@
       </div>
     </div>
 
+    <!-- Modal para Impressão Personalizada -->
+    <div id="modalImpressaoDashboard" class="modal-overlay" onclick="fecharModal('modalImpressaoDashboard')">
+        <div class="modal-dialog-print" onclick="event.stopPropagation();">
+            <div class="modal-header-print">
+                <h4>Impressão Personalizada do Dashboard</h4>
+                <button onclick="fecharModal('modalImpressaoDashboard')" class="btn-close"></button>
+            </div>
+            <div class="modal-body-print">
+                <p>Selecione os itens que deseja incluir na impressão:</p>
+                <div id="print-options-container">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value=".dashboard-cards" id="print-cards" name="print-item" checked>
+                        <label class="form-check-label" for="print-cards">Cards de Estatísticas</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="#tiposChart" id="print-tipos" name="print-item" checked>
+                        <label class="form-check-label" for="print-tipos">Gráfico de Top 5 Tipos</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="#statusChart" id="print-status" name="print-item" checked>
+                        <label class="form-check-label" for="print-status">Gráfico de Status/Tipo</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="#evolucaoChart" id="print-evolucao" name="print-item" checked>
+                        <label class="form-check-label" for="print-evolucao">Gráfico de Evolução</label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer-print">
+                <button type="button" class="btn btn-secondary" onclick="fecharModal('modalImpressaoDashboard')">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="gerarImpressaoPersonalizada()">Gerar Pré-visualização</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Pré-visualização da Impressão -->
+    <div id="modalPreviewImpressao" class="modal-overlay" onclick="fecharModal('modalPreviewImpressao')">
+        <div class="modal-dialog-print" style="max-width: 800px;" onclick="event.stopPropagation();">
+            <div class="modal-header-print">
+                <h4>Pré-visualização da Impressão</h4>
+                <button onclick="fecharModal('modalPreviewImpressao')" class="btn-close"></button>
+            </div>
+            <div id="previewContent" class="modal-body-print" style="text-align: center;">
+                <!-- Preview content will be injected here -->
+            </div>
+            <div class="modal-footer-print">
+                <button type="button" class="btn btn-secondary" onclick="fecharModal('modalPreviewImpressao')">Fechar</button>
+                <button type="button" class="btn btn-primary" onclick="salvarDashboardPersonalizadoPDF()">Salvar PDF</button>
+            </div>
+        </div>
+    </div>
+
     {% block scripts %}{% endblock %}
 </body>
 </html>

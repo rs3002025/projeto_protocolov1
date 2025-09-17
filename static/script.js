@@ -4,8 +4,9 @@
 document.addEventListener('DOMContentLoaded', function () {
 
     // --- Dashboard Logic ---
-    if (document.getElementById('dashboard-header')) {
-        initializeDashboard();
+    if (document.querySelector('.dashboard-screen')) {
+        popularFiltrosDashboard();
+        carregarDashboard();
     }
 
     // --- Protocol Form Logic ---
@@ -54,143 +55,305 @@ document.addEventListener('DOMContentLoaded', function () {
 
 });
 
-// --- New Dashboard Functions ---
-let tiposChart = null;
-let statusChart = null;
-let evolucaoChart = null;
+// --- NEW DASHBOARD FUNCTIONS ---
+let tiposChartInstance = null;
+let statusChartInstance = null;
+let evolucaoChartInstance = null;
 
-// This function is now called from layout.html for the filter dropdowns in the new dashboard
-function carregarDashboard() {
-    console.log("Carregando dados do dashboard...");
+window.fecharModal = function(modalId) {
+    const modalElement = document.getElementById(modalId);
+    if (modalElement) {
+        modalElement.style.display = 'none';
+    }
+}
+
+window.popularFiltrosDashboard = function() {
+    const statusOptions = '<option value="">Todos os Status</option><option value="PROTOCOLO GERADO">PROTOCOLO GERADO</option><option value="Em análise">Em análise</option><option value="Pendente de documento">Pendente de documento</option><option value="Finalizado">Finalizado</option><option value="Concluído">Concluído</option><option value="Encaminhado">Encaminhado</option>';
+    const statusSelect = document.getElementById('dashStatus');
+    if (statusSelect) {
+        statusSelect.innerHTML = statusOptions;
+    }
+
+    // Use the existing populateDropdown function which fetches from the API
+    populateDropdown('/api/tipos_requerimento', 'dashTipo');
+    populateDropdown('/api/lotacoes', 'dashLotacao');
+};
+
+window.carregarDashboard = async function() {
+    const params = new URLSearchParams({
+        dataInicio: document.getElementById('dashDataInicio').value,
+        dataFim: document.getElementById('dashDataFim').value,
+        status: document.getElementById('dashStatus').value,
+        tipo: document.getElementById('dashTipo').value,
+        lotacao: document.getElementById('dashLotacao').value,
+        evolucaoPeriodo: document.getElementById('evolucaoPeriodo').value,
+        evolucaoAgrupamento: document.getElementById('evolucaoAgrupamento').value
+    });
+
+    try {
+        const res = await fetch(`/protocolos/dashboard-stats?${params.toString()}`);
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || 'Erro ao buscar dados do dashboard');
+        }
+        const stats = await res.json();
+
+        // 1. Update Cards
+        document.getElementById('stat-novos').textContent = stats.novosNoPeriodo || 0;
+        document.getElementById('stat-pendentes').textContent = stats.pendentesAntigos || 0;
+        document.getElementById('stat-finalizados').textContent = stats.totalFinalizados || 0;
+        document.getElementById('stat-novos-label').textContent = (document.getElementById('dashDataInicio').value || document.getElementById('dashDataFim').value) ? 'Novos no Período' : 'Novos na Semana';
+
+        // 2. Top 5 Types Chart (Bar Chart)
+        if (tiposChartInstance) { tiposChartInstance.destroy(); }
+        const tiposCtx = document.getElementById('tiposChart').getContext('2d');
+        tiposChartInstance = new Chart(tiposCtx, {
+            type: 'bar',
+            data: {
+                labels: stats.topTipos.map(item => item.tipo_requerimento),
+                datasets: [{
+                    label: 'Total',
+                    data: stats.topTipos.map(item => item.total),
+                    backgroundColor: ['#4CAF50', '#8BC34A', '#CDDC39', '#FFEB3B', '#FFC107'],
+                    borderColor: '#fff',
+                    borderWidth: 1
+                }]
+            },
+            options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } } }
+        });
+
+        // 3. Dynamic Pie Chart (Status or Type)
+        if (statusChartInstance) { statusChartInstance.destroy(); }
+        const statusCtx = document.getElementById('statusChart').getContext('2d');
+        const pieChartDataType = document.getElementById('pieChartDataType').value;
+
+        let pieChartLabels, pieChartData, pieChartTitle;
+
+        if (pieChartDataType === 'status') {
+            pieChartLabels = stats.statusProtocolos.map(item => item.status);
+            pieChartData = stats.statusProtocolos.map(item => item.total);
+            pieChartTitle = 'Protocolos por Status (no Período)';
+        } else { // 'tipo'
+            pieChartLabels = stats.todosTipos.map(item => item.tipo_requerimento);
+            pieChartData = stats.todosTipos.map(item => item.total);
+            pieChartTitle = 'Protocolos por Tipo (no Período)';
+        }
+
+        document.getElementById('pieChartTitle').textContent = pieChartTitle;
+
+        statusChartInstance = new Chart(statusCtx, {
+            type: 'pie',
+            data: {
+                labels: pieChartLabels,
+                datasets: [{
+                    label: 'Total',
+                    data: pieChartData,
+                    backgroundColor: ['#2196F3', '#FF9800', '#4CAF50', '#F44336', '#9C27B0', '#673AB7', '#009688', '#FF5722', '#795548', '#607D8B'],
+                }]
+            },
+            options: { responsive: true, plugins: { legend: { position: 'right' } } }
+        });
+
+        // 4. Evolution Chart (Line Chart)
+        if (evolucaoChartInstance) { evolucaoChartInstance.destroy(); }
+        const evolucaoCtx = document.getElementById('evolucaoChart').getContext('2d');
+        const evolucaoAgrupamento = document.getElementById('evolucaoAgrupamento').value;
+        const evolucaoPeriodoSelect = document.getElementById('evolucaoPeriodo');
+        const evolucaoPeriodoTexto = evolucaoPeriodoSelect.options[evolucaoPeriodoSelect.selectedIndex].text;
+
+        document.getElementById('evolucaoChartTitle').textContent = `Evolução de Novos Protocolos (${evolucaoPeriodoTexto})`;
+
+        evolucaoChartInstance = new Chart(evolucaoCtx, {
+            type: 'line',
+            data: {
+                labels: stats.evolucaoProtocolos.map(item => {
+                    const date = new Date(item.intervalo);
+                    // Adjust for timezone issues by treating date as UTC
+                    const userTimezoneOffset = date.getTimezoneOffset() * 60000;
+                    return new Date(date.getTime() + userTimezoneOffset).toLocaleDateString('pt-BR', {
+                        day: '2-digit',
+                        month: evolucaoAgrupamento === 'month' ? 'long' : '2-digit',
+                        year: 'numeric'
+                    });
+                }),
+                datasets: [{
+                    label: 'Novos Protocolos',
+                    data: stats.evolucaoProtocolos.map(item => item.total),
+                    fill: true,
+                    borderColor: '#4CAF50',
+                    backgroundColor: 'rgba(76, 175, 80, 0.2)',
+                    tension: 0.2
+                }]
+            },
+            options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+        });
+
+    } catch (err) {
+        console.error("Erro ao carregar dados do dashboard:", err);
+        alert("Não foi possível carregar os dados do dashboard: " + err.message);
+    }
+};
+
+window.imprimirDashboard = function() {
+    window.print();
+};
+
+window.abrirModalImpressao = function() {
+    document.getElementById('modalImpressaoDashboard').style.display = 'flex';
+};
+
+window.gerarImpressaoPersonalizada = async function() {
+    const previewContent = document.getElementById('previewContent');
+    previewContent.innerHTML = '<h4>Carregando pré-visualização...</h4>';
+    fecharModal('modalImpressaoDashboard');
+    document.getElementById('modalPreviewImpressao').style.display = 'flex';
+
+    const checkboxes = document.querySelectorAll('#print-options-container input[name="print-item"]:checked');
+    const selectors = Array.from(checkboxes).map(cb => cb.value);
+
+    const chartSelectors = ['#tiposChart', '#statusChart', '#evolucaoChart'];
+    const selectedCharts = chartSelectors.filter(sel => selectors.includes(sel));
+
+    const imagePromises = selectedCharts.map(selector => {
+        return new Promise((resolve) => {
+            const canvas = document.querySelector(selector);
+            // Wait for the next animation frame to ensure chart is rendered
+            requestAnimationFrame(() => {
+                const img = new Image();
+                img.onload = () => resolve({ selector, image: img });
+                img.onerror = () => resolve({ selector, image: null }); // Handle error
+                img.src = canvas.toDataURL('image/png');
+            });
+        });
+    });
+
+    const loadedCharts = await Promise.all(imagePromises);
+    const chartImageMap = loadedCharts.reduce((map, item) => {
+        if (item.image) map[item.selector] = item.image;
+        return map;
+    }, {});
+
+    // Build filters HTML
+    let filtrosHtml = '';
     const dataInicio = document.getElementById('dashDataInicio').value;
     const dataFim = document.getElementById('dashDataFim').value;
     const status = document.getElementById('dashStatus').value;
     const tipo = document.getElementById('dashTipo').value;
     const lotacao = document.getElementById('dashLotacao').value;
-    const pieChartDataType = document.getElementById('pieChartDataType').value;
-    const evolucaoPeriodo = document.getElementById('evolucaoPeriodo').value;
-    const evolucaoAgrupamento = document.getElementById('evolucaoAgrupamento').value;
 
-    const params = new URLSearchParams();
-    // Add params only if they have a value
-    if (dataInicio) params.append('dataInicio', dataInicio);
-    if (dataFim) params.append('dataFim', dataFim);
-    if (status) params.append('status', status);
-    if (tipo) params.append('tipo', tipo);
-    if (lotacao) params.append('lotacao', lotacao);
-    if (pieChartDataType) params.append('pieChartDataType', pieChartDataType);
-    if (evolucaoPeriodo) params.append('evolucaoPeriodo', evolucaoPeriodo);
-    if (evolucaoAgrupamento) params.append('evolucaoAgrupamento', evolucaoAgrupamento);
+    if (dataInicio) filtrosHtml += `<strong>Data de Início:</strong> ${new Date(dataInicio+'T00:00:00').toLocaleDateString('pt-BR')} | `;
+    if (dataFim) filtrosHtml += `<strong>Data Final:</strong> ${new Date(dataFim+'T00:00:00').toLocaleDateString('pt-BR')} | `;
+    if (status) filtrosHtml += `<strong>Status:</strong> ${status} | `;
+    if (tipo) filtrosHtml += `<strong>Tipo:</strong> ${tipo} | `;
+    if (lotacao) filtrosHtml += `<strong>Lotação:</strong> ${lotacao} | `;
+    if (filtrosHtml) filtrosHtml = filtrosHtml.slice(0, -3); // Remove last " | "
+
+    let html = `
+        <div style="text-align: center; margin-bottom: 5px; padding-bottom: 5px; border-bottom: 1px solid #ccc;">
+            <img src="/static/img/logo.png" alt="Logo" style="height: 45px; margin-bottom: 5px;">
+            <h3 style="margin: 0; font-size: 1.1em;">Relatório de Desempenho - Dashboard</h3>
+            <p style="font-size: 0.7em; color: #555; margin: 2px 0 0 0;">Gerado em: ${new Date().toLocaleString('pt-BR')}</p>
+        </div>
+        <div style="font-size: 0.7em; padding: 5px; margin-bottom: 10px; background-color: #f5f5f5; border-radius: 4px; text-align: center;">
+            ${filtrosHtml ? filtrosHtml : 'Nenhum filtro principal aplicado.'}
+        </div>
+    `;
+
+    html += '<table style="width: 100%; border-collapse: collapse; page-break-inside: auto;"><tbody>';
+
+    // Cards Row
+    if (selectors.includes('.dashboard-cards')) {
+        const cardNovos = document.querySelector('#card-novos').innerHTML;
+        const cardPendentes = document.querySelector('#card-pendentes').innerHTML;
+        const cardFinalizados = document.querySelector('#card-finalizados').innerHTML;
+        html += `
+            <tr>
+                <td>
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <tr style="vertical-align: top; text-align: center;">
+                            <td style="width: 33%; border: 1px solid #eee; padding: 5px; border-radius: 8px;">${cardNovos}</td>
+                            <td style="width: 33%; border: 1px solid #eee; padding: 5px; border-radius: 8px;">${cardPendentes}</td>
+                            <td style="width: 33%; border: 1px solid #eee; padding: 5px; border-radius: 8px;">${cardFinalizados}</td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        `;
+    }
+
+    // Smaller Charts Row
+    const tiposChartSelected = selectors.includes('#tiposChart') && chartImageMap['#tiposChart'];
+    const statusChartSelected = selectors.includes('#statusChart') && chartImageMap['#statusChart'];
+    if (tiposChartSelected || statusChartSelected) {
+        html += `
+            <tr><td style="height: 5px;"></td></tr>
+            <tr>
+                <td>
+                    <table style="width: 100%; border-collapse: collapse;"><tr style="vertical-align: top; text-align: center;">
+        `;
+        if (tiposChartSelected) {
+            html += `<td style="width: 50%; padding-right: 2.5px; box-sizing: border-box;">
+                        <div style="border: 1px solid #eee; border-radius: 8px; padding: 10px;">
+                            <h4 style="font-size: 0.9em; margin: 0 0 5px 0;">Top 5 Tipos de Requerimento</h4>
+                            <img src="${chartImageMap['#tiposChart'].src}" style="width: 100%; height: auto;">
+                        </div>
+                     </td>`;
+        }
+        if (statusChartSelected) {
+            html += `<td style="width: 50%; padding-left: 2.5px; box-sizing: border-box;">
+                        <div style="border: 1px solid #eee; border-radius: 8px; padding: 10px;">
+                            <h4 style="font-size: 0.9em; margin: 0 0 5px 0;">${document.getElementById('pieChartTitle').textContent}</h4>
+                            <img src="${chartImageMap['#statusChart'].src}" style="width: 100%; height: auto;">
+                        </div>
+                     </td>`;
+        }
+        html += `</tr></table></td></tr>`;
+    }
+
+    // Evolution Chart Row
+    if (selectors.includes('#evolucaoChart') && chartImageMap['#evolucaoChart']) {
+        html += `
+            <tr><td style="height: 5px;"></td></tr>
+            <tr>
+                <td>
+                    <div style="border: 1px solid #eee; border-radius: 8px; padding: 10px; text-align: center;">
+                        <h4 style="font-size: 0.9em; margin: 0 0 5px 0;">${document.getElementById('evolucaoChartTitle').textContent}</h4>
+                        <img src="${chartImageMap['#evolucaoChart'].src}" style="width: 90%; height: auto; margin: 0 auto;">
+                    </div>
+                </td>
+            </tr>`;
+    }
+
+    html += '</tbody></table>';
+    previewContent.innerHTML = html;
+};
+
+window.salvarDashboardPersonalizadoPDF = async function() {
+    const content = document.getElementById('previewContent');
+    const button = document.querySelector('#modalPreviewImpressao button.btn-primary');
+
+    button.textContent = 'Gerando...';
+    button.disabled = true;
+
+    const opt = {
+        margin: 5,
+        filename: 'Dashboard_Personalizado.pdf',
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
 
     try {
-        fetch(`/api/dashboard-data?${params.toString()}`)
-            .then(response => {
-                if (!response.ok) {
-                    return response.json().then(err => { throw new Error(err.error || 'Erro na API') });
-                }
-                return response.json();
-            })
-            .then(stats => {
-                // Update cards
-                document.getElementById('stat-novos').textContent = stats.novosNoPeriodo || 0;
-                document.getElementById('stat-pendentes').textContent = stats.pendentesAntigos || 0;
-                document.getElementById('stat-finalizados').textContent = stats.totalFinalizados || 0;
-
-                // Update Bar Chart (Top 5 Tipos)
-                renderBarChart(stats.topTipos || []);
-
-                // Update Pie Chart (Status or Tipo)
-                const pieData = pieChartDataType === 'status' ? stats.statusProtocolos : stats.todosTipos;
-                const pieLabel = pieChartDataType === 'status' ? 'status' : 'tipo_requerimento';
-                renderPieChart(pieData || [], pieLabel);
-
-                // Update Line Chart (Evolução)
-                renderLineChart(stats.evolucaoProtocolos || [], evolucaoAgrupamento);
-            })
-            .catch(error => {
-                 console.error('Erro ao carregar o dashboard:', error);
-                 alert('Não foi possível carregar os dados do dashboard. Verifique o console para mais detalhes.');
-            });
-    } catch (error) {
-        console.error('Erro inesperado no fetch do dashboard:', error);
+        await html2pdf().set(opt).from(content).save();
+    } catch (err) {
+        console.error('Erro ao gerar PDF personalizado:', err);
+        alert('Ocorreu um erro ao gerar o PDF.');
+    } finally {
+        button.textContent = 'Salvar PDF';
+        button.disabled = false;
+        fecharModal('modalPreviewImpressao');
     }
-}
-
-function renderBarChart(data) {
-    const ctx = document.getElementById('tiposChart').getContext('2d');
-    if (tiposChart) tiposChart.destroy();
-    tiposChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: data.map(d => d.tipo_requerimento),
-            datasets: [{
-                label: 'Total de Protocolos',
-                data: data.map(d => d.total),
-                backgroundColor: '#36A2EB'
-            }]
-        },
-        options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } } }
-    });
-}
-
-function renderPieChart(data, labelField) {
-    const ctx = document.getElementById('statusChart').getContext('2d');
-    if (statusChart) statusChart.destroy();
-    statusChart = new Chart(ctx, {
-        type: 'pie',
-        data: {
-            labels: data.map(d => d[labelField]),
-            datasets: [{
-                data: data.map(d => d.total),
-                backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#C9CBCF'],
-            }]
-        },
-        options: { responsive: true }
-    });
-}
-
-function renderLineChart(data, groupBy) {
-    const ctx = document.getElementById('evolucaoChart').getContext('2d');
-    if (evolucaoChart) evolucaoChart.destroy();
-    evolucaoChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: data.map(d => {
-                const date = new Date(d.intervalo);
-                const userTimezoneOffset = date.getTimezoneOffset() * 60000;
-                return new Date(date.getTime() + userTimezoneOffset).toLocaleDateString('pt-BR', {
-                    day: 'numeric',
-                    month: groupBy === 'day' ? 'numeric' : 'long',
-                    year: 'numeric'
-                });
-            }),
-            datasets: [{
-                label: 'Novos Protocolos',
-                data: data.map(d => d.total),
-                borderColor: '#4BC0C0',
-                fill: false,
-                tension: 0.1
-            }]
-        },
-        options: { responsive: true, scales: { y: { beginAtZero: true } } }
-    });
-}
-
-
-function initializeDashboard() {
-    // Populate filter dropdowns
-    populateDropdown('/api/lotacoes', 'dashLotacao');
-    populateDropdown('/api/tipos_requerimento', 'dashTipo');
-
-    const statusSelect = document.getElementById('dashStatus');
-    if (statusSelect) {
-        const statuses = ['Aberto', 'Em análise', 'Pendente de documento', 'Finalizado', 'Concluído', 'Encaminhado'];
-        statuses.forEach(s => statusSelect.add(new Option(s, s)));
-    }
-
-    // Initial load
-    carregarDashboard();
-}
+};
 
 // --- Modal Action Functions ---
 window.handleStatusChange = function(selectElement) {
