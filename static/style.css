@@ -1,7 +1,7 @@
 :root {
     --primary-green: #2E7D32;
     --primary-green-dark: #256029;
-    --pastel-green: #A5D6A7; /* Even darker pastel green */
+    --pastel-green: #008000; /* User specified green */
     --dark-text: #343a40;
     --primary-blue: #0d6efd; /* Bootstrap blue for reference */
 }
