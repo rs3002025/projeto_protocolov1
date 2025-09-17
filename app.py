@@ -716,7 +716,7 @@ def dashboard_stats():
             period_query = period_query.filter(Protocolo.data_solicitacao <= datetime.strptime(data_fim_str, '%Y-%m-%d').date())
 
         # --- Novos no Período (Card) ---
-        novos_query = base_query
+        novos_query = base_query.filter(Protocolo.data_solicitacao != None)
         if data_inicio_str:
              novos_query = novos_query.filter(Protocolo.data_solicitacao >= datetime.strptime(data_inicio_str, '%Y-%m-%d').date())
         else: # Default to last 7 days if no start date
@@ -728,6 +728,7 @@ def dashboard_stats():
 
         # --- Pendentes Antigos (Card) ---
         pendentes_antigos = db.session.query(func.count(Protocolo.id)).filter(
+            Protocolo.data_solicitacao != None,
             Protocolo.data_solicitacao <= (datetime.now().date() - timedelta(days=15)),
             ~Protocolo.status.in_(['Finalizado', 'Concluído'])
         ).scalar()
@@ -736,41 +737,40 @@ def dashboard_stats():
         total_finalizados = period_query.filter(Protocolo.status.in_(['Finalizado', 'Concluído'])).count()
 
         # --- Top 5 Tipos (Bar Chart) ---
-        top_tipos = db.session.query(
+        top_tipos = period_query.with_entities(
             Protocolo.tipo_requerimento,
             func.count(Protocolo.id).label('total')
-        ).select_from(period_query.subquery()).filter(Protocolo.tipo_requerimento != None, Protocolo.tipo_requerimento != '').group_by(Protocolo.tipo_requerimento).order_by(func.count(Protocolo.id).desc()).limit(5).all()
+        ).filter(Protocolo.tipo_requerimento != None, Protocolo.tipo_requerimento != '').group_by(Protocolo.tipo_requerimento).order_by(func.count(Protocolo.id).desc()).limit(5).all()
 
         # --- Data for Pie Chart (Status or Tipo) ---
-        todos_tipos = db.session.query(
+        todos_tipos = period_query.with_entities(
             Protocolo.tipo_requerimento,
             func.count(Protocolo.id).label('total')
-        ).select_from(period_query.subquery()).filter(Protocolo.tipo_requerimento != None, Protocolo.tipo_requerimento != '').group_by(Protocolo.tipo_requerimento).order_by(func.count(Protocolo.id).desc()).all()
+        ).filter(Protocolo.tipo_requerimento != None, Protocolo.tipo_requerimento != '').group_by(Protocolo.tipo_requerimento).order_by(func.count(Protocolo.id).desc()).all()
 
-        status_protocolos = db.session.query(
+        status_protocolos = period_query.with_entities(
             Protocolo.status,
             func.count(Protocolo.id).label('total')
-        ).select_from(period_query.subquery()).filter(Protocolo.status != None, Protocolo.status != '').group_by(Protocolo.status).all()
+        ).filter(Protocolo.status != None, Protocolo.status != '').group_by(Protocolo.status).all()
 
         # --- Evolução (Line Chart) ---
-        evolucao_query = Protocolo.query
-        evolucao_query = evolucao_query.filter(Protocolo.data_solicitacao != None)
+        evolucao_query = base_query.filter(Protocolo.data_solicitacao != None)
         today = datetime.now().date()
         if evolucao_periodo == '7d':
             evolucao_query = evolucao_query.filter(Protocolo.data_solicitacao >= (today - timedelta(days=7)))
         elif evolucao_periodo == 'month':
             evolucao_query = evolucao_query.filter(func.date_trunc('month', Protocolo.data_solicitacao) == func.date_trunc('month', today))
         elif evolucao_periodo == 'all':
-             evolucao_query = evolucao_query.filter(Protocolo.data_solicitacao >= '2025-01-01') # As per JS logic
+             evolucao_query = evolucao_query.filter(Protocolo.data_solicitacao >= '2025-01-01')
         else: # 30d default
             evolucao_query = evolucao_query.filter(Protocolo.data_solicitacao >= (today - timedelta(days=30)))
 
         group_by_logic = func.date_trunc('month', Protocolo.data_solicitacao) if evolucao_agrupamento == 'month' else cast(Protocolo.data_solicitacao, Date)
 
-        evolucao_protocolos = db.session.query(
+        evolucao_protocolos = evolucao_query.with_entities(
             group_by_logic.label('intervalo'),
             func.count(Protocolo.id).label('total')
-        ).select_from(evolucao_query.subquery()).group_by('intervalo').order_by('intervalo').all()
+        ).group_by('intervalo').order_by('intervalo').all()
 
         # --- JSON Response Assembly ---
         stats = {
@@ -780,13 +780,13 @@ def dashboard_stats():
             'topTipos': [{'tipo_requerimento': r.tipo_requerimento, 'total': r.total} for r in top_tipos],
             'todosTipos': [{'tipo_requerimento': r.tipo_requerimento, 'total': r.total} for r in todos_tipos],
             'statusProtocolos': [{'status': r.status, 'total': r.total} for r in status_protocolos],
-            'evolucaoProtocolos': [{'intervalo': r.intervalo.isoformat(), 'total': r.total} for r in evolucao_protocolos]
+            'evolucaoProtocolos': [{'intervalo': r.intervalo.isoformat(), 'total': r.total} for r in evolucao_protocolos if r.intervalo is not None]
         }
         return jsonify(stats)
 
     except Exception as e:
         import traceback
-        app.logger.error(f"ERROR in dashboard_data: {e}\n{traceback.format_exc()}")
+        app.logger.error(f"ERROR in dashboard_stats: {e}\n{traceback.format_exc()}")
         return jsonify({'error': f'Ocorreu um erro no servidor ao buscar os dados do dashboard: {str(e)}'}), 500
 
 if __name__ == '__main__':
