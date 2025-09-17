@@ -28,8 +28,8 @@
                 </div>
                 <div class="header-user-menu">
                      <div class="dropdown">
-                        <button class="btn btn-secondary dropdown-toggle user-dropdown-btn" type="button" id="userMenuButton" data-bs-toggle="dropdown" aria-expanded="false">
-                            {{ current_user.nome }}
+                        <button class="btn btn-secondary dropdown-toggle user-dropdown-btn" type="button" id="userMenuButton" data-bs-toggle="dropdown" aria-expanded="false" title="{{ current_user.nome }}">
+                            👤
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userMenuButton">
                             <li><a class="dropdown-item" href="{{ url_for('configuracoes') }}">Configurações</a></li>
