@@ -19,28 +19,34 @@
     {% if current_user.is_authenticated %}
     <header class="main-header">
         <div class="header-container">
-            <a href="{{ url_for('home') }}" class="header-logo">
-                <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo">
-                <span>Sistema de Protocolo</span>
-            </a>
-            <nav class="main-nav">
-                <a href="{{ url_for('home') }}" class="nav-link">Dashboard</a>
-                <a href="{{ url_for('criar_protocolo') }}" class="nav-link">Novo Protocolo</a>
-                <a href="{{ url_for('listar_protocolos') }}" class="nav-link">Protocolos</a>
-                <a href="{{ url_for('meus_protocolos') }}" class="nav-link">Meus Protocolos</a>
-                <a href="{{ url_for('relatorios') }}" class="nav-link">Relatórios</a>
-            </nav>
-            <div class="header-user-menu">
-                 <div class="dropdown">
-                    <button class="btn btn-secondary dropdown-toggle user-dropdown-btn" type="button" id="userMenuButton" data-bs-toggle="dropdown" aria-expanded="false">
-                        {{ current_user.nome }}
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userMenuButton">
-                        <li><a class="dropdown-item" href="{{ url_for('configuracoes') }}">Configurações</a></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item" href="{{ url_for('logout') }}">Sair</a></li>
-                    </ul>
+            <div class="header-top-row">
+                <div class="header-logo-wrapper">
+                    <a href="{{ url_for('home') }}" class="header-logo">
+                        <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo">
+                        <span>Sistema de Protocolo</span>
+                    </a>
                 </div>
+                <div class="header-user-menu">
+                     <div class="dropdown">
+                        <button class="btn btn-secondary dropdown-toggle user-dropdown-btn" type="button" id="userMenuButton" data-bs-toggle="dropdown" aria-expanded="false">
+                            {{ current_user.nome }}
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userMenuButton">
+                            <li><a class="dropdown-item" href="{{ url_for('configuracoes') }}">Configurações</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{{ url_for('logout') }}">Sair</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="header-bottom-row">
+                <nav class="main-nav">
+                    <a href="{{ url_for('home') }}" class="nav-link">Dashboard</a>
+                    <a href="{{ url_for('criar_protocolo') }}" class="nav-link">Novo Protocolo</a>
+                    <a href="{{ url_for('listar_protocolos') }}" class="nav-link">Protocolos</a>
+                    <a href="{{ url_for('meus_protocolos') }}" class="nav-link">Meus Protocolos</a>
+                    <a href="{{ url_for('relatorios') }}" class="nav-link">Relatórios</a>
+                </nav>
             </div>
         </div>
     </header>
