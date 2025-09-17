@@ -1,7 +1,7 @@
 :root {
     --primary-green: #2E7D32;
     --primary-green-dark: #256029;
-    --pastel-green: #008000; /* User specified green */
+    --pastel-green: #5CE65C; /* User specified green */
     --dark-text: #343a40;
     --primary-blue: #0d6efd; /* Bootstrap blue for reference */
 }
@@ -508,7 +508,7 @@ textarea:focus {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    height: 70px;
+    height: 100px;
 }
 
 .header-logo {
@@ -521,12 +521,12 @@ textarea:focus {
 }
 
 .header-logo img {
-    height: 40px;
+    height: 50px;
     margin-bottom: 5px;
 }
 
 .header-logo span {
-    font-size: 0.8rem;
+    font-size: 1rem;
 }
 
 .main-nav {
