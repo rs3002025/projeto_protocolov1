@@ -106,6 +106,30 @@
             <a href="{{ url_for('home') }}" class="btn btn-secondary">Voltar</a>
         </div>
     </form>
+
+    <!-- Modal Busca Servidor -->
+    <div class="modal fade" id="modalBuscaServidor" tabindex="-1" aria-labelledby="modalBuscaServidorLabel" aria-hidden="true">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="modalBuscaServidorLabel">Buscar Servidor por Nome</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <label for="buscaNomeInput" class="form-label">Nome do Servidor</label>
+              <input type="text" class="form-control" id="buscaNomeInput" placeholder="Digite para buscar...">
+            </div>
+            <div id="buscaNomeResultados" class="list-group">
+              <!-- Search results will appear here -->
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+          </div>
+        </div>
+      </div>
+    </div>
 </div>
 {% endblock %}
 
@@ -124,27 +148,3 @@ window.protocoloData = {
 {% endif %}
 </script>
 {% endblock %}
-
-<!-- Modal Busca Servidor -->
-<div class="modal fade" id="modalBuscaServidor" tabindex="-1" aria-labelledby="modalBuscaServidorLabel" aria-hidden="true">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="modalBuscaServidorLabel">Buscar Servidor por Nome</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <div class="mb-3">
-          <label for="buscaNomeInput" class="form-label">Nome do Servidor</label>
-          <input type="text" class="form-control" id="buscaNomeInput" placeholder="Digite para buscar...">
-        </div>
-        <div id="buscaNomeResultados" class="list-group">
-          <!-- Search results will appear here -->
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
-      </div>
-    </div>
-  </div>
-</div>
