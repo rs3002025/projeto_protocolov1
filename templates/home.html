@@ -121,16 +121,15 @@
 {% endblock %}
 
 {% block scripts %}
+{# The main logic is now in static/script.js. The onclick attributes in the HTML will call the global functions defined there. #}
+{# We can add page-specific JS here if needed in the future. #}
 <script>
-// This will be implemented in the next step, in static/script.js
-function carregarDashboard() {
-    console.log("carregarDashboard() called. Needs implementation.");
-}
-function imprimirDashboard() {
-    console.log("imprimirDashboard() called. Needs implementation.");
-}
-function abrirModalImpressao() {
-     console.log("abrirModalImpressao() called. Needs implementation.");
-}
+    // Placeholder functions for buttons that are not yet implemented
+    function imprimirDashboard() {
+        alert("Funcionalidade de impressão rápida ainda não implementada.");
+    }
+    function abrirModalImpressao() {
+        alert("Funcionalidade de impressão personalizada ainda não implementada.");
+    }
 </script>
 {% endblock %}
