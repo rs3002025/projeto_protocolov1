@@ -64,20 +64,6 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 });
 
-// --- FROM SCRATCH TEST ---
-// This is a self-contained test to diagnose the modal issue.
-document.addEventListener('DOMContentLoaded', function() {
-    const newButton = document.getElementById('start-from-scratch-search-btn');
-    const newModalEl = document.getElementById('from-scratch-search-modal');
-
-    if (newButton && newModalEl) {
-        const newModal = new bootstrap.Modal(newModalEl);
-        newButton.addEventListener('click', function() {
-            newModal.show();
-        });
-    }
-});
-
 // --- NEW DASHBOARD FUNCTIONS ---
 let tiposChartInstance = null;
 let statusChartInstance = null;
