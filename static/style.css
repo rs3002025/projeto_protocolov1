@@ -1,11 +1,3 @@
-:root {
-    --primary-green: #2E7D32;
-    --primary-green-dark: #256029;
-    --pastel-green: #E8F5E9;
-    --dark-text: #343a40;
-    --primary-blue: #0d6efd; /* Bootstrap blue for reference */
-}
-
 /* --- ESTILOS GERAIS --- */
 body { margin: 0; font-family: Arial, sans-serif; background: #f5f5f5; }
 body.loading { visibility: hidden; }
@@ -37,7 +29,7 @@ button, .btn {
 button {
     padding: 10px 12px;
     border: none;
-    background: var(--primary-green);
+    background: #0d6efd; /* New default blue */
     color: white;
     border-radius: 8px;
     cursor: pointer;
@@ -45,7 +37,7 @@ button {
 }
 
 button:hover {
-    background-color: var(--primary-green-dark);
+    background-color: #0b5ed7; /* Darker blue on hover */
 }
 
 .filtros { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; background: #f5f5f5; padding: 15px; border-radius: 8px; }
@@ -142,9 +134,9 @@ input[type="date"]:focus,
 input[type="number"]:focus,
 select:focus,
 textarea:focus {
-    border-color: var(--primary-green);
+    border-color: #86b7fe;
     outline: 0;
-    box-shadow: 0 0 0 0.25rem rgba(46, 125, 50, .25);
+    box-shadow: 0 0 0 0.25rem rgba(13,110,253,.25);
 }
 
 /* Estilo para a coluna de Ação em todas as tabelas */
@@ -233,6 +225,22 @@ textarea:focus {
 }
 
 /* --- NOVOS ESTILOS DO DASHBOARD --- */
+
+/* Cabeçalho do Dashboard */
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.dashboard-header h3 {
+  margin: 0;
+}
+
+.dashboard-actions button {
+  margin-left: 10px;
+}
 
 /* Cards com mais cor */
 .dashboard-cards {
@@ -487,8 +495,8 @@ textarea:focus {
 }
 
 .login-box .btn-primary {
-    background-color: var(--primary-green);
-    border-color: var(--primary-green);
+    background-color: #0d6efd; /* Cor azul padrão do Bootstrap 5 */
+    border-color: #0d6efd;
 }
 
 /* --- ESTILOS DO NOVO LAYOUT E HEADER --- */
@@ -498,9 +506,9 @@ textarea:focus {
 }
 
 .main-header {
-    background-color: var(--pastel-green);
+    background-color: #ffffff;
     padding: 0 2rem;
-    border-bottom: 1px solid #d4d4d4; /* A slightly darker border for contrast */
+    border-bottom: 1px solid #e9ecef;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
@@ -532,7 +540,7 @@ textarea:focus {
 
 .main-nav .nav-link {
     text-decoration: none;
-    color: var(--dark-text);
+    color: #495057;
     font-weight: 500;
     padding: 5px 0;
     border-bottom: 2px solid transparent;
@@ -541,21 +549,21 @@ textarea:focus {
 
 .main-nav .nav-link:hover,
 .main-nav .nav-link.active { /* Add 'active' class with JS for current page */
-    color: var(--primary-green);
-    border-bottom-color: var(--primary-green);
+    color: #0d6efd;
+    border-bottom-color: #0d6efd;
 }
 
 .header-user-menu .user-dropdown-btn {
     background-color: transparent;
     border: none;
-    color: var(--dark-text);
+    color: #495057;
     font-weight: 500;
 }
 
 .header-user-menu .user-dropdown-btn:hover,
 .header-user-menu .user-dropdown-btn:focus {
-    background-color: #f8f9fa; /* Keep a light hover effect */
-    color: var(--primary-green);
+    background-color: #f8f9fa;
+    color: #0d6efd;
 }
 
 .main-content {
