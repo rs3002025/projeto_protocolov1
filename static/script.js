@@ -56,12 +56,6 @@ document.addEventListener('DOMContentLoaded', function () {
     // --- Delegated Event Listeners ---
     // Use event delegation for buttons that might be on any page.
     // This is more robust than attaching listeners directly in some cases.
-    document.addEventListener('click', function(e) {
-        // Delegated listener for the server search modal button
-        if (e.target && e.target.id === 'btnBuscarNome') {
-            openServidorSearchModal();
-        }
-    });
 });
 
 // --- NEW DASHBOARD FUNCTIONS ---
@@ -467,7 +461,11 @@ function initializeProtocolForm() {
     document.getElementById('matricula').addEventListener('blur', fetchServidorByMatricula);
     document.getElementById('cep').addEventListener('blur', fetchCep);
 
-    // Event listener for the search button is now handled by delegation in the main DOMContentLoaded listener.
+    // Attach listener for the server search button directly
+    const btnBuscarNome = document.getElementById('btnBuscarNome');
+    if (btnBuscarNome) {
+        btnBuscarNome.addEventListener('click', openServidorSearchModal);
+    }
 
     const buscaInput = document.getElementById('buscaNomeInput');
     if (buscaInput) {
