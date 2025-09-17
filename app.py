@@ -686,9 +686,9 @@ def get_protocolo_api(protocolo_id):
         'responsavel': protocolo.responsavel,
     })
 
-@app.route('/api/dashboard-data')
+@app.route('/protocolos/dashboard-stats')
 @login_required
-def dashboard_data():
+def dashboard_stats():
     try:
         # --- Filter Parsing ---
         data_inicio_str = request.args.get('dataInicio')

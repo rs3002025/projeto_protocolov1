@@ -4,132 +4,69 @@
     <div class="dashboard-header">
       <h3>Dashboard Gerencial</h3>
       <div class="dashboard-actions">
-        {# These buttons will need JS functions to be implemented #}
-        <button class="btn btn-sm btn-info" onclick="imprimirDashboard()">🖨️ Impressão Rápida</button>
-        <button class="btn btn-sm btn-secondary" onclick="abrirModalImpressao()">📄 Impressão Personalizada</button>
+        <button class="btn btn-info" onclick="imprimirDashboard()">🖨️ Impressão Rápida</button>
+        <button class="btn btn-secondary" onclick="abrirModalImpressao()">📄 Impressão Personalizada</button>
       </div>
     </div>
-    <div class="card mt-3">
-        <div class="card-body">
-            <h5 class="card-title">Filtros</h5>
-            <div class="row g-3 align-items-center">
-                <div class="col-md-2">
-                    <label for="dashDataInicio" class="form-label">Data Início</label>
-                    <input type="date" id="dashDataInicio" class="form-control form-control-sm" title="Data de Início">
-                </div>
-                <div class="col-md-2">
-                    <label for="dashDataFim" class="form-label">Data Final</label>
-                    <input type="date" id="dashDataFim" class="form-control form-control-sm" title="Data Final">
-                </div>
-                <div class="col-md-2">
-                    <label for="dashStatus" class="form-label">Status</label>
-                    <select id="dashStatus" class="form-select form-select-sm"><option value="">Todos</option></select>
-                </div>
-                <div class="col-md-2">
-                    <label for="dashTipo" class="form-label">Tipo Requerimento</label>
-                    <select id="dashTipo" class="form-select form-select-sm"><option value="">Todos</option></select>
-                </div>
-                <div class="col-md-2">
-                    <label for="dashLotacao" class="form-label">Lotação</label>
-                    <select id="dashLotacao" class="form-select form-select-sm"><option value="">Todas</option></select>
-                </div>
-                <div class="col-md-2 align-self-end">
-                     <button class="btn btn-primary w-100" onclick="carregarDashboard()">Filtrar</button>
-                </div>
-            </div>
+    <div class="filtros">
+        <input type="date" id="dashDataInicio" class="form-control" title="Data de Início">
+        <input type="date" id="dashDataFim" class="form-control" title="Data Final">
+        <select id="dashStatus" class="form-select"><option value="">Todos os Status</option></select>
+        <select id="dashTipo" class="form-select"><option value="">Todo tipo de Requerimento</option></select>
+        <select id="dashLotacao" class="form-select"><option value="">Todas as Lotações</option></select>
+        <button class="btn btn-primary" onclick="carregarDashboard()">Filtrar</button>
+    </div>
+    <div class="dashboard-cards">
+        <div class="stat-card" id="card-novos">
+            <div class="stat-value" id="stat-novos">0</div>
+            <div class="stat-label" id="stat-novos-label">Novos na Semana</div>
+        </div>
+        <div class="stat-card" id="card-pendentes">
+            <div class="stat-value" id="stat-pendentes">0</div>
+            <div class="stat-label">Pendentes (> 15 dias)</div>
+        </div>
+        <div class="stat-card" id="card-finalizados">
+            <div class="stat-value" id="stat-finalizados">0</div>
+            <div class="stat-label">Finalizados (no Período)</div>
         </div>
     </div>
-    <div class="row mt-4">
-        <div class="col-md-4">
-            <div class="card text-white bg-primary text-center">
-                <div class="card-header" id="stat-novos-label">Novos na Semana</div>
-                <div class="card-body">
-                    <h2 class="card-title" id="stat-novos">0</h2>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card text-dark bg-warning text-center">
-                <div class="card-header">Pendentes (> 15 dias)</div>
-                <div class="card-body">
-                    <h2 class="card-title" id="stat-pendentes">0</h2>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card text-white bg-success text-center">
-                <div class="card-header">Finalizados no Período</div>
-                <div class="card-body">
-                    <h2 class="card-title" id="stat-finalizados">0</h2>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="row mt-4">
-      <div class="col-lg-6">
-          <div class="card">
-              <div class="card-header">
-                Top 5 Tipos de Requerimento (no Período)
-              </div>
-              <div class="card-body">
-                <canvas id="tiposChart"></canvas>
-              </div>
+    <div class="dashboard-charts-grid">
+      <div class="chart-container">
+          <div class="chart-header">
+            <h4>Top 5 Tipos de Requerimento (no Período)</h4>
           </div>
+          <canvas id="tiposChart"></canvas>
       </div>
-      <div class="col-lg-6">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0" id="pieChartTitle">Protocolos (no Período)</h5>
-                <div class="chart-filters">
-                    <select id="pieChartDataType" class="form-select form-select-sm" onchange="carregarDashboard()">
-                        <option value="status" selected>Agrupar por Status</option>
-                        <option value="tipo">Agrupar por Tipo</option>
-                    </select>
-                </div>
-            </div>
-            <div class="card-body">
-                <canvas id="statusChart"></canvas>
+      <div class="chart-container">
+        <div class="chart-header">
+            <h4 id="pieChartTitle">Protocolos por Status (no Período)</h4>
+            <div class="chart-filters">
+                <select id="pieChartDataType" class="form-select form-select-sm" onchange="carregarDashboard()">
+                    <option value="status" selected>Por Status</option>
+                    <option value="tipo">Por Tipo de Requerimento</option>
+                </select>
             </div>
         </div>
+        <canvas id="statusChart"></canvas>
       </div>
-    </div>
-    <div class="row mt-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0" id="evolucaoChartTitle">Evolução de Novos Protocolos</h5>
-                    <div class="chart-filters d-flex gap-2">
-                        <select id="evolucaoPeriodo" class="form-select form-select-sm" onchange="carregarDashboard()">
-                            <option value="7d">Últimos 7 dias</option>
-                            <option value="30d" selected>Últimos 30 dias</option>
-                            <option value="month">Mês Atual</option>
-                            <option value="all">Desde o início</option>
-                        </select>
-                        <select id="evolucaoAgrupamento" class="form-select form-select-sm" onchange="carregarDashboard()">
-                            <option value="day" selected>Agrupar por Dia</option>
-                            <option value="month">Agrupar por Mês</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="card-body">
-                    <canvas id="evolucaoChart"></canvas>
-                </div>
+      <div class="chart-container full-width">
+        <div class="chart-header">
+            <h4 id="evolucaoChartTitle">Evolução de Novos Protocolos</h4>
+            <div class="chart-filters">
+                <select id="evolucaoPeriodo" class="form-select form-select-sm" onchange="carregarDashboard()">
+                    <option value="7d">Últimos 7 dias</option>
+                    <option value="30d" selected>Últimos 30 dias</option>
+                    <option value="month">Mês Atual</option>
+                    <option value="all">Desde o início</option>
+                </select>
+                <select id="evolucaoAgrupamento" class="form-select form-select-sm" onchange="carregarDashboard()">
+                    <option value="day" selected>Agrupar por Dia</option>
+                    <option value="month">Agrupar por Mês</option>
+                </select>
             </div>
         </div>
+        <canvas id="evolucaoChart"></canvas>
+      </div>
     </div>
 </div>
-{% endblock %}
-
-{% block scripts %}
-{# The main logic is now in static/script.js. The onclick attributes in the HTML will call the global functions defined there. #}
-{# We can add page-specific JS here if needed in the future. #}
-<script>
-    // Placeholder functions for buttons that are not yet implemented
-    function imprimirDashboard() {
-        alert("Funcionalidade de impressão rápida ainda não implementada.");
-    }
-    function abrirModalImpressao() {
-        alert("Funcionalidade de impressão personalizada ainda não implementada.");
-    }
-</script>
 {% endblock %}
