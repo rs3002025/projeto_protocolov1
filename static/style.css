@@ -1,7 +1,7 @@
 :root {
     --primary-green: #2E7D32;
     --primary-green-dark: #256029;
-    --pastel-green: #5CE65C; /* User specified green */
+    --pastel-green: #CCFFCC; /* User specified green */
     --dark-text: #343a40;
     --primary-blue: #0d6efd; /* Bootstrap blue for reference */
 }
@@ -499,72 +499,97 @@ textarea:focus {
 
 .main-header {
     background-color: var(--pastel-green);
-    padding: 0 2rem;
-    border-bottom: 1px solid #d4d4d4; /* A slightly darker border for contrast */
+    padding: 1rem 2rem; /* Add padding for height */
+    border-bottom: 1px solid #d4d4d4;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .header-container {
     display: flex;
+    flex-direction: column;
     align-items: center;
+    justify-content: center;
+}
+
+.header-top-row {
+    display: flex;
     justify-content: space-between;
-    height: 100px;
+    align-items: center;
+    width: 100%;
+    position: relative; /* For user menu positioning */
+}
+
+.header-logo-wrapper {
+    flex-grow: 1;
+    display: flex;
+    justify-content: center;
+    padding-left: 100px; /* Offset for user menu space */
 }
 
 .header-logo {
     display: flex;
-    flex-direction: column;
     align-items: center;
     text-decoration: none;
-    color: var(--dark-text);
-    font-weight: 600;
+    gap: 15px;
 }
 
 .header-logo img {
     height: 50px;
-    margin-bottom: 5px;
 }
 
 .header-logo span {
-    font-size: 1rem;
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #FFFFFF;
+}
+
+.header-user-menu {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    right: 0;
+}
+
+.header-bottom-row {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    margin-top: 1rem;
 }
 
 .main-nav {
     display: flex;
-    gap: 1.5rem;
+    gap: 2rem;
 }
 
 .main-nav .nav-link {
     text-decoration: none;
-    color: #FFFFFF;
+    color: var(--dark-text);
     font-weight: 500;
+    font-size: 1.1rem; /* Larger font size */
     padding: 5px 0;
     border-bottom: 2px solid transparent;
-    transition: color 0.2s ease, border-bottom-color 0.2s ease, opacity 0.2s;
-    opacity: 0.85;
+    transition: color 0.2s ease, border-bottom-color 0.2s ease;
     white-space: nowrap;
 }
 
 .main-nav .nav-link:hover,
-.main-nav .nav-link.active { /* Add 'active' class with JS for current page */
-    color: #FFFFFF;
-    border-bottom-color: #FFFFFF;
-    opacity: 1;
+.main-nav .nav-link.active {
+    color: var(--dark-text);
+    border-bottom-color: var(--primary-green);
 }
 
 .header-user-menu .user-dropdown-btn {
     background-color: transparent;
     border: none;
-    color: #FFFFFF;
+    color: var(--dark-text);
     font-weight: 500;
-    opacity: 0.85;
 }
 
 .header-user-menu .user-dropdown-btn:hover,
 .header-user-menu .user-dropdown-btn:focus {
-    background-color: rgba(255, 255, 255, 0.1); /* Light hover effect */
-    color: #FFFFFF;
-    opacity: 1;
+    background-color: rgba(0, 0, 0, 0.05);
+    color: var(--dark-text);
 }
 
 .main-content {
