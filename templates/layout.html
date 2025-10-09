@@ -15,6 +15,7 @@
     <script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs/qrcode.min.js"></script>
 </head>
 <body class="{% if request.endpoint == 'login' %}login-page-bg{% endif %}">
+    
 
     {% if current_user.is_authenticated %}
     <header class="main-header">
