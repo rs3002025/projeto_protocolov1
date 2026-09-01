@@ -18,6 +18,12 @@ TENANT_TABLES = (
 )
 
 SCHEMA_COLUMNS = {
+    'organizacoes': {
+        'logo_data': 'BLOB',
+        'logo_mime_type': 'VARCHAR(80)',
+        'logo_nome_arquivo': 'VARCHAR(255)',
+        'logo_atualizada_em': 'TIMESTAMP',
+    },
     'usuarios': {
         'lotacao_id': 'BIGINT',
     },
@@ -70,6 +76,8 @@ def bootstrap():
                 columns = {column['name'] for column in inspect(connection).get_columns(table)}
                 for column, sql_type in expected_columns.items():
                     if column not in columns:
+                        if column == 'logo_data' and db.engine.dialect.name == 'postgresql':
+                            sql_type = 'BYTEA'
                         connection.execute(text(f'ALTER TABLE {table} ADD COLUMN {column} {sql_type}'))
 
             if db.engine.dialect.name == 'postgresql':
