@@ -752,7 +752,7 @@ window.previsualizarPDF = async function(id = null, isFromForm = false) {
       qrcodeContainer.innerHTML = '';
       const numeroParts = protocolo.numero.split('/');
       if (numeroParts.length === 2) {
-          const urlConsulta = `${window.location.origin}/consulta/${numeroParts[1]}/${numeroParts[0]}`;
+          const urlConsulta = `${window.location.origin}/consulta/${encodeURIComponent(protocolo.consulta_token)}`;
           new QRCode(qrcodeContainer, { text: urlConsulta, width: 90, height: 90, correctLevel: QRCode.CorrectLevel.H });
       }
   }

@@ -94,6 +94,10 @@
             {# Formata a data para o formato YYYY-MM-DD que o input[type=date] espera #}
             <input type="date" id="dataSolicitacao" name="data_solicitacao" class="form-control" value="{{ protocolo.data_solicitacao.strftime('%Y-%m-%d') if protocolo and protocolo.data_solicitacao else '' }}">
         </div>
+        <div class="form-group span-3">
+            <label for="prazoEm">Prazo para conclusão</label>
+            <input type="date" id="prazoEm" name="prazo_em" class="form-control" value="{{ protocolo.prazo_em.strftime('%Y-%m-%d') if protocolo and protocolo.prazo_em else '' }}">
+        </div>
         <div class="form-group full-row">
             <label for="complemento">Informações Complementares</label>
             <textarea id="complemento" name="observacoes" rows="8" class="form-control">{{ protocolo.observacoes if protocolo else '' }}</textarea>
