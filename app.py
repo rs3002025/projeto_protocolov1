@@ -70,7 +70,7 @@ ROLE_PERMISSIONS = {
 
 @app.context_processor
 def permission_context():
-    logo_url = url_for('static', filename='img/logo-sistema.svg')
+    logo_url = url_for('static', filename='img/logo-sysprot.svg')
     if current_user.is_authenticated and current_user.organizacao:
         version = int(current_user.organizacao.logo_atualizada_em.timestamp()) if current_user.organizacao.logo_atualizada_em else 0
         logo_url = url_for('organization_logo', slug=current_user.organizacao.slug, v=version)
@@ -103,7 +103,7 @@ def organization_logo(slug):
     organizacao = Organizacao.query.filter_by(slug=slug.strip().lower(), ativo=True).first()
     if not organizacao or not organizacao.logo_data:
         default_slug = os.getenv('DEFAULT_ORGANIZATION_SLUG', 'prefeitura').strip().lower()
-        fallback = 'img/logo.png' if organizacao and organizacao.slug == default_slug else 'img/logo-sistema.svg'
+        fallback = 'img/logo.png' if organizacao and organizacao.slug == default_slug else 'img/logo-sysprot.svg'
         return redirect(url_for('static', filename=fallback))
     response = send_file(io.BytesIO(organizacao.logo_data), mimetype='image/png',
                          download_name='logo.png', max_age=3600, conditional=True)
