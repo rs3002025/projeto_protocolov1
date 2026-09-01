@@ -16,6 +16,10 @@ class Organizacao(db.Model):
     slug = db.Column(db.String(80), unique=True, nullable=False, index=True)
     ativo = db.Column(db.Boolean, nullable=False, default=True)
     criado_em = db.Column(db.TIMESTAMP, server_default=db.func.current_timestamp(), nullable=False)
+    logo_data = db.Column(db.LargeBinary)
+    logo_mime_type = db.Column(db.String(80))
+    logo_nome_arquivo = db.Column(db.String(255))
+    logo_atualizada_em = db.Column(db.TIMESTAMP)
 
 class TenantMixin:
     tenant_id = db.Column(db.Integer, db.ForeignKey('organizacoes.id'), nullable=False, index=True)
