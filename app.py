@@ -42,10 +42,11 @@ from flask_login import login_user, current_user, logout_user, login_required
 from flask import send_file, Response, jsonify, make_response
 from werkzeug.utils import secure_filename
 import io
+import hmac
 from openpyxl import Workbook
 from sqlalchemy import func, cast, Date
 from datetime import datetime, timedelta
-from forms import LoginForm, RegistrationForm, ProtocoloForm, AnexoForm, AdminUserCreationForm, AdminListItemForm
+from forms import LoginForm, RegistrationForm, ProtocoloForm, AnexoForm, AdminUserCreationForm, AdminListItemForm, ConsultaPublicaForm
 from models import Organizacao, Usuario, Protocolo, HistoricoProtocolo, Movimentacao, Anexo, Lotacao, TipoRequerimento, Servidor, db
 
 def tenant_query(model):
@@ -86,9 +87,9 @@ def permission_required(permission):
 def health():
     return jsonify({'status': 'ok'})
 
-@app.get('/consulta/<string:organizacao_slug>/<int:ano>/<int:sequencial>')
+@app.route('/consulta/<string:organizacao_slug>/<int:ano>/<int:sequencial>', methods=['GET', 'POST'])
 def consulta_publica(organizacao_slug, ano, sequencial):
-    """Consulta pública mínima, sem expor dados pessoais do requerente."""
+    """Exige confirmação da matrícula antes de exibir o andamento."""
     organizacao = Organizacao.query.filter_by(slug=organizacao_slug, ativo=True).first_or_404()
     candidatos = Protocolo.query.filter(
         Protocolo.tenant_id == organizacao.id,
@@ -100,11 +101,28 @@ def consulta_publica(organizacao_slug, ano, sequencial):
     if protocolo is None:
         from flask import abort
         abort(404)
-    historico = HistoricoProtocolo.query.filter_by(
-        tenant_id=organizacao.id, protocolo_id=protocolo.id
-    ).order_by(HistoricoProtocolo.data_movimentacao.desc()).all()
+    form = ConsultaPublicaForm()
+    consulta_autorizada = False
+    erro_consulta = None
+    historico = []
+    if form.validate_on_submit():
+        matricula_armazenada = (protocolo.matricula or '').strip().casefold()
+        matricula_informada = form.matricula.data.strip().casefold()
+        consulta_autorizada = bool(matricula_armazenada) and hmac.compare_digest(
+            matricula_armazenada, matricula_informada
+        )
+        if consulta_autorizada:
+            historico = HistoricoProtocolo.query.filter_by(
+                tenant_id=organizacao.id, protocolo_id=protocolo.id
+            ).order_by(HistoricoProtocolo.data_movimentacao.desc()).all()
+        else:
+            erro_consulta = 'Não foi possível validar os dados informados.'
+    elif request.method == 'POST':
+        erro_consulta = 'Não foi possível validar os dados informados.'
     return render_template('consulta_publica.html', protocolo=protocolo,
-                           organizacao=organizacao, historico=historico)
+                           organizacao=organizacao, historico=historico,
+                           form=form, consulta_autorizada=consulta_autorizada,
+                           erro_consulta=erro_consulta)
 
 @app.route("/")
 @app.route("/home")
