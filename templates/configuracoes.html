@@ -4,6 +4,21 @@
     <h1>Configurações do Sistema</h1>
     <p class="text-muted">Página de administração para gerenciar usuários e listas do sistema.</p>
 
+    <div class="card mt-4">
+        <div class="card-header"><h4>Identidade visual da organização</h4></div>
+        <div class="card-body">
+            <p>A logo cadastrada será usada no login, cabeçalho, documentos e relatórios.</p>
+            <img src="{{ branding_logo_url }}" alt="Logo atual de {{ organizacao.nome }}" style="max-height: 100px; max-width: 320px" class="mb-3 d-block">
+            <form method="POST" action="{{ url_for('admin_update_logo') }}" enctype="multipart/form-data">
+                {{ branding_form.hidden_tag() }}
+                <div class="mb-3">{{ branding_form.logo.label }} {{ branding_form.logo(class="form-control", accept="image/png,image/jpeg,image/webp") }}</div>
+                {{ branding_form.salvar(class="btn btn-primary") }}
+                {{ branding_form.remover(class="btn btn-outline-secondary ms-2") }}
+                <div class="form-text">PNG, JPG ou WebP, até 5 MB. A imagem será redimensionada e convertida para PNG.</div>
+            </form>
+        </div>
+    </div>
+
     <!-- User Management Section -->
     <div class="card mt-4">
         <div class="card-header">
