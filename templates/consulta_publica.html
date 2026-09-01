@@ -42,7 +42,7 @@
   <h2>Andamentos</h2>
   <ol>
     {% for item in historico %}
-      <li><strong>{{ item.acao }}</strong> — {{ item.status }}<br><small>{{ item.data_movimentacao.strftime('%d/%m/%Y %H:%M') }}{% if item.observacao %} · {{ item.observacao }}{% endif %}</small></li>
+      <li><strong>{{ item.acao }}</strong> — {{ item.status }}<br><small>{{ item.data_movimentacao.strftime('%d/%m/%Y %H:%M') }}</small></li>
     {% else %}
       <li>Nenhum andamento registrado.</li>
     {% endfor %}
