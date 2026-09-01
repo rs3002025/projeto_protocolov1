@@ -72,7 +72,13 @@ class AdminUserCreationForm(FlaskForm):
     login = StringField('Login', validators=[DataRequired()])
     email = StringField('Email', validators=[DataRequired()])
     senha = PasswordField('Senha', validators=[DataRequired(), Length(min=6)])
-    tipo = SelectField('Tipo', choices=[('user', 'Usuário'), ('admin', 'Administrador')], validators=[DataRequired()])
+    tipo = SelectField('Perfil', choices=[
+        ('consulta', 'Consulta'),
+        ('atendente', 'Atendente'),
+        ('gestor', 'Gestor'),
+        ('admin', 'Administrador'),
+    ], validators=[DataRequired()])
+    lotacao_id = SelectField('Setor/Lotação', coerce=int, choices=[], validators=[Optional()])
     submit = SubmitField('Criar Usuário')
 
     def validate_login(self, login):

@@ -46,7 +46,7 @@ from openpyxl import Workbook
 from sqlalchemy import func, cast, Date
 from datetime import datetime, timedelta
 from forms import LoginForm, RegistrationForm, ProtocoloForm, AnexoForm, AdminUserCreationForm, AdminListItemForm
-from models import Organizacao, Usuario, Protocolo, HistoricoProtocolo, Anexo, Lotacao, TipoRequerimento, Servidor, db
+from models import Organizacao, Usuario, Protocolo, HistoricoProtocolo, Movimentacao, Anexo, Lotacao, TipoRequerimento, Servidor, db
 
 def tenant_query(model):
     """Consulta obrigatoriamente limitada à organização autenticada."""
@@ -54,6 +54,32 @@ def tenant_query(model):
 
 def tenant_get_or_404(model, object_id):
     return tenant_query(model).filter(model.id == object_id).first_or_404()
+
+ROLE_PERMISSIONS = {
+    'admin': {'view', 'create', 'edit', 'route', 'archive', 'delete', 'manage', 'reports'},
+    'gestor': {'view', 'create', 'edit', 'route', 'archive', 'reports'},
+    'user': {'view', 'create', 'edit', 'route'},
+    'atendente': {'view', 'create', 'edit', 'route'},
+    'consulta': {'view'},
+}
+
+@app.context_processor
+def permission_context():
+    return {'can': lambda permission: current_user.is_authenticated and permission in ROLE_PERMISSIONS.get(current_user.tipo, set())}
+
+def permission_required(permission):
+    def decorator(view):
+        @wraps(view)
+        @login_required
+        def wrapped(*args, **kwargs):
+            if permission not in ROLE_PERMISSIONS.get(current_user.tipo, set()):
+                if request.is_json:
+                    return jsonify({'erro': 'Acesso negado.'}), 403
+                flash('Acesso negado.', 'danger')
+                return redirect(url_for('home'))
+            return view(*args, **kwargs)
+        return wrapped
+    return decorator
 
 # --- Routes ---
 @app.get('/health')
@@ -154,8 +180,9 @@ def configuracoes():
         # Lógica de criação de usuário movida para uma rota de API dedicada
         pass
 
-    users = tenant_query(Usuario).all()
     lotacoes = tenant_query(Lotacao).all()
+    user_form.lotacao_id.choices = [(0, 'Sem setor definido')] + [(item.id, item.nome) for item in lotacoes if item.ativo]
+    users = tenant_query(Usuario).all()
     tipos = tenant_query(TipoRequerimento).all()
 
     return render_template('configuracoes.html', title="Configurações",
@@ -167,6 +194,8 @@ def configuracoes():
 @admin_required
 def admin_create_user():
     form = AdminUserCreationForm()
+    lotacoes = tenant_query(Lotacao).filter_by(ativo=True).order_by(Lotacao.nome).all()
+    form.lotacao_id.choices = [(0, 'Sem setor definido')] + [(item.id, item.nome) for item in lotacoes]
     if form.validate_on_submit():
         hashed_password = bcrypt.generate_password_hash(form.senha.data).decode('utf-8')
         user = Usuario(
@@ -177,7 +206,8 @@ def admin_create_user():
             senha=hashed_password,
             nome=form.nome_completo.data.split(' ')[0],
             tipo=form.tipo.data,
-            status='ativo'
+            status='ativo',
+            lotacao_id=form.lotacao_id.data or None,
         )
         db.session.add(user)
         db.session.commit()
@@ -315,7 +345,7 @@ def gerar_proximo_numero_protocolo():
     return f'{str(novo_sequencial).zfill(4)}/{current_year}'
 
 @app.route("/protocolo/novo", methods=['GET', 'POST'])
-@login_required
+@permission_required('create')
 def criar_protocolo():
     if request.method == 'POST':
         # Dados são pegos diretamente do 'name' dos inputs do formulário
@@ -343,8 +373,11 @@ def criar_protocolo():
             tipo_requerimento=request.form.get('tipo_requerimento'),
             requer_ao=request.form.get('requer_ao'),
             data_solicitacao=data_solicitacao_obj,
+            prazo_em=datetime.strptime(request.form.get('prazo_em'), '%Y-%m-%d').date() if request.form.get('prazo_em') else None,
             observacoes=request.form.get('observacoes'),
             responsavel=current_user.login,
+            criado_por_id=current_user.id,
+            setor_atual_id=current_user.lotacao_id,
             status='PROTOCOLO GERADO' # Status padrão como no sistema antigo
         )
         db.session.add(protocolo)
@@ -356,6 +389,8 @@ def criar_protocolo():
             protocolo_id=protocolo.id,
             status=protocolo.status,
             responsavel=protocolo.responsavel,
+            usuario_id=current_user.id,
+            acao='CRIACAO',
             observacao='Protocolo criado no sistema.'
         )
         db.session.add(historico)
@@ -373,10 +408,12 @@ def criar_protocolo():
 def detalhe_protocolo(protocolo_id):
     protocolo = tenant_get_or_404(Protocolo, protocolo_id)
     anexo_form = AnexoForm()
-    return render_template('protocolo_detalhe.html', title=f"Protocolo {protocolo.numero}", protocolo=protocolo, anexo_form=anexo_form)
+    lotacoes = tenant_query(Lotacao).filter_by(ativo=True).order_by(Lotacao.nome).all()
+    pendente = tenant_query(Movimentacao).filter_by(protocolo_id=protocolo.id, recebido_em=None).order_by(Movimentacao.id.desc()).first()
+    return render_template('protocolo_detalhe.html', title=f"Protocolo {protocolo.numero}", protocolo=protocolo, anexo_form=anexo_form, lotacoes=lotacoes, movimentacao_pendente=pendente)
 
 @app.route("/protocolo/<int:protocolo_id>/editar", methods=['GET', 'POST'])
-@login_required
+@permission_required('edit')
 def editar_protocolo(protocolo_id):
     protocolo = tenant_get_or_404(Protocolo, protocolo_id)
 
@@ -402,12 +439,15 @@ def editar_protocolo(protocolo_id):
             protocolo.data_solicitacao = datetime.strptime(data_solicitacao_str, '%Y-%m-%d').date()
 
         protocolo.observacoes = request.form.get('observacoes')
+        protocolo.prazo_em = datetime.strptime(request.form.get('prazo_em'), '%Y-%m-%d').date() if request.form.get('prazo_em') else None
 
         historico = HistoricoProtocolo(
             tenant_id=current_user.tenant_id,
             protocolo_id=protocolo.id,
             status=protocolo.status,
             responsavel=current_user.login,
+            usuario_id=current_user.id,
+            acao='EDICAO',
             observacao='Protocolo editado.'
         )
         db.session.add(historico)
@@ -423,7 +463,7 @@ def editar_protocolo(protocolo_id):
                            protocolo=protocolo)
 
 @app.route("/protocolo/<int:protocolo_id>/deletar", methods=['POST'])
-@login_required
+@permission_required('delete')
 def deletar_protocolo(protocolo_id):
     protocolo = tenant_get_or_404(Protocolo, protocolo_id)
     # Adicionar verificação de permissão aqui
@@ -435,7 +475,7 @@ def deletar_protocolo(protocolo_id):
 # --- Rotas de Anexos ---
 
 @app.route("/protocolo/<int:protocolo_id>/anexo/novo", methods=['POST'])
-@login_required
+@permission_required('edit')
 def adicionar_anexo(protocolo_id):
     protocolo = tenant_get_or_404(Protocolo, protocolo_id)
     form = AnexoForm()
@@ -451,7 +491,8 @@ def adicionar_anexo(protocolo_id):
             storage_path=f"{protocolo.id}/{filename}", # Manter um caminho lógico
             file_size=len(file_data),
             mime_type=file.mimetype,
-            file_data=file_data
+            file_data=file_data,
+            enviado_por_id=current_user.id,
         )
         db.session.add(novo_anexo)
         db.session.commit()
@@ -475,7 +516,7 @@ def baixar_anexo(anexo_id):
     )
 
 @app.route("/anexo/<int:anexo_id>/deletar", methods=['POST'])
-@login_required
+@permission_required('delete')
 def deletar_anexo(anexo_id):
     anexo = tenant_get_or_404(Anexo, anexo_id)
     protocolo_id = anexo.protocolo_id
@@ -486,7 +527,7 @@ def deletar_anexo(anexo_id):
     return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo_id))
 
 @app.route("/protocolos/atualizar", methods=['POST'])
-@login_required
+@permission_required('route')
 def atualizar_protocolo_status():
     data = request.get_json()
     protocolo_id = data.get('protocoloId')
@@ -510,6 +551,8 @@ def atualizar_protocolo_status():
         protocolo_id=protocolo.id,
         status=novo_status,
         responsavel=current_user.login, # Quem fez a ação
+        usuario_id=current_user.id,
+        acao='ALTERACAO_STATUS',
         observacao=observacao
     )
     db.session.add(historico)
@@ -520,6 +563,79 @@ def atualizar_protocolo_status():
     except Exception as e:
         db.session.rollback()
         return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+
+@app.post('/protocolo/<int:protocolo_id>/tramitar')
+@permission_required('route')
+def tramitar_protocolo(protocolo_id):
+    protocolo = tenant_get_or_404(Protocolo, protocolo_id)
+    setor_destino = tenant_get_or_404(Lotacao, request.form.get('setor_destino_id', type=int))
+    if protocolo.arquivado_em:
+        flash('Um processo arquivado não pode ser tramitado.', 'danger')
+        return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
+    if tenant_query(Movimentacao).filter_by(protocolo_id=protocolo.id, recebido_em=None).first():
+        flash('Já existe uma tramitação aguardando recebimento.', 'danger')
+        return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
+
+    movimento = Movimentacao(
+        tenant_id=current_user.tenant_id,
+        protocolo_id=protocolo.id,
+        setor_origem_id=protocolo.setor_atual_id,
+        setor_destino_id=setor_destino.id,
+        enviado_por_id=current_user.id,
+        observacao=request.form.get('observacao'),
+    )
+    protocolo.status = 'EM TRAMITAÇÃO'
+    db.session.add_all([movimento, HistoricoProtocolo(
+        tenant_id=current_user.tenant_id,
+        protocolo_id=protocolo.id,
+        status=protocolo.status,
+        responsavel=current_user.login,
+        usuario_id=current_user.id,
+        acao='TRAMITACAO',
+        observacao=f'Encaminhado para {setor_destino.nome}. {movimento.observacao or ""}'.strip(),
+    )])
+    db.session.commit()
+    flash(f'Processo encaminhado para {setor_destino.nome}.', 'success')
+    return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
+
+@app.post('/protocolo/<int:protocolo_id>/receber')
+@permission_required('route')
+def receber_protocolo(protocolo_id):
+    protocolo = tenant_get_or_404(Protocolo, protocolo_id)
+    movimento = tenant_query(Movimentacao).filter_by(protocolo_id=protocolo.id, recebido_em=None).order_by(Movimentacao.id.desc()).first_or_404()
+    if current_user.tipo != 'admin' and current_user.lotacao_id != movimento.setor_destino_id:
+        flash('O recebimento deve ser feito pelo setor destinatário.', 'danger')
+        return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
+    movimento.recebido_por_id = current_user.id
+    movimento.recebido_em = datetime.utcnow()
+    protocolo.setor_atual_id = movimento.setor_destino_id
+    protocolo.responsavel = current_user.login
+    protocolo.status = 'EM ANÁLISE'
+    db.session.add(HistoricoProtocolo(
+        tenant_id=current_user.tenant_id, protocolo_id=protocolo.id,
+        status=protocolo.status, responsavel=current_user.login,
+        usuario_id=current_user.id, acao='RECEBIMENTO',
+        observacao=f'Recebido pelo setor {movimento.setor_destino.nome}.',
+    ))
+    db.session.commit()
+    flash('Processo recebido com sucesso.', 'success')
+    return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
+
+@app.post('/protocolo/<int:protocolo_id>/arquivar')
+@permission_required('archive')
+def arquivar_protocolo(protocolo_id):
+    protocolo = tenant_get_or_404(Protocolo, protocolo_id)
+    protocolo.arquivado_em = datetime.utcnow()
+    protocolo.status = 'ARQUIVADO'
+    db.session.add(HistoricoProtocolo(
+        tenant_id=current_user.tenant_id, protocolo_id=protocolo.id,
+        status=protocolo.status, responsavel=current_user.login,
+        usuario_id=current_user.id, acao='ARQUIVAMENTO',
+        observacao=request.form.get('observacao') or 'Processo arquivado eletronicamente.',
+    ))
+    db.session.commit()
+    flash('Processo arquivado eletronicamente.', 'success')
+    return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
 
 # --- Rota de Backup ---
 

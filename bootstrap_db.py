@@ -13,8 +13,29 @@ from models import Organizacao
 
 TENANT_TABLES = (
     'usuarios', 'protocolos', 'anexos', 'historico_protocolos', 'lotacoes',
-    'servidores', 'tipos_requerimento', 'emails_sistema',
+    'servidores', 'tipos_requerimento', 'emails_sistema', 'movimentacoes',
 )
+
+SCHEMA_COLUMNS = {
+    'usuarios': {
+        'lotacao_id': 'BIGINT',
+    },
+    'protocolos': {
+        'prazo_em': 'DATE',
+        'criado_por_id': 'INTEGER',
+        'setor_atual_id': 'BIGINT',
+        'arquivado_em': 'TIMESTAMP',
+    },
+    'anexos': {
+        'documento_chave': "VARCHAR(120) DEFAULT 'anexo' NOT NULL",
+        'versao': 'INTEGER DEFAULT 1 NOT NULL',
+        'enviado_por_id': 'INTEGER',
+    },
+    'historico_protocolos': {
+        'usuario_id': 'INTEGER',
+        'acao': "VARCHAR(80) DEFAULT 'ATUALIZACAO' NOT NULL",
+    },
+}
 
 
 def bootstrap():
@@ -40,6 +61,14 @@ def bootstrap():
                 if 'tenant_id' not in columns:
                     connection.execute(text(f'ALTER TABLE {table} ADD COLUMN tenant_id INTEGER'))
                 connection.execute(text(f'UPDATE {table} SET tenant_id = :tenant_id WHERE tenant_id IS NULL'), {'tenant_id': organizacao.id})
+
+            for table, expected_columns in SCHEMA_COLUMNS.items():
+                if table not in existing_tables:
+                    continue
+                columns = {column['name'] for column in inspect(connection).get_columns(table)}
+                for column, sql_type in expected_columns.items():
+                    if column not in columns:
+                        connection.execute(text(f'ALTER TABLE {table} ADD COLUMN {column} {sql_type}'))
 
             if db.engine.dialect.name == 'postgresql':
                 connection.execute(text('ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_login_key'))
