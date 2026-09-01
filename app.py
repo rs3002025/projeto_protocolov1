@@ -323,6 +323,9 @@ def admin_update_logo():
     except (UnidentifiedImageError, OSError, Image.DecompressionBombError):
         flash('O arquivo enviado não é uma imagem válida ou excede os limites de segurança.', 'danger')
         return redirect(url_for('configuracoes'))
+    if saida.tell() > 2 * 1024 * 1024:
+        flash('Após o processamento, a logo excedeu 2 MB. Utilize uma imagem mais simples.', 'danger')
+        return redirect(url_for('configuracoes'))
     organizacao.logo_data = saida.getvalue()
     organizacao.logo_mime_type = 'image/png'
     organizacao.logo_nome_arquivo = secure_filename(arquivo.filename or 'logo.png')
