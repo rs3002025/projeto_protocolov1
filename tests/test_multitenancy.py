@@ -1,5 +1,7 @@
 import os
 import tempfile
+import io
+from pathlib import Path
 from datetime import date
 
 os.environ.setdefault('SECRET_KEY', 'test-secret-key')
@@ -92,6 +94,42 @@ def test_consulta_publica_bloqueia_forca_bruta():
     for _ in range(5):
         assert client.post(f'/consulta/{token}', data={'matricula': 'incorreta'}).status_code == 200
     assert client.post(f'/consulta/{token}', data={'matricula': 'incorreta'}).status_code == 429
+
+
+def test_logo_personalizada_fica_isolada_por_organizacao():
+    client = app.test_client()
+    login(client, 'cliente-a')
+    primeira = Path('static/img/logo.png').read_bytes()
+    segunda = Path('static/img/logobrasao.png').read_bytes()
+    response = client.post('/admin/identidade/logo', data={
+        'logo': (io.BytesIO(primeira), 'logo.png'),
+        'salvar': 'Salvar logo',
+    }, content_type='multipart/form-data', follow_redirects=True)
+    assert response.status_code == 200
+    with app.app_context():
+        primeira_gravada = Organizacao.query.filter_by(slug='cliente-a').one().logo_data
+        assert primeira_gravada
+        assert Organizacao.query.filter_by(slug='cliente-b').one().logo_data is None
+    response = client.post('/admin/identidade/logo', data={
+        'logo': (io.BytesIO(segunda), 'brasao.png'),
+        'salvar': 'Salvar logo',
+    }, content_type='multipart/form-data', follow_redirects=True)
+    assert response.status_code == 200
+    with app.app_context():
+        segunda_gravada = Organizacao.query.filter_by(slug='cliente-a').one().logo_data
+        assert segunda_gravada and segunda_gravada != primeira_gravada
+    response = client.get('/identidade/cliente-a/logo')
+    assert response.status_code == 200
+    assert response.content_type.startswith('image/png')
+    response = client.post('/admin/identidade/logo', data={
+        'remover': 'Restaurar logo padrão',
+    }, content_type='multipart/form-data', follow_redirects=True)
+    assert response.status_code == 200
+    with app.app_context():
+        assert Organizacao.query.filter_by(slug='cliente-a').one().logo_data is None
+    response = client.get('/identidade/cliente-a/logo')
+    assert response.status_code == 302
+    assert 'logo-sysprot.svg' in response.headers['Location']
 
 
 def test_tramitacao_registra_destino_e_historico():

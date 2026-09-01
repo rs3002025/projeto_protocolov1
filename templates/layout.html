@@ -14,7 +14,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs/qrcode.min.js"></script>
 </head>
-<body class="{% if request.endpoint == 'login' %}login-page-bg{% endif %}">
+<body class="{% if request.endpoint == 'login' %}login-page-bg{% endif %}" data-branding-logo-url="{{ branding_logo_url }}">
     
 
     {% if current_user.is_authenticated %}
@@ -23,7 +23,7 @@
             <div class="header-top-row">
                 <div class="header-logo-wrapper">
                     <a href="{{ url_for('home') }}" class="header-logo">
-                        <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo">
+                        <img src="{{ branding_logo_url }}" alt="Logo da organização">
                         <span>Sistema de Protocolo</span>
                     </a>
                 </div>
@@ -121,7 +121,7 @@
         </style>
         <div class="pdf-body doc-container">
             <div class="pdf-header">
-                <div class="logo-pdf"><img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo Prefeitura" /></div>
+                <div class="logo-pdf"><img src="{{ branding_logo_url }}" alt="Logo da organização" /></div>
                 <div id="qrcode-container"></div>
             </div>
             <h1 class="titulo-principal-pdf">Secretaria da Administração</h1>
