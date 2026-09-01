@@ -43,11 +43,15 @@ from flask import send_file, Response, jsonify, make_response
 from werkzeug.utils import secure_filename
 import io
 import hmac
+import hashlib
 from openpyxl import Workbook
 from sqlalchemy import func, cast, Date
 from datetime import datetime, timedelta
 from forms import LoginForm, RegistrationForm, ProtocoloForm, AnexoForm, AdminUserCreationForm, AdminListItemForm, ConsultaPublicaForm
-from models import Organizacao, Usuario, Protocolo, HistoricoProtocolo, Movimentacao, Anexo, Lotacao, TipoRequerimento, Servidor, db
+from models import Organizacao, Usuario, Protocolo, HistoricoProtocolo, Movimentacao, ConsultaPublicaTentativa, Anexo, Lotacao, TipoRequerimento, Servidor, db
+from werkzeug.middleware.proxy_fix import ProxyFix
+
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
 
 def tenant_query(model):
     """Consulta obrigatoriamente limitada à organização autenticada."""
@@ -87,35 +91,68 @@ def permission_required(permission):
 def health():
     return jsonify({'status': 'ok'})
 
-@app.route('/consulta/<string:organizacao_slug>/<int:ano>/<int:sequencial>', methods=['GET', 'POST'])
-def consulta_publica(organizacao_slug, ano, sequencial):
+@app.after_request
+def security_headers(response):
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['Referrer-Policy'] = 'no-referrer'
+    if request.path.startswith('/consulta/'):
+        response.headers['Cache-Control'] = 'no-store, max-age=0'
+        response.headers['Content-Security-Policy'] = (
+            "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; "
+            "frame-ancestors 'none'; base-uri 'none'"
+        )
+    return response
+
+def consulta_fingerprint():
+    endereco = request.remote_addr or 'desconhecido'
+    return hmac.new(app.config['SECRET_KEY'].encode(), endereco.encode(), hashlib.sha256).hexdigest()
+
+@app.route('/consulta/<string:consulta_token>', methods=['GET', 'POST'])
+def consulta_publica(consulta_token):
     """Exige confirmação da matrícula antes de exibir o andamento."""
-    organizacao = Organizacao.query.filter_by(slug=organizacao_slug, ativo=True).first_or_404()
-    candidatos = Protocolo.query.filter(
-        Protocolo.tenant_id == organizacao.id,
-        Protocolo.numero.like(f'%/{ano}')
-    ).all()
-    protocolo = next((item for item in candidatos
-                      if item.numero and item.numero.split('/', 1)[0].isdigit()
-                      and int(item.numero.split('/', 1)[0]) == sequencial), None)
-    if protocolo is None:
-        from flask import abort
-        abort(404)
+    protocolo = Protocolo.query.filter_by(consulta_token=consulta_token).first_or_404()
+    organizacao = Organizacao.query.filter_by(id=protocolo.tenant_id, ativo=True).first_or_404()
     form = ConsultaPublicaForm()
     consulta_autorizada = False
     erro_consulta = None
     historico = []
     if form.validate_on_submit():
+        agora = datetime.utcnow()
+        fingerprint = consulta_fingerprint()
+        tentativa = ConsultaPublicaTentativa.query.filter_by(
+            protocolo_id=protocolo.id, identificador_hash=fingerprint
+        ).first()
+        if tentativa and tentativa.bloqueado_ate and tentativa.bloqueado_ate > agora:
+            erro_consulta = 'Limite de tentativas atingido. Tente novamente mais tarde.'
+            resposta = render_template('consulta_publica.html', protocolo=protocolo,
+                                        organizacao=organizacao, historico=[], form=form,
+                                        consulta_autorizada=False, erro_consulta=erro_consulta)
+            return resposta, 429
         matricula_armazenada = (protocolo.matricula or '').strip().casefold()
         matricula_informada = form.matricula.data.strip().casefold()
         consulta_autorizada = bool(matricula_armazenada) and hmac.compare_digest(
             matricula_armazenada, matricula_informada
         )
         if consulta_autorizada:
+            if tentativa:
+                db.session.delete(tentativa)
             historico = HistoricoProtocolo.query.filter_by(
                 tenant_id=organizacao.id, protocolo_id=protocolo.id
             ).order_by(HistoricoProtocolo.data_movimentacao.desc()).all()
+            db.session.commit()
         else:
+            janela = timedelta(minutes=15)
+            if not tentativa or tentativa.janela_iniciada_em < agora - janela:
+                tentativa = ConsultaPublicaTentativa(
+                    protocolo_id=protocolo.id, identificador_hash=fingerprint,
+                    tentativas=0, janela_iniciada_em=agora
+                )
+                db.session.add(tentativa)
+            tentativa.tentativas += 1
+            if tentativa.tentativas >= 5:
+                tentativa.bloqueado_ate = agora + timedelta(minutes=30)
+            db.session.commit()
             erro_consulta = 'Não foi possível validar os dados informados.'
     elif request.method == 'POST':
         erro_consulta = 'Não foi possível validar os dados informados.'
@@ -847,7 +884,7 @@ def get_protocolo_api(protocolo_id):
         'observacoes': protocolo.observacoes,
         'status': protocolo.status,
         'responsavel': protocolo.responsavel,
-        'organizacao_slug': current_user.organizacao.slug,
+        'consulta_token': protocolo.consulta_token,
     })
 
 @app.route('/protocolos/dashboard-stats')
