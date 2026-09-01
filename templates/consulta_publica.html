@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Consulta do protocolo {{ protocolo.numero }}</title>
+  <style>
+    body { margin: 0; background: #f4f6f8; color: #223; font: 16px/1.5 system-ui, sans-serif; }
+    main { max-width: 720px; margin: 3rem auto; padding: 2rem; background: white; border-radius: 12px; box-shadow: 0 3px 18px #0001; }
+    h1 { margin-top: 0; font-size: 1.6rem; }
+    dl { display: grid; grid-template-columns: 11rem 1fr; gap: .7rem 1rem; }
+    dt { font-weight: 700; } dd { margin: 0; }
+    ol { padding-left: 1.3rem; } small { color: #667; }
+    @media (max-width: 520px) { main { margin: 0; border-radius: 0; } dl { grid-template-columns: 1fr; gap: .15rem; } dd { margin-bottom: .7rem; } }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Consulta pública de protocolo</h1>
+  <p><small>{{ organizacao.nome }}</small></p>
+  <dl>
+    <dt>Número</dt><dd>{{ protocolo.numero }}</dd>
+    <dt>Data da solicitação</dt><dd>{{ protocolo.data_solicitacao.strftime('%d/%m/%Y') if protocolo.data_solicitacao else 'Não informada' }}</dd>
+    <dt>Status</dt><dd>{{ protocolo.status }}</dd>
+    <dt>Setor atual</dt><dd>{{ protocolo.setor_atual.nome if protocolo.setor_atual else 'Não definido' }}</dd>
+    <dt>Prazo</dt><dd>{{ protocolo.prazo_em.strftime('%d/%m/%Y') if protocolo.prazo_em else 'Não informado' }}</dd>
+  </dl>
+  <h2>Andamentos</h2>
+  <ol>
+    {% for item in historico %}
+      <li><strong>{{ item.acao }}</strong> — {{ item.status }}<br><small>{{ item.data_movimentacao.strftime('%d/%m/%Y %H:%M') }}{% if item.observacao %} · {{ item.observacao }}{% endif %}</small></li>
+    {% else %}
+      <li>Nenhum andamento registrado.</li>
+    {% endfor %}
+  </ol>
+</main>
+</body>
+</html>
