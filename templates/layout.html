@@ -57,6 +57,18 @@
         {# On the login page, the content block is not wrapped in a container #}
         {# On other pages, it is. This structure avoids defining the block twice. #}
         <div class="{% if request.endpoint != 'login' %}container-fluid mt-4{% endif %}">
+            {% if request.endpoint != 'login' %}
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+            {% endif %}
             {% block content %}{% endblock %}
         </div>
     </main>
