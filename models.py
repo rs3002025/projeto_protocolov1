@@ -1,29 +1,46 @@
 from app import db, login_manager
 from flask_login import UserMixin
-from sqlalchemy.dialects.postgresql import BYTEA
 
 # Flask-Login requires this callback to load a user from the session
 @login_manager.user_loader
 def load_user(user_id):
-    return Usuario.query.get(int(user_id))
+    return db.session.get(Usuario, int(user_id))
 
-class Usuario(db.Model, UserMixin):
+class Organizacao(db.Model):
+    __tablename__ = 'organizacoes'
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(180), nullable=False)
+    slug = db.Column(db.String(80), unique=True, nullable=False, index=True)
+    ativo = db.Column(db.Boolean, nullable=False, default=True)
+    criado_em = db.Column(db.TIMESTAMP, server_default=db.func.current_timestamp(), nullable=False)
+
+class TenantMixin:
+    tenant_id = db.Column(db.Integer, db.ForeignKey('organizacoes.id'), nullable=False, index=True)
+
+class Usuario(TenantMixin, db.Model, UserMixin):
     __tablename__ = 'usuarios'
+    __table_args__ = (db.UniqueConstraint('tenant_id', 'login', name='uq_usuario_tenant_login'),)
     id = db.Column(db.Integer, primary_key=True)
     nome_completo = db.Column(db.Text)
     cpf = db.Column(db.String)
     status = db.Column(db.Text, default='ativo')
     nome = db.Column(db.Text, nullable=False)
-    login = db.Column(db.Text, unique=True, nullable=False)
+    login = db.Column(db.Text, nullable=False)
     senha = db.Column(db.Text, nullable=False)
     tipo = db.Column(db.Text, nullable=False)
     email = db.Column(db.Text)
+    organizacao = db.relationship('Organizacao')
 
-class Protocolo(db.Model):
+    @property
+    def is_active(self):
+        return self.status == 'ativo' and self.organizacao is not None and self.organizacao.ativo
+
+class Protocolo(TenantMixin, db.Model):
     __tablename__ = 'protocolos'
+    __table_args__ = (db.UniqueConstraint('tenant_id', 'numero', name='uq_protocolo_tenant_numero'),)
     id = db.Column(db.Integer, primary_key=True)
     visto = db.Column(db.Boolean, default=False)
-    numero = db.Column(db.String, unique=True)
+    numero = db.Column(db.String)
     nome = db.Column(db.String)
     matricula = db.Column(db.String)
     endereco = db.Column(db.Text)
@@ -48,7 +65,7 @@ class Protocolo(db.Model):
     anexos = db.relationship('Anexo', backref='protocolo', lazy=True, cascade="all, delete-orphan")
     historico = db.relationship('HistoricoProtocolo', backref='protocolo', lazy=True, cascade="all, delete-orphan")
 
-class Anexo(db.Model):
+class Anexo(TenantMixin, db.Model):
     __tablename__ = 'anexos'
     id = db.Column(db.BigInteger, primary_key=True)
     protocolo_id = db.Column(db.BigInteger, db.ForeignKey('protocolos.id'), nullable=False)
@@ -56,10 +73,10 @@ class Anexo(db.Model):
     storage_path = db.Column(db.Text, nullable=False)
     file_size = db.Column(db.BigInteger, nullable=False)
     mime_type = db.Column(db.Text, nullable=False)
-    file_data = db.Column(BYTEA, nullable=False)
+    file_data = db.Column(db.LargeBinary, nullable=False)
     created_at = db.Column(db.TIMESTAMP(timezone=True), server_default=db.func.now())
 
-class HistoricoProtocolo(db.Model):
+class HistoricoProtocolo(TenantMixin, db.Model):
     __tablename__ = 'historico_protocolos'
     id = db.Column(db.Integer, primary_key=True)
     protocolo_id = db.Column(db.Integer, db.ForeignKey('protocolos.id'), nullable=True)
@@ -68,14 +85,16 @@ class HistoricoProtocolo(db.Model):
     observacao = db.Column(db.Text)
     data_movimentacao = db.Column(db.TIMESTAMP, server_default=db.func.current_timestamp())
 
-class Lotacao(db.Model):
+class Lotacao(TenantMixin, db.Model):
     __tablename__ = 'lotacoes'
+    __table_args__ = (db.UniqueConstraint('tenant_id', 'nome', name='uq_lotacao_tenant_nome'),)
     id = db.Column(db.BigInteger, primary_key=True)
     nome = db.Column(db.Text, nullable=False)
     ativo = db.Column(db.Boolean, default=True)
 
-class Servidor(db.Model):
+class Servidor(TenantMixin, db.Model):
     __tablename__ = 'servidores'
+    __table_args__ = (db.UniqueConstraint('tenant_id', 'matricula', name='uq_servidor_tenant_matricula'),)
     id = db.Column(db.BigInteger, primary_key=True)
     matricula = db.Column(db.Text, nullable=False)
     nome = db.Column(db.Text)
@@ -83,13 +102,14 @@ class Servidor(db.Model):
     cargo = db.Column(db.Text)
     unidade_de_exercicio = db.Column(db.Text)
 
-class TipoRequerimento(db.Model):
+class TipoRequerimento(TenantMixin, db.Model):
     __tablename__ = 'tipos_requerimento'
+    __table_args__ = (db.UniqueConstraint('tenant_id', 'nome', name='uq_tipo_tenant_nome'),)
     id = db.Column(db.BigInteger, primary_key=True)
     nome = db.Column(db.Text, nullable=False)
     ativo = db.Column(db.Boolean, default=True)
 
-class EmailSistema(db.Model):
+class EmailSistema(TenantMixin, db.Model):
     __tablename__ = 'emails_sistema'
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.Text, nullable=False)

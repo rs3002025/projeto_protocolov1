@@ -20,6 +20,10 @@ if not SECRET_KEY or not DATABASE_URL:
 app.config['SECRET_KEY'] = SECRET_KEY
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'pool_pre_ping': True, 'pool_recycle': 300}
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = os.getenv('COOKIE_SECURE', 'true').lower() == 'true'
 
 # --- Extensions Initialization ---
 db = SQLAlchemy(app)
@@ -41,11 +45,21 @@ import io
 from openpyxl import Workbook
 from sqlalchemy import func, cast, Date
 from datetime import datetime, timedelta
-from weasyprint import HTML, CSS
 from forms import LoginForm, RegistrationForm, ProtocoloForm, AnexoForm, AdminUserCreationForm, AdminListItemForm
-from models import Usuario, Protocolo, HistoricoProtocolo, Anexo, Lotacao, TipoRequerimento, Servidor, db
+from models import Organizacao, Usuario, Protocolo, HistoricoProtocolo, Anexo, Lotacao, TipoRequerimento, Servidor, db
+
+def tenant_query(model):
+    """Consulta obrigatoriamente limitada à organização autenticada."""
+    return model.query.filter(model.tenant_id == current_user.tenant_id)
+
+def tenant_get_or_404(model, object_id):
+    return tenant_query(model).filter(model.id == object_id).first_or_404()
 
 # --- Routes ---
+@app.get('/health')
+def health():
+    return jsonify({'status': 'ok'})
+
 @app.route("/")
 @app.route("/home")
 @login_required
@@ -56,26 +70,8 @@ def home():
 
 @app.route("/register", methods=['GET', 'POST'])
 def register():
-    if current_user.is_authenticated:
-        return redirect(url_for('home'))
-    form = RegistrationForm()
-    if form.validate_on_submit():
-        hashed_password = bcrypt.generate_password_hash(form.senha.data).decode('utf-8')
-        # Por padrão, o primeiro usuário é admin, os outros são 'user'
-        # Uma lógica mais robusta seria necessária para um sistema real
-        tipo = 'admin' if Usuario.query.count() == 0 else 'user'
-        user = Usuario(
-            nome_completo=form.nome_completo.data,
-            login=form.login.data,
-            senha=hashed_password,
-            nome=form.nome_completo.data.split(' ')[0], # Pega o primeiro nome
-            tipo=tipo
-        )
-        db.session.add(user)
-        db.session.commit()
-        flash(f'Sua conta foi criada, {form.nome_completo.data}! Agora você pode fazer login.', 'success')
-        return redirect(url_for('login'))
-    return render_template('register.html', title='Registrar', form=form)
+    flash('O cadastro público está desativado. Solicite acesso ao administrador da organização.', 'info')
+    return redirect(url_for('login'))
 
 
 @app.route("/login", methods=['GET', 'POST'])
@@ -84,7 +80,12 @@ def login():
         return redirect(url_for('home'))
     form = LoginForm()
     if form.validate_on_submit():
-        user = Usuario.query.filter_by(login=form.login.data).first()
+        organizacao = Organizacao.query.filter_by(slug=form.organizacao.data.strip().lower(), ativo=True).first()
+        user = Usuario.query.filter_by(
+            tenant_id=organizacao.id if organizacao else None,
+            login=form.login.data,
+            status='ativo'
+        ).first()
         if user and bcrypt.check_password_hash(user.senha, form.senha.data):
             login_user(user, remember=form.remember.data)
             next_page = request.args.get('next')
@@ -105,7 +106,7 @@ def logout():
 @login_required
 def meus_protocolos():
     page = request.args.get('page', 1, type=int)
-    protocolos = Protocolo.query.filter_by(responsavel=current_user.login)\
+    protocolos = tenant_query(Protocolo).filter_by(responsavel=current_user.login)\
         .order_by(Protocolo.id.desc())\
         .paginate(page=page, per_page=10)
     return render_template('protocolos.html', protocolos=protocolos, title="Meus Protocolos")
@@ -127,7 +128,7 @@ def relatorios():
     # This route essentially does the same as listar_protocolos but renders a different template
     # to match the original app's structure.
     page = request.args.get('page', 1, type=int)
-    query = Protocolo.query
+    query = tenant_query(Protocolo)
     # ... (filter logic is identical to listar_protocolos) ...
     if request.args.get('numero'):
         query = query.filter(Protocolo.numero.ilike(f"%{request.args.get('numero')}%"))
@@ -153,9 +154,9 @@ def configuracoes():
         # Lógica de criação de usuário movida para uma rota de API dedicada
         pass
 
-    users = Usuario.query.all()
-    lotacoes = Lotacao.query.all()
-    tipos = TipoRequerimento.query.all()
+    users = tenant_query(Usuario).all()
+    lotacoes = tenant_query(Lotacao).all()
+    tipos = tenant_query(TipoRequerimento).all()
 
     return render_template('configuracoes.html', title="Configurações",
                            users=users, lotacoes=lotacoes, tipos=tipos,
@@ -169,6 +170,7 @@ def admin_create_user():
     if form.validate_on_submit():
         hashed_password = bcrypt.generate_password_hash(form.senha.data).decode('utf-8')
         user = Usuario(
+            tenant_id=current_user.tenant_id,
             nome_completo=form.nome_completo.data,
             login=form.login.data,
             email=form.email.data,
@@ -197,7 +199,7 @@ def admin_create_list_item(item_type):
             Model = TipoRequerimento
 
         if Model:
-            new_item = Model(nome=form.nome.data, ativo=True)
+            new_item = Model(tenant_id=current_user.tenant_id, nome=form.nome.data, ativo=True)
             db.session.add(new_item)
             db.session.commit()
             flash(f'{item_type.capitalize()} adicionado com sucesso!', 'success')
@@ -216,7 +218,7 @@ def admin_toggle_item_status(item_type, item_id):
         Model = TipoRequerimento
 
     if Model:
-        item = Model.query.get_or_404(item_id)
+        item = tenant_get_or_404(Model, item_id)
         item.ativo = not item.ativo
         db.session.commit()
         flash(f'Status do item alterado com sucesso!', 'success')
@@ -227,7 +229,9 @@ def admin_toggle_item_status(item_type, item_id):
 @app.route('/protocolo/<int:protocolo_id>/pdf')
 @login_required
 def gerar_pdf_protocolo(protocolo_id):
-    protocolo = Protocolo.query.get_or_404(protocolo_id)
+    from weasyprint import HTML
+
+    protocolo = tenant_get_or_404(Protocolo, protocolo_id)
 
     # Renderiza um template HTML com os dados do protocolo
     # Este template é feito especificamente para ser convertido em PDF
@@ -249,7 +253,7 @@ def gerar_pdf_protocolo(protocolo_id):
 @login_required
 def listar_protocolos():
     page = request.args.get('page', 1, type=int)
-    query = Protocolo.query
+    query = tenant_query(Protocolo)
 
     # Get filter args
     numero = request.args.get('numero')
@@ -287,7 +291,7 @@ def gerar_proximo_numero_protocolo():
     current_year = now.year
 
     # Busca todos os protocolos do ano corrente para encontrar o maior sequencial
-    protocolos_do_ano = Protocolo.query.filter(
+    protocolos_do_ano = tenant_query(Protocolo).filter(
         Protocolo.numero.like(f'%/{current_year}')
     ).all()
 
@@ -322,6 +326,7 @@ def criar_protocolo():
         data_solicitacao_obj = datetime.strptime(data_solicitacao_str, '%Y-%m-%d').date() if data_solicitacao_str else datetime.now().date()
 
         protocolo = Protocolo(
+            tenant_id=current_user.tenant_id,
             numero=novo_numero,
             nome=request.form.get('nome'),
             matricula=request.form.get('matricula'),
@@ -347,6 +352,7 @@ def criar_protocolo():
 
         # Adiciona o primeiro registro ao histórico
         historico = HistoricoProtocolo(
+            tenant_id=current_user.tenant_id,
             protocolo_id=protocolo.id,
             status=protocolo.status,
             responsavel=protocolo.responsavel,
@@ -365,14 +371,14 @@ def criar_protocolo():
 @app.route("/protocolo/<int:protocolo_id>")
 @login_required
 def detalhe_protocolo(protocolo_id):
-    protocolo = Protocolo.query.get_or_404(protocolo_id)
+    protocolo = tenant_get_or_404(Protocolo, protocolo_id)
     anexo_form = AnexoForm()
     return render_template('protocolo_detalhe.html', title=f"Protocolo {protocolo.numero}", protocolo=protocolo, anexo_form=anexo_form)
 
 @app.route("/protocolo/<int:protocolo_id>/editar", methods=['GET', 'POST'])
 @login_required
 def editar_protocolo(protocolo_id):
-    protocolo = Protocolo.query.get_or_404(protocolo_id)
+    protocolo = tenant_get_or_404(Protocolo, protocolo_id)
 
     if request.method == 'POST':
         # Manual update from form data
@@ -398,6 +404,7 @@ def editar_protocolo(protocolo_id):
         protocolo.observacoes = request.form.get('observacoes')
 
         historico = HistoricoProtocolo(
+            tenant_id=current_user.tenant_id,
             protocolo_id=protocolo.id,
             status=protocolo.status,
             responsavel=current_user.login,
@@ -418,7 +425,7 @@ def editar_protocolo(protocolo_id):
 @app.route("/protocolo/<int:protocolo_id>/deletar", methods=['POST'])
 @login_required
 def deletar_protocolo(protocolo_id):
-    protocolo = Protocolo.query.get_or_404(protocolo_id)
+    protocolo = tenant_get_or_404(Protocolo, protocolo_id)
     # Adicionar verificação de permissão aqui
     db.session.delete(protocolo)
     db.session.commit()
@@ -430,7 +437,7 @@ def deletar_protocolo(protocolo_id):
 @app.route("/protocolo/<int:protocolo_id>/anexo/novo", methods=['POST'])
 @login_required
 def adicionar_anexo(protocolo_id):
-    protocolo = Protocolo.query.get_or_404(protocolo_id)
+    protocolo = tenant_get_or_404(Protocolo, protocolo_id)
     form = AnexoForm()
     if form.validate_on_submit():
         file = form.anexo.data
@@ -438,6 +445,7 @@ def adicionar_anexo(protocolo_id):
         file_data = file.read()
 
         novo_anexo = Anexo(
+            tenant_id=current_user.tenant_id,
             protocolo_id=protocolo.id,
             file_name=filename,
             storage_path=f"{protocolo.id}/{filename}", # Manter um caminho lógico
@@ -458,7 +466,7 @@ def adicionar_anexo(protocolo_id):
 @app.route("/anexo/<int:anexo_id>/download")
 @login_required
 def baixar_anexo(anexo_id):
-    anexo = Anexo.query.get_or_404(anexo_id)
+    anexo = tenant_get_or_404(Anexo, anexo_id)
     return send_file(
         io.BytesIO(anexo.file_data),
         mimetype=anexo.mime_type,
@@ -469,7 +477,7 @@ def baixar_anexo(anexo_id):
 @app.route("/anexo/<int:anexo_id>/deletar", methods=['POST'])
 @login_required
 def deletar_anexo(anexo_id):
-    anexo = Anexo.query.get_or_404(anexo_id)
+    anexo = tenant_get_or_404(Anexo, anexo_id)
     protocolo_id = anexo.protocolo_id
     # Adicionar verificação de permissão aqui
     db.session.delete(anexo)
@@ -489,7 +497,7 @@ def atualizar_protocolo_status():
     if not protocolo_id or not novo_status:
         return jsonify({'sucesso': False, 'mensagem': 'Dados insuficientes.'}), 400
 
-    protocolo = Protocolo.query.get_or_404(protocolo_id)
+    protocolo = tenant_get_or_404(Protocolo, protocolo_id)
 
     # Atualiza o protocolo
     protocolo.status = novo_status
@@ -498,6 +506,7 @@ def atualizar_protocolo_status():
 
     # Adiciona registro ao histórico
     historico = HistoricoProtocolo(
+        tenant_id=current_user.tenant_id,
         protocolo_id=protocolo.id,
         status=novo_status,
         responsavel=current_user.login, # Quem fez a ação
@@ -518,7 +527,7 @@ def atualizar_protocolo_status():
 @login_required
 def backup_excel():
     """Gera um arquivo Excel com todos os protocolos, aplicando os filtros ativos."""
-    query = Protocolo.query
+    query = tenant_query(Protocolo)
 
     # Re-aplica a mesma lógica de filtro da listagem
     if request.args.get('numero'):
@@ -575,7 +584,7 @@ def backup_excel():
 def get_usuarios():
     """Retorna uma lista de usuários ativos para preencher selects."""
     try:
-        usuarios = Usuario.query.filter_by(status='ativo').all()
+        usuarios = tenant_query(Usuario).filter_by(status='ativo').all()
         # Retornando apenas os campos necessários para evitar expor dados sensíveis
         usuarios_list = [{'id': u.id, 'login': u.login, 'nome': u.nome} for u in usuarios]
         return jsonify(usuarios_list)
@@ -585,7 +594,7 @@ def get_usuarios():
 @app.route('/api/servidor/<string:matricula>')
 @login_required
 def get_servidor(matricula):
-    servidor = Servidor.query.filter_by(matricula=matricula).first()
+    servidor = tenant_query(Servidor).filter_by(matricula=matricula).first()
     if servidor:
         return jsonify({
             'matricula': servidor.matricula,
@@ -603,7 +612,7 @@ def search_servidores():
     if len(query_nome) < 3:
         return jsonify({'error': 'A busca requer ao menos 3 caracteres'}), 400
 
-    servidores = Servidor.query.filter(Servidor.nome.ilike(f'%{query_nome}%')).limit(10).all()
+    servidores = tenant_query(Servidor).filter(Servidor.nome.ilike(f'%{query_nome}%')).limit(10).all()
     return jsonify([{
         'matricula': s.matricula,
         'nome': s.nome,
@@ -615,13 +624,13 @@ def search_servidores():
 @app.route('/api/lotacoes')
 @login_required
 def get_lotacoes():
-    lotacoes = Lotacao.query.filter_by(ativo=True).order_by(Lotacao.nome).all()
+    lotacoes = tenant_query(Lotacao).filter_by(ativo=True).order_by(Lotacao.nome).all()
     return jsonify([l.nome for l in lotacoes])
 
 @app.route('/api/tipos_requerimento')
 @login_required
 def get_tipos_requerimento():
-    tipos = TipoRequerimento.query.filter_by(ativo=True).order_by(TipoRequerimento.nome).all()
+    tipos = tenant_query(TipoRequerimento).filter_by(ativo=True).order_by(TipoRequerimento.nome).all()
     return jsonify([t.nome for t in tipos])
 
 @app.route('/api/bairros')
@@ -641,7 +650,7 @@ def get_bairros():
 @login_required
 def get_ultimo_numero(ano):
     """Obtém o último número de protocolo para um determinado ano."""
-    protocolos_do_ano = Protocolo.query.filter(
+    protocolos_do_ano = tenant_query(Protocolo).filter(
         Protocolo.numero.like(f'%/{ano}')
     ).all()
 
@@ -662,7 +671,7 @@ def get_ultimo_numero(ano):
 @app.route('/api/protocolo/<int:protocolo_id>')
 @login_required
 def get_protocolo_api(protocolo_id):
-    protocolo = Protocolo.query.get_or_404(protocolo_id)
+    protocolo = tenant_get_or_404(Protocolo, protocolo_id)
     return jsonify({
         'id': protocolo.id,
         'numero': protocolo.numero,
@@ -700,7 +709,7 @@ def dashboard_stats():
         evolucao_agrupamento = request.args.get('evolucaoAgrupamento', 'day')
 
         # --- Base Query Construction ---
-        base_query = Protocolo.query
+        base_query = tenant_query(Protocolo)
         if status:
             base_query = base_query.filter(Protocolo.status == status)
         if tipo:
@@ -728,6 +737,7 @@ def dashboard_stats():
 
         # --- Pendentes Antigos (Card) ---
         pendentes_antigos = db.session.query(func.count(Protocolo.id)).filter(
+            Protocolo.tenant_id == current_user.tenant_id,
             Protocolo.data_solicitacao != None,
             Protocolo.data_solicitacao <= (datetime.now().date() - timedelta(days=15)),
             ~Protocolo.status.in_(['Finalizado', 'Concluído'])
