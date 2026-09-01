@@ -3,6 +3,25 @@
 
 document.addEventListener('DOMContentLoaded', function () {
 
+    // A tela de login ainda não possui sessão; a organização digitada define
+    // dinamicamente qual identidade visual deve ser apresentada.
+    const organizationInput = document.getElementById('floatingOrganization');
+    const loginLogo = document.getElementById('loginLogo');
+    if (organizationInput && loginLogo) {
+        const fallbackLogo = document.body.dataset.brandingLogoUrl || '/static/img/logo.png';
+        let brandingTimer;
+        const updateLoginLogo = () => {
+            clearTimeout(brandingTimer);
+            brandingTimer = setTimeout(() => {
+                const slug = organizationInput.value.trim().toLowerCase();
+                loginLogo.src = slug ? `/identidade/${encodeURIComponent(slug)}/logo?login=${Date.now()}` : fallbackLogo;
+            }, 250);
+        };
+        organizationInput.addEventListener('input', updateLoginLogo);
+        organizationInput.addEventListener('change', updateLoginLogo);
+        if (organizationInput.value) updateLoginLogo();
+    }
+
     // --- Dashboard Logic ---
     if (document.querySelector('.dashboard-screen')) {
         popularFiltrosDashboard();
@@ -253,7 +272,7 @@ window.gerarImpressaoPersonalizada = async function() {
 
     let html = `
         <div style="text-align: center; margin-bottom: 5px; padding-bottom: 5px; border-bottom: 1px solid #ccc;">
-            <img src="/static/img/logo.png" alt="Logo" style="height: 45px; margin-bottom: 5px;">
+            <img src="${document.body.dataset.brandingLogoUrl || '/static/img/logo.png'}" alt="Logo" style="height: 45px; margin-bottom: 5px;">
             <h3 style="margin: 0; font-size: 1.1em;">Relatório de Desempenho - Dashboard</h3>
             <p style="font-size: 0.7em; color: #555; margin: 2px 0 0 0;">Gerado em: ${new Date().toLocaleString('pt-BR')}</p>
         </div>
