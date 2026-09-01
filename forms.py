@@ -95,3 +95,10 @@ class AdminListItemForm(FlaskForm):
     """Formulário genérico para adicionar itens de lista (Lotação, Tipo)."""
     nome = StringField('Nome', validators=[DataRequired()])
     submit = SubmitField('Adicionar')
+
+class BrandingForm(FlaskForm):
+    logo = FileField('Logo da organização', validators=[
+        FileAllowed(['jpg', 'jpeg', 'png', 'webp'], 'Envie uma imagem PNG, JPG ou WebP.')
+    ])
+    salvar = SubmitField('Salvar logo')
+    remover = SubmitField('Restaurar logo padrão')
