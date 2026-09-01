@@ -68,6 +68,15 @@ def test_mesmo_login_e_numero_podem_existir_em_clientes_distintos():
         assert Protocolo.query.filter_by(numero='0001/2026').count() == 2
 
 
+def test_consulta_publica_usa_organizacao_e_nao_expoe_requerente():
+    client = app.test_client()
+    response = client.get('/consulta/cliente-a/2026/0001')
+    assert response.status_code == 200
+    assert b'0001/2026' in response.data
+    assert b'Dado exclusivo A' not in response.data
+    assert client.get('/consulta/cliente-inexistente/2026/0001').status_code == 404
+
+
 def test_tramitacao_registra_destino_e_historico():
     with app.app_context():
         protocolo = Protocolo.query.filter_by(nome='Dado exclusivo A').one()
