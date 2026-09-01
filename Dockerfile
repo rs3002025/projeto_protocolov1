@@ -35,5 +35,5 @@ COPY . .
 # Expose the port the app runs on
 EXPOSE 8080
 
-# Run the application with Gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "app:app"]
+# Atualiza o esquema de forma idempotente antes de iniciar cada implantação.
+CMD ["sh", "-c", "python bootstrap_db.py && gunicorn --bind 0.0.0.0:${PORT:-8080} --workers ${WEB_CONCURRENCY:-2} --timeout 60 app:app"]

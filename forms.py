@@ -2,6 +2,7 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField, BooleanField
 from wtforms.validators import DataRequired, Length, EqualTo, ValidationError
 from models import Usuario
+from flask_login import current_user
 
 class RegistrationForm(FlaskForm):
     """Formulário de Registro de Usuário"""
@@ -14,7 +15,8 @@ class RegistrationForm(FlaskForm):
 
     def validate_login(self, login):
         """Verifica se o login já está em uso."""
-        user = Usuario.query.filter_by(login=login.data).first()
+        tenant_id = current_user.tenant_id if current_user.is_authenticated else None
+        user = Usuario.query.filter_by(tenant_id=tenant_id, login=login.data).first()
         if user:
             raise ValidationError('Esse login já está em uso. Por favor, escolha outro.')
 
@@ -25,6 +27,7 @@ from flask_wtf.file import FileField, FileRequired, FileAllowed
 
 class LoginForm(FlaskForm):
     """Formulário de Login de Usuário"""
+    organizacao = StringField('Organização', validators=[DataRequired(), Length(min=2, max=80)])
     login = StringField('Login', validators=[DataRequired()])
     senha = PasswordField('Senha', validators=[DataRequired()])
     remember = BooleanField('Lembrar-me')
@@ -73,7 +76,7 @@ class AdminUserCreationForm(FlaskForm):
     submit = SubmitField('Criar Usuário')
 
     def validate_login(self, login):
-        if Usuario.query.filter_by(login=login.data).first():
+        if Usuario.query.filter_by(tenant_id=current_user.tenant_id, login=login.data).first():
             raise ValidationError('Este login já está em uso.')
 
 class AdminListItemForm(FlaskForm):
