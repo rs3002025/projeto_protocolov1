@@ -53,6 +53,19 @@ def bootstrap():
     with app.app_context():
         # Cria tabelas novas e, em bancos vazios, todo o esquema completo.
         db.create_all()
+        # Em bancos existentes, o modelo Organizacao já referencia os campos
+        # de identidade. Eles precisam existir antes da primeira consulta ORM.
+        inspector = inspect(db.engine)
+        existing_tables = set(inspector.get_table_names())
+        if 'organizacoes' in existing_tables:
+            with db.engine.begin() as connection:
+                columns = {column['name'] for column in inspect(connection).get_columns('organizacoes')}
+                for column, sql_type in SCHEMA_COLUMNS['organizacoes'].items():
+                    if column not in columns:
+                        if column == 'logo_data' and db.engine.dialect.name == 'postgresql':
+                            sql_type = 'BYTEA'
+                        connection.execute(text(f'ALTER TABLE organizacoes ADD COLUMN {column} {sql_type}'))
+
         organizacao = Organizacao.query.filter_by(slug=slug).first()
         if not organizacao:
             organizacao = Organizacao(nome=nome, slug=slug, ativo=True)
