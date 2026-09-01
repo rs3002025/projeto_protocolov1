@@ -69,16 +69,29 @@ def test_mesmo_login_e_numero_podem_existir_em_clientes_distintos():
 
 
 def test_consulta_publica_usa_organizacao_e_nao_expoe_requerente():
+    with app.app_context():
+        token = Protocolo.query.filter_by(nome='Dado exclusivo A').one().consulta_token
     client = app.test_client()
-    response = client.get('/consulta/cliente-a/2026/0001')
+    response = client.get(f'/consulta/{token}')
     assert response.status_code == 200
     assert b'0001/2026' not in response.data
     assert b'Dado exclusivo A' not in response.data
-    response = client.post('/consulta/cliente-a/2026/0001', data={'matricula': 'incorreta'})
+    response = client.post(f'/consulta/{token}', data={'matricula': 'incorreta'})
     assert b'0001/2026' not in response.data
-    response = client.post('/consulta/cliente-a/2026/0001', data={'matricula': 'MAT-A'})
+    response = client.post(f'/consulta/{token}', data={'matricula': 'MAT-A'})
     assert b'0001/2026' in response.data
-    assert client.get('/consulta/cliente-inexistente/2026/0001').status_code == 404
+    assert b'Dado exclusivo A' not in response.data
+    assert client.get('/consulta/token-inexistente').status_code == 404
+    assert client.get('/consulta/cliente-a/2026/0001').status_code == 404
+
+
+def test_consulta_publica_bloqueia_forca_bruta():
+    with app.app_context():
+        token = Protocolo.query.filter_by(nome='Dado exclusivo B').one().consulta_token
+    client = app.test_client()
+    for _ in range(5):
+        assert client.post(f'/consulta/{token}', data={'matricula': 'incorreta'}).status_code == 200
+    assert client.post(f'/consulta/{token}', data={'matricula': 'incorreta'}).status_code == 429
 
 
 def test_tramitacao_registra_destino_e_historico():
