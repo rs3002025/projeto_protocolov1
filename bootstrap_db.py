@@ -4,11 +4,12 @@ Registros legados são associados à organização definida em
 DEFAULT_ORGANIZATION_SLUG (por padrão, ``prefeitura``).
 """
 import os
+import secrets
 
 from sqlalchemy import inspect, text
 
 from app import app, db
-from models import Organizacao
+from models import Organizacao, Protocolo
 
 
 TENANT_TABLES = (
@@ -25,6 +26,7 @@ SCHEMA_COLUMNS = {
         'criado_por_id': 'INTEGER',
         'setor_atual_id': 'BIGINT',
         'arquivado_em': 'TIMESTAMP',
+        'consulta_token': 'VARCHAR(64)',
     },
     'anexos': {
         'documento_chave': "VARCHAR(120) DEFAULT 'anexo' NOT NULL",
@@ -83,9 +85,16 @@ def bootstrap():
                     'CREATE UNIQUE INDEX IF NOT EXISTS uq_lotacao_tenant_nome ON lotacoes (tenant_id, nome)',
                     'CREATE UNIQUE INDEX IF NOT EXISTS uq_servidor_tenant_matricula ON servidores (tenant_id, matricula)',
                     'CREATE UNIQUE INDEX IF NOT EXISTS uq_tipo_tenant_nome ON tipos_requerimento (tenant_id, nome)',
+                    'CREATE UNIQUE INDEX IF NOT EXISTS uq_protocolo_consulta_token ON protocolos (consulta_token)',
                 )
                 for statement in statements:
                     connection.execute(text(statement))
+
+        # Tokens públicos são opacos e exclusivos; registros antigos recebem um
+        # token durante a atualização antes de o aplicativo iniciar.
+        for protocolo in Protocolo.query.filter(Protocolo.consulta_token.is_(None)).all():
+            protocolo.consulta_token = secrets.token_urlsafe(32)
+        db.session.commit()
 
 
 if __name__ == '__main__':
