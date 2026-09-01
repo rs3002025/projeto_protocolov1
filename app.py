@@ -86,6 +86,26 @@ def permission_required(permission):
 def health():
     return jsonify({'status': 'ok'})
 
+@app.get('/consulta/<string:organizacao_slug>/<int:ano>/<int:sequencial>')
+def consulta_publica(organizacao_slug, ano, sequencial):
+    """Consulta pública mínima, sem expor dados pessoais do requerente."""
+    organizacao = Organizacao.query.filter_by(slug=organizacao_slug, ativo=True).first_or_404()
+    candidatos = Protocolo.query.filter(
+        Protocolo.tenant_id == organizacao.id,
+        Protocolo.numero.like(f'%/{ano}')
+    ).all()
+    protocolo = next((item for item in candidatos
+                      if item.numero and item.numero.split('/', 1)[0].isdigit()
+                      and int(item.numero.split('/', 1)[0]) == sequencial), None)
+    if protocolo is None:
+        from flask import abort
+        abort(404)
+    historico = HistoricoProtocolo.query.filter_by(
+        tenant_id=organizacao.id, protocolo_id=protocolo.id
+    ).order_by(HistoricoProtocolo.data_movimentacao.desc()).all()
+    return render_template('consulta_publica.html', protocolo=protocolo,
+                           organizacao=organizacao, historico=historico)
+
 @app.route("/")
 @app.route("/home")
 @login_required
@@ -809,6 +829,7 @@ def get_protocolo_api(protocolo_id):
         'observacoes': protocolo.observacoes,
         'status': protocolo.status,
         'responsavel': protocolo.responsavel,
+        'organizacao_slug': current_user.organizacao.slug,
     })
 
 @app.route('/protocolos/dashboard-stats')
