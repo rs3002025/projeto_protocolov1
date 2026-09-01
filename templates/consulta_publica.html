@@ -11,6 +11,10 @@
     dl { display: grid; grid-template-columns: 11rem 1fr; gap: .7rem 1rem; }
     dt { font-weight: 700; } dd { margin: 0; }
     ol { padding-left: 1.3rem; } small { color: #667; }
+    label { display: block; font-weight: 700; margin-bottom: .4rem; }
+    input { box-sizing: border-box; width: 100%; padding: .75rem; border: 1px solid #aab2bd; border-radius: 6px; font-size: 1rem; }
+    button { margin-top: 1rem; padding: .75rem 1.2rem; border: 0; border-radius: 6px; background: #175a9e; color: white; font-weight: 700; cursor: pointer; }
+    .erro { padding: .75rem; border-radius: 6px; background: #fbe9e9; color: #8a1f1f; }
     @media (max-width: 520px) { main { margin: 0; border-radius: 0; } dl { grid-template-columns: 1fr; gap: .15rem; } dd { margin-bottom: .7rem; } }
   </style>
 </head>
@@ -18,6 +22,16 @@
 <main>
   <h1>Consulta pública de protocolo</h1>
   <p><small>{{ organizacao.nome }}</small></p>
+  {% if not consulta_autorizada %}
+    <p>Informe a matrícula vinculada ao protocolo para visualizar o andamento.</p>
+    {% if erro_consulta %}<p class="erro" role="alert">{{ erro_consulta }}</p>{% endif %}
+    <form method="post" autocomplete="off">
+      {{ form.hidden_tag() }}
+      {{ form.matricula.label }}
+      {{ form.matricula(autocomplete='off', maxlength='80', required=true) }}
+      {{ form.submit() }}
+    </form>
+  {% else %}
   <dl>
     <dt>Número</dt><dd>{{ protocolo.numero }}</dd>
     <dt>Data da solicitação</dt><dd>{{ protocolo.data_solicitacao.strftime('%d/%m/%Y') if protocolo.data_solicitacao else 'Não informada' }}</dd>
@@ -33,6 +47,7 @@
       <li>Nenhum andamento registrado.</li>
     {% endfor %}
   </ol>
+  {% endif %}
 </main>
 </body>
 </html>
