@@ -30,8 +30,8 @@ def setup_module():
         ])
         db.session.flush()
         db.session.add_all([
-            Protocolo(tenant_id=a.id, numero='0001/2026', nome='Dado exclusivo A', data_solicitacao=date.today()),
-            Protocolo(tenant_id=b.id, numero='0001/2026', nome='Dado exclusivo B', data_solicitacao=date.today()),
+            Protocolo(tenant_id=a.id, numero='0001/2026', nome='Dado exclusivo A', matricula='MAT-A', data_solicitacao=date.today()),
+            Protocolo(tenant_id=b.id, numero='0001/2026', nome='Dado exclusivo B', matricula='MAT-B', data_solicitacao=date.today()),
         ])
         db.session.commit()
 
@@ -72,8 +72,12 @@ def test_consulta_publica_usa_organizacao_e_nao_expoe_requerente():
     client = app.test_client()
     response = client.get('/consulta/cliente-a/2026/0001')
     assert response.status_code == 200
-    assert b'0001/2026' in response.data
+    assert b'0001/2026' not in response.data
     assert b'Dado exclusivo A' not in response.data
+    response = client.post('/consulta/cliente-a/2026/0001', data={'matricula': 'incorreta'})
+    assert b'0001/2026' not in response.data
+    response = client.post('/consulta/cliente-a/2026/0001', data={'matricula': 'MAT-A'})
+    assert b'0001/2026' in response.data
     assert client.get('/consulta/cliente-inexistente/2026/0001').status_code == 404
 
 
