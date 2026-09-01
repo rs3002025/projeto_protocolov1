@@ -129,7 +129,7 @@ def test_logo_personalizada_fica_isolada_por_organizacao():
         assert Organizacao.query.filter_by(slug='cliente-a').one().logo_data is None
     response = client.get('/identidade/cliente-a/logo')
     assert response.status_code == 302
-    assert 'logo-sistema.svg' in response.headers['Location']
+    assert 'logo-sysprot.svg' in response.headers['Location']
 
 
 def test_tramitacao_registra_destino_e_historico():
