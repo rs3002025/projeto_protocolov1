@@ -1,5 +1,6 @@
 from app import db, login_manager
 from flask_login import UserMixin
+import secrets
 
 ID_TYPE = db.BigInteger().with_variant(db.Integer, 'sqlite')
 
@@ -67,6 +68,8 @@ class Protocolo(TenantMixin, db.Model):
     data_envio = db.Column(db.TIMESTAMP, server_default=db.func.current_timestamp())
     status = db.Column(db.String, default='Aberto')
     arquivado_em = db.Column(db.TIMESTAMP)
+    consulta_token = db.Column(db.String(64), unique=True, nullable=False,
+                               default=lambda: secrets.token_urlsafe(32), index=True)
 
     # Relationships
     anexos = db.relationship('Anexo', backref='protocolo', lazy=True, cascade="all, delete-orphan")
@@ -112,6 +115,19 @@ class Movimentacao(TenantMixin, db.Model):
     observacao = db.Column(db.Text)
     setor_origem = db.relationship('Lotacao', foreign_keys=[setor_origem_id])
     setor_destino = db.relationship('Lotacao', foreign_keys=[setor_destino_id])
+
+class ConsultaPublicaTentativa(db.Model):
+    __tablename__ = 'consulta_publica_tentativas'
+    __table_args__ = (db.UniqueConstraint('protocolo_id', 'identificador_hash',
+                                          name='uq_consulta_protocolo_identificador'),)
+    id = db.Column(db.Integer, primary_key=True)
+    protocolo_id = db.Column(db.Integer, db.ForeignKey('protocolos.id'), nullable=False, index=True)
+    identificador_hash = db.Column(db.String(64), nullable=False)
+    tentativas = db.Column(db.Integer, nullable=False, default=0)
+    janela_iniciada_em = db.Column(db.TIMESTAMP, nullable=False, default=db.func.current_timestamp())
+    bloqueado_ate = db.Column(db.TIMESTAMP)
+    atualizado_em = db.Column(db.TIMESTAMP, nullable=False, default=db.func.current_timestamp(),
+                              onupdate=db.func.current_timestamp())
 
 class Lotacao(TenantMixin, db.Model):
     __tablename__ = 'lotacoes'
