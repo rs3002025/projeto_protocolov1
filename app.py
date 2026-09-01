@@ -47,7 +47,7 @@ import hashlib
 from openpyxl import Workbook
 from sqlalchemy import func, cast, Date
 from datetime import datetime, timedelta
-from forms import LoginForm, RegistrationForm, ProtocoloForm, AnexoForm, AdminUserCreationForm, AdminListItemForm, ConsultaPublicaForm
+from forms import LoginForm, RegistrationForm, ProtocoloForm, AnexoForm, AdminUserCreationForm, AdminListItemForm, ConsultaPublicaForm, BrandingForm
 from models import Organizacao, Usuario, Protocolo, HistoricoProtocolo, Movimentacao, ConsultaPublicaTentativa, Anexo, Lotacao, TipoRequerimento, Servidor, db
 from werkzeug.middleware.proxy_fix import ProxyFix
 
@@ -70,7 +70,14 @@ ROLE_PERMISSIONS = {
 
 @app.context_processor
 def permission_context():
-    return {'can': lambda permission: current_user.is_authenticated and permission in ROLE_PERMISSIONS.get(current_user.tipo, set())}
+    logo_url = url_for('static', filename='img/logo.png')
+    if current_user.is_authenticated and current_user.organizacao:
+        version = int(current_user.organizacao.logo_atualizada_em.timestamp()) if current_user.organizacao.logo_atualizada_em else 0
+        logo_url = url_for('organization_logo', slug=current_user.organizacao.slug, v=version)
+    return {
+        'can': lambda permission: current_user.is_authenticated and permission in ROLE_PERMISSIONS.get(current_user.tipo, set()),
+        'branding_logo_url': logo_url,
+    }
 
 def permission_required(permission):
     def decorator(view):
@@ -90,6 +97,16 @@ def permission_required(permission):
 @app.get('/health')
 def health():
     return jsonify({'status': 'ok'})
+
+@app.get('/identidade/<string:slug>/logo')
+def organization_logo(slug):
+    organizacao = Organizacao.query.filter_by(slug=slug.strip().lower(), ativo=True).first()
+    if not organizacao or not organizacao.logo_data:
+        return redirect(url_for('static', filename='img/logo.png'))
+    response = send_file(io.BytesIO(organizacao.logo_data), mimetype='image/png',
+                         download_name='logo.png', max_age=3600, conditional=True)
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    return response
 
 @app.after_request
 def security_headers(response):
@@ -250,6 +267,7 @@ def configuracoes():
     user_form = AdminUserCreationForm()
     lotacao_form = AdminListItemForm()
     tipo_form = AdminListItemForm()
+    branding_form = BrandingForm()
 
     if user_form.validate_on_submit() and user_form.submit.data:
         # Lógica de criação de usuário movida para uma rota de API dedicada
@@ -262,7 +280,56 @@ def configuracoes():
 
     return render_template('configuracoes.html', title="Configurações",
                            users=users, lotacoes=lotacoes, tipos=tipos,
-                           user_form=user_form, lotacao_form=lotacao_form, tipo_form=tipo_form)
+                           user_form=user_form, lotacao_form=lotacao_form, tipo_form=tipo_form,
+                           branding_form=branding_form, organizacao=current_user.organizacao)
+
+@app.post('/admin/identidade/logo')
+@login_required
+@admin_required
+def admin_update_logo():
+    from PIL import Image, ImageOps, UnidentifiedImageError
+
+    form = BrandingForm()
+    organizacao = current_user.organizacao
+    if form.remover.data and form.validate():
+        organizacao.logo_data = None
+        organizacao.logo_mime_type = None
+        organizacao.logo_nome_arquivo = None
+        organizacao.logo_atualizada_em = datetime.utcnow()
+        db.session.commit()
+        flash('Logo padrão restaurada.', 'success')
+        return redirect(url_for('configuracoes'))
+    if not form.validate_on_submit() or not form.logo.data:
+        flash('Selecione uma imagem PNG, JPG ou WebP válida.', 'danger')
+        return redirect(url_for('configuracoes'))
+    arquivo = form.logo.data
+    arquivo.stream.seek(0, os.SEEK_END)
+    tamanho = arquivo.stream.tell()
+    arquivo.stream.seek(0)
+    if tamanho > 5 * 1024 * 1024:
+        flash('A imagem deve ter no máximo 5 MB.', 'danger')
+        return redirect(url_for('configuracoes'))
+    try:
+        Image.MAX_IMAGE_PIXELS = 20_000_000
+        imagem = Image.open(arquivo.stream)
+        imagem.verify()
+        arquivo.stream.seek(0)
+        imagem = Image.open(arquivo.stream)
+        imagem = ImageOps.exif_transpose(imagem)
+        imagem.thumbnail((1600, 800))
+        imagem = imagem.convert('RGBA' if 'A' in imagem.getbands() else 'RGB')
+        saida = io.BytesIO()
+        imagem.save(saida, format='PNG', optimize=True)
+    except (UnidentifiedImageError, OSError, Image.DecompressionBombError):
+        flash('O arquivo enviado não é uma imagem válida ou excede os limites de segurança.', 'danger')
+        return redirect(url_for('configuracoes'))
+    organizacao.logo_data = saida.getvalue()
+    organizacao.logo_mime_type = 'image/png'
+    organizacao.logo_nome_arquivo = secure_filename(arquivo.filename or 'logo.png')
+    organizacao.logo_atualizada_em = datetime.utcnow()
+    db.session.commit()
+    flash('Identidade visual atualizada em todo o sistema.', 'success')
+    return redirect(url_for('configuracoes'))
 
 @app.route("/admin/usuarios/novo", methods=['POST'])
 @login_required
@@ -340,7 +407,12 @@ def gerar_pdf_protocolo(protocolo_id):
 
     # Renderiza um template HTML com os dados do protocolo
     # Este template é feito especificamente para ser convertido em PDF
-    rendered_html = render_template('pdf_template.html', protocolo=protocolo)
+    version = int(current_user.organizacao.logo_atualizada_em.timestamp()) if current_user.organizacao.logo_atualizada_em else 0
+    rendered_html = render_template(
+        'pdf_template.html', protocolo=protocolo,
+        pdf_logo_url=url_for('organization_logo', slug=current_user.organizacao.slug,
+                             v=version, _external=True)
+    )
 
     # Gera o PDF a partir do HTML renderizado
     pdf_bytes = HTML(string=rendered_html, base_url=request.base_url).write_pdf()
