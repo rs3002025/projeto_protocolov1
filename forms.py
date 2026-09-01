@@ -33,6 +33,12 @@ class LoginForm(FlaskForm):
     remember = BooleanField('Lembrar-me')
     submit = SubmitField('Entrar')
 
+class ConsultaPublicaForm(FlaskForm):
+    matricula = StringField('Confirme a matrícula', validators=[
+        DataRequired(), Length(min=1, max=80)
+    ])
+    submit = SubmitField('Consultar protocolo')
+
 class ProtocoloForm(FlaskForm):
     """Formulário para criar ou editar um protocolo."""
     numero = StringField('Número do Protocolo', validators=[Optional()])
