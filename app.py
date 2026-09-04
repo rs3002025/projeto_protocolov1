@@ -4,6 +4,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_bcrypt import Bcrypt
 from dotenv import load_dotenv
+from flask_wtf.csrf import CSRFProtect
 
 # Load environment variables from .env file
 load_dotenv()
@@ -29,6 +30,7 @@ app.config['SESSION_COOKIE_SECURE'] = os.getenv('COOKIE_SECURE', 'true').lower()
 db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
 login_manager = LoginManager(app)
+csrf = CSRFProtect(app)
 
 # --- Flask-Login Configuration ---
 # 'login' is the function name of the route for the login page
@@ -151,7 +153,7 @@ def consulta_publica(consulta_token):
         matricula_armazenada = (protocolo.matricula or '').strip().casefold()
         matricula_informada = form.matricula.data.strip().casefold()
         consulta_autorizada = bool(matricula_armazenada) and hmac.compare_digest(
-            matricula_armazenada, matricula_informada
+            matricula_armazenada.encode('utf-8'), matricula_informada.encode('utf-8')
         )
         if consulta_autorizada:
             if tentativa:
@@ -162,12 +164,16 @@ def consulta_publica(consulta_token):
             db.session.commit()
         else:
             janela = timedelta(minutes=15)
-            if not tentativa or tentativa.janela_iniciada_em < agora - janela:
+            if not tentativa:
                 tentativa = ConsultaPublicaTentativa(
                     protocolo_id=protocolo.id, identificador_hash=fingerprint,
                     tentativas=0, janela_iniciada_em=agora
                 )
                 db.session.add(tentativa)
+            elif tentativa.janela_iniciada_em < agora - janela:
+                tentativa.tentativas = 0
+                tentativa.janela_iniciada_em = agora
+                tentativa.bloqueado_ate = None
             tentativa.tentativas += 1
             if tentativa.tentativas >= 5:
                 tentativa.bloqueado_ate = agora + timedelta(minutes=30)
@@ -243,7 +249,7 @@ def admin_required(f):
     return decorated_function
 
 @app.route("/relatorios")
-@login_required
+@permission_required('reports')
 def relatorios():
     # This route essentially does the same as listar_protocolos but renders a different template
     # to match the original app's structure.
@@ -792,7 +798,7 @@ def arquivar_protocolo(protocolo_id):
 # --- Rota de Backup ---
 
 @app.route('/protocolos/backup/excel')
-@login_required
+@permission_required('reports')
 def backup_excel():
     """Gera um arquivo Excel com todos os protocolos, aplicando os filtros ativos."""
     query = tenant_query(Protocolo)

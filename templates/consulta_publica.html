@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Consulta do protocolo {{ protocolo.numero }}</title>
+  <title>Consulta pública de protocolo{% if consulta_autorizada %} {{ protocolo.numero }}{% endif %}</title>
   <style>
     body { margin: 0; background: #f4f6f8; color: #223; font: 16px/1.5 system-ui, sans-serif; }
     main { max-width: 720px; margin: 3rem auto; padding: 2rem; background: white; border-radius: 12px; box-shadow: 0 3px 18px #0001; }

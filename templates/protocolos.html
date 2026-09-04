@@ -3,7 +3,7 @@
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h1>Todos os Protocolos</h1>
         <div>
-            <a href="{{ url_for('backup_excel') }}" class="btn btn-info">Exportar para Excel</a>
+            {% if can('reports') %}<a href="{{ url_for('backup_excel') }}" class="btn btn-info">Exportar para Excel</a>{% endif %}
             <a href="{{ url_for('criar_protocolo') }}" class="btn btn-success">Novo Protocolo</a>
         </div>
     </div>

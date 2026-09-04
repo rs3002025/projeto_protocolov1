@@ -11,6 +11,7 @@
           action="{{ url_for('editar_protocolo', protocolo_id=protocolo.id) if protocolo else url_for('criar_protocolo') }}"
           id="protocol-form"
           style="background-color: #fff; padding: 2rem; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
         <div class="form-group span-3">
             <label for="numeroProtocolo">Número do Protocolo</label>

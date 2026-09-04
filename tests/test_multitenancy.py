@@ -2,18 +2,29 @@ import os
 import tempfile
 import io
 from pathlib import Path
-from datetime import date
+from datetime import date, datetime, timedelta
 
-os.environ.setdefault('SECRET_KEY', 'test-secret-key')
-os.environ.setdefault('DATABASE_URL', 'sqlite:///' + tempfile.mktemp(suffix='.sqlite3'))
+# Nunca herdar DATABASE_URL do Railway: esta suíte recria todas as tabelas.
+_test_directory = tempfile.TemporaryDirectory(prefix='protocolo-tests-')
+os.environ['SECRET_KEY'] = 'test-secret-key'
+os.environ['DATABASE_URL'] = 'sqlite:///' + str(Path(_test_directory.name) / 'tests.sqlite3')
 
 from app import app, bcrypt, db
-from models import Lotacao, Movimentacao, Organizacao, Protocolo, Usuario
+from models import Lotacao, Movimentacao, Organizacao, Protocolo, Usuario, ConsultaPublicaTentativa
+
+
+def teardown_module():
+    with app.app_context():
+        db.session.remove()
+        db.engine.dispose()
+    _test_directory.cleanup()
 
 
 def setup_module():
     app.config.update(TESTING=True, WTF_CSRF_ENABLED=False)
     with app.app_context():
+        assert db.engine.url.drivername == 'sqlite'
+        assert Path(db.engine.url.database).resolve().parent == Path(_test_directory.name).resolve()
         db.drop_all()
         db.create_all()
         a = Organizacao(nome='Cliente A', slug='cliente-a')
@@ -94,6 +105,63 @@ def test_consulta_publica_bloqueia_forca_bruta():
     for _ in range(5):
         assert client.post(f'/consulta/{token}', data={'matricula': 'incorreta'}).status_code == 200
     assert client.post(f'/consulta/{token}', data={'matricula': 'incorreta'}).status_code == 429
+
+
+def test_consulta_publica_reutiliza_janela_expirada_e_aceita_unicode():
+    client = app.test_client()
+    with app.app_context():
+        protocolo = Protocolo.query.filter_by(nome='Dado exclusivo A').one()
+        token, protocolo_id = protocolo.consulta_token, protocolo.id
+    assert client.post(f'/consulta/{token}', data={'matricula': 'inválida'}).status_code == 200
+    with app.app_context():
+        tentativa = ConsultaPublicaTentativa.query.filter_by(protocolo_id=protocolo_id).one()
+        tentativa.janela_iniciada_em = datetime.utcnow() - timedelta(minutes=16)
+        db.session.commit()
+    assert client.post(f'/consulta/{token}', data={'matricula': 'outra'}).status_code == 200
+    with app.app_context():
+        tentativa = ConsultaPublicaTentativa.query.filter_by(protocolo_id=protocolo_id).one()
+        assert tentativa.tentativas == 1
+    assert b'0001/2026' in client.post(f'/consulta/{token}', data={'matricula': 'MAT-A'}).data
+
+
+def test_relatorios_e_exportacao_exigem_permissao():
+    client = app.test_client()
+    client.post('/login', data={'organizacao': 'cliente-a', 'login': 'consulta', 'senha': 'senha-segura'})
+    for path in ['/relatorios', '/protocolos/backup/excel']:
+        assert client.get(path, headers={'Content-Type': 'application/json'}).status_code == 403
+    html = client.get('/protocolos').get_data(as_text=True)
+    assert 'Exportar para Excel' not in html
+    assert '>Relatórios</a>' not in html
+    login(client, 'cliente-a')  # A sessão de consulta não deve ser elevada pelo formulário.
+    assert client.get('/relatorios', headers={'Content-Type': 'application/json'}).status_code == 403
+
+
+def test_csrf_rejeita_operacao_sem_token_e_aceita_formulario_legitimo():
+    import re
+    client = app.test_client()
+    app.config['WTF_CSRF_ENABLED'] = True
+    try:
+        assert client.post('/login', data={}).status_code == 400
+        html = client.get('/login').get_data(as_text=True)
+        token = re.search(r'name="csrf_token"[^>]*value="([^"]+)"', html).group(1)
+        response = client.post('/login', data={
+            'organizacao': 'cliente-a', 'login': 'admin', 'senha': 'senha-segura',
+            'csrf_token': token,
+        })
+        assert response.status_code == 302
+        assert client.post('/protocolos/atualizar', json={}).status_code == 400
+        response = client.post('/protocolos/atualizar', json={}, headers={'X-CSRFToken': token})
+        assert b'CSRF' not in response.data
+        with app.app_context():
+            protocolo_id = Protocolo.query.filter_by(nome='Dado exclusivo A').one().id
+        for path in ['/protocolo/novo', '/configuracoes', f'/protocolo/{protocolo_id}']:
+            response = client.get(path)
+            assert response.status_code == 200
+            for form in re.findall(r'<form\b[\s\S]*?</form>', response.get_data(as_text=True)):
+                if re.search(r'method="POST"', form, re.I):
+                    assert 'name="csrf_token"' in form
+    finally:
+        app.config['WTF_CSRF_ENABLED'] = False
 
 
 def test_logo_personalizada_fica_isolada_por_organizacao():

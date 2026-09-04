@@ -1,6 +1,14 @@
 // This script will be rewritten to support the MPA pattern.
 // It will only contain logic for enhancing the UI, not for rendering entire pages.
 
+function csrfFetch(url, options = {}) {
+    const headers = new Headers(options.headers || {});
+    if (new URL(url, window.location.href).origin === window.location.origin) {
+        headers.set('X-CSRFToken', document.querySelector('meta[name="csrf-token"]').content);
+    }
+    return fetch(url, { ...options, headers });
+}
+
 document.addEventListener('DOMContentLoaded', function () {
 
     // A tela de login ainda não possui sessão; a organização digitada define
@@ -401,7 +409,7 @@ window.confirmarEncaminhamento = async function() {
     };
 
     try {
-        const response = await fetch('/protocolos/atualizar', {
+        const response = await csrfFetch('/protocolos/atualizar', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
@@ -446,7 +454,7 @@ window.confirmarAtualizacaoStatus = async function() {
     };
 
     try {
-        const response = await fetch('/protocolos/atualizar', {
+        const response = await csrfFetch('/protocolos/atualizar', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
@@ -684,7 +692,10 @@ async function searchServidorByName() {
         const servidores = await response.json();
         resultadosDiv.innerHTML = ''; // Clear previous results
         if (servidores.error) {
-            resultadosDiv.innerHTML = `<p class="text-danger">${servidores.error}</p>`;
+            const erro = document.createElement('p');
+            erro.className = 'text-danger';
+            erro.textContent = servidores.error;
+            resultadosDiv.appendChild(erro);
             return;
         }
         if (servidores.length > 0) {
@@ -692,7 +703,11 @@ async function searchServidorByName() {
                 const div = document.createElement('a'); // Use 'a' tag for list-group-item-action
                 div.href = '#';
                 div.className = 'list-group-item list-group-item-action';
-                div.innerHTML = `<strong>${servidor.nome}</strong><br><small>Matrícula: ${servidor.matricula}</small>`;
+                const nome = document.createElement('strong');
+                nome.textContent = servidor.nome;
+                const matricula = document.createElement('small');
+                matricula.textContent = `Matrícula: ${servidor.matricula}`;
+                div.append(nome, document.createElement('br'), matricula);
                 div.onclick = (e) => {
                     e.preventDefault();
                     preencherCamposServidor(servidor);
@@ -793,7 +808,9 @@ window.previsualizarPDF = async function(id = null, isFromForm = false) {
   clone.querySelector('#doc_unidade').textContent = protocolo.unidade_exercicio || '';
   clone.querySelector('#doc_tipo').textContent = protocolo.tipo_requerimento || '';
   clone.querySelector('#doc_requerAo').textContent = protocolo.requer_ao || '';
-  clone.querySelector('#doc_complemento').innerHTML = protocolo.observacoes ? protocolo.observacoes.replace(/\n/g, '<br>') : 'Nenhuma informação adicional.';
+  const complemento = clone.querySelector('#doc_complemento');
+  complemento.textContent = protocolo.observacoes || 'Nenhuma informação adicional.';
+  complemento.style.whiteSpace = 'pre-wrap';
 
   pdfContentDiv.innerHTML = '';
   pdfContentDiv.appendChild(clone.querySelector('.pdf-body'));
