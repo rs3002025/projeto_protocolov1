@@ -46,6 +46,7 @@ from werkzeug.utils import secure_filename
 import io
 import hmac
 import hashlib
+import secrets
 from openpyxl import Workbook
 from sqlalchemy import func, cast, Date
 from datetime import datetime, timedelta
@@ -568,7 +569,12 @@ def detalhe_protocolo(protocolo_id):
     anexo_form = AnexoForm()
     lotacoes = tenant_query(Lotacao).filter_by(ativo=True).order_by(Lotacao.nome).all()
     pendente = tenant_query(Movimentacao).filter_by(protocolo_id=protocolo.id, recebido_em=None).order_by(Movimentacao.id.desc()).first()
-    return render_template('protocolo_detalhe.html', title=f"Protocolo {protocolo.numero}", protocolo=protocolo, anexo_form=anexo_form, lotacoes=lotacoes, movimentacao_pendente=pendente)
+    documentos = {}
+    for anexo in sorted(protocolo.anexos, key=lambda item: (item.versao, item.id)):
+        # Os anexos anteriores ao versionamento tinham todos a chave 'anexo'.
+        chave = anexo.documento_chave if anexo.documento_chave != 'anexo' else f'legado-{anexo.id}'
+        documentos[chave] = anexo
+    return render_template('protocolo_detalhe.html', title=f"Protocolo {protocolo.numero}", protocolo=protocolo, anexo_form=anexo_form, lotacoes=lotacoes, movimentacao_pendente=pendente, documentos_atuais=list(documentos.values()))
 
 @app.route("/protocolo/<int:protocolo_id>/editar", methods=['GET', 'POST'])
 @permission_required('edit')
@@ -624,23 +630,41 @@ def editar_protocolo(protocolo_id):
 @permission_required('delete')
 def deletar_protocolo(protocolo_id):
     protocolo = tenant_get_or_404(Protocolo, protocolo_id)
-    # Adicionar verificação de permissão aqui
-    db.session.delete(protocolo)
-    db.session.commit()
-    flash('Protocolo excluído com sucesso.', 'success')
-    return redirect(url_for('listar_protocolos'))
+    flash('A exclusão permanente está desativada para preservar o histórico. Utilize o arquivamento eletrônico.', 'warning')
+    return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
 
 # --- Rotas de Anexos ---
 
 @app.route("/protocolo/<int:protocolo_id>/anexo/novo", methods=['POST'])
 @permission_required('edit')
 def adicionar_anexo(protocolo_id):
-    protocolo = tenant_get_or_404(Protocolo, protocolo_id)
+    # Serializa versões do mesmo processo no PostgreSQL, inclusive uploads simultâneos.
+    protocolo = tenant_query(Protocolo).filter_by(id=protocolo_id).with_for_update().first_or_404()
+    if protocolo.arquivado_em:
+        flash('Processos arquivados não podem receber anexos ou novas versões.', 'warning')
+        return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
     form = AnexoForm()
     if form.validate_on_submit():
         file = form.anexo.data
         filename = secure_filename(file.filename)
-        file_data = file.read()
+        file_data = file.read(20 * 1024 * 1024 + 1)
+        if not filename or not file_data or len(file_data) > 20 * 1024 * 1024:
+            flash('Envie um arquivo não vazio, com nome válido e até 20 MB.', 'danger')
+            return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
+        chave = secrets.token_urlsafe(24)
+        versao = 1
+        documento_id = request.form.get('documento_id', '').strip()
+        if documento_id:
+            if not documento_id.isdecimal():
+                return 'Documento inválido.', 400
+            anterior = tenant_query(Anexo).filter_by(id=int(documento_id), protocolo_id=protocolo.id).first_or_404()
+            if anterior.documento_chave == 'anexo':
+                anterior.documento_chave = chave
+                db.session.flush()
+            else:
+                chave = anterior.documento_chave
+            versao = (tenant_query(Anexo).filter_by(protocolo_id=protocolo.id, documento_chave=chave)
+                      .with_entities(func.max(Anexo.versao)).scalar() or 0) + 1
 
         novo_anexo = Anexo(
             tenant_id=current_user.tenant_id,
@@ -651,10 +675,18 @@ def adicionar_anexo(protocolo_id):
             mime_type=file.mimetype,
             file_data=file_data,
             enviado_por_id=current_user.id,
+            documento_chave=chave,
+            versao=versao,
         )
         db.session.add(novo_anexo)
+        db.session.add(HistoricoProtocolo(
+            tenant_id=current_user.tenant_id, protocolo_id=protocolo.id,
+            status=protocolo.status, responsavel=current_user.login, usuario_id=current_user.id,
+            acao='NOVA_VERSAO_DOCUMENTO' if versao > 1 else 'ANEXO_ADICIONADO',
+            observacao=f'{filename} — versão {versao}. Documento {chave}.',
+        ))
         db.session.commit()
-        flash('Anexo enviado com sucesso!', 'success')
+        flash(f'Documento enviado com sucesso! Versão {versao}; versões anteriores preservadas.', 'success')
     else:
         # Pega o primeiro erro de validação para exibir
         error_messages = [error for field, errors in form.errors.items() for error in errors]
@@ -678,10 +710,7 @@ def baixar_anexo(anexo_id):
 def deletar_anexo(anexo_id):
     anexo = tenant_get_or_404(Anexo, anexo_id)
     protocolo_id = anexo.protocolo_id
-    # Adicionar verificação de permissão aqui
-    db.session.delete(anexo)
-    db.session.commit()
-    flash('Anexo excluído com sucesso.', 'success')
+    flash('As versões são preservadas para auditoria. Envie uma nova versão para corrigir o documento.', 'warning')
     return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo_id))
 
 @app.route("/protocolos/atualizar", methods=['POST'])

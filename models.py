@@ -93,6 +93,7 @@ class Anexo(TenantMixin, db.Model):
     documento_chave = db.Column(db.String(120), nullable=False, default='anexo')
     versao = db.Column(db.Integer, nullable=False, default=1)
     enviado_por_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'))
+    enviado_por = db.relationship('Usuario', foreign_keys=[enviado_por_id])
     created_at = db.Column(db.TIMESTAMP(timezone=True), server_default=db.func.now())
 
 class HistoricoProtocolo(TenantMixin, db.Model):
