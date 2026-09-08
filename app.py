@@ -49,7 +49,7 @@ import hashlib
 import secrets
 from urllib.parse import urlsplit
 from openpyxl import Workbook
-from sqlalchemy import func, cast, Date
+from sqlalchemy import func, cast, Date, text
 from datetime import datetime, timedelta
 from forms import LoginForm, RegistrationForm, ProtocoloForm, AnexoForm, AdminUserCreationForm, AdminListItemForm, ConsultaPublicaForm, BrandingForm
 from models import Organizacao, Usuario, Protocolo, HistoricoProtocolo, Movimentacao, ConsultaPublicaTentativa, Anexo, Lotacao, TipoRequerimento, Servidor, db
@@ -163,7 +163,13 @@ def permission_required(permission):
 # --- Routes ---
 @app.get('/health')
 def health():
-    return jsonify({'status': 'ok'})
+    """Prontidão real: o processo e sua dependência essencial devem responder."""
+    try:
+        db.session.execute(text('SELECT 1'))
+    except Exception:
+        db.session.rollback()
+        return jsonify({'status': 'indisponivel', 'database': 'erro'}), 503
+    return jsonify({'status': 'ok', 'database': 'ok'})
 
 @app.get('/identidade/<string:slug>/logo')
 def organization_logo(slug):

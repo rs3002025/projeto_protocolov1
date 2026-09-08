@@ -77,6 +77,17 @@ def test_login_nao_redireciona_para_site_externo():
     assert response.headers['Location'] == '/protocolos'
 
 
+def test_health_verifica_a_conexao_com_o_banco():
+    client = app.test_client()
+    response = client.get('/health')
+    assert response.status_code == 200
+    assert response.get_json() == {'status': 'ok', 'database': 'ok'}
+    with patch.object(db.session, 'execute', side_effect=RuntimeError('banco indisponivel')):
+        response = client.get('/health')
+    assert response.status_code == 503
+    assert response.get_json() == {'status': 'indisponivel', 'database': 'erro'}
+
+
 def test_listagem_nao_vaza_dados_entre_clientes():
     client = app.test_client()
     login(client, 'cliente-a')
