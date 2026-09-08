@@ -106,6 +106,20 @@ def test_health_verifica_a_conexao_com_o_banco():
     assert response.get_json() == {'status': 'indisponivel', 'database': 'erro'}
 
 
+def test_cabecalhos_protegem_dados_e_transporte():
+    client = app.test_client()
+    login(client, 'cliente-a')
+    response = client.get('/protocolos', base_url='https://localhost')
+    assert response.headers['Cache-Control'] == 'no-store, max-age=0'
+    assert response.headers['Pragma'] == 'no-cache'
+    assert response.headers['X-Content-Type-Options'] == 'nosniff'
+    assert response.headers['X-Frame-Options'] == 'DENY'
+    assert response.headers['Strict-Transport-Security'].startswith('max-age=31536000')
+    assert "object-src 'none'" in response.headers['Content-Security-Policy']
+    assert response.headers['Permissions-Policy'] == 'camera=(), microphone=(), geolocation=()'
+    assert app.config['MAX_CONTENT_LENGTH'] == 21 * 1024 * 1024
+
+
 def test_listagem_nao_vaza_dados_entre_clientes():
     client = app.test_client()
     login(client, 'cliente-a')

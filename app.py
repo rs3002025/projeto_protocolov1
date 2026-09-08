@@ -25,6 +25,7 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'pool_pre_ping': True, 'pool_recycle'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_SECURE'] = os.getenv('COOKIE_SECURE', 'true').lower() == 'true'
+app.config['MAX_CONTENT_LENGTH'] = 21 * 1024 * 1024
 
 # --- Extensions Initialization ---
 db = SQLAlchemy(app)
@@ -202,6 +203,19 @@ def security_headers(response):
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['X-Frame-Options'] = 'DENY'
     response.headers['Referrer-Policy'] = 'no-referrer'
+    response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
+    response.headers['Content-Security-Policy'] = (
+        "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net "
+        "https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+        "img-src 'self' data: blob:; connect-src 'self'; font-src 'self' data:; "
+        "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; "
+        "worker-src 'self' blob:"
+    )
+    if request.is_secure:
+        response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    if current_user.is_authenticated or request.endpoint in ('login', 'consulta_publica'):
+        response.headers['Cache-Control'] = 'no-store, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
     if request.path.startswith('/consulta/'):
         response.headers['Cache-Control'] = 'no-store, max-age=0'
         response.headers['Content-Security-Policy'] = (
@@ -589,6 +603,14 @@ def gerar_pdf_protocolo(protocolo_id):
 
     return response
 
+
+@app.errorhandler(413)
+def arquivo_grande_demais(_error):
+    if request.is_json:
+        return jsonify({'erro': 'A requisição excede o limite permitido de 21 MB.'}), 413
+    flash('O envio excede o limite permitido de 21 MB.', 'danger')
+    return redirect(request.referrer or url_for('home'))
+
 @app.post('/protocolo/<int:protocolo_id>/documento/gerar')
 @permission_required('edit')
 def gerar_documento_versionado(protocolo_id):
@@ -929,7 +951,8 @@ def atualizar_protocolo_status():
         return jsonify({'sucesso': True, 'mensagem': 'Protocolo atualizado com sucesso.'})
     except Exception as e:
         db.session.rollback()
-        return jsonify({'sucesso': False, 'mensagem': str(e)}), 500
+        app.logger.exception('Falha ao atualizar o status do protocolo.')
+        return jsonify({'sucesso': False, 'mensagem': 'Não foi possível concluir a operação.'}), 500
 
 @app.post('/protocolo/<int:protocolo_id>/tramitar')
 @permission_required('route')
@@ -1066,7 +1089,8 @@ def get_usuarios():
         usuarios_list = [{'id': u.id, 'login': u.login, 'nome': u.nome} for u in usuarios]
         return jsonify(usuarios_list)
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        app.logger.exception('Falha ao listar usuários da organização.')
+        return jsonify({'error': 'Não foi possível obter os usuários.'}), 500
 
 @app.route('/api/servidor/<string:matricula>')
 @permission_required('create')
@@ -1289,7 +1313,7 @@ def dashboard_stats():
     except Exception as e:
         import traceback
         app.logger.error(f"ERROR in dashboard_stats: {e}\n{traceback.format_exc()}")
-        return jsonify({'error': f'Ocorreu um erro no servidor ao buscar os dados do dashboard: {str(e)}'}), 500
+        return jsonify({'error': 'Não foi possível carregar os dados do dashboard.'}), 500
 
 if __name__ == '__main__':
     # The port must be available. Railway provides the PORT env var.

@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y \
     libpangocairo-1.0-0 \
     fonts-liberation \
     libffi-dev \
+    postgresql-client \
     && echo "pt_BR.UTF-8 UTF-8" >> /etc/locale.gen \
     && locale-gen pt_BR.UTF-8 \
     && update-locale LANG=pt_BR.UTF-8 \
