@@ -361,3 +361,43 @@ def test_dashboard_controla_prazos_e_estatisticas_pelo_setor_atual():
         protocolo.status = 'ARQUIVADO'
         db.session.commit()
     assert client.get('/protocolos/dashboard-stats?evolucaoPeriodo=all').get_json()['pendentesAntigos'] == 0
+
+
+def test_administrador_edita_desativa_e_reativa_usuario_do_cliente():
+    client = app.test_client()
+    login(client, 'cliente-a')
+    with app.app_context():
+        consulta = Usuario.query.filter_by(tenant_id=1, login='consulta').one()
+        juridico = Lotacao.query.filter_by(tenant_id=1, nome='Jurídico').one()
+        consulta_id, juridico_id = consulta.id, juridico.id
+    response = client.post(f'/admin/usuarios/{consulta_id}/editar', data={
+        'nome_completo': 'Consulta Atualizada', 'email': 'consulta@example.test',
+        'tipo': 'atendente', 'lotacao_id': juridico_id})
+    assert response.status_code == 302
+    with app.app_context():
+        consulta = db.session.get(Usuario, consulta_id)
+        assert (consulta.nome_completo, consulta.tipo, consulta.lotacao_id) == ('Consulta Atualizada', 'atendente', juridico_id)
+    assert client.post(f'/admin/usuarios/{consulta_id}/status').status_code == 302
+    inativo = app.test_client()
+    response = inativo.post('/login', data={'organizacao': 'cliente-a', 'login': 'consulta', 'senha': 'senha-segura'}, follow_redirects=True)
+    assert b'Login sem sucesso' in response.data
+    client.post(f'/admin/usuarios/{consulta_id}/status')
+    assert b'Login bem-sucedido' in inativo.post('/login', data={
+        'organizacao': 'cliente-a', 'login': 'consulta', 'senha': 'senha-segura'}, follow_redirects=True).data
+
+
+def test_usuario_de_outro_cliente_e_proprio_admin_sao_protegidos():
+    client = app.test_client()
+    login(client, 'cliente-a')
+    with app.app_context():
+        admin_a = Usuario.query.filter_by(tenant_id=1, login='admin').one()
+        admin_b = Usuario.query.filter_by(tenant_id=2, login='admin').one()
+        admin_a_id, admin_b_id = admin_a.id, admin_b.id
+    assert client.post(f'/admin/usuarios/{admin_b_id}/status').status_code == 404
+    client.post(f'/admin/usuarios/{admin_a_id}/status')
+    with app.app_context():
+        assert db.session.get(Usuario, admin_a_id).status == 'ativo'
+    client.post(f'/admin/usuarios/{admin_a_id}/editar', data={
+        'nome_completo': 'Ana A', 'email': 'ana@example.test', 'tipo': 'consulta', 'lotacao_id': 0})
+    with app.app_context():
+        assert db.session.get(Usuario, admin_a_id).tipo == 'admin'

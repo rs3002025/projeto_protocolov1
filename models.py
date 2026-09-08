@@ -7,7 +7,8 @@ ID_TYPE = db.BigInteger().with_variant(db.Integer, 'sqlite')
 # Flask-Login requires this callback to load a user from the session
 @login_manager.user_loader
 def load_user(user_id):
-    return db.session.get(Usuario, int(user_id))
+    user = db.session.get(Usuario, int(user_id))
+    return user if user and user.is_active else None
 
 class Organizacao(db.Model):
     __tablename__ = 'organizacoes'

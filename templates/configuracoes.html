@@ -49,12 +49,16 @@
                 <tbody>
                     {% for user in users %}
                     <tr>
-                        <td>{{ user.nome_completo }}</td>
+                        <td><form id="edit-user-{{ user.id }}" method="POST" action="{{ url_for('admin_update_user', user_id=user.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form><input form="edit-user-{{ user.id }}" class="form-control form-control-sm" name="nome_completo" value="{{ user.nome_completo }}" required></td>
                         <td>{{ user.login }}</td>
-                        <td>{{ user.email }}</td>
-                        <td>{{ user.tipo }}</td>
+                        <td><input form="edit-user-{{ user.id }}" class="form-control form-control-sm" name="email" type="email" value="{{ user.email }}" required></td>
+                        <td><select form="edit-user-{{ user.id }}" class="form-select form-select-sm" name="tipo">{% for role in ['consulta','atendente','user','gestor','admin'] %}<option value="{{ role }}" {% if user.tipo == role %}selected{% endif %}>{{ role }}</option>{% endfor %}</select></td>
                         <td><span class="badge {{ 'bg-success' if user.status == 'ativo' else 'bg-danger' }}">{{ user.status }}</span></td>
-                        <td><!-- Action buttons placeholder --></td>
+                        <td>
+                          <select form="edit-user-{{ user.id }}" class="form-select form-select-sm mb-1" name="lotacao_id"><option value="0">Sem setor</option>{% for lotacao in lotacoes if lotacao.ativo %}<option value="{{ lotacao.id }}" {% if user.lotacao_id == lotacao.id %}selected{% endif %}>{{ lotacao.nome }}</option>{% endfor %}</select>
+                          <button form="edit-user-{{ user.id }}" class="btn btn-sm btn-primary" type="submit">Salvar</button>
+                          {% if user.id != current_user.id %}<form method="POST" action="{{ url_for('admin_toggle_user_status', user_id=user.id) }}" class="d-inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm {{ 'btn-warning' if user.status == 'ativo' else 'btn-success' }}" type="submit">{{ 'Desativar' if user.status == 'ativo' else 'Reativar' }}</button></form>{% endif %}
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>

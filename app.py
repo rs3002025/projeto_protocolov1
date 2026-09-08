@@ -398,6 +398,51 @@ def admin_create_user():
         flash('Erro ao criar usuário. Verifique os dados.', 'danger')
     return redirect(url_for('configuracoes'))
 
+@app.post('/admin/usuarios/<int:user_id>/editar')
+@login_required
+@admin_required
+def admin_update_user(user_id):
+    user = tenant_get_or_404(Usuario, user_id)
+    nome = (request.form.get('nome_completo') or '').strip()
+    email = (request.form.get('email') or '').strip()
+    tipo = (request.form.get('tipo') or '').strip()
+    lotacao_raw = (request.form.get('lotacao_id') or '0').strip()
+    if not nome or not email or tipo not in ROLE_PERMISSIONS or not lotacao_raw.isdecimal():
+        abort(400, description='Dados de usuário inválidos.')
+    lotacao_id = int(lotacao_raw) or None
+    if lotacao_id and not tenant_query(Lotacao).filter_by(id=lotacao_id, ativo=True).first():
+        abort(400, description='Setor inválido ou inativo.')
+    if user.id == current_user.id and tipo != 'admin':
+        flash('O administrador conectado não pode remover o próprio perfil administrativo.', 'warning')
+        return redirect(url_for('configuracoes'))
+    user.nome_completo = nome
+    user.nome = nome.split()[0]
+    user.email = email
+    user.tipo = tipo
+    user.lotacao_id = lotacao_id
+    db.session.commit()
+    flash(f'Usuário {user.login} atualizado.', 'success')
+    return redirect(url_for('configuracoes'))
+
+@app.post('/admin/usuarios/<int:user_id>/status')
+@login_required
+@admin_required
+def admin_toggle_user_status(user_id):
+    user = tenant_get_or_404(Usuario, user_id)
+    if user.id == current_user.id:
+        flash('Não é possível desativar a própria conta durante o uso.', 'warning')
+        return redirect(url_for('configuracoes'))
+    novo_status = 'inativo' if user.status == 'ativo' else 'ativo'
+    if novo_status == 'inativo' and user.tipo == 'admin':
+        admins_ativos = tenant_query(Usuario).filter_by(tipo='admin', status='ativo').count()
+        if admins_ativos <= 1:
+            flash('A organização deve manter ao menos um administrador ativo.', 'warning')
+            return redirect(url_for('configuracoes'))
+    user.status = novo_status
+    db.session.commit()
+    flash(f'Usuário {user.login} {novo_status}.', 'success')
+    return redirect(url_for('configuracoes'))
+
 @app.route("/admin/item/<string:item_type>/novo", methods=['POST'])
 @login_required
 @admin_required
