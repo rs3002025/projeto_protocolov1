@@ -2,6 +2,7 @@ import os
 import tempfile
 import io
 from openpyxl import load_workbook
+from flask import render_template
 from pathlib import Path
 from datetime import date, datetime, timedelta
 
@@ -457,3 +458,30 @@ def test_arquivamento_exige_tramitacao_regularizada():
     with app.app_context():
         protocolo = db.session.get(Protocolo, protocolo_id)
         assert protocolo.arquivado_em is not None and protocolo.status == 'ARQUIVADO'
+
+
+def test_dados_institucionais_sao_isolados_e_usados_no_pdf():
+    client = app.test_client()
+    login(client, 'cliente-a')
+    response = client.post('/admin/identidade/logo', data={
+        'municipio': 'Tabuleiro do Norte/CE', 'orgao': 'Gabinete da Prefeita',
+        'rodape_documento': 'Praça da Matriz — Centro', 'salvar': 'Salvar logo'},
+        follow_redirects=True)
+    assert response.status_code == 200 and b'Dados institucionais atualizados' in response.data
+    with app.app_context():
+        a = Organizacao.query.filter_by(slug='cliente-a').one()
+        b = Organizacao.query.filter_by(slug='cliente-b').one()
+        protocolo_id = Protocolo.query.filter_by(tenant_id=a.id).first().id
+        assert (a.municipio, a.orgao) == ('Tabuleiro do Norte/CE', 'Gabinete da Prefeita')
+        assert b.municipio is None and b.orgao is None
+    with app.test_request_context('/'):
+        with app.app_context():
+            protocolo = db.session.get(Protocolo, protocolo_id)
+            organizacao = Organizacao.query.filter_by(slug='cliente-a').one()
+            modelo = render_template('pdf_template.html', protocolo=protocolo,
+                                     organizacao=organizacao, pdf_logo_url='/logo.png')
+            assert 'Gabinete da Prefeita' in modelo and 'Praça da Matriz' in modelo
+            assert 'Secretaria da Administração' not in modelo
+    html = client.get(f'/protocolo/{protocolo_id}').get_data(as_text=True)
+    assert 'data-organization-office="Gabinete da Prefeita"' in html
+    assert 'static/img/rodape.jpg' not in html

@@ -21,6 +21,9 @@ class Organizacao(db.Model):
     logo_mime_type = db.Column(db.String(80))
     logo_nome_arquivo = db.Column(db.String(255))
     logo_atualizada_em = db.Column(db.TIMESTAMP)
+    municipio = db.Column(db.String(180))
+    orgao = db.Column(db.String(180))
+    rodape_documento = db.Column(db.Text)
 
 class TenantMixin:
     tenant_id = db.Column(db.Integer, db.ForeignKey('organizacoes.id'), nullable=False, index=True)

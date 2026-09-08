@@ -329,6 +329,9 @@ def admin_update_logo():
 
     form = BrandingForm()
     organizacao = current_user.organizacao
+    organizacao.municipio = (request.form.get('municipio') or '').strip() or None
+    organizacao.orgao = (request.form.get('orgao') or '').strip() or None
+    organizacao.rodape_documento = (request.form.get('rodape_documento') or '').strip() or None
     if form.remover.data and form.validate():
         organizacao.logo_data = None
         organizacao.logo_mime_type = None
@@ -337,8 +340,12 @@ def admin_update_logo():
         db.session.commit()
         flash('Logo padrão restaurada.', 'success')
         return redirect(url_for('configuracoes'))
-    if not form.validate_on_submit() or not form.logo.data:
-        flash('Selecione uma imagem PNG, JPG ou WebP válida.', 'danger')
+    if not form.validate_on_submit():
+        flash('Verifique os dados e a imagem informados.', 'danger')
+        return redirect(url_for('configuracoes'))
+    if not form.logo.data:
+        db.session.commit()
+        flash('Dados institucionais atualizados.', 'success')
         return redirect(url_for('configuracoes'))
     arquivo = form.logo.data
     arquivo.stream.seek(0, os.SEEK_END)
@@ -496,6 +503,7 @@ def gerar_pdf_protocolo(protocolo_id):
     version = int(current_user.organizacao.logo_atualizada_em.timestamp()) if current_user.organizacao.logo_atualizada_em else 0
     rendered_html = render_template(
         'pdf_template.html', protocolo=protocolo,
+        organizacao=current_user.organizacao,
         pdf_logo_url=url_for('organization_logo', slug=current_user.organizacao.slug,
                              v=version, _external=True)
     )

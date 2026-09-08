@@ -13,6 +13,11 @@
             </div>
             <form method="POST" action="{{ url_for('admin_update_logo') }}" enctype="multipart/form-data">
                 {{ branding_form.hidden_tag() }}
+                <div class="row">
+                  <div class="col-md-6 mb-3"><label class="form-label" for="municipio">Município</label><input class="form-control" id="municipio" name="municipio" maxlength="180" value="{{ organizacao.municipio or '' }}" placeholder="Ex.: Tabuleiro do Norte/CE"></div>
+                  <div class="col-md-6 mb-3"><label class="form-label" for="orgao">Órgão ou unidade</label><input class="form-control" id="orgao" name="orgao" maxlength="180" value="{{ organizacao.orgao or '' }}" placeholder="Ex.: Gabinete da Prefeita"></div>
+                  <div class="col-12 mb-3"><label class="form-label" for="rodape_documento">Texto do rodapé</label><textarea class="form-control" id="rodape_documento" name="rodape_documento" maxlength="1000" rows="2">{{ organizacao.rodape_documento or '' }}</textarea></div>
+                </div>
                 <div class="mb-3">{{ branding_form.logo.label }} {{ branding_form.logo(class="form-control", accept="image/png,image/jpeg,image/webp") }}</div>
                 {{ branding_form.salvar(class="btn btn-primary") }}
                 {{ branding_form.remover(class="btn btn-outline-secondary ms-2") }}

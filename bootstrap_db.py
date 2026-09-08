@@ -23,6 +23,9 @@ SCHEMA_COLUMNS = {
         'logo_mime_type': 'VARCHAR(80)',
         'logo_nome_arquivo': 'VARCHAR(255)',
         'logo_atualizada_em': 'TIMESTAMP',
+        'municipio': 'VARCHAR(180)',
+        'orgao': 'VARCHAR(180)',
+        'rodape_documento': 'TEXT',
     },
     'usuarios': {
         'lotacao_id': 'BIGINT',

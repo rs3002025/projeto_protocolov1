@@ -804,6 +804,8 @@ window.previsualizarPDF = async function(id = null, isFromForm = false) {
   }
 
   clone.querySelector('#doc_numero').textContent = protocolo.numero || 'A ser gerado';
+  clone.querySelector('#doc_orgao').textContent = document.body.dataset.organizationOffice || document.body.dataset.organizationName || 'Órgão responsável';
+  clone.querySelector('#doc_municipio_orgao').textContent = document.body.dataset.organizationCity || '';
   let dataTexto = protocolo.data_solicitacao ? new Date(protocolo.data_solicitacao + 'T00:00:00').toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR');
   clone.querySelector('#doc_dataSolicitacao').textContent = dataTexto;
   clone.querySelector('#doc_nome').textContent = protocolo.nome || '';

@@ -15,7 +15,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs/qrcode.min.js"></script>
 </head>
-<body class="{% if request.endpoint == 'login' %}login-page-bg{% endif %}" data-branding-logo-url="{{ branding_logo_url }}">
+<body class="{% if request.endpoint == 'login' %}login-page-bg{% endif %}" data-branding-logo-url="{{ branding_logo_url }}" data-organization-name="{{ current_user.organizacao.nome if current_user.is_authenticated else '' }}" data-organization-office="{{ current_user.organizacao.orgao if current_user.is_authenticated and current_user.organizacao.orgao else '' }}" data-organization-city="{{ current_user.organizacao.municipio if current_user.is_authenticated and current_user.organizacao.municipio else '' }}">
     
 
     {% if current_user.is_authenticated %}
@@ -138,7 +138,8 @@
                 <div class="logo-pdf"><img src="{{ branding_logo_url }}" alt="Logo da organização" /></div>
                 <div id="qrcode-container"></div>
             </div>
-            <h1 class="titulo-principal-pdf">Secretaria da Administração</h1>
+            <h1 class="titulo-principal-pdf" id="doc_orgao"></h1>
+            <p class="text-center" id="doc_municipio_orgao"></p>
             <div class="titulo-central-pdf"><span>PROTOCOLO DE REQUERIMENTO</span></div>
             <div class="info-pdf">
                 <p class="campo-destaque-pdf"><strong>Número do Protocolo:</strong> <span id="doc_numero"></span></p>
@@ -183,7 +184,7 @@
                 <div class="linha-assinatura-recebimento"></div>
             </div>
             <p class="texto-assinatura-recebimento">Assinatura de Recebimento</p>
-            <div class="rodape-pdf"><img src="{{ url_for('static', filename='img/rodape.jpg') }}" alt="Rodapé" /></div>
+            {% if current_user.is_authenticated and current_user.organizacao.rodape_documento %}<div class="rodape-pdf" style="white-space:pre-line">{{ current_user.organizacao.rodape_documento }}</div>{% endif %}
         </div>
     </div>
 

@@ -20,6 +20,7 @@
         .assinaturas-container { margin-top: 50px; page-break-inside: avoid; }
         .assinaturas-flex { display: flex; justify-content: space-between; gap: 20px; }
         .assinatura-pdf { text-align: center; flex: 1; }
+        .rodape-institucional { margin-top: 25px; padding-top: 8px; border-top: 1px solid #bbb; text-align: center; white-space: pre-line; }
         .linha-assinatura { border-top: 1px solid #000; margin-top: 40px; margin-bottom: 5px; }
     </style>
 </head>
@@ -28,12 +29,14 @@
         <div class="pdf-header">
             <div class="logo-pdf"><img src="{{ pdf_logo_url }}" alt="Logo da organização"></div>
         </div>
-        <h1 class="titulo-principal-pdf">Secretaria da Administração</h1>
+        <h1 class="titulo-principal-pdf">{{ organizacao.orgao or organizacao.nome }}</h1>
+        {% if organizacao.municipio %}<p style="text-align:center">{{ organizacao.municipio }}</p>{% endif %}
         <div class="titulo-central-pdf"><span>PROTOCOLO DE REQUERIMENTO</span></div>
         <div class="info-pdf">
             <div class="campo-destaque-pdf"><strong>Número:</strong> {{ protocolo.numero }}</div>
             <div class="campo-destaque-pdf"><strong>Data:</strong> {{ protocolo.data_solicitacao.strftime('%d/%m/%Y') if protocolo.data_solicitacao else '' }}</div>
         </div>
+        {% if organizacao.rodape_documento %}<div class="rodape-institucional">{{ organizacao.rodape_documento }}</div>{% endif %}
         <div class="section-title-pdf">DADOS DO REQUERENTE</div>
         <div class="grid-pdf">
             <div><strong>Nome:</strong> {{ protocolo.nome or 'N/A' }}</div>
