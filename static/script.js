@@ -98,7 +98,7 @@ window.fecharModal = function(modalId) {
 }
 
 window.popularFiltrosDashboard = function() {
-    const statusOptions = '<option value="">Todos os Status</option><option value="PROTOCOLO GERADO">PROTOCOLO GERADO</option><option value="Em análise">Em análise</option><option value="Pendente de documento">Pendente de documento</option><option value="Finalizado">Finalizado</option><option value="Concluído">Concluído</option><option value="Encaminhado">Encaminhado</option>';
+    const statusOptions = '<option value="">Todos os Status</option><option>PROTOCOLO GERADO</option><option>EM ANÁLISE</option><option>PENDENTE DE DOCUMENTO</option><option>FINALIZADO</option><option>CONCLUÍDO</option><option>EM TRAMITAÇÃO</option><option>ARQUIVADO</option>';
     const statusSelect = document.getElementById('dashStatus');
     if (statusSelect) {
         statusSelect.innerHTML = statusOptions;

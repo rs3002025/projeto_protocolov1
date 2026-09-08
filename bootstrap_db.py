@@ -93,6 +93,17 @@ def bootstrap():
                             sql_type = 'BYTEA'
                         connection.execute(text(f'ALTER TABLE {table} ADD COLUMN {column} {sql_type}'))
 
+            if 'protocolos' in existing_tables:
+                normalizacoes = {
+                    'Aberto': 'PROTOCOLO GERADO', 'Em análise': 'EM ANÁLISE',
+                    'EM ANALISE': 'EM ANÁLISE', 'Pendente de documento': 'PENDENTE DE DOCUMENTO',
+                    'Finalizado': 'FINALIZADO', 'Concluído': 'CONCLUÍDO',
+                    'Encaminhado': 'EM TRAMITAÇÃO',
+                }
+                for antigo, novo in normalizacoes.items():
+                    connection.execute(text('UPDATE protocolos SET status = :novo WHERE status = :antigo'),
+                                       {'novo': novo, 'antigo': antigo})
+
             if db.engine.dialect.name == 'postgresql':
                 connection.execute(text('ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_login_key'))
                 connection.execute(text('ALTER TABLE protocolos DROP CONSTRAINT IF EXISTS protocolos_numero_key'))

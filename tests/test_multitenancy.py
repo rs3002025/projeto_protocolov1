@@ -401,3 +401,59 @@ def test_usuario_de_outro_cliente_e_proprio_admin_sao_protegidos():
         'nome_completo': 'Ana A', 'email': 'ana@example.test', 'tipo': 'consulta', 'lotacao_id': 0})
     with app.app_context():
         assert db.session.get(Usuario, admin_a_id).tipo == 'admin'
+
+
+def test_numero_enviado_pelo_navegador_e_ignorado_e_criacao_e_atomica():
+    client = app.test_client()
+    login(client, 'cliente-a')
+    response = client.post('/protocolo/novo', data={
+        'numero': '9999/1999', 'nome': 'Numeração pelo servidor',
+        'data_solicitacao': date.today().isoformat()}, follow_redirects=True)
+    assert response.status_code == 200
+    with app.app_context():
+        protocolo = Protocolo.query.filter_by(nome='Numeração pelo servidor').one()
+        assert protocolo.numero != '9999/1999'
+        assert protocolo.numero.endswith(f'/{date.today().year}')
+        assert HistoricoProtocolo.query.filter_by(protocolo_id=protocolo.id, acao='CRIACAO').count() == 1
+
+
+def test_edicao_registra_campos_e_arquivado_fica_somente_leitura():
+    client = app.test_client()
+    login(client, 'cliente-a')
+    with app.app_context():
+        protocolo = Protocolo.query.filter_by(nome='Dado exclusivo A').one()
+        protocolo_id = protocolo.id
+    client.post(f'/protocolo/{protocolo_id}/editar', data={
+        'nome': 'Nome revisado', 'data_solicitacao': date.today().isoformat(),
+        'prazo_em': (date.today() + timedelta(days=3)).isoformat()})
+    with app.app_context():
+        evento = HistoricoProtocolo.query.filter_by(protocolo_id=protocolo_id, acao='EDICAO').order_by(HistoricoProtocolo.id.desc()).first()
+        assert 'nome:' in evento.observacao and 'prazo:' in evento.observacao
+        db.session.get(Protocolo, protocolo_id).arquivado_em = datetime.utcnow()
+        db.session.commit()
+    client.post(f'/protocolo/{protocolo_id}/editar', data={'nome': 'Alteração proibida'})
+    with app.app_context():
+        assert db.session.get(Protocolo, protocolo_id).nome == 'Nome revisado'
+    resposta = client.post('/protocolos/atualizar', json={'protocoloId': protocolo_id, 'novoStatus': 'STATUS LIVRE'})
+    assert resposta.status_code == 400
+
+
+def test_arquivamento_exige_tramitacao_regularizada():
+    client = app.test_client()
+    login(client, 'cliente-a')
+    with app.app_context():
+        protocolo = Protocolo.query.filter_by(nome='Nome revisado').one()
+        protocolo.arquivado_em = None
+        juridico = Lotacao.query.filter_by(nome='Jurídico').one()
+        protocolo_id, juridico_id = protocolo.id, juridico.id
+        Movimentacao.query.filter_by(protocolo_id=protocolo_id).delete()
+        db.session.commit()
+    client.post(f'/protocolo/{protocolo_id}/tramitar', data={'setor_destino_id': juridico_id})
+    client.post(f'/protocolo/{protocolo_id}/arquivar')
+    with app.app_context():
+        assert db.session.get(Protocolo, protocolo_id).arquivado_em is None
+    client.post(f'/protocolo/{protocolo_id}/receber')
+    client.post(f'/protocolo/{protocolo_id}/arquivar')
+    with app.app_context():
+        protocolo = db.session.get(Protocolo, protocolo_id)
+        assert protocolo.arquivado_em is not None and protocolo.status == 'ARQUIVADO'

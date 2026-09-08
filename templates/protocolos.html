@@ -22,7 +22,7 @@
                     <div class="col-md-4">
                          <select name="status" class="form-select">
                             <option value="">Todos os Status</option>
-                             {% set statuses = ["Aberto", "Em análise", "Pendente de documento", "Finalizado", "Concluído", "Encaminhado"] %}
+                             {% set statuses = ["PROTOCOLO GERADO", "EM ANÁLISE", "PENDENTE DE DOCUMENTO", "FINALIZADO", "CONCLUÍDO", "EM TRAMITAÇÃO", "ARQUIVADO"] %}
                              {% for status in statuses %}
                                  <option value="{{ status }}" {% if request.args.get('status') == status %}selected{% endif %}>{{ status }}</option>
                              {% endfor %}
@@ -73,9 +73,6 @@
                             <a href="{{ url_for('detalhe_protocolo', protocolo_id=protocolo.id) }}" class="btn btn-sm btn-primary">Detalhes</a>
                             <button type="button" class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#modalAtualizarStatus" data-protocolo-id="{{ protocolo.id }}">
                                 Atualizar Status
-                            </button>
-                            <button type="button" class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#modalEncaminhar" data-protocolo-id="{{ protocolo.id }}">
-                                Encaminhar
                             </button>
                             <button type="button" class="btn btn-sm btn-dark" onclick="previsualizarPDF({{ protocolo.id }})">Documento</button>
                         </td>

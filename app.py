@@ -105,6 +105,7 @@ ROLE_PERMISSIONS = {
     'atendente': {'view', 'create', 'edit', 'route'},
     'consulta': {'view'},
 }
+PROTOCOL_STATUSES = ('PROTOCOLO GERADO', 'EM ANÁLISE', 'PENDENTE DE DOCUMENTO', 'FINALIZADO', 'CONCLUÍDO', 'EM TRAMITAÇÃO', 'ARQUIVADO')
 
 @app.context_processor
 def permission_context():
@@ -531,7 +532,9 @@ def gerar_proximo_numero_protocolo():
     now = datetime.now()
     current_year = now.year
 
-    # Busca todos os protocolos do ano corrente para encontrar o maior sequencial
+    # A linha da organização serializa a numeração por cliente no PostgreSQL.
+    Organizacao.query.filter_by(id=current_user.tenant_id).with_for_update().one()
+    # Busca os protocolos dentro da mesma transação protegida.
     protocolos_do_ano = tenant_query(Protocolo).filter(
         Protocolo.numero.like(f'%/{current_year}')
     ).all()
@@ -559,17 +562,21 @@ def gerar_proximo_numero_protocolo():
 @permission_required('create')
 def criar_protocolo():
     if request.method == 'POST':
-        # Dados são pegos diretamente do 'name' dos inputs do formulário
-        novo_numero = request.form.get('numero') or gerar_proximo_numero_protocolo()
+        # O número exibido no navegador é apenas informativo; o servidor é a autoridade.
+        novo_numero = gerar_proximo_numero_protocolo()
 
         # Converte a data de string para objeto date
         data_solicitacao_str = request.form.get('data_solicitacao')
-        data_solicitacao_obj = datetime.strptime(data_solicitacao_str, '%Y-%m-%d').date() if data_solicitacao_str else datetime.now().date()
+        data_solicitacao_obj = parse_iso_date(data_solicitacao_str, 'Data da solicitação') or datetime.now().date()
+        prazo_obj = parse_iso_date(request.form.get('prazo_em'), 'Prazo')
+        nome = (request.form.get('nome') or '').strip()
+        if not nome:
+            abort(400, description='O nome do requerente é obrigatório.')
 
         protocolo = Protocolo(
             tenant_id=current_user.tenant_id,
             numero=novo_numero,
-            nome=request.form.get('nome'),
+            nome=nome,
             matricula=request.form.get('matricula'),
             endereco=request.form.get('endereco'),
             municipio=request.form.get('municipio'),
@@ -584,7 +591,7 @@ def criar_protocolo():
             tipo_requerimento=request.form.get('tipo_requerimento'),
             requer_ao=request.form.get('requer_ao'),
             data_solicitacao=data_solicitacao_obj,
-            prazo_em=datetime.strptime(request.form.get('prazo_em'), '%Y-%m-%d').date() if request.form.get('prazo_em') else None,
+            prazo_em=prazo_obj,
             observacoes=request.form.get('observacoes'),
             responsavel=current_user.login,
             criado_por_id=current_user.id,
@@ -592,9 +599,7 @@ def criar_protocolo():
             status='PROTOCOLO GERADO' # Status padrão como no sistema antigo
         )
         db.session.add(protocolo)
-        db.session.commit()
-
-        # Adiciona o primeiro registro ao histórico
+        db.session.flush()
         historico = HistoricoProtocolo(
             tenant_id=current_user.tenant_id,
             protocolo_id=protocolo.id,
@@ -632,8 +637,14 @@ def detalhe_protocolo(protocolo_id):
 @permission_required('edit')
 def editar_protocolo(protocolo_id):
     protocolo = tenant_get_or_404(Protocolo, protocolo_id)
+    if protocolo.arquivado_em:
+        flash('Processos arquivados são somente para consulta.', 'warning')
+        return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
 
     if request.method == 'POST':
+        campos = ('nome', 'matricula', 'endereco', 'municipio', 'bairro', 'cep', 'telefone', 'cpf', 'rg', 'cargo', 'lotacao', 'unidade_exercicio', 'tipo_requerimento', 'requer_ao', 'observacoes')
+        anteriores = {campo: getattr(protocolo, campo) for campo in campos}
+        prazo_anterior, data_anterior = protocolo.prazo_em, protocolo.data_solicitacao
         # Manual update from form data
         protocolo.nome = request.form.get('nome')
         protocolo.matricula = request.form.get('matricula')
@@ -652,10 +663,15 @@ def editar_protocolo(protocolo_id):
 
         data_solicitacao_str = request.form.get('data_solicitacao')
         if data_solicitacao_str:
-            protocolo.data_solicitacao = datetime.strptime(data_solicitacao_str, '%Y-%m-%d').date()
+            protocolo.data_solicitacao = parse_iso_date(data_solicitacao_str, 'Data da solicitação')
 
         protocolo.observacoes = request.form.get('observacoes')
-        protocolo.prazo_em = datetime.strptime(request.form.get('prazo_em'), '%Y-%m-%d').date() if request.form.get('prazo_em') else None
+        protocolo.prazo_em = parse_iso_date(request.form.get('prazo_em'), 'Prazo')
+        alteracoes = [f'{campo}: {anteriores[campo] or "(vazio)"} → {getattr(protocolo, campo) or "(vazio)"}' for campo in campos if anteriores[campo] != getattr(protocolo, campo)]
+        if data_anterior != protocolo.data_solicitacao:
+            alteracoes.append(f'data_solicitacao: {data_anterior or "(vazio)"} → {protocolo.data_solicitacao or "(vazio)"}')
+        if prazo_anterior != protocolo.prazo_em:
+            alteracoes.append(f'prazo: {prazo_anterior or "(vazio)"} → {protocolo.prazo_em or "(vazio)"}')
 
         historico = HistoricoProtocolo(
             tenant_id=current_user.tenant_id,
@@ -664,7 +680,7 @@ def editar_protocolo(protocolo_id):
             responsavel=current_user.login,
             usuario_id=current_user.id,
             acao='EDICAO',
-            observacao='Protocolo editado.'
+            observacao='; '.join(alteracoes) if alteracoes else 'Formulário salvo sem alteração de dados.'
         )
         db.session.add(historico)
         db.session.commit()
@@ -774,10 +790,12 @@ def atualizar_protocolo_status():
     novo_responsavel = data.get('novoResponsavel') # Pode ser nulo
     observacao = data.get('observacao')
 
-    if not protocolo_id or not novo_status:
+    if not protocolo_id or novo_status not in PROTOCOL_STATUSES or novo_status in ('EM TRAMITAÇÃO', 'ARQUIVADO'):
         return jsonify({'sucesso': False, 'mensagem': 'Dados insuficientes.'}), 400
 
     protocolo = tenant_get_or_404(Protocolo, protocolo_id)
+    if protocolo.arquivado_em:
+        return jsonify({'sucesso': False, 'mensagem': 'Processo arquivado é somente para consulta.'}), 409
 
     # Atualiza o protocolo
     protocolo.status = novo_status
@@ -864,6 +882,13 @@ def receber_protocolo(protocolo_id):
 @permission_required('archive')
 def arquivar_protocolo(protocolo_id):
     protocolo = tenant_get_or_404(Protocolo, protocolo_id)
+    pendente = tenant_query(Movimentacao).filter_by(protocolo_id=protocolo.id, recebido_em=None).first()
+    if pendente:
+        flash('Receba ou regularize a tramitação pendente antes de arquivar.', 'warning')
+        return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
+    if protocolo.arquivado_em:
+        flash('O processo já está arquivado.', 'info')
+        return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
     protocolo.arquivado_em = datetime.utcnow()
     protocolo.status = 'ARQUIVADO'
     db.session.add(HistoricoProtocolo(
@@ -1079,13 +1104,13 @@ def dashboard_stats():
         novos_no_periodo = novos_query.count()
 
         # --- Prazos vencidos (Card) ---
-        encerrados = ['Finalizado', 'Concluído', 'ARQUIVADO']
+        encerrados = ['FINALIZADO', 'CONCLUÍDO', 'ARQUIVADO']
         pendentes_antigos = base_query.filter(
             Protocolo.prazo_em != None, Protocolo.prazo_em < datetime.now().date(),
             ~Protocolo.status.in_(encerrados)).count()
 
         # --- Finalizados no Período (Card) ---
-        total_finalizados = period_query.filter(Protocolo.status.in_(['Finalizado', 'Concluído'])).count()
+        total_finalizados = period_query.filter(Protocolo.status.in_(['FINALIZADO', 'CONCLUÍDO'])).count()
 
         # --- Top 5 Tipos (Bar Chart) ---
         top_tipos = period_query.with_entities(

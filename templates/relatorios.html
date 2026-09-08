@@ -21,7 +21,7 @@
                     <div class="col-md-4">
                          <select name="status" class="form-select">
                             <option value="">Todos os Status</option>
-                             {% set statuses = ["Aberto", "Em análise", "Pendente de documento", "Finalizado", "Concluído", "Encaminhado"] %}
+                             {% set statuses = ["PROTOCOLO GERADO", "EM ANÁLISE", "PENDENTE DE DOCUMENTO", "FINALIZADO", "CONCLUÍDO", "EM TRAMITAÇÃO", "ARQUIVADO"] %}
                              {% for status in statuses %}
                                  <option value="{{ status }}" {% if request.args.get('status') == status %}selected{% endif %}>{{ status }}</option>
                              {% endfor %}

@@ -199,19 +199,13 @@
             <input type="hidden" id="atualizarProtocoloId">
             <div class="mb-3">
               <label for="statusSelect" class="form-label">Novo Status</label>
-              <select class="form-select" id="statusSelect" onchange="handleStatusChange(this)">
+              <select class="form-select" id="statusSelect">
                 <option selected>PROTOCOLO GERADO</option>
-                <option>Em análise</option>
-                <option>Pendente de documento</option>
-                <option>Finalizado</option>
-                <option>Concluído</option>
-                <option>Encaminhado</option>
-                <option value="Outro">Outro</option>
+                <option>EM ANÁLISE</option>
+                <option>PENDENTE DE DOCUMENTO</option>
+                <option>FINALIZADO</option>
+                <option>CONCLUÍDO</option>
               </select>
-            </div>
-            <div class="mb-3" id="statusCustomContainer" style="display: none;">
-              <label for="statusCustom" class="form-label">Status Personalizado</label>
-              <input type="text" class="form-control" id="statusCustom" placeholder="Digite o status">
             </div>
             <div class="mb-3">
               <label for="observacaoAtualizacao" class="form-label">Observação</label>
@@ -226,34 +220,6 @@
       </div>
     </div>
 
-    <!-- Modal para Encaminhar -->
-    <div class="modal fade" id="modalEncaminhar" tabindex="-1" aria-labelledby="modalEncaminharLabel" aria-hidden="true">
-      <div class="modal-dialog">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title" id="modalEncaminharLabel">Encaminhar Protocolo</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-          </div>
-          <div class="modal-body">
-            <input type="hidden" id="encaminharProtocoloId">
-            <div class="mb-3">
-                <label for="selectUsuarioEncaminhar" class="form-label">Encaminhar para</label>
-                <select id="selectUsuarioEncaminhar" class="form-select">
-                    <!-- Options will be populated by JavaScript -->
-                </select>
-            </div>
-            <div class="mb-3">
-                <label for="observacaoEncaminhamento" class="form-label">Observação</label>
-                <textarea id="observacaoEncaminhamento" class="form-control" rows="3"></textarea>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-            <button type="button" class="btn btn-primary" onclick="confirmarEncaminhamento()">Confirmar Encaminhamento</button>
-          </div>
-        </div>
-      </div>
-    </div>
 
     <!-- Modal para Impressão Personalizada -->
     <div id="modalImpressaoDashboard" class="modal-overlay" onclick="fecharModal('modalImpressaoDashboard')">
