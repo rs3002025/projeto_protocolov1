@@ -52,7 +52,7 @@ from openpyxl import Workbook
 from sqlalchemy import func, cast, Date, text
 from datetime import datetime, timedelta
 from forms import LoginForm, RegistrationForm, ProtocoloForm, AnexoForm, AdminUserCreationForm, AdminListItemForm, ConsultaPublicaForm, BrandingForm
-from models import Organizacao, Usuario, Protocolo, HistoricoProtocolo, Movimentacao, ConsultaPublicaTentativa, Anexo, Lotacao, TipoRequerimento, Servidor, db
+from models import Organizacao, Usuario, Protocolo, HistoricoProtocolo, Movimentacao, ConsultaPublicaTentativa, LoginTentativa, Anexo, Lotacao, TipoRequerimento, Servidor, db
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
@@ -214,6 +214,12 @@ def consulta_fingerprint():
     endereco = request.remote_addr or 'desconhecido'
     return hmac.new(app.config['SECRET_KEY'].encode(), endereco.encode(), hashlib.sha256).hexdigest()
 
+
+def login_fingerprint(organizacao, login):
+    origem = request.headers.get('X-Forwarded-For', request.remote_addr or '').split(',')[0].strip()
+    valor = f'{organizacao.strip().lower()}\0{login.strip().lower()}\0{origem}'
+    return hmac.new(app.config['SECRET_KEY'].encode(), valor.encode(), hashlib.sha256).hexdigest()
+
 @app.route('/consulta/<string:consulta_token>', methods=['GET', 'POST'])
 def consulta_publica(consulta_token):
     """Exige confirmação da matrícula antes de exibir o andamento."""
@@ -291,6 +297,16 @@ def login():
         return redirect(url_for('home'))
     form = LoginForm()
     if form.validate_on_submit():
+        agora = datetime.utcnow()
+        fingerprint = login_fingerprint(form.organizacao.data, form.login.data)
+        tentativa = LoginTentativa.query.filter_by(identificador_hash=fingerprint).with_for_update().first()
+        if tentativa and tentativa.bloqueado_ate and tentativa.bloqueado_ate > agora:
+            flash('Não foi possível autenticar. Aguarde alguns minutos e tente novamente.', 'danger')
+            return render_template('login.html', title='Login', form=form), 429
+        if tentativa and tentativa.janela_iniciada_em < agora - timedelta(minutes=15):
+            tentativa.tentativas = 0
+            tentativa.janela_iniciada_em = agora
+            tentativa.bloqueado_ate = None
         organizacao = Organizacao.query.filter_by(slug=form.organizacao.data.strip().lower(), ativo=True).first()
         user = Usuario.query.filter_by(
             tenant_id=organizacao.id if organizacao else None,
@@ -298,16 +314,28 @@ def login():
             status='ativo'
         ).first()
         if user and bcrypt.check_password_hash(user.senha, form.senha.data):
+            if tentativa:
+                db.session.delete(tentativa)
+                db.session.commit()
             login_user(user, remember=form.remember.data)
             next_page = request.args.get('next')
             flash('Login bem-sucedido!', 'success')
             return redirect(safe_local_redirect(next_page) or url_for('home'))
         else:
-            flash('Login sem sucesso. Por favor, verifique o login e a senha.', 'danger')
+            if not tentativa:
+                tentativa = LoginTentativa(identificador_hash=fingerprint, tentativas=0,
+                                            janela_iniciada_em=agora)
+                db.session.add(tentativa)
+            tentativa.tentativas += 1
+            if tentativa.tentativas >= 5:
+                tentativa.bloqueado_ate = agora + timedelta(minutes=30)
+            db.session.commit()
+            flash('Não foi possível autenticar. Verifique os dados informados.', 'danger')
     return render_template('login.html', title='Login', form=form)
 
 
-@app.route("/logout")
+@app.post("/logout")
+@login_required
 def logout():
     logout_user()
     flash('Você saiu da sua conta.', 'info')
@@ -1029,7 +1057,7 @@ def backup_excel():
 # --- API Routes for Dynamic Data ---
 
 @app.route('/api/usuarios')
-@login_required
+@permission_required('route')
 def get_usuarios():
     """Retorna uma lista de usuários ativos para preencher selects."""
     try:
@@ -1041,7 +1069,7 @@ def get_usuarios():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/servidor/<string:matricula>')
-@login_required
+@permission_required('create')
 def get_servidor(matricula):
     servidor = tenant_query(Servidor).filter_by(matricula=matricula).first()
     if servidor:
@@ -1055,7 +1083,7 @@ def get_servidor(matricula):
     return jsonify({'error': 'Servidor não encontrado'}), 404
 
 @app.route('/api/servidores/search')
-@login_required
+@permission_required('create')
 def search_servidores():
     query_nome = request.args.get('nome', '')
     if len(query_nome) < 3:
@@ -1096,7 +1124,7 @@ def get_bairros():
     return jsonify(sorted(bairros))
 
 @app.route('/protocolos/ultimoNumero/<int:ano>')
-@login_required
+@permission_required('create')
 def get_ultimo_numero(ano):
     """Obtém o último número de protocolo para um determinado ano."""
     protocolos_do_ano = tenant_query(Protocolo).filter(

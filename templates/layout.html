@@ -36,7 +36,12 @@
                         <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userMenuButton">
                             <li><a class="dropdown-item" href="{{ url_for('configuracoes') }}">Configurações</a></li>
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="{{ url_for('logout') }}">Sair</a></li>
+                            <li>
+                                <form method="POST" action="{{ url_for('logout') }}">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="dropdown-item">Sair</button>
+                                </form>
+                            </li>
                         </ul>
                     </div>
                 </div>

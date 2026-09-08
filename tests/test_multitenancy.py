@@ -15,7 +15,7 @@ os.environ['SECRET_KEY'] = 'test-secret-key'
 os.environ['DATABASE_URL'] = 'sqlite:///' + str(Path(_test_directory.name) / 'tests.sqlite3')
 
 from app import app, bcrypt, db
-from models import Lotacao, Movimentacao, Organizacao, Protocolo, Usuario, ConsultaPublicaTentativa, Anexo, HistoricoProtocolo
+from models import Lotacao, Movimentacao, Organizacao, Protocolo, Usuario, ConsultaPublicaTentativa, LoginTentativa, Anexo, HistoricoProtocolo
 
 
 def teardown_module():
@@ -70,11 +70,29 @@ def test_login_nao_redireciona_para_site_externo():
     assert response.status_code == 302
     assert response.headers['Location'] == '/home'
 
-    client.get('/logout')
+    client.post('/logout')
     response = client.post('/login?next=/protocolos', data={
         'organizacao': 'cliente-a', 'login': 'admin', 'senha': 'senha-segura',
     })
     assert response.headers['Location'] == '/protocolos'
+
+
+def test_login_bloqueia_forca_bruta_sem_revelar_usuario():
+    client = app.test_client()
+    dados = {'organizacao': 'cliente-a', 'login': 'inexistente', 'senha': 'incorreta'}
+    for _ in range(5):
+        response = client.post('/login', data=dados)
+        assert response.status_code == 200
+        assert 'Não foi possível autenticar' in response.get_data(as_text=True)
+    bloqueado = client.post('/login', data=dados)
+    assert bloqueado.status_code == 429
+    assert 'Aguarde alguns minutos' in bloqueado.get_data(as_text=True)
+    with app.app_context():
+        tentativa = LoginTentativa.query.one()
+        tentativa.janela_iniciada_em = datetime.utcnow() - timedelta(minutes=16)
+        tentativa.bloqueado_ate = None
+        db.session.commit()
+    assert client.post('/login', data=dados).status_code == 200
 
 
 def test_health_verifica_a_conexao_com_o_banco():
@@ -160,11 +178,31 @@ def test_relatorios_e_exportacao_exigem_permissao():
     client.post('/login', data={'organizacao': 'cliente-a', 'login': 'consulta', 'senha': 'senha-segura'})
     for path in ['/relatorios', '/protocolos/backup/excel']:
         assert client.get(path, headers={'Content-Type': 'application/json'}).status_code == 403
+    for path in ['/api/usuarios', '/api/servidor/MAT-A', '/api/servidores/search?nome=Ana',
+                 '/protocolos/ultimoNumero/2026']:
+        assert client.get(path, headers={'Content-Type': 'application/json'}).status_code == 403
     html = client.get('/protocolos').get_data(as_text=True)
     assert 'Exportar para Excel' not in html
     assert '>Relatórios</a>' not in html
     login(client, 'cliente-a')  # A sessão de consulta não deve ser elevada pelo formulário.
     assert client.get('/relatorios', headers={'Content-Type': 'application/json'}).status_code == 403
+
+
+def test_logout_exige_post_e_csrf_quando_habilitado():
+    client = app.test_client()
+    login(client, 'cliente-a')
+    assert client.get('/logout').status_code == 405
+    app.config['WTF_CSRF_ENABLED'] = True
+    try:
+        assert client.post('/logout').status_code == 400
+        html = client.get('/home').get_data(as_text=True)
+        import re
+        token = re.search(r'action="/logout"[\s\S]*?name="csrf_token" value="([^"]+)"', html).group(1)
+        response = client.post('/logout', data={'csrf_token': token})
+        assert response.status_code == 302
+        assert client.get('/home').status_code == 302
+    finally:
+        app.config['WTF_CSRF_ENABLED'] = False
 
 
 def test_csrf_rejeita_operacao_sem_token_e_aceita_formulario_legitimo():
@@ -454,7 +492,7 @@ def test_administrador_edita_desativa_e_reativa_usuario_do_cliente():
     assert client.post(f'/admin/usuarios/{consulta_id}/status').status_code == 302
     inativo = app.test_client()
     response = inativo.post('/login', data={'organizacao': 'cliente-a', 'login': 'consulta', 'senha': 'senha-segura'}, follow_redirects=True)
-    assert b'Login sem sucesso' in response.data
+    assert 'Não foi possível autenticar' in response.get_data(as_text=True)
     client.post(f'/admin/usuarios/{consulta_id}/status')
     assert b'Login bem-sucedido' in inativo.post('/login', data={
         'organizacao': 'cliente-a', 'login': 'consulta', 'senha': 'senha-segura'}, follow_redirects=True).data

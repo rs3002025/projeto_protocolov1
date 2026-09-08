@@ -138,6 +138,17 @@ class ConsultaPublicaTentativa(db.Model):
     atualizado_em = db.Column(db.TIMESTAMP, nullable=False, default=db.func.current_timestamp(),
                               onupdate=db.func.current_timestamp())
 
+
+class LoginTentativa(db.Model):
+    __tablename__ = 'login_tentativas'
+    id = db.Column(db.Integer, primary_key=True)
+    identificador_hash = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    tentativas = db.Column(db.Integer, nullable=False, default=0)
+    janela_iniciada_em = db.Column(db.TIMESTAMP, nullable=False, default=db.func.current_timestamp())
+    bloqueado_ate = db.Column(db.TIMESTAMP)
+    atualizado_em = db.Column(db.TIMESTAMP, nullable=False, default=db.func.current_timestamp(),
+                              onupdate=db.func.current_timestamp())
+
 class Lotacao(TenantMixin, db.Model):
     __tablename__ = 'lotacoes'
     __table_args__ = (db.UniqueConstraint('tenant_id', 'nome', name='uq_lotacao_tenant_nome'),)
