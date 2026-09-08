@@ -80,6 +80,7 @@ def apply_protocol_filters(query, args):
     data_inicio = parse_iso_date(args.get('data_inicio'), 'Data inicial')
     data_fim = parse_iso_date(args.get('data_fim'), 'Data final')
     tipo = (args.get('tipo') or '').strip()
+    prazo = (args.get('prazo') or '').strip()
     if data_inicio and data_fim and data_inicio > data_fim:
         abort(400, description='A data inicial não pode ser posterior à data final.')
     if numero:
@@ -94,6 +95,19 @@ def apply_protocol_filters(query, args):
         query = query.filter(Protocolo.data_solicitacao <= data_fim)
     if tipo:
         query = query.filter(Protocolo.tipo_requerimento.ilike(f'%{tipo}%'))
+    hoje = datetime.now().date()
+    ativos = ~Protocolo.status.in_(['FINALIZADO', 'CONCLUÍDO', 'ARQUIVADO'])
+    if prazo == 'vencido':
+        query = query.filter(Protocolo.prazo_em < hoje, ativos)
+    elif prazo == 'hoje':
+        query = query.filter(Protocolo.prazo_em == hoje, ativos)
+    elif prazo == 'proximos_7':
+        query = query.filter(Protocolo.prazo_em > hoje,
+                             Protocolo.prazo_em <= hoje + timedelta(days=7), ativos)
+    elif prazo == 'sem_prazo':
+        query = query.filter(Protocolo.prazo_em.is_(None), ativos)
+    elif prazo:
+        abort(400, description='Situação de prazo inválida.')
     return query
 
 def pagination_filter_args(args):
@@ -986,7 +1000,7 @@ def backup_excel():
     headers = [
         'Número', 'Matrícula', 'Nome', 'Endereço', 'Município', 'Bairro', 'CEP',
         'Telefone', 'CPF', 'RG', 'Cargo', 'Lotação', 'Unidade', 'Tipo de Requerimento',
-        'Requer ao', 'Data Solicitação', 'Observações', 'Status', 'Responsável'
+        'Requer ao', 'Data Solicitação', 'Prazo', 'Observações', 'Status', 'Responsável'
     ]
     sheet.append(headers)
 
@@ -996,6 +1010,7 @@ def backup_excel():
             p.telefone, p.cpf, p.rg, p.cargo, p.lotacao, p.unidade_exercicio,
             p.tipo_requerimento, p.requer_ao,
             p.data_solicitacao.strftime('%Y-%m-%d') if p.data_solicitacao else '',
+            p.prazo_em.strftime('%Y-%m-%d') if p.prazo_em else '',
             p.observacoes, p.status, p.responsavel
         ]
         sheet.append(row)

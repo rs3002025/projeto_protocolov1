@@ -414,6 +414,29 @@ def test_dashboard_controla_prazos_e_estatisticas_pelo_setor_atual():
     assert client.get('/protocolos/dashboard-stats?evolucaoPeriodo=all').get_json()['pendentesAntigos'] == 0
 
 
+def test_situacao_de_prazo_filtra_listagem_relatorio_e_excel():
+    client = app.test_client()
+    login(client, 'cliente-a')
+    with app.app_context():
+        alvo = Protocolo.query.filter_by(nome='Dado exclusivo A').one()
+        alvo.prazo_em = date.today() + timedelta(days=4)
+        alvo.status = 'EM ANÁLISE'
+        fora = Protocolo.query.filter_by(nome='Registro que deve ser excluído').one()
+        fora.prazo_em = date.today() + timedelta(days=15)
+        fora.status = 'EM ANÁLISE'
+        db.session.commit()
+    filtro = '?prazo=proximos_7'
+    for endpoint in ['/protocolos', '/relatorios']:
+        html = client.get(endpoint + filtro).get_data(as_text=True)
+        assert 'Dado exclusivo A' in html
+        assert 'Registro que deve ser excluído' not in html
+    rows = list(load_workbook(io.BytesIO(client.get('/protocolos/backup/excel' + filtro).data))
+                .active.iter_rows(values_only=True))
+    assert rows[0][16] == 'Prazo'
+    assert len(rows) == 2 and rows[1][2] == 'Dado exclusivo A'
+    assert client.get('/protocolos?prazo=qualquer').status_code == 400
+
+
 def test_administrador_edita_desativa_e_reativa_usuario_do_cliente():
     client = app.test_client()
     login(client, 'cliente-a')

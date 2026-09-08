@@ -37,6 +37,15 @@
                     <div class="col-md-4">
                          <input type="text" name="tipo" class="form-control" placeholder="Tipo de Requerimento" value="{{ request.args.get('tipo', '') }}">
                     </div>
+                    <div class="col-md-4">
+                        <select name="prazo" class="form-select" aria-label="Situação do prazo">
+                            <option value="">Todos os prazos</option>
+                            <option value="vencido" {% if request.args.get('prazo') == 'vencido' %}selected{% endif %}>Prazo vencido</option>
+                            <option value="hoje" {% if request.args.get('prazo') == 'hoje' %}selected{% endif %}>Vence hoje</option>
+                            <option value="proximos_7" {% if request.args.get('prazo') == 'proximos_7' %}selected{% endif %}>Vence nos próximos 7 dias</option>
+                            <option value="sem_prazo" {% if request.args.get('prazo') == 'sem_prazo' %}selected{% endif %}>Sem prazo definido</option>
+                        </select>
+                    </div>
                     <div class="col-md-2">
                         <button type="submit" class="btn btn-primary w-100">Pesquisar</button>
                     </div>
@@ -55,6 +64,7 @@
                     <th>Requerente</th>
                     <th>Tipo</th>
                     <th>Data Solicitação</th>
+                    <th>Prazo</th>
                     <th>Status</th>
                     <th>Responsável</th>
                     <th>Ações</th>
@@ -67,6 +77,7 @@
                         <td>{{ protocolo.nome }}</td>
                         <td>{{ protocolo.tipo_requerimento }}</td>
                         <td>{{ protocolo.data_solicitacao.strftime('%d/%m/%Y') }}</td>
+                        <td>{{ protocolo.prazo_em.strftime('%d/%m/%Y') if protocolo.prazo_em else 'Não definido' }}</td>
                         <td><span class="badge bg-info">{{ protocolo.status }}</span></td>
                         <td>{{ protocolo.responsavel }}</td>
                         <td>
@@ -79,7 +90,7 @@
                     </tr>
                 {% else %}
                     <tr>
-                        <td colspan="7" class="text-center">Nenhum protocolo encontrado.</td>
+                        <td colspan="8" class="text-center">Nenhum protocolo encontrado.</td>
                     </tr>
                 {% endfor %}
             </tbody>
