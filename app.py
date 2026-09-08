@@ -39,7 +39,7 @@ login_manager.login_view = 'login'
 login_manager.login_message_category = 'info'
 
 # --- Imports for Routes and Models ---
-from flask import render_template, url_for, flash, redirect, request
+from flask import render_template, url_for, flash, redirect, request, abort
 from flask_login import login_user, current_user, logout_user, login_required
 from flask import send_file, Response, jsonify, make_response
 from werkzeug.utils import secure_filename
@@ -62,6 +62,41 @@ def tenant_query(model):
 
 def tenant_get_or_404(model, object_id):
     return tenant_query(model).filter(model.id == object_id).first_or_404()
+
+def parse_iso_date(value, field_name):
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, '%Y-%m-%d').date()
+    except ValueError:
+        abort(400, description=f'{field_name} inválida.')
+
+def apply_protocol_filters(query, args):
+    """Mantém listagem, relatório e exportação com o mesmo resultado."""
+    numero = (args.get('numero') or '').strip()
+    nome = (args.get('nome') or '').strip()
+    status = (args.get('status') or '').strip()
+    data_inicio = parse_iso_date(args.get('data_inicio'), 'Data inicial')
+    data_fim = parse_iso_date(args.get('data_fim'), 'Data final')
+    tipo = (args.get('tipo') or '').strip()
+    if data_inicio and data_fim and data_inicio > data_fim:
+        abort(400, description='A data inicial não pode ser posterior à data final.')
+    if numero:
+        query = query.filter(Protocolo.numero.ilike(f'%{numero}%'))
+    if nome:
+        query = query.filter(Protocolo.nome.ilike(f'%{nome}%'))
+    if status:
+        query = query.filter(Protocolo.status == status)
+    if data_inicio:
+        query = query.filter(Protocolo.data_solicitacao >= data_inicio)
+    if data_fim:
+        query = query.filter(Protocolo.data_solicitacao <= data_fim)
+    if tipo:
+        query = query.filter(Protocolo.tipo_requerimento.ilike(f'%{tipo}%'))
+    return query
+
+def pagination_filter_args(args):
+    return {key: value for key, value in args.items() if key != 'page' and value}
 
 ROLE_PERMISSIONS = {
     'admin': {'view', 'create', 'edit', 'route', 'archive', 'delete', 'manage', 'reports'},
@@ -255,17 +290,10 @@ def relatorios():
     # This route essentially does the same as listar_protocolos but renders a different template
     # to match the original app's structure.
     page = request.args.get('page', 1, type=int)
-    query = tenant_query(Protocolo)
-    # ... (filter logic is identical to listar_protocolos) ...
-    if request.args.get('numero'):
-        query = query.filter(Protocolo.numero.ilike(f"%{request.args.get('numero')}%"))
-    if request.args.get('nome'):
-        query = query.filter(Protocolo.nome.ilike(f"%{request.args.get('nome')}%"))
-    if request.args.get('status'):
-        query = query.filter(Protocolo.status == request.args.get('status'))
-    # Add other filters as needed
+    query = apply_protocol_filters(tenant_query(Protocolo), request.args)
     protocolos = query.order_by(Protocolo.id.desc()).paginate(page=page, per_page=10)
-    return render_template('relatorios.html', protocolos=protocolos, title="Relatórios")
+    return render_template('relatorios.html', protocolos=protocolos, title="Relatórios",
+                           pagination_args=pagination_filter_args(request.args))
 
 # --- Rotas de Configuração (Admin) ---
 
@@ -442,29 +470,7 @@ def gerar_pdf_protocolo(protocolo_id):
 @login_required
 def listar_protocolos():
     page = request.args.get('page', 1, type=int)
-    query = tenant_query(Protocolo)
-
-    # Get filter args
-    numero = request.args.get('numero')
-    nome = request.args.get('nome')
-    status = request.args.get('status')
-    data_inicio = request.args.get('data_inicio')
-    data_fim = request.args.get('data_fim')
-    tipo = request.args.get('tipo')
-
-    # Apply filters
-    if numero:
-        query = query.filter(Protocolo.numero.ilike(f'%{numero}%'))
-    if nome:
-        query = query.filter(Protocolo.nome.ilike(f'%{nome}%'))
-    if status:
-        query = query.filter(Protocolo.status == status)
-    if data_inicio:
-        query = query.filter(Protocolo.data_solicitacao >= data_inicio)
-    if data_fim:
-        query = query.filter(Protocolo.data_solicitacao <= data_fim)
-    if tipo:
-        query = query.filter(Protocolo.tipo_requerimento.ilike(f'%{tipo}%'))
+    query = apply_protocol_filters(tenant_query(Protocolo), request.args)
 
     # Ordena por ano (descendente) e depois pelo número do protocolo (descendente)
     protocolos = query.order_by(
@@ -472,7 +478,8 @@ def listar_protocolos():
         func.substr(Protocolo.numero, 1, 4).desc()
     ).paginate(page=page, per_page=10)
 
-    return render_template('protocolos.html', protocolos=protocolos, title="Todos os Protocolos")
+    return render_template('protocolos.html', protocolos=protocolos, title="Todos os Protocolos",
+                           pagination_args=pagination_filter_args(request.args))
 
 def gerar_proximo_numero_protocolo():
     """Gera o próximo número de protocolo no formato NNNN/ANO."""
@@ -830,21 +837,7 @@ def arquivar_protocolo(protocolo_id):
 @permission_required('reports')
 def backup_excel():
     """Gera um arquivo Excel com todos os protocolos, aplicando os filtros ativos."""
-    query = tenant_query(Protocolo)
-
-    # Re-aplica a mesma lógica de filtro da listagem
-    if request.args.get('numero'):
-        query = query.filter(Protocolo.numero.ilike(f"%{request.args.get('numero')}%"))
-    if request.args.get('nome'):
-        query = query.filter(Protocolo.nome.ilike(f"%{request.args.get('nome')}%"))
-    if request.args.get('status'):
-        query = query.filter(Protocolo.status == request.args.get('status'))
-    if request.args.get('data_inicio'):
-        query = query.filter(Protocolo.data_solicitacao >= request.args.get('data_inicio'))
-    if request.args.get('data_fim'):
-        query = query.filter(Protocolo.data_solicitacao <= request.args.get('data_fim'))
-    if request.args.get('tipo'):
-        query = query.filter(Protocolo.tipo_requerimento.ilike(f"%{request.args.get('tipo')}%"))
+    query = apply_protocol_filters(tenant_query(Protocolo), request.args)
 
     protocolos = query.order_by(Protocolo.id.asc()).all()
 
@@ -1019,7 +1012,8 @@ def dashboard_stats():
         if tipo:
             base_query = base_query.filter(Protocolo.tipo_requerimento == tipo)
         if lotacao:
-            base_query = base_query.filter(Protocolo.lotacao == lotacao)
+            base_query = base_query.join(Lotacao, Protocolo.setor_atual_id == Lotacao.id).filter(
+                Lotacao.tenant_id == current_user.tenant_id, Lotacao.nome == lotacao)
 
         # --- Period-Filtered Query ---
         period_query = base_query
@@ -1039,13 +1033,11 @@ def dashboard_stats():
 
         novos_no_periodo = novos_query.count()
 
-        # --- Pendentes Antigos (Card) ---
-        pendentes_antigos = db.session.query(func.count(Protocolo.id)).filter(
-            Protocolo.tenant_id == current_user.tenant_id,
-            Protocolo.data_solicitacao != None,
-            Protocolo.data_solicitacao <= (datetime.now().date() - timedelta(days=15)),
-            ~Protocolo.status.in_(['Finalizado', 'Concluído'])
-        ).scalar()
+        # --- Prazos vencidos (Card) ---
+        encerrados = ['Finalizado', 'Concluído', 'ARQUIVADO']
+        pendentes_antigos = base_query.filter(
+            Protocolo.prazo_em != None, Protocolo.prazo_em < datetime.now().date(),
+            ~Protocolo.status.in_(encerrados)).count()
 
         # --- Finalizados no Período (Card) ---
         total_finalizados = period_query.filter(Protocolo.status.in_(['Finalizado', 'Concluído'])).count()
@@ -1067,19 +1059,33 @@ def dashboard_stats():
             func.count(Protocolo.id).label('total')
         ).filter(Protocolo.status != None, Protocolo.status != '').group_by(Protocolo.status).all()
 
+        setor_query = period_query if lotacao else period_query.outerjoin(
+            Lotacao, Protocolo.setor_atual_id == Lotacao.id)
+        setor_protocolos = setor_query.with_entities(
+            func.coalesce(Lotacao.nome, 'Não definido').label('setor'),
+            func.count(Protocolo.id).label('total')
+        ).group_by(func.coalesce(Lotacao.nome, 'Não definido')).order_by(func.count(Protocolo.id).desc()).all()
+
         # --- Evolução (Line Chart) ---
         evolucao_query = base_query.filter(Protocolo.data_solicitacao != None)
         today = datetime.now().date()
+        is_sqlite = db.session.get_bind().dialect.name == 'sqlite'
         if evolucao_periodo == '7d':
             evolucao_query = evolucao_query.filter(Protocolo.data_solicitacao >= (today - timedelta(days=7)))
         elif evolucao_periodo == 'month':
-            evolucao_query = evolucao_query.filter(func.date_trunc('month', Protocolo.data_solicitacao) == func.date_trunc('month', today))
+            if is_sqlite:
+                evolucao_query = evolucao_query.filter(func.strftime('%Y-%m', Protocolo.data_solicitacao) == today.strftime('%Y-%m'))
+            else:
+                evolucao_query = evolucao_query.filter(func.date_trunc('month', Protocolo.data_solicitacao) == func.date_trunc('month', today))
         elif evolucao_periodo == 'all':
              evolucao_query = evolucao_query.filter(Protocolo.data_solicitacao >= '2025-01-01')
         else: # 30d default
             evolucao_query = evolucao_query.filter(Protocolo.data_solicitacao >= (today - timedelta(days=30)))
 
-        group_by_logic = func.date_trunc('month', Protocolo.data_solicitacao) if evolucao_agrupamento == 'month' else cast(Protocolo.data_solicitacao, Date)
+        if is_sqlite:
+            group_by_logic = func.strftime('%Y-%m-01', Protocolo.data_solicitacao) if evolucao_agrupamento == 'month' else func.strftime('%Y-%m-%d', Protocolo.data_solicitacao)
+        else:
+            group_by_logic = func.date_trunc('month', Protocolo.data_solicitacao) if evolucao_agrupamento == 'month' else cast(Protocolo.data_solicitacao, Date)
 
         evolucao_protocolos = evolucao_query.with_entities(
             group_by_logic.label('intervalo'),
@@ -1094,7 +1100,8 @@ def dashboard_stats():
             'topTipos': [{'tipo_requerimento': r.tipo_requerimento, 'total': r.total} for r in top_tipos],
             'todosTipos': [{'tipo_requerimento': r.tipo_requerimento, 'total': r.total} for r in todos_tipos],
             'statusProtocolos': [{'status': r.status, 'total': r.total} for r in status_protocolos],
-            'evolucaoProtocolos': [{'intervalo': r.intervalo.isoformat(), 'total': r.total} for r in evolucao_protocolos if r.intervalo is not None]
+            'setorProtocolos': [{'setor': r.setor, 'total': r.total} for r in setor_protocolos],
+            'evolucaoProtocolos': [{'intervalo': r.intervalo.isoformat() if hasattr(r.intervalo, 'isoformat') else str(r.intervalo), 'total': r.total} for r in evolucao_protocolos if r.intervalo is not None]
         }
         return jsonify(stats)
 

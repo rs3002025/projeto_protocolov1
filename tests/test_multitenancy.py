@@ -1,6 +1,7 @@
 import os
 import tempfile
 import io
+from openpyxl import load_workbook
 from pathlib import Path
 from datetime import date, datetime, timedelta
 
@@ -314,3 +315,49 @@ def test_upload_vazio_e_processo_arquivado_nao_criam_versao():
         with app.app_context():
             db.session.get(Protocolo, protocolo_id).arquivado_em = None
             db.session.commit()
+
+
+def test_listagem_relatorio_e_excel_usam_os_mesmos_filtros():
+    client = app.test_client()
+    login(client, 'cliente-a')
+    with app.app_context():
+        alvo = Protocolo.query.filter_by(nome='Dado exclusivo A').one()
+        alvo.tipo_requerimento = 'Licença Especial'
+        alvo.data_solicitacao = date(2026, 9, 3)
+        db.session.add(Protocolo(tenant_id=alvo.tenant_id, numero='0099/2026',
+            nome='Registro que deve ser excluído', tipo_requerimento='Outro',
+            data_solicitacao=date(2026, 8, 1)))
+        db.session.commit()
+    filtros = '?nome=Dado+exclusivo+A&tipo=Licen%C3%A7a&data_inicio=2026-09-01&data_fim=2026-09-04'
+    for endpoint in ['/protocolos', '/relatorios']:
+        html = client.get(endpoint + filtros).get_data(as_text=True)
+        assert 'Dado exclusivo A' in html
+        assert 'Registro que deve ser excluído' not in html
+    excel = client.get('/protocolos/backup/excel' + filtros)
+    rows = list(load_workbook(io.BytesIO(excel.data)).active.iter_rows(values_only=True))
+    assert len(rows) == 2 and rows[1][2] == 'Dado exclusivo A'
+    assert client.get('/relatorios?data_inicio=2026-09-05&data_fim=2026-09-01').status_code == 400
+    assert client.get('/protocolos?data_inicio=inválida').status_code == 400
+
+
+def test_dashboard_controla_prazos_e_estatisticas_pelo_setor_atual():
+    client = app.test_client()
+    login(client, 'cliente-a')
+    with app.app_context():
+        protocolo = Protocolo.query.filter_by(nome='Dado exclusivo A').one()
+        juridico = Lotacao.query.filter_by(nome='Jurídico').one()
+        protocolo.setor_atual_id = juridico.id
+        protocolo.prazo_em = date.today() - timedelta(days=1)
+        protocolo.status = 'EM ANÁLISE'
+        db.session.commit()
+    dados = client.get('/protocolos/dashboard-stats?evolucaoPeriodo=all').get_json()
+    assert dados['pendentesAntigos'] >= 1
+    assert any(item['setor'] == 'Jurídico' and item['total'] >= 1 for item in dados['setorProtocolos'])
+    filtrado = client.get('/protocolos/dashboard-stats?lotacao=Jur%C3%ADdico&evolucaoPeriodo=all').get_json()
+    assert filtrado['statusProtocolos']
+    assert all(item['setor'] == 'Jurídico' for item in filtrado['setorProtocolos'])
+    with app.app_context():
+        protocolo = Protocolo.query.filter_by(nome='Dado exclusivo A').one()
+        protocolo.status = 'ARQUIVADO'
+        db.session.commit()
+    assert client.get('/protocolos/dashboard-stats?evolucaoPeriodo=all').get_json()['pendentesAntigos'] == 0

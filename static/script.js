@@ -133,6 +133,18 @@ window.carregarDashboard = async function() {
         document.getElementById('stat-pendentes').textContent = stats.pendentesAntigos || 0;
         document.getElementById('stat-finalizados').textContent = stats.totalFinalizados || 0;
         document.getElementById('stat-novos-label').textContent = (document.getElementById('dashDataInicio').value || document.getElementById('dashDataFim').value) ? 'Novos no Período' : 'Novos na Semana';
+        const setoresBody = document.getElementById('setoresStats');
+        setoresBody.textContent = '';
+        if (!stats.setorProtocolos.length) {
+            const row = setoresBody.insertRow();
+            const cell = row.insertCell(); cell.colSpan = 2; cell.textContent = 'Nenhum protocolo encontrado.';
+        } else {
+            stats.setorProtocolos.forEach(item => {
+                const row = setoresBody.insertRow();
+                row.insertCell().textContent = item.setor;
+                row.insertCell().textContent = item.total;
+            });
+        }
 
         // 2. Top 5 Types Chart (Bar Chart)
         if (tiposChartInstance) { tiposChartInstance.destroy(); }
