@@ -1,6 +1,9 @@
 import os
 import tempfile
 import io
+import sys
+import types
+from unittest.mock import patch
 from openpyxl import load_workbook
 from flask import render_template
 from pathlib import Path
@@ -57,6 +60,21 @@ def login(client, organizacao):
         'login': 'admin',
         'senha': 'senha-segura',
     }, follow_redirects=True)
+
+
+def test_login_nao_redireciona_para_site_externo():
+    client = app.test_client()
+    response = client.post('/login?next=https://evil.example/coleta', data={
+        'organizacao': 'cliente-a', 'login': 'admin', 'senha': 'senha-segura',
+    })
+    assert response.status_code == 302
+    assert response.headers['Location'] == '/home'
+
+    client.get('/logout')
+    response = client.post('/login?next=/protocolos', data={
+        'organizacao': 'cliente-a', 'login': 'admin', 'senha': 'senha-segura',
+    })
+    assert response.headers['Location'] == '/protocolos'
 
 
 def test_listagem_nao_vaza_dados_entre_clientes():
@@ -273,6 +291,27 @@ def test_documentos_preservam_versoes_autor_historico_e_isolamento():
     assert other.get(f'/anexo/{original_id}/download').status_code == 404
 
 
+def test_upload_confere_conteudo_real_e_nao_apenas_extensao():
+    with app.app_context():
+        protocolo_id = Protocolo.query.filter_by(nome='Dado exclusivo A').one().id
+        quantidade_inicial = Anexo.query.filter_by(protocolo_id=protocolo_id).count()
+    client = app.test_client()
+    login(client, 'cliente-a')
+    endpoint = f'/protocolo/{protocolo_id}/anexo/novo'
+
+    falso = client.post(endpoint, data={
+        'anexo': (io.BytesIO(b'conteudo executavel disfarcado'), 'falso.pdf')
+    }, follow_redirects=True)
+    assert 'conteúdo do arquivo não corresponde' in falso.get_data(as_text=True)
+
+    valido = client.post(endpoint, data={
+        'anexo': (io.BytesIO(b'%PDF-1.4\n% teste seguro'), 'valido.pdf')
+    }, follow_redirects=True)
+    assert 'Documento enviado com sucesso' in valido.get_data(as_text=True)
+    with app.app_context():
+        assert Anexo.query.filter_by(protocolo_id=protocolo_id).count() == quantidade_inicial + 1
+
+
 def test_versionamento_legado_nao_agrupa_documentos_distintos():
     client = app.test_client()
     login(client, 'cliente-a')
@@ -485,3 +524,34 @@ def test_dados_institucionais_sao_isolados_e_usados_no_pdf():
     html = client.get(f'/protocolo/{protocolo_id}').get_data(as_text=True)
     assert 'data-organization-office="Gabinete da Prefeita"' in html
     assert 'static/img/rodape.jpg' not in html
+
+
+def test_pdf_gerado_e_armazenado_com_versionamento_e_historico():
+    class FakeHTML:
+        def __init__(self, string, base_url):
+            self.string = string
+        def write_pdf(self):
+            return b'%PDF-1.7\nconteudo de teste'
+    client = app.test_client()
+    login(client, 'cliente-a')
+    with app.app_context():
+        protocolo = Protocolo.query.filter_by(tenant_id=1, arquivado_em=None).first()
+        protocolo_id = protocolo.id
+    with patch.dict(sys.modules, {'weasyprint': types.SimpleNamespace(HTML=FakeHTML)}):
+        primeira = client.post(f'/protocolo/{protocolo_id}/documento/gerar')
+        segunda = client.post(f'/protocolo/{protocolo_id}/documento/gerar')
+    assert primeira.status_code == 200 and primeira.content_type == 'application/pdf'
+    assert segunda.status_code == 200 and '_v2.pdf' in segunda.headers['Content-Disposition']
+    with app.app_context():
+        docs = Anexo.query.filter_by(protocolo_id=protocolo_id, documento_chave='documento-protocolo').order_by(Anexo.versao).all()
+        assert [documento.versao for documento in docs] == [1, 2]
+        assert all(documento.file_data.startswith(b'%PDF') for documento in docs)
+        assert HistoricoProtocolo.query.filter_by(protocolo_id=protocolo_id, acao='DOCUMENTO_GERADO').count() == 2
+    with app.app_context():
+        protocolo = db.session.get(Protocolo, protocolo_id)
+        protocolo.arquivado_em = datetime.utcnow()
+        db.session.commit()
+    with patch.dict(sys.modules, {'weasyprint': types.SimpleNamespace(HTML=FakeHTML)}):
+        assert client.post(f'/protocolo/{protocolo_id}/documento/gerar').status_code == 302
+    with app.app_context():
+        assert Anexo.query.filter_by(protocolo_id=protocolo_id, documento_chave='documento-protocolo').count() == 2

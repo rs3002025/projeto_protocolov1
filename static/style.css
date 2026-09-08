@@ -626,3 +626,18 @@ textarea:focus {
     align-items: center; /* Vertically align items */
     margin-top: 20px; /* Add some space above the buttons */
 }
+
+@media (max-width: 768px) {
+    .main-header { padding: .75rem; }
+    .header-logo-wrapper { padding-left: 44px; padding-right: 44px; }
+    .header-logo { flex-direction: column; gap: 4px; text-align: center; }
+    .header-logo img { max-width: 150px; max-height: 42px; }
+    .header-logo span { font-size: 1rem; }
+    .header-bottom-row { overflow-x: auto; justify-content: flex-start; padding-bottom: .35rem; }
+    .main-nav { gap: 1rem; min-width: max-content; }
+    .main-nav .nav-link { font-size: .95rem; }
+    .dashboard-cards, .dashboard-charts-grid { grid-template-columns: 1fr; }
+    .filtros { grid-template-columns: 1fr; }
+    .card-header.d-flex, .d-flex.justify-content-between.align-items-center { flex-wrap: wrap; gap: .75rem; }
+    .doc-container { max-width: 100%; overflow-wrap: anywhere; }
+}

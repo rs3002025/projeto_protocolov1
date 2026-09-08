@@ -47,6 +47,7 @@ import io
 import hmac
 import hashlib
 import secrets
+from urllib.parse import urlsplit
 from openpyxl import Workbook
 from sqlalchemy import func, cast, Date
 from datetime import datetime, timedelta
@@ -97,6 +98,33 @@ def apply_protocol_filters(query, args):
 
 def pagination_filter_args(args):
     return {key: value for key, value in args.items() if key != 'page' and value}
+
+def safe_local_redirect(target):
+    if not target:
+        return None
+    parsed = urlsplit(target)
+    return target if not parsed.scheme and not parsed.netloc and target.startswith('/') else None
+
+def verified_upload_mime(filename, data):
+    extension = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+    if extension == 'pdf' and data.startswith(b'%PDF-'):
+        return 'application/pdf'
+    if extension in ('docx', 'xlsx') and data.startswith(b'PK\x03\x04'):
+        return {'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}[extension]
+    if extension in ('doc', 'xls') and data.startswith(bytes.fromhex('D0CF11E0A1B11AE1')):
+        return 'application/msword' if extension == 'doc' else 'application/vnd.ms-excel'
+    if extension in ('png', 'jpg', 'jpeg', 'gif'):
+        signatures = {'png': b'\x89PNG\r\n\x1a\n', 'jpg': b'\xff\xd8\xff', 'jpeg': b'\xff\xd8\xff', 'gif': b'GIF8'}
+        if data.startswith(signatures[extension]):
+            return 'image/png' if extension == 'png' else ('image/gif' if extension == 'gif' else 'image/jpeg')
+    if extension in ('txt', 'csv'):
+        try:
+            data.decode('utf-8')
+            return 'text/csv' if extension == 'csv' else 'text/plain'
+        except UnicodeDecodeError:
+            pass
+    return None
 
 ROLE_PERMISSIONS = {
     'admin': {'view', 'create', 'edit', 'route', 'archive', 'delete', 'manage', 'reports'},
@@ -253,7 +281,7 @@ def login():
             login_user(user, remember=form.remember.data)
             next_page = request.args.get('next')
             flash('Login bem-sucedido!', 'success')
-            return redirect(next_page) if next_page else redirect(url_for('home'))
+            return redirect(safe_local_redirect(next_page) or url_for('home'))
         else:
             flash('Login sem sucesso. Por favor, verifique o login e a senha.', 'danger')
     return render_template('login.html', title='Login', form=form)
@@ -491,31 +519,53 @@ def admin_toggle_item_status(item_type, item_id):
 
 # --- Rota de Geração de PDF ---
 
+def render_protocol_pdf(protocolo):
+    from weasyprint import HTML
+    version = int(current_user.organizacao.logo_atualizada_em.timestamp()) if current_user.organizacao.logo_atualizada_em else 0
+    rendered_html = render_template(
+        'pdf_template.html', protocolo=protocolo, organizacao=current_user.organizacao,
+        pdf_logo_url=url_for('organization_logo', slug=current_user.organizacao.slug,
+                             v=version, _external=True))
+    return HTML(string=rendered_html, base_url=request.base_url).write_pdf()
+
 @app.route('/protocolo/<int:protocolo_id>/pdf')
 @login_required
 def gerar_pdf_protocolo(protocolo_id):
-    from weasyprint import HTML
-
     protocolo = tenant_get_or_404(Protocolo, protocolo_id)
-
-    # Renderiza um template HTML com os dados do protocolo
-    # Este template é feito especificamente para ser convertido em PDF
-    version = int(current_user.organizacao.logo_atualizada_em.timestamp()) if current_user.organizacao.logo_atualizada_em else 0
-    rendered_html = render_template(
-        'pdf_template.html', protocolo=protocolo,
-        organizacao=current_user.organizacao,
-        pdf_logo_url=url_for('organization_logo', slug=current_user.organizacao.slug,
-                             v=version, _external=True)
-    )
-
-    # Gera o PDF a partir do HTML renderizado
-    pdf_bytes = HTML(string=rendered_html, base_url=request.base_url).write_pdf()
+    pdf_bytes = render_protocol_pdf(protocolo)
 
     # Cria a resposta HTTP com o PDF
     response = make_response(pdf_bytes)
     response.headers['Content-Type'] = 'application/pdf'
     response.headers['Content-Disposition'] = f'inline; filename=protocolo_{protocolo.numero.replace("/", "-")}.pdf'
 
+    return response
+
+@app.post('/protocolo/<int:protocolo_id>/documento/gerar')
+@permission_required('edit')
+def gerar_documento_versionado(protocolo_id):
+    protocolo = tenant_query(Protocolo).filter_by(id=protocolo_id).with_for_update().first_or_404()
+    if protocolo.arquivado_em:
+        flash('Processos arquivados não podem gerar novas versões.', 'warning')
+        return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
+    pdf_bytes = render_protocol_pdf(protocolo)
+    chave = 'documento-protocolo'
+    versao = (tenant_query(Anexo).filter_by(protocolo_id=protocolo.id, documento_chave=chave)
+              .with_entities(func.max(Anexo.versao)).scalar() or 0) + 1
+    filename = f'protocolo_{protocolo.numero.replace("/", "-")}_v{versao}.pdf'
+    documento = Anexo(
+        tenant_id=current_user.tenant_id, protocolo_id=protocolo.id,
+        file_name=filename, storage_path=f'{protocolo.id}/gerados/{filename}',
+        file_size=len(pdf_bytes), mime_type='application/pdf', file_data=pdf_bytes,
+        documento_chave=chave, versao=versao, enviado_por_id=current_user.id)
+    db.session.add_all([documento, HistoricoProtocolo(
+        tenant_id=current_user.tenant_id, protocolo_id=protocolo.id,
+        status=protocolo.status, responsavel=current_user.login, usuario_id=current_user.id,
+        acao='DOCUMENTO_GERADO', observacao=f'{filename} — versão {versao}.')])
+    db.session.commit()
+    response = make_response(pdf_bytes)
+    response.headers['Content-Type'] = 'application/pdf'
+    response.headers['Content-Disposition'] = f'inline; filename={filename}'
     return response
 
 # --- Rotas de Protocolo ---
@@ -727,6 +777,10 @@ def adicionar_anexo(protocolo_id):
         if not filename or not file_data or len(file_data) > 20 * 1024 * 1024:
             flash('Envie um arquivo não vazio, com nome válido e até 20 MB.', 'danger')
             return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
+        mime_type = verified_upload_mime(filename, file_data)
+        if not mime_type:
+            flash('O conteúdo do arquivo não corresponde a um tipo permitido.', 'danger')
+            return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
         chave = secrets.token_urlsafe(24)
         versao = 1
         documento_id = request.form.get('documento_id', '').strip()
@@ -748,7 +802,7 @@ def adicionar_anexo(protocolo_id):
             file_name=filename,
             storage_path=f"{protocolo.id}/{filename}", # Manter um caminho lógico
             file_size=len(file_data),
-            mime_type=file.mimetype,
+            mime_type=mime_type,
             file_data=file_data,
             enviado_por_id=current_user.id,
             documento_chave=chave,
