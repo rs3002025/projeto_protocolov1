@@ -53,6 +53,18 @@ def run_checked(command):
     subprocess.run(command, check=True)
 
 
+def validate_catalog(path):
+    result = subprocess.run([executable('pg_restore'), '--list', str(path)], check=True,
+                            capture_output=True, text=True)
+    catalog = result.stdout
+    required_tables = ('organizacoes', 'usuarios', 'protocolos', 'anexos', 'historico_protocolos')
+    missing = [table for table in required_tables
+               if f'TABLE public {table} ' not in catalog and f'TABLE public {table}\n' not in catalog]
+    if missing:
+        raise RuntimeError('O dump não contém as tabelas essenciais: ' + ', '.join(missing))
+    return catalog
+
+
 def backup(retention_days):
     database_url = required_env('DATABASE_URL')
     directory = safe_backup_directory(required_env('BACKUP_DIRECTORY'))
@@ -62,7 +74,7 @@ def backup(retention_days):
     try:
         run_checked([executable('pg_dump'), '--format=custom', '--compress=9',
                      '--no-owner', '--no-privileges', '--file', str(temporary_path), database_url])
-        run_checked([executable('pg_restore'), '--list', str(temporary_path)])
+        validate_catalog(temporary_path)
         temporary_path.replace(final_path)
         checksum = sha256(final_path)
         final_path.with_suffix('.dump.sha256').write_text(
@@ -88,7 +100,7 @@ def restore(backup_file, confirmation):
     checksum_file = source.with_suffix('.dump.sha256')
     if not checksum_file.is_file() or checksum_file.read_text(encoding='ascii').split()[0] != sha256(source):
         raise SystemExit('Checksum ausente ou inválido; restauração cancelada.')
-    run_checked([executable('pg_restore'), '--list', str(source)])
+    validate_catalog(source)
     query = "SELECT count(*) FROM pg_tables WHERE schemaname='public'"
     result = subprocess.run([executable('psql'), database_url, '-Atqc', query],
                             check=True, capture_output=True, text=True)

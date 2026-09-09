@@ -36,3 +36,13 @@ def test_executavel_pode_ser_localizado_por_postgres_bin(tmp_path, monkeypatch):
     executavel.write_bytes(b'programa de teste')
     monkeypatch.setenv('POSTGRES_BIN', str(tmp_path))
     assert database_backup.executable('pg_dump') == str(executavel.resolve())
+
+
+def test_catalogo_sem_tabelas_essenciais_e_rejeitado(tmp_path, monkeypatch):
+    arquivo = tmp_path / 'vazio.dump'
+    arquivo.write_bytes(b'dump vazio')
+    monkeypatch.setattr(database_backup, 'executable', lambda _name: 'pg_restore')
+    resultado = database_backup.subprocess.CompletedProcess([], 0, stdout='; arquivo vazio\n')
+    monkeypatch.setattr(database_backup.subprocess, 'run', lambda *args, **kwargs: resultado)
+    with pytest.raises(RuntimeError, match='não contém as tabelas essenciais'):
+        database_backup.validate_catalog(arquivo)
