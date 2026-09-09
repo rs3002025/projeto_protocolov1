@@ -10,11 +10,11 @@
         .logo-pdf { width: 220px; height: 70px; display: flex; align-items: flex-start; justify-content: flex-start; }
         .logo-pdf img { display: block; width: auto; height: auto; max-width: 100%; max-height: 70px; object-fit: contain; }
         .titulo-principal-pdf { text-align: center; margin: 2px 0; font-size: 20px; }
-        .titulo-central-pdf { text-align: center; margin-bottom: 20px; }
-        .titulo-central-pdf span { background: #333; color: white; font-size: 14px; padding: 8px 20px; font-weight: bold; }
+        .titulo-central-pdf { text-align: center; margin: 8px 0 20px; page-break-inside: avoid; }
+        .titulo-central-pdf span { background: #2e7d32; color: white; font-size: 16px; padding: 8px 20px; border-radius: 4px; display: inline-block; font-weight: bold; }
         .info-pdf { margin-bottom: 20px; display: flex; justify-content: space-between; gap: 20px; }
-        .campo-destaque-pdf { font-weight: bold; font-size: 13px; background-color: #eee; padding: 8px 12px; margin: 4px 0; flex: 1; text-align: center; }
-        .section-title-pdf { background: #f0f0f0; font-weight: bold; padding: 6px 10px; border-left: 4px solid #555; margin-top: 20px; font-size: 14px; }
+        .campo-destaque-pdf { font-weight: bold; font-size: 14px; background-color: #2e7d32; color: white; padding: 8px 12px; border-radius: 5px; margin: 4px 0; flex: 1; text-align: center; }
+        .section-title-pdf { background: #f0f0f0; font-weight: bold; padding: 6px 10px; border-left: 4px solid #4caf50; margin-top: 20px; font-size: 14px; }
         .grid-pdf { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 30px; margin-top: 10px; }
         .box-pdf { border: 1px solid #ddd; padding: 10px; margin-top: 10px; }
         .assinaturas-container { margin-top: 50px; page-break-inside: avoid; }
@@ -36,7 +36,6 @@
             <div class="campo-destaque-pdf"><strong>Número:</strong> {{ protocolo.numero }}</div>
             <div class="campo-destaque-pdf"><strong>Data:</strong> {{ protocolo.data_solicitacao.strftime('%d/%m/%Y') if protocolo.data_solicitacao else '' }}</div>
         </div>
-        {% if organizacao.rodape_documento %}<div class="rodape-institucional">{{ organizacao.rodape_documento }}</div>{% endif %}
         <div class="section-title-pdf">DADOS DO REQUERENTE</div>
         <div class="grid-pdf">
             <div><strong>Nome:</strong> {{ protocolo.nome or 'N/A' }}</div>
@@ -67,6 +66,7 @@
                 <div class="assinatura-pdf"><div class="linha-assinatura"></div>Responsável pelo Protocolo</div>
             </div>
         </div>
+        {% if organizacao.rodape_documento %}<div class="rodape-institucional">{{ organizacao.rodape_documento }}</div>{% endif %}
     </div>
 </body>
 </html>
