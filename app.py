@@ -202,7 +202,9 @@ def organization_logo(slug):
 def security_headers(response):
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['X-Frame-Options'] = 'DENY'
-    response.headers['Referrer-Policy'] = 'no-referrer'
+    # Flask-WTF valida o Referer em POSTs HTTPS. "same-origin" mantém esse
+    # cabeçalho apenas dentro do Sysprot e não revela a URL a sites externos.
+    response.headers['Referrer-Policy'] = 'same-origin'
     response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
     response.headers['Content-Security-Policy'] = (
         "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net "

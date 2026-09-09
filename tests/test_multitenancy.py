@@ -247,6 +247,30 @@ def test_csrf_rejeita_operacao_sem_token_e_aceita_formulario_legitimo():
         app.config['WTF_CSRF_ENABLED'] = False
 
 
+def test_login_https_preserva_referer_necessario_ao_csrf():
+    import re
+    client = app.test_client()
+    app.config['WTF_CSRF_ENABLED'] = True
+    try:
+        pagina = client.get('/login', base_url='https://sysprot.example')
+        assert pagina.headers['Referrer-Policy'] == 'same-origin'
+        token = re.search(
+            r'name="csrf_token"[^>]*value="([^"]+)"', pagina.get_data(as_text=True)
+        ).group(1)
+        response = client.post(
+            '/login',
+            base_url='https://sysprot.example',
+            headers={'Referer': 'https://sysprot.example/login'},
+            data={
+                'organizacao': 'cliente-a', 'login': 'admin', 'senha': 'senha-segura',
+                'csrf_token': token,
+            },
+        )
+        assert response.status_code == 302
+    finally:
+        app.config['WTF_CSRF_ENABLED'] = False
+
+
 def test_logo_personalizada_fica_isolada_por_organizacao():
     client = app.test_client()
     login(client, 'cliente-a')
