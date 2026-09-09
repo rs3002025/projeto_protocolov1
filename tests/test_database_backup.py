@@ -29,3 +29,10 @@ def test_restauracao_exige_confirmacao_com_nome_exato(tmp_path, monkeypatch):
     monkeypatch.setenv('RESTORE_DATABASE_URL', 'postgresql://destino-de-teste')
     with pytest.raises(SystemExit, match='Confirmação inválida'):
         database_backup.restore(arquivo, 'RESTAURAR:outro.dump')
+
+
+def test_executavel_pode_ser_localizado_por_postgres_bin(tmp_path, monkeypatch):
+    executavel = tmp_path / ('pg_dump.exe' if database_backup.os.name == 'nt' else 'pg_dump')
+    executavel.write_bytes(b'programa de teste')
+    monkeypatch.setenv('POSTGRES_BIN', str(tmp_path))
+    assert database_backup.executable('pg_dump') == str(executavel.resolve())

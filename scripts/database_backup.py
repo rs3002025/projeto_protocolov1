@@ -29,6 +29,12 @@ def safe_backup_directory(raw_path):
 
 
 def executable(name):
+    postgres_bin = os.getenv('POSTGRES_BIN', '').strip()
+    if postgres_bin:
+        suffix = '.exe' if os.name == 'nt' else ''
+        candidate = Path(postgres_bin).expanduser().resolve() / f'{name}{suffix}'
+        if candidate.is_file():
+            return str(candidate)
     path = shutil.which(name)
     if not path:
         raise SystemExit(f'{name} não está instalado ou não está no PATH.')

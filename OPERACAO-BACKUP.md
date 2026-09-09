@@ -12,6 +12,9 @@ Defina `DATABASE_URL` e `BACKUP_DIRECTORY` e execute:
 python scripts/database_backup.py backup --retention-days 30
 ```
 
+No Windows, se as ferramentas não estiverem no `PATH`, defina também
+`POSTGRES_BIN` com a pasta `bin` da instalação do PostgreSQL.
+
 O diretório precisa ser persistente e externo ao filesystem efêmero do serviço
 web. Cada execução produz um dump PostgreSQL e um arquivo `.sha256`. O comando
 só publica o arquivo depois que `pg_restore --list` confirma que o dump pode ser
