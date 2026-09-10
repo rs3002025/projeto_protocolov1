@@ -640,21 +640,34 @@ def test_dados_institucionais_sao_isolados_e_usados_no_pdf():
 
 
 def test_pdf_gerado_e_armazenado_com_versionamento_e_historico():
+    htmls_renderizados = []
+
     class FakeHTML:
         def __init__(self, string, base_url):
             self.string = string
+            htmls_renderizados.append(string)
         def write_pdf(self):
             return b'%PDF-1.7\nconteudo de teste'
+
+    class FakeQRCode:
+        def save(self, stream, format):
+            assert format == 'PNG'
+            stream.write(b'\x89PNG\r\n\x1a\nqr-de-teste')
+
+    fake_qrcode = types.SimpleNamespace(make=lambda url: FakeQRCode())
     client = app.test_client()
     login(client, 'cliente-a')
     with app.app_context():
         protocolo = Protocolo.query.filter_by(tenant_id=1, arquivado_em=None).first()
         protocolo_id = protocolo.id
-    with patch.dict(sys.modules, {'weasyprint': types.SimpleNamespace(HTML=FakeHTML)}):
+    with patch.dict(sys.modules, {'weasyprint': types.SimpleNamespace(HTML=FakeHTML),
+                                  'qrcode': fake_qrcode}):
         primeira = client.post(f'/protocolo/{protocolo_id}/documento/gerar')
         segunda = client.post(f'/protocolo/{protocolo_id}/documento/gerar')
     assert primeira.status_code == 200 and primeira.content_type == 'application/pdf'
     assert segunda.status_code == 200 and '_v2.pdf' in segunda.headers['Content-Disposition']
+    assert all('data:image/png;base64,' in html for html in htmls_renderizados)
+    assert all('/consulta/' not in html for html in htmls_renderizados)
     with app.app_context():
         docs = Anexo.query.filter_by(protocolo_id=protocolo_id, documento_chave='documento-protocolo').order_by(Anexo.versao).all()
         assert [documento.versao for documento in docs] == [1, 2]
@@ -664,7 +677,8 @@ def test_pdf_gerado_e_armazenado_com_versionamento_e_historico():
         protocolo = db.session.get(Protocolo, protocolo_id)
         protocolo.arquivado_em = datetime.utcnow()
         db.session.commit()
-    with patch.dict(sys.modules, {'weasyprint': types.SimpleNamespace(HTML=FakeHTML)}):
+    with patch.dict(sys.modules, {'weasyprint': types.SimpleNamespace(HTML=FakeHTML),
+                                  'qrcode': fake_qrcode}):
         assert client.post(f'/protocolo/{protocolo_id}/documento/gerar').status_code == 302
     with app.app_context():
         assert Anexo.query.filter_by(protocolo_id=protocolo_id, documento_chave='documento-protocolo').count() == 2

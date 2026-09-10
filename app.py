@@ -584,12 +584,18 @@ def admin_toggle_item_status(item_type, item_id):
 # --- Rota de Geração de PDF ---
 
 def render_protocol_pdf(protocolo):
+    import base64
+    import qrcode
     from weasyprint import HTML
     version = int(current_user.organizacao.logo_atualizada_em.timestamp()) if current_user.organizacao.logo_atualizada_em else 0
+    consulta_url = url_for('consulta_publica', consulta_token=protocolo.consulta_token, _external=True)
+    qr_buffer = io.BytesIO()
+    qrcode.make(consulta_url).save(qr_buffer, format='PNG')
+    qr_code_url = 'data:image/png;base64,' + base64.b64encode(qr_buffer.getvalue()).decode('ascii')
     rendered_html = render_template(
         'pdf_template.html', protocolo=protocolo, organizacao=current_user.organizacao,
         pdf_logo_url=url_for('organization_logo', slug=current_user.organizacao.slug,
-                             v=version, _external=True))
+                             v=version, _external=True), qr_code_url=qr_code_url)
     return HTML(string=rendered_html, base_url=request.base_url).write_pdf()
 
 @app.route('/protocolo/<int:protocolo_id>/pdf')
