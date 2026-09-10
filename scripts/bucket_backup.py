@@ -96,11 +96,13 @@ def client_from_env():
                     required_env('AWS_ACCESS_KEY_ID'), required_env('AWS_SECRET_ACCESS_KEY'))
 
 
-def list_keys(client, bucket):
+def list_keys(client, bucket, prefix=''):
     keys = []
     token = None
     while True:
         query = {'list-type': '2'}
+        if prefix:
+            query['prefix'] = prefix
         if token:
             query['continuation-token'] = token
         root = ET.fromstring(client.request('GET', bucket, query=query))
@@ -160,7 +162,7 @@ def backup(retention_days):
     print(f'{final_path} ({len(objects)} objeto(s))')
 
 
-def restore(archive_file, confirmation):
+def restore(archive_file, confirmation, cleanup=False):
     source = Path(archive_file).expanduser().resolve()
     if not source.is_file():
         raise SystemExit('Arquivo de backup do bucket não encontrado.')
@@ -172,15 +174,30 @@ def restore(archive_file, confirmation):
     manifest = validate_archive(source)
     bucket = required_env('AWS_S3_BUCKET_NAME')
     client = client_from_env()
-    if list_keys(client, bucket):
-        raise SystemExit('O bucket de destino não está vazio; restauração cancelada.')
+    prefix = os.getenv('RESTORE_KEY_PREFIX', '').strip().strip('/')
+    if prefix:
+        prefix += '/'
+    if list_keys(client, bucket, prefix):
+        raise SystemExit('O destino da restauração no bucket não está vazio; operação cancelada.')
+    restored_keys = []
     with zipfile.ZipFile(source, 'r') as archive:
         for item in manifest['objects']:
-            client.request('PUT', bucket, key=item['key'], body=archive.read(item['entry']),
+            target_key = prefix + item['key']
+            client.request('PUT', bucket, key=target_key, body=archive.read(item['entry']),
                            headers={'x-amz-meta-sha256': item['sha256']})
-    restored = list_keys(client, bucket)
-    if restored != sorted(item['key'] for item in manifest['objects']):
+            restored_keys.append(target_key)
+    restored = list_keys(client, bucket, prefix)
+    if restored != sorted(restored_keys):
         raise RuntimeError('A relação de objetos restaurados não corresponde ao manifesto.')
+    expected = {prefix + item['key']: item['sha256'] for item in manifest['objects']}
+    for target_key in restored_keys:
+        if sha256_bytes(client.request('GET', bucket, key=target_key)) != expected[target_key]:
+            raise RuntimeError(f'Falha de integridade após restaurar {target_key}.')
+    if cleanup:
+        for target_key in restored_keys:
+            client.request('DELETE', bucket, key=target_key)
+        if list_keys(client, bucket, prefix):
+            raise RuntimeError('A limpeza dos objetos temporários não foi concluída.')
     print(f'Restauração do bucket concluída: {len(restored)} objeto(s).')
 
 
@@ -192,13 +209,14 @@ def main():
     restore_parser = subparsers.add_parser('restore')
     restore_parser.add_argument('archive_file')
     restore_parser.add_argument('--confirm', required=True)
+    restore_parser.add_argument('--cleanup', action='store_true')
     args = parser.parse_args()
     if args.command == 'backup':
         if args.retention_days < 1:
             raise SystemExit('A retenção deve ser de pelo menos um dia.')
         backup(args.retention_days)
     else:
-        restore(args.archive_file, args.confirm)
+        restore(args.archive_file, args.confirm, args.cleanup)
 
 
 if __name__ == '__main__':
