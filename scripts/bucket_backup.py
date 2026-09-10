@@ -7,7 +7,11 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 import sys
+import urllib.error
+import urllib.parse
+import urllib.request
 import zipfile
+import xml.etree.ElementTree as ET
 
 def required_env(name):
     value = os.getenv(name, '').strip()
@@ -41,23 +45,70 @@ def object_entry_name(key):
     return f'objects/{encoded}'
 
 
+class S3Client:
+    """Cliente S3 mínimo com AWS Signature V4, sem dependências externas."""
+
+    def __init__(self, endpoint, region, access_key, secret_key):
+        parsed = urllib.parse.urlsplit(endpoint.rstrip('/'))
+        self.scheme, self.endpoint_host = parsed.scheme, parsed.netloc
+        self.region, self.access_key, self.secret_key = region, access_key, secret_key
+
+    @staticmethod
+    def _hmac(key, value):
+        import hmac
+        return hmac.new(key, value.encode('utf-8'), hashlib.sha256).digest()
+
+    def request(self, method, bucket, key='', query=None, body=b'', headers=None):
+        import hmac
+        now = datetime.now(timezone.utc)
+        amz_date, date = now.strftime('%Y%m%dT%H%M%SZ'), now.strftime('%Y%m%d')
+        host = f'{bucket}.{self.endpoint_host}'
+        canonical_uri = '/' + urllib.parse.quote(key, safe='/~-._')
+        pairs = sorted((str(k), str(v)) for k, v in (query or {}).items())
+        canonical_query = urllib.parse.urlencode(pairs, quote_via=urllib.parse.quote, safe='~-._')
+        payload_hash = hashlib.sha256(body).hexdigest()
+        signed = {'host': host, 'x-amz-content-sha256': payload_hash, 'x-amz-date': amz_date}
+        for name, value in (headers or {}).items():
+            signed[name.lower()] = value.strip()
+        signed_names = ';'.join(sorted(signed))
+        canonical_headers = ''.join(f'{name}:{signed[name]}\n' for name in sorted(signed))
+        canonical = '\n'.join((method, canonical_uri, canonical_query, canonical_headers,
+                               signed_names, payload_hash))
+        scope = f'{date}/{self.region}/s3/aws4_request'
+        to_sign = '\n'.join(('AWS4-HMAC-SHA256', amz_date, scope,
+                             hashlib.sha256(canonical.encode()).hexdigest()))
+        key_date = self._hmac(('AWS4' + self.secret_key).encode(), date)
+        key_region = self._hmac(key_date, self.region)
+        key_service = self._hmac(key_region, 's3')
+        signing_key = self._hmac(key_service, 'aws4_request')
+        signature = hmac.new(signing_key, to_sign.encode(), hashlib.sha256).hexdigest()
+        request_headers = {**(headers or {}), 'Host': host, 'x-amz-date': amz_date,
+                           'x-amz-content-sha256': payload_hash,
+                           'Authorization': f'AWS4-HMAC-SHA256 Credential={self.access_key}/{scope}, SignedHeaders={signed_names}, Signature={signature}'}
+        url = f'{self.scheme}://{host}{canonical_uri}' + (f'?{canonical_query}' if canonical_query else '')
+        with urllib.request.urlopen(urllib.request.Request(url, data=body if method == 'PUT' else None,
+                                                          headers=request_headers, method=method), timeout=120) as response:
+            return response.read()
+
+
 def client_from_env():
-    import boto3
-    from botocore.config import Config
-    return boto3.client(
-        's3', endpoint_url=required_env('AWS_ENDPOINT_URL'),
-        region_name=required_env('AWS_DEFAULT_REGION'),
-        aws_access_key_id=required_env('AWS_ACCESS_KEY_ID'),
-        aws_secret_access_key=required_env('AWS_SECRET_ACCESS_KEY'),
-        config=Config(s3={'addressing_style': os.getenv('AWS_S3_URL_STYLE', 'virtual')}),
-    )
+    return S3Client(required_env('AWS_ENDPOINT_URL'), required_env('AWS_DEFAULT_REGION'),
+                    required_env('AWS_ACCESS_KEY_ID'), required_env('AWS_SECRET_ACCESS_KEY'))
 
 
 def list_keys(client, bucket):
     keys = []
-    paginator = client.get_paginator('list_objects_v2')
-    for page in paginator.paginate(Bucket=bucket):
-        keys.extend(item['Key'] for item in page.get('Contents', []))
+    token = None
+    while True:
+        query = {'list-type': '2'}
+        if token:
+            query['continuation-token'] = token
+        root = ET.fromstring(client.request('GET', bucket, query=query))
+        keys.extend(node.text for node in root.findall('.//{*}Contents/{*}Key') if node.text)
+        truncated = (root.findtext('.//{*}IsTruncated') or '').lower() == 'true'
+        token = root.findtext('.//{*}NextContinuationToken')
+        if not truncated:
+            break
     return sorted(keys)
 
 
@@ -85,8 +136,7 @@ def backup(retention_days):
         with zipfile.ZipFile(temporary_path, 'w', compression=zipfile.ZIP_DEFLATED,
                              compresslevel=9) as archive:
             for key in list_keys(client, bucket):
-                response = client.get_object(Bucket=bucket, Key=key)
-                data = response['Body'].read()
+                data = client.request('GET', bucket, key=key)
                 entry = object_entry_name(key)
                 archive.writestr(entry, data)
                 objects.append({'key': key, 'entry': entry, 'size': len(data),
@@ -126,8 +176,8 @@ def restore(archive_file, confirmation):
         raise SystemExit('O bucket de destino não está vazio; restauração cancelada.')
     with zipfile.ZipFile(source, 'r') as archive:
         for item in manifest['objects']:
-            client.put_object(Bucket=bucket, Key=item['key'], Body=archive.read(item['entry']),
-                              Metadata={'sha256': item['sha256']})
+            client.request('PUT', bucket, key=item['key'], body=archive.read(item['entry']),
+                           headers={'x-amz-meta-sha256': item['sha256']})
     restored = list_keys(client, bucket)
     if restored != sorted(item['key'] for item in manifest['objects']):
         raise RuntimeError('A relação de objetos restaurados não corresponde ao manifesto.')
