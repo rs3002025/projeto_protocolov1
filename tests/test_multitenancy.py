@@ -430,6 +430,39 @@ def test_documentos_preservam_versoes_autor_historico_e_isolamento():
     assert other.get(f'/anexo/{original_id}/download').status_code == 404
 
 
+def test_novo_anexo_usa_bucket_privado_e_download_valida_tenant():
+    objetos = {}
+    class Body:
+        def __init__(self, data): self.data = data
+        def read(self): return self.data
+    class FakeBucket:
+        def put_object(self, Bucket, Key, Body, **kwargs): objetos[(Bucket, Key)] = Body
+        def get_object(self, Bucket, Key): return {'Body': Body(objetos[(Bucket, Key)])}
+
+    client = app.test_client()
+    login(client, 'cliente-a')
+    with app.app_context():
+        protocolo = Protocolo.query.filter_by(nome='Dado exclusivo A').one()
+        protocolo_id, tenant_id = protocolo.id, protocolo.tenant_id
+    with patch.dict(os.environ, {'AWS_S3_BUCKET_NAME': 'bucket-teste'}), \
+         patch('app.bucket_client', return_value=FakeBucket()):
+        resposta = client.post(f'/protocolo/{protocolo_id}/anexo/novo', data={
+            'anexo': (io.BytesIO(b'conteudo no bucket'), 'bucket.txt')},
+            content_type='multipart/form-data')
+        assert resposta.status_code == 302
+        with app.app_context():
+            anexo = Anexo.query.filter_by(protocolo_id=protocolo_id, file_name='bucket.txt').one()
+            anexo_id = anexo.id
+            assert anexo.storage_backend == 's3' and anexo.file_data is None
+            assert anexo.storage_path.startswith(f'tenants/{tenant_id}/protocolos/{protocolo_id}/')
+        download = client.get(f'/anexo/{anexo_id}/download')
+        assert download.status_code == 200 and download.data == b'conteudo no bucket'
+
+    outro = app.test_client()
+    login(outro, 'cliente-b')
+    assert outro.get(f'/anexo/{anexo_id}/download').status_code == 404
+
+
 def test_upload_confere_conteudo_real_e_nao_apenas_extensao():
     with app.app_context():
         protocolo_id = Protocolo.query.filter_by(nome='Dado exclusivo A').one().id

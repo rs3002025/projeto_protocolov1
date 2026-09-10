@@ -41,6 +41,8 @@ SCHEMA_COLUMNS = {
         'documento_chave': "VARCHAR(120) DEFAULT 'anexo' NOT NULL",
         'versao': 'INTEGER DEFAULT 1 NOT NULL',
         'enviado_por_id': 'INTEGER',
+        'storage_backend': "VARCHAR(20) DEFAULT 'database' NOT NULL",
+        'file_hash': 'VARCHAR(64)',
     },
     'historico_protocolos': {
         'usuario_id': 'INTEGER',
@@ -110,7 +112,12 @@ def bootstrap():
                     connection.execute(text('UPDATE protocolos SET status = :novo WHERE status = :antigo'),
                                        {'novo': novo, 'antigo': antigo})
 
+            if 'anexos' in existing_tables:
+                connection.execute(text("UPDATE anexos SET storage_backend = 'database' WHERE storage_backend IS NULL"))
+
             if db.engine.dialect.name == 'postgresql':
+                if 'anexos' in existing_tables:
+                    connection.execute(text('ALTER TABLE anexos ALTER COLUMN file_data DROP NOT NULL'))
                 connection.execute(text('ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_login_key'))
                 connection.execute(text('ALTER TABLE protocolos DROP CONSTRAINT IF EXISTS protocolos_numero_key'))
                 for table in TENANT_TABLES:

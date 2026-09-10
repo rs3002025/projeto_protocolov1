@@ -48,6 +48,7 @@ import io
 import hmac
 import hashlib
 import secrets
+import uuid
 from functools import wraps
 from urllib.parse import urlsplit
 from openpyxl import Workbook
@@ -153,6 +154,49 @@ def verified_upload_mime(filename, data):
         except UnicodeDecodeError:
             pass
     return None
+
+def bucket_configured():
+    return all(os.getenv(name) for name in (
+        'AWS_ENDPOINT_URL', 'AWS_S3_BUCKET_NAME', 'AWS_DEFAULT_REGION',
+        'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY'))
+
+def bucket_client():
+    if not bucket_configured():
+        return None
+    import boto3
+    from botocore.config import Config
+    return boto3.client(
+        's3', endpoint_url=os.environ['AWS_ENDPOINT_URL'],
+        region_name=os.environ['AWS_DEFAULT_REGION'],
+        aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
+        aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY'],
+        config=Config(s3={'addressing_style': os.getenv('AWS_S3_URL_STYLE', 'virtual')}),
+    )
+
+def store_attachment_bytes(data, tenant_id, protocolo_id, documento_chave, versao, filename, mime_type):
+    digest = hashlib.sha256(data).hexdigest()
+    client = bucket_client()
+    if not client:
+        return f'{protocolo_id}/{filename}', 'database', digest, data
+    extension = os.path.splitext(filename)[1].lower()
+    key = (f'tenants/{tenant_id}/protocolos/{protocolo_id}/documentos/'
+           f'{documento_chave}/v{versao}/{uuid.uuid4().hex}{extension}')
+    client.put_object(Bucket=os.environ['AWS_S3_BUCKET_NAME'], Key=key, Body=data,
+                      ContentType=mime_type, Metadata={'sha256': digest})
+    return key, 's3', digest, None
+
+def read_attachment_bytes(anexo):
+    if anexo.storage_backend == 's3':
+        client = bucket_client()
+        if not client:
+            raise RuntimeError('Armazenamento de anexos indisponível.')
+        response = client.get_object(Bucket=os.environ['AWS_S3_BUCKET_NAME'], Key=anexo.storage_path)
+        data = response['Body'].read()
+    else:
+        data = anexo.file_data
+    if data is None or (anexo.file_hash and not hmac.compare_digest(hashlib.sha256(data).hexdigest(), anexo.file_hash)):
+        raise RuntimeError('O anexo não pôde ser validado.')
+    return data
 
 ROLE_PERMISSIONS = {
     'admin': {'view', 'create', 'edit', 'route', 'archive', 'delete', 'manage', 'reports'},
@@ -652,10 +696,12 @@ def gerar_documento_versionado(protocolo_id):
     versao = (tenant_query(Anexo).filter_by(protocolo_id=protocolo.id, documento_chave=chave)
               .with_entities(func.max(Anexo.versao)).scalar() or 0) + 1
     filename = f'protocolo_{protocolo.numero.replace("/", "-")}_v{versao}.pdf'
+    storage_path, storage_backend, file_hash, stored_data = store_attachment_bytes(
+        pdf_bytes, current_user.tenant_id, protocolo.id, chave, versao, filename, 'application/pdf')
     documento = Anexo(
         tenant_id=current_user.tenant_id, protocolo_id=protocolo.id,
-        file_name=filename, storage_path=f'{protocolo.id}/gerados/{filename}',
-        file_size=len(pdf_bytes), mime_type='application/pdf', file_data=pdf_bytes,
+        file_name=filename, storage_path=storage_path, storage_backend=storage_backend,
+        file_hash=file_hash, file_size=len(pdf_bytes), mime_type='application/pdf', file_data=stored_data,
         documento_chave=chave, versao=versao, enviado_por_id=current_user.id)
     db.session.add_all([documento, HistoricoProtocolo(
         tenant_id=current_user.tenant_id, protocolo_id=protocolo.id,
@@ -897,14 +943,18 @@ def adicionar_anexo(protocolo_id):
             versao = (tenant_query(Anexo).filter_by(protocolo_id=protocolo.id, documento_chave=chave)
                       .with_entities(func.max(Anexo.versao)).scalar() or 0) + 1
 
+        storage_path, storage_backend, file_hash, stored_data = store_attachment_bytes(
+            file_data, current_user.tenant_id, protocolo.id, chave, versao, filename, mime_type)
         novo_anexo = Anexo(
             tenant_id=current_user.tenant_id,
             protocolo_id=protocolo.id,
             file_name=filename,
-            storage_path=f"{protocolo.id}/{filename}", # Manter um caminho lógico
+            storage_path=storage_path,
+            storage_backend=storage_backend,
+            file_hash=file_hash,
             file_size=len(file_data),
             mime_type=mime_type,
-            file_data=file_data,
+            file_data=stored_data,
             enviado_por_id=current_user.id,
             documento_chave=chave,
             versao=versao,
@@ -929,8 +979,13 @@ def adicionar_anexo(protocolo_id):
 @login_required
 def baixar_anexo(anexo_id):
     anexo = tenant_get_or_404(Anexo, anexo_id)
+    try:
+        file_data = read_attachment_bytes(anexo)
+    except Exception:
+        app.logger.exception('Falha ao recuperar ou validar anexo %s.', anexo.id)
+        return 'O arquivo está temporariamente indisponível.', 503
     return send_file(
-        io.BytesIO(anexo.file_data),
+        io.BytesIO(file_data),
         mimetype=anexo.mime_type,
         as_attachment=True,
         download_name=anexo.file_name

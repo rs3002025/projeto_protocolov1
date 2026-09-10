@@ -10,3 +10,4 @@ gunicorn
 WeasyPrint
 Pillow
 qrcode[pil]==8.2
+boto3>=1.35,<2
