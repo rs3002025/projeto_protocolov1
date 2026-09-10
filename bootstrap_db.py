@@ -46,6 +46,9 @@ SCHEMA_COLUMNS = {
         'usuario_id': 'INTEGER',
         'acao': "VARCHAR(80) DEFAULT 'ATUALIZACAO' NOT NULL",
     },
+    'movimentacoes': {
+        'destinatario_usuario_id': 'INTEGER',
+    },
 }
 
 

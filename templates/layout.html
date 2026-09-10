@@ -52,6 +52,7 @@
                     <a href="{{ url_for('criar_protocolo') }}" class="nav-link">Novo Protocolo</a>
                     <a href="{{ url_for('listar_protocolos') }}" class="nav-link">Protocolos</a>
                     <a href="{{ url_for('meus_protocolos') }}" class="nav-link">Meus Protocolos</a>
+                    {% if can('route') %}<a href="{{ url_for('pendencias_recebimento') }}" class="nav-link">Recebimentos{% if pendencias_recebimento %} <span class="badge bg-danger">{{ pendencias_recebimento }}</span>{% endif %}</a>{% endif %}
                     {% if can('reports') %}<a href="{{ url_for('relatorios') }}" class="nav-link">Relatórios</a>{% endif %}
                 </nav>
             </div>

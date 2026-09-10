@@ -117,6 +117,7 @@ class Movimentacao(TenantMixin, db.Model):
     protocolo_id = db.Column(db.Integer, db.ForeignKey('protocolos.id'), nullable=False)
     setor_origem_id = db.Column(ID_TYPE, db.ForeignKey('lotacoes.id'))
     setor_destino_id = db.Column(ID_TYPE, db.ForeignKey('lotacoes.id'), nullable=False)
+    destinatario_usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'))
     enviado_por_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)
     recebido_por_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'))
     enviado_em = db.Column(db.TIMESTAMP, server_default=db.func.current_timestamp(), nullable=False)
@@ -124,6 +125,7 @@ class Movimentacao(TenantMixin, db.Model):
     observacao = db.Column(db.Text)
     setor_origem = db.relationship('Lotacao', foreign_keys=[setor_origem_id])
     setor_destino = db.relationship('Lotacao', foreign_keys=[setor_destino_id])
+    destinatario_usuario = db.relationship('Usuario', foreign_keys=[destinatario_usuario_id])
 
 class ConsultaPublicaTentativa(db.Model):
     __tablename__ = 'consulta_publica_tentativas'

@@ -48,9 +48,10 @@ import io
 import hmac
 import hashlib
 import secrets
+from functools import wraps
 from urllib.parse import urlsplit
 from openpyxl import Workbook
-from sqlalchemy import func, cast, Date, text
+from sqlalchemy import func, cast, Date, text, or_, false
 from datetime import datetime, timedelta
 from forms import LoginForm, RegistrationForm, ProtocoloForm, AnexoForm, AdminUserCreationForm, AdminListItemForm, ConsultaPublicaForm, BrandingForm
 from models import Organizacao, Usuario, Protocolo, HistoricoProtocolo, Movimentacao, ConsultaPublicaTentativa, LoginTentativa, Anexo, Lotacao, TipoRequerimento, Servidor, db
@@ -64,6 +65,18 @@ def tenant_query(model):
 
 def tenant_get_or_404(model, object_id):
     return tenant_query(model).filter(model.id == object_id).first_or_404()
+
+def pendencias_recebimento_query():
+    query = tenant_query(Movimentacao).filter(Movimentacao.recebido_em.is_(None))
+    if current_user.tipo == 'admin':
+        return query
+    if not current_user.lotacao_id:
+        return query.filter(false())
+    return query.filter(
+        Movimentacao.setor_destino_id == current_user.lotacao_id,
+        or_(Movimentacao.destinatario_usuario_id.is_(None),
+            Movimentacao.destinatario_usuario_id == current_user.id),
+    )
 
 def parse_iso_date(value, field_name):
     if not value:
@@ -156,9 +169,13 @@ def permission_context():
     if current_user.is_authenticated and current_user.organizacao:
         version = int(current_user.organizacao.logo_atualizada_em.timestamp()) if current_user.organizacao.logo_atualizada_em else 0
         logo_url = url_for('organization_logo', slug=current_user.organizacao.slug, v=version)
+    pendencias_recebimento = 0
+    if current_user.is_authenticated:
+        pendencias_recebimento = pendencias_recebimento_query().count()
     return {
         'can': lambda permission: current_user.is_authenticated and permission in ROLE_PERMISSIONS.get(current_user.tipo, set()),
         'branding_logo_url': logo_url,
+        'pendencias_recebimento': pendencias_recebimento,
     }
 
 def permission_required(permission):
@@ -301,6 +318,12 @@ def home():
     # and the data will be fetched client-side.
     return render_template('home.html', title="Dashboard")
 
+@app.get('/pendencias-recebimento')
+@permission_required('route')
+def pendencias_recebimento():
+    movimentos = pendencias_recebimento_query().order_by(Movimentacao.enviado_em.desc()).all()
+    return render_template('pendencias_recebimento.html', title='Pendências de recebimento', movimentos=movimentos)
+
 @app.route("/register", methods=['GET', 'POST'])
 def register():
     flash('O cadastro público está desativado. Solicite acesso ao administrador da organização.', 'info')
@@ -365,8 +388,6 @@ def meus_protocolos():
         .order_by(Protocolo.id.desc())\
         .paginate(page=page, per_page=10)
     return render_template('protocolos.html', protocolos=protocolos, title="Meus Protocolos")
-
-from functools import wraps
 
 def admin_required(f):
     @wraps(f)
@@ -761,13 +782,15 @@ def detalhe_protocolo(protocolo_id):
     protocolo = tenant_get_or_404(Protocolo, protocolo_id)
     anexo_form = AnexoForm()
     lotacoes = tenant_query(Lotacao).filter_by(ativo=True).order_by(Lotacao.nome).all()
+    usuarios_destino = tenant_query(Usuario).filter_by(status='ativo').filter(
+        Usuario.lotacao_id.isnot(None)).order_by(Usuario.nome).all()
     pendente = tenant_query(Movimentacao).filter_by(protocolo_id=protocolo.id, recebido_em=None).order_by(Movimentacao.id.desc()).first()
     documentos = {}
     for anexo in sorted(protocolo.anexos, key=lambda item: (item.versao, item.id)):
         # Os anexos anteriores ao versionamento tinham todos a chave 'anexo'.
         chave = anexo.documento_chave if anexo.documento_chave != 'anexo' else f'legado-{anexo.id}'
         documentos[chave] = anexo
-    return render_template('protocolo_detalhe.html', title=f"Protocolo {protocolo.numero}", protocolo=protocolo, anexo_form=anexo_form, lotacoes=lotacoes, movimentacao_pendente=pendente, documentos_atuais=list(documentos.values()))
+    return render_template('protocolo_detalhe.html', title=f"Protocolo {protocolo.numero}", protocolo=protocolo, anexo_form=anexo_form, lotacoes=lotacoes, usuarios_destino=usuarios_destino, movimentacao_pendente=pendente, documentos_atuais=list(documentos.values()))
 
 @app.route("/protocolo/<int:protocolo_id>/editar", methods=['GET', 'POST'])
 @permission_required('edit')
@@ -967,6 +990,11 @@ def atualizar_protocolo_status():
 def tramitar_protocolo(protocolo_id):
     protocolo = tenant_get_or_404(Protocolo, protocolo_id)
     setor_destino = tenant_get_or_404(Lotacao, request.form.get('setor_destino_id', type=int))
+    destinatario_id = request.form.get('destinatario_usuario_id', type=int)
+    destinatario = None
+    if destinatario_id:
+        destinatario = tenant_query(Usuario).filter_by(
+            id=destinatario_id, lotacao_id=setor_destino.id, status='ativo').first_or_404()
     if protocolo.arquivado_em:
         flash('Um processo arquivado não pode ser tramitado.', 'danger')
         return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
@@ -979,6 +1007,7 @@ def tramitar_protocolo(protocolo_id):
         protocolo_id=protocolo.id,
         setor_origem_id=protocolo.setor_atual_id,
         setor_destino_id=setor_destino.id,
+        destinatario_usuario_id=destinatario.id if destinatario else None,
         enviado_por_id=current_user.id,
         observacao=request.form.get('observacao'),
     )
@@ -990,10 +1019,13 @@ def tramitar_protocolo(protocolo_id):
         responsavel=current_user.login,
         usuario_id=current_user.id,
         acao='TRAMITACAO',
-        observacao=f'Encaminhado para {setor_destino.nome}. {movimento.observacao or ""}'.strip(),
+        observacao=(f'Encaminhado para {setor_destino.nome}' +
+                    (f', aos cuidados de {destinatario.nome}' if destinatario else ', disponível a todos do setor') +
+                    f'. {movimento.observacao or ""}').strip(),
     )])
     db.session.commit()
-    flash(f'Processo encaminhado para {setor_destino.nome}.', 'success')
+    flash(f'Processo encaminhado para {setor_destino.nome}' +
+          (f', aos cuidados de {destinatario.nome}.' if destinatario else ', disponível a todos do setor.'), 'success')
     return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
 
 @app.post('/protocolo/<int:protocolo_id>/receber')
@@ -1001,7 +1033,9 @@ def tramitar_protocolo(protocolo_id):
 def receber_protocolo(protocolo_id):
     protocolo = tenant_get_or_404(Protocolo, protocolo_id)
     movimento = tenant_query(Movimentacao).filter_by(protocolo_id=protocolo.id, recebido_em=None).order_by(Movimentacao.id.desc()).first_or_404()
-    if current_user.tipo != 'admin' and current_user.lotacao_id != movimento.setor_destino_id:
+    if current_user.tipo != 'admin' and (
+            current_user.lotacao_id != movimento.setor_destino_id or
+            (movimento.destinatario_usuario_id and movimento.destinatario_usuario_id != current_user.id)):
         flash('O recebimento deve ser feito pelo setor destinatário.', 'danger')
         return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
     movimento.recebido_por_id = current_user.id

@@ -1,0 +1,13 @@
+{% extends "layout.html" %}
+{% block content %}
+<h3 class="page-header">Pendências de recebimento</h3>
+<div class="list-group">
+  {% for movimento in movimentos %}
+  <a class="list-group-item list-group-item-action" href="{{ url_for('detalhe_protocolo', protocolo_id=movimento.protocolo_id) }}">
+    <strong>Protocolo {{ movimento.protocolo.numero }}</strong> — {{ movimento.setor_destino.nome }}
+    {% if movimento.destinatario_usuario %}<span class="badge bg-primary">Para {{ movimento.destinatario_usuario.nome }}</span>{% else %}<span class="badge bg-secondary">Qualquer usuário do setor</span>{% endif %}
+    <small class="d-block">Enviado em {{ movimento.enviado_em.strftime('%d/%m/%Y %H:%M') }}{% if movimento.observacao %} — {{ movimento.observacao }}{% endif %}</small>
+  </a>
+  {% else %}<div class="alert alert-info">Não há processos aguardando seu recebimento.</div>{% endfor %}
+</div>
+{% endblock %}

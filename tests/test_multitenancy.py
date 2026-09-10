@@ -326,6 +326,58 @@ def test_tramitacao_registra_destino_e_historico():
         assert movimento.protocolo.status == 'EM TRAMITAÇÃO'
 
 
+def test_tramitacao_pode_destinar_usuario_ou_todo_setor():
+    with app.app_context():
+        org = Organizacao.query.filter_by(slug='cliente-a').one()
+        setor = Lotacao.query.filter_by(tenant_id=org.id, nome='Jurídico').one()
+        senha = bcrypt.generate_password_hash('senha-segura').decode('utf-8')
+        destinatario = Usuario(tenant_id=org.id, nome='João', login='joao', senha=senha,
+                               tipo='user', lotacao_id=setor.id)
+        colega = Usuario(tenant_id=org.id, nome='Maria', login='maria', senha=senha,
+                         tipo='user', lotacao_id=setor.id)
+        db.session.add_all([destinatario, colega])
+        db.session.flush()
+        protocolo = Protocolo(tenant_id=org.id, numero='DEST-1/2026', nome='Destino individual',
+                              data_solicitacao=date.today())
+        db.session.add(protocolo)
+        db.session.commit()
+        protocolo_id, setor_id, destinatario_id = protocolo.id, setor.id, destinatario.id
+    admin = app.test_client()
+    login(admin, 'cliente-a')
+    resposta = admin.post(f'/protocolo/{protocolo_id}/tramitar', data={
+        'setor_destino_id': setor_id, 'destinatario_usuario_id': destinatario_id})
+    assert resposta.status_code == 302
+    with app.app_context():
+        movimento = Movimentacao.query.filter_by(protocolo_id=protocolo_id).one()
+        assert movimento.destinatario_usuario_id == destinatario_id
+
+    maria = app.test_client()
+    maria.post('/login', data={'organizacao': 'cliente-a', 'login': 'maria', 'senha': 'senha-segura'})
+    assert b'DEST-1/2026' not in maria.get('/pendencias-recebimento').data
+    assert maria.post(f'/protocolo/{protocolo_id}/receber').status_code == 302
+    with app.app_context():
+        assert Movimentacao.query.filter_by(protocolo_id=protocolo_id).one().recebido_em is None
+
+    joao = app.test_client()
+    joao.post('/login', data={'organizacao': 'cliente-a', 'login': 'joao', 'senha': 'senha-segura'})
+    assert b'DEST-1/2026' in joao.get('/pendencias-recebimento').data
+    assert joao.post(f'/protocolo/{protocolo_id}/receber').status_code == 302
+    with app.app_context():
+        assert Movimentacao.query.filter_by(protocolo_id=protocolo_id).one().recebido_em is not None
+
+        org = Organizacao.query.filter_by(slug='cliente-a').one()
+        geral = Protocolo(tenant_id=org.id, numero='DEST-2/2026', nome='Destino geral',
+                          data_solicitacao=date.today())
+        db.session.add(geral)
+        db.session.commit()
+        geral_id = geral.id
+    admin.post(f'/protocolo/{geral_id}/tramitar', data={'setor_destino_id': setor_id})
+    assert b'DEST-2/2026' in maria.get('/pendencias-recebimento').data
+    assert b'DEST-2/2026' in joao.get('/pendencias-recebimento').data
+    with app.app_context():
+        assert Movimentacao.query.filter_by(protocolo_id=geral_id).one().destinatario_usuario_id is None
+
+
 def test_perfil_consulta_nao_pode_excluir():
     with app.app_context():
         protocolo = Protocolo.query.filter_by(nome='Dado exclusivo A').one()

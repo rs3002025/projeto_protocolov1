@@ -43,7 +43,7 @@
     <div class="card-header"><h4>Tramitação eletrônica</h4></div>
     <div class="card-body">
         {% if movimentacao_pendente %}
-            <p>Encaminhado para <strong>{{ movimentacao_pendente.setor_destino.nome }}</strong> em {{ movimentacao_pendente.enviado_em.strftime('%d/%m/%Y %H:%M') }}. Aguardando recebimento.</p>
+            <p>Encaminhado para <strong>{{ movimentacao_pendente.setor_destino.nome }}</strong>{% if movimentacao_pendente.destinatario_usuario %}, aos cuidados de <strong>{{ movimentacao_pendente.destinatario_usuario.nome }}</strong>{% else %}, disponível a todos do setor{% endif %}, em {{ movimentacao_pendente.enviado_em.strftime('%d/%m/%Y %H:%M') }}. Aguardando recebimento.</p>
             <form method="POST" action="{{ url_for('receber_protocolo', protocolo_id=protocolo.id) }}">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button class="btn btn-success" type="submit">Registrar recebimento</button>
@@ -53,15 +53,32 @@
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="row g-2">
                     <div class="col-md-4">
-                        <select class="form-select" name="setor_destino_id" required>
+                        <select class="form-select" name="setor_destino_id" id="setor-destino" required>
                             <option value="">Selecione o setor destinatário</option>
                             {% for setor in lotacoes %}<option value="{{ setor.id }}">{{ setor.nome }}</option>{% endfor %}
                         </select>
                     </div>
-                    <div class="col-md-6"><input class="form-control" name="observacao" placeholder="Despacho ou observação"></div>
+                    <div class="col-md-4">
+                        <select class="form-select" name="destinatario_usuario_id" id="usuario-destino">
+                            <option value="">Qualquer usuário do setor</option>
+                            {% for usuario in usuarios_destino %}<option value="{{ usuario.id }}" data-setor="{{ usuario.lotacao_id }}">{{ usuario.nome }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2"><input class="form-control" name="observacao" placeholder="Despacho"></div>
                     <div class="col-md-2"><button class="btn btn-primary w-100" type="submit">Tramitar</button></div>
                 </div>
             </form>
+            <script>
+              (() => {
+                const setor = document.getElementById('setor-destino');
+                const usuario = document.getElementById('usuario-destino');
+                const filtrar = () => {
+                  usuario.value = '';
+                  [...usuario.options].slice(1).forEach(opcao => opcao.hidden = opcao.dataset.setor !== setor.value);
+                };
+                setor.addEventListener('change', filtrar); filtrar();
+              })();
+            </script>
         {% endif %}
         {% if can('archive') %}
         <form class="mt-3" method="POST" action="{{ url_for('arquivar_protocolo', protocolo_id=protocolo.id) }}">
