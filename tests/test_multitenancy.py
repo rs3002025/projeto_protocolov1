@@ -632,7 +632,7 @@ def test_dados_institucionais_sao_isolados_e_usados_no_pdf():
             assert 'Gabinete da Prefeita' in modelo and 'Praça da Matriz' in modelo
             assert 'Secretaria da Administração' not in modelo
             assert 'background: #2e7d32' in modelo
-            assert 'width: 44px; height: 44px' in modelo
+            assert 'width: 52px; height: 52px' in modelo
             assert '@page { size: A4; margin: 8mm 12mm 10mm; }' in modelo
             assert modelo.index('PROTOCOLO DE REQUERIMENTO') < modelo.index('DADOS DO REQUERENTE')
             assert modelo.index('Praça da Matriz') > modelo.index('Assinatura do Requerente')
