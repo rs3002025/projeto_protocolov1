@@ -494,11 +494,12 @@ function initializeProtocolForm() {
     // Populate dropdowns and then set the initial value if it exists.
     populateDropdown('/api/lotacoes', 'lotacao', initialData.lotacao);
     populateDropdown('/api/tipos_requerimento', 'tipo', initialData.tipo_requerimento);
-    populateDropdown('/api/bairros', 'bairro', initialData.bairro);
+    populateDatalist('/api/bairros', 'bairrosDisponiveis');
 
     // Add event listeners
     document.getElementById('matricula').addEventListener('blur', fetchServidorByMatricula);
-    document.getElementById('cep').addEventListener('blur', fetchCep);
+    // CEP e endereço permanecem locais; não enviamos dados do requerente a
+    // serviços externos automaticamente.
 
     // Attach listener for the server search button directly
     const btnBuscarNome = document.getElementById('btnBuscarNome');
@@ -566,6 +567,23 @@ async function populateDropdown(apiUrl, elementId, selectedValue = null) {
     }
 }
 
+async function populateDatalist(apiUrl, elementId) {
+    const datalist = document.getElementById(elementId);
+    if (!datalist) return;
+    try {
+        const response = await fetch(apiUrl);
+        if (!response.ok) throw new Error(`Network response was not ok for ${apiUrl}`);
+        const values = await response.json();
+        datalist.replaceChildren(...values.map(value => {
+            const option = document.createElement('option');
+            option.value = value;
+            return option;
+        }));
+    } catch (error) {
+        console.error(`Failed to populate datalist ${elementId}:`, error);
+    }
+}
+
 async function fetchServidorByMatricula() {
     const matriculaInput = document.getElementById('matricula');
     const matricula = matriculaInput.value.trim();
@@ -621,23 +639,11 @@ async function fetchCep() {
         document.getElementById('endereco').value = data.logradouro || '';
         document.getElementById('municipio').value = data.localidade || '';
 
-        const bairroSelect = document.getElementById('bairro');
+        const bairroInput = document.getElementById('bairro');
         const bairroNome = data.bairro || '';
 
         if (bairroNome) {
-            // Verifica se a opção já existe
-            let optionExists = [...bairroSelect.options].some(option => option.value.toLowerCase() === bairroNome.toLowerCase());
-
-            if (optionExists) {
-                // Seleciona a opção existente
-                bairroSelect.value = [...bairroSelect.options].find(option => option.value.toLowerCase() === bairroNome.toLowerCase()).value;
-            } else {
-                // Adiciona e seleciona a nova opção se não existir
-                // Isso pode não ser o ideal se a lista de bairros for estritamente controlada pelo backend
-                console.warn(`Bairro "${bairroNome}" não encontrado na lista, adicionando temporariamente.`);
-                const newOption = new Option(bairroNome, bairroNome, true, true);
-                bairroSelect.add(newOption);
-            }
+            bairroInput.value = bairroNome;
         }
 
     } catch (error) {
