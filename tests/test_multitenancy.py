@@ -116,6 +116,7 @@ def test_cabecalhos_protegem_dados_e_transporte():
     assert response.headers['X-Frame-Options'] == 'DENY'
     assert response.headers['Strict-Transport-Security'].startswith('max-age=31536000')
     assert "object-src 'none'" in response.headers['Content-Security-Policy']
+    assert "connect-src 'self' https://viacep.com.br" in response.headers['Content-Security-Policy']
     assert response.headers['Permissions-Policy'] == 'camera=(), microphone=(), geolocation=()'
     assert app.config['MAX_CONTENT_LENGTH'] == 21 * 1024 * 1024
 
