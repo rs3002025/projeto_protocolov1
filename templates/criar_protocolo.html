@@ -39,9 +39,9 @@
         </div>
         <div class="form-group span-3">
             <label for="bairro">Bairro</label>
-            <select id="bairro" name="bairro" class="form-select">
-                <option value="">Selecione um bairro</option>
-            </select>
+            <input type="text" id="bairro" name="bairro" class="form-control" list="bairrosDisponiveis"
+                   value="{{ protocolo.bairro if protocolo else '' }}" autocomplete="address-level3">
+            <datalist id="bairrosDisponiveis"></datalist>
         </div>
         <div class="form-group span-3">
             <label for="cep">CEP</label>
@@ -143,13 +143,12 @@
 // Injeta os dados do protocolo em um objeto global para que o script.js possa acessá-los
 // de uma maneira limpa e centralizada quando estiver no modo de edição.
 {% if protocolo %}
-window.protocoloData = {
-    numero: "{{ protocolo.numero }}",
-    lotacao: "{{ protocolo.lotacao }}",
-    tipo_requerimento: "{{ protocolo.tipo_requerimento }}",
-    bairro: "{{ protocolo.bairro }}"
-    // Adicione outros campos aqui se o script precisar deles para a inicialização
-};
+window.protocoloData = {{ {
+    'numero': protocolo.numero,
+    'lotacao': protocolo.lotacao,
+    'tipo_requerimento': protocolo.tipo_requerimento,
+    'bairro': protocolo.bairro
+}|tojson }};
 {% endif %}
 </script>
 {% endblock %}
