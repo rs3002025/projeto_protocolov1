@@ -5,6 +5,7 @@ import sys
 import types
 from unittest.mock import patch
 from openpyxl import load_workbook
+from PIL import Image
 from flask import render_template
 from pathlib import Path
 from datetime import date, datetime, timedelta
@@ -364,6 +365,24 @@ def test_logo_personalizada_fica_isolada_por_organizacao():
     response = client.get('/identidade/cliente-a/logo')
     assert response.status_code == 302
     assert 'logo-sysprot.svg' in response.headers['Location']
+
+
+def test_logo_remove_margens_brancas_sem_distorcer_o_conteudo():
+    client = app.test_client()
+    login(client, 'cliente-a')
+    source = io.BytesIO()
+    image = Image.new('RGB', (1200, 600), 'white')
+    for x in range(450, 750):
+        for y in range(240, 360):
+            image.putpixel((x, y), (0, 80, 90))
+    image.save(source, format='PNG')
+    source.seek(0)
+    response = client.post('/admin/identidade/logo', data={
+        'logo': (source, 'logo-com-margens.png'), 'salvar': 'Salvar logo',
+    }, content_type='multipart/form-data', follow_redirects=True)
+    assert response.status_code == 200
+    logo = Image.open(io.BytesIO(client.get('/identidade/cliente-a/logo').data))
+    assert logo.width < 400 and logo.height < 250
 
 
 def test_tramitacao_registra_destino_e_historico():
