@@ -191,6 +191,11 @@ def test_apis_de_cadastro_e_bairros_nao_vazam_dados_de_outro_cliente():
     usuarios = client.get('/api/usuarios').get_json()
     assert all(usuario['login'] != 'admin' or usuario['nome'] == 'Ana' for usuario in usuarios)
 
+    formulario = client.get('/protocolo/novo').get_data(as_text=True)
+    assert 'value="Morada Nova"' not in formulario
+    assert 'list="bairrosDisponiveis"' in formulario
+    assert "viacep.com.br" not in formulario
+
 
 def test_mesmo_login_e_numero_podem_existir_em_clientes_distintos():
     with app.app_context():
