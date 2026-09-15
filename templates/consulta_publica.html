@@ -36,7 +36,7 @@
     <dt>Número</dt><dd>{{ protocolo.numero }}</dd>
     <dt>Data da solicitação</dt><dd>{{ protocolo.data_solicitacao.strftime('%d/%m/%Y') if protocolo.data_solicitacao else 'Não informada' }}</dd>
     <dt>Status</dt><dd>{{ protocolo.status }}</dd>
-    <dt>Setor atual</dt><dd>{{ protocolo.setor_atual.nome if protocolo.setor_atual else 'Não definido' }}</dd>
+    <dt>Localização atual</dt><dd>{{ protocol_location(protocolo) }}</dd>
     <dt>Prazo</dt><dd>{{ protocolo.prazo_em.strftime('%d/%m/%Y') if protocolo.prazo_em else 'Não informado' }}</dd>
   </dl>
   <h2>Andamentos</h2>
@@ -51,3 +51,4 @@
 </main>
 </body>
 </html>
+

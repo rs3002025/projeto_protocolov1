@@ -102,6 +102,18 @@ def can_operate_protocol(protocolo):
         return True
     return bool(current_user.lotacao_id and protocolo.setor_atual_id == current_user.lotacao_id)
 
+def protocol_location(protocolo):
+    """Descreve a localização operacional sem antecipar a transferência de custódia."""
+    pendente = next((movimento for movimento in reversed(protocolo.movimentacoes)
+                     if movimento.recebido_em is None), None)
+    if pendente:
+        origem = pendente.setor_origem.nome if pendente.setor_origem else 'setor de origem não definido'
+        destino = pendente.setor_destino.nome if pendente.setor_destino else 'setor de destino não definido'
+        destinatario = (f', aos cuidados de {pendente.destinatario_usuario.nome}'
+                        if pendente.destinatario_usuario else '')
+        return f'Em trânsito de {origem} para {destino}{destinatario} (aguardando recebimento)'
+    return protocolo.setor_atual.nome if protocolo.setor_atual else 'Não definido'
+
 def pendencias_recebimento_query():
     query = tenant_query(Movimentacao).filter(Movimentacao.recebido_em.is_(None))
     if current_user.tipo == 'admin':
@@ -293,6 +305,7 @@ def permission_context():
         pendencias_recebimento = pendencias_recebimento_query().count()
     return {
         'can': lambda permission: current_user.is_authenticated and permission in ROLE_PERMISSIONS.get(current_user.tipo, set()),
+        'protocol_location': protocol_location,
         'role_labels': ROLE_LABELS,
         'active_organization': organization,
         'branding_logo_url': logo_url,
@@ -1457,6 +1470,7 @@ def get_protocolo_api(protocolo_id):
         'observacoes': protocolo.observacoes,
         'status': protocolo.status,
         'responsavel': protocolo.responsavel,
+        'localizacao_atual': protocol_location(protocolo),
         'consulta_token': protocolo.consulta_token,
     })
 

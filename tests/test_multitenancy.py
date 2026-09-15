@@ -224,6 +224,47 @@ def test_consulta_publica_usa_organizacao_e_nao_expoe_requerente():
     assert client.get('/consulta/cliente-a/2026/0001').status_code == 404
 
 
+def test_localizacao_informa_tramite_pendente_sem_transferir_custodia():
+    with app.app_context():
+        tenant = Organizacao.query.filter_by(slug='cliente-a').one()
+        origem = Lotacao.query.filter_by(tenant_id=tenant.id, nome='Protocolo').one()
+        destino = Lotacao.query.filter_by(tenant_id=tenant.id, nome='Jurídico').one()
+        admin = Usuario.query.filter_by(tenant_id=tenant.id, login='admin').one()
+        protocolo = Protocolo(
+            tenant_id=tenant.id, numero='LOCAL-1/2026', nome='Teste de localização',
+            matricula='LOCAL-SEGURA', data_solicitacao=date.today(),
+            setor_atual_id=origem.id, status='EM TRAMITAÇÃO')
+        db.session.add(protocolo)
+        db.session.flush()
+        db.session.add(Movimentacao(
+            tenant_id=tenant.id, protocolo_id=protocolo.id,
+            setor_origem_id=origem.id, setor_destino_id=destino.id,
+            enviado_por_id=admin.id))
+        db.session.commit()
+        protocolo_id, token = protocolo.id, protocolo.consulta_token
+
+    client = app.test_client()
+    login(client, 'cliente-a')
+    detalhe = client.get(f'/protocolo/{protocolo_id}').get_data(as_text=True)
+    listagem = client.get('/protocolos?numero=LOCAL-1').get_data(as_text=True)
+    relatorio = client.get('/relatorios?numero=LOCAL-1').get_data(as_text=True)
+    api = client.get(f'/api/protocolo/{protocolo_id}').get_json()
+    assert 'Em trânsito de Protocolo para Jurídico (aguardando recebimento)' in detalhe
+    assert 'Em trânsito de Protocolo para Jurídico (aguardando recebimento)' in listagem
+    assert 'Em trânsito de Protocolo para Jurídico (aguardando recebimento)' in relatorio
+    assert api['localizacao_atual'] == 'Em trânsito de Protocolo para Jurídico (aguardando recebimento)'
+
+    publico = app.test_client().post(
+        f'/consulta/{token}', data={'matricula': 'LOCAL-SEGURA'}).get_data(as_text=True)
+    assert 'Em trânsito de Protocolo para Jurídico (aguardando recebimento)' in publico
+
+    with app.app_context():
+        protocolo = db.session.get(Protocolo, protocolo_id)
+        assert protocolo.setor_atual.nome == 'Protocolo'
+        db.session.delete(protocolo)
+        db.session.commit()
+
+
 def test_consulta_publica_bloqueia_forca_bruta():
     with app.app_context():
         token = Protocolo.query.filter_by(nome='Dado exclusivo B').one().consulta_token

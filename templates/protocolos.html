@@ -66,6 +66,7 @@
                     <th>Data Solicitação</th>
                     <th>Prazo</th>
                     <th>Status</th>
+                    <th>Localização atual</th>
                     <th>Responsável</th>
                     <th>Ações</th>
                 </tr>
@@ -79,6 +80,7 @@
                         <td>{{ protocolo.data_solicitacao.strftime('%d/%m/%Y') }}</td>
                         <td>{{ protocolo.prazo_em.strftime('%d/%m/%Y') if protocolo.prazo_em else 'Não definido' }}</td>
                         <td><span class="badge bg-info">{{ protocolo.status }}</span></td>
+                        <td>{{ protocol_location(protocolo) }}</td>
                         <td>{{ protocolo.responsavel }}</td>
                         <td>
                             <a href="{{ url_for('detalhe_protocolo', protocolo_id=protocolo.id) }}" class="btn btn-sm btn-primary">Detalhes</a>
@@ -90,7 +92,7 @@
                     </tr>
                 {% else %}
                     <tr>
-                        <td colspan="8" class="text-center">Nenhum protocolo encontrado.</td>
+                        <td colspan="9" class="text-center">Nenhum protocolo encontrado.</td>
                     </tr>
                 {% endfor %}
             </tbody>
@@ -126,3 +128,4 @@
         </ul>
     </nav>
 {% endblock content %}
+
