@@ -270,7 +270,7 @@ def security_headers(response):
     response.headers['Content-Security-Policy'] = (
         "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net "
         "https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
-        "img-src 'self' data: blob:; connect-src 'self'; font-src 'self' data:; "
+        "img-src 'self' data: blob:; connect-src 'self' https://viacep.com.br; font-src 'self' data:; "
         "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; "
         "worker-src 'self' blob:"
     )
