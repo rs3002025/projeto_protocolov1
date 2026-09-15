@@ -27,5 +27,32 @@
   </div>
   {% else %}<p>Nenhum cliente cadastrado.</p>{% endfor %}
 </div>
+
+<div class="card mt-4">
+  <div class="card-header"><h2 class="h4 mb-0">Administradores gerais</h2></div>
+  <div class="card-body">
+    <p class="text-muted">Estas contas podem selecionar e administrar qualquer cliente da plataforma.</p>
+    <ul class="list-group mb-4">
+      {% for admin in platform_admins %}
+      <li class="list-group-item d-flex justify-content-between">
+        <span>{{ admin.nome_completo }} <small class="text-muted">({{ admin.login }})</small></span>
+        <span class="badge bg-dark">Administrador geral</span>
+      </li>
+      {% endfor %}
+    </ul>
+    <h3 class="h5">Criar administrador geral</h3>
+    <form method="POST" action="{{ url_for('platform_create_admin') }}">
+      {{ platform_form.hidden_tag() }}
+      <div class="row">
+        <div class="col-md-6 mb-3">{{ platform_form.nome_completo.label }} {{ platform_form.nome_completo(class="form-control") }}</div>
+        <div class="col-md-6 mb-3">{{ platform_form.login.label }} {{ platform_form.login(class="form-control") }}</div>
+        <div class="col-md-6 mb-3">{{ platform_form.email.label }} {{ platform_form.email(class="form-control", type="email") }}</div>
+        <div class="col-md-6 mb-3">{{ platform_form.senha.label }} {{ platform_form.senha(class="form-control") }}</div>
+        <div class="col-md-6 mb-3">{{ platform_form.organizacao_id.label }} {{ platform_form.organizacao_id(class="form-select") }}</div>
+        <div class="col-md-6 align-self-end mb-3">{{ platform_form.submit(class="btn btn-dark") }}</div>
+      </div>
+    </form>
+  </div>
+</div>
 {% endblock %}
 

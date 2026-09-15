@@ -3,6 +3,7 @@ from wtforms import StringField, PasswordField, SubmitField, BooleanField
 from wtforms.validators import DataRequired, Length, EqualTo, ValidationError
 from models import Usuario
 from flask_login import current_user
+from flask import session
 
 class RegistrationForm(FlaskForm):
     """Formulário de Registro de Usuário"""
@@ -88,8 +89,20 @@ class AdminUserCreationForm(FlaskForm):
     submit = SubmitField('Criar Usuário')
 
     def validate_login(self, login):
-        if Usuario.query.filter_by(tenant_id=current_user.tenant_id, login=login.data).first():
+        tenant_id = (session.get('active_tenant_id') if current_user.is_platform_admin
+                     else current_user.tenant_id)
+        if Usuario.query.filter_by(tenant_id=tenant_id, login=login.data).first():
             raise ValidationError('Este login já está em uso.')
+
+
+class PlatformAdminCreationForm(FlaskForm):
+    """Criação de outro administrador global, disponível somente no painel da plataforma."""
+    nome_completo = StringField('Nome Completo', validators=[DataRequired(), Length(min=2, max=150)])
+    login = StringField('Login', validators=[DataRequired(), Length(min=4, max=25)])
+    email = StringField('Email', validators=[DataRequired(), Length(max=180)])
+    senha = PasswordField('Senha inicial', validators=[DataRequired(), Length(min=8)])
+    organizacao_id = SelectField('Organização de acesso', coerce=int, choices=[], validators=[DataRequired()])
+    submit = SubmitField('Criar administrador geral')
 
 class AdminListItemForm(FlaskForm):
     """Formulário genérico para adicionar itens de lista (Lotação, Tipo)."""

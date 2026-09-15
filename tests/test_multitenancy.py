@@ -933,3 +933,33 @@ def test_administrador_plataforma_escolhe_cliente_explicitamente():
         admin.is_platform_admin = False
         db.session.commit()
 
+
+def test_somente_administrador_geral_cria_outro_administrador_geral():
+    tenant_admin = app.test_client()
+    login(tenant_admin, 'cliente-a')
+    assert tenant_admin.post('/plataforma/administradores/novo', data={
+        'nome_completo': 'Global Bloqueado', 'login': 'global-bloqueado',
+        'email': 'bloqueado@example.test', 'senha': 'senha-global', 'organizacao_id': 1,
+    }).status_code == 403
+
+    with app.app_context():
+        admin = Usuario.query.filter_by(tenant_id=1, login='admin').one()
+        admin.is_platform_admin = True
+        cliente_b_id = Organizacao.query.filter_by(slug='cliente-b').one().id
+        db.session.commit()
+    global_client = app.test_client()
+    global_client.post('/login', data={
+        'organizacao': 'cliente-a', 'login': 'admin', 'senha': 'senha-segura'})
+    response = global_client.post('/plataforma/administradores/novo', data={
+        'nome_completo': 'Novo Global', 'login': 'novo-global',
+        'email': 'global@example.test', 'senha': 'senha-global',
+        'organizacao_id': cliente_b_id,
+    })
+    assert response.status_code == 302
+    with app.app_context():
+        novo = Usuario.query.filter_by(tenant_id=cliente_b_id, login='novo-global').one()
+        assert novo.tipo == 'admin' and novo.is_platform_admin is True
+        Usuario.query.filter_by(id=novo.id).delete()
+        Usuario.query.filter_by(tenant_id=1, login='admin').one().is_platform_admin = False
+        db.session.commit()
+

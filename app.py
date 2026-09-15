@@ -54,7 +54,7 @@ from urllib.parse import urlsplit
 from openpyxl import Workbook
 from sqlalchemy import func, cast, Date, text, or_, false, exists
 from datetime import datetime, timedelta
-from forms import LoginForm, RegistrationForm, ProtocoloForm, AnexoForm, AdminUserCreationForm, AdminListItemForm, ConsultaPublicaForm, BrandingForm
+from forms import LoginForm, RegistrationForm, ProtocoloForm, AnexoForm, AdminUserCreationForm, PlatformAdminCreationForm, AdminListItemForm, ConsultaPublicaForm, BrandingForm
 from models import Organizacao, Usuario, Protocolo, HistoricoProtocolo, Movimentacao, ConsultaPublicaTentativa, LoginTentativa, Anexo, Lotacao, TipoRequerimento, Servidor, db
 from werkzeug.middleware.proxy_fix import ProxyFix
 
@@ -536,7 +536,7 @@ def platform_admin_required(f):
 def require_platform_tenant_selection():
     if not current_user.is_authenticated or not current_user.is_platform_admin:
         return None
-    allowed = {'platform_organizations', 'platform_select_organization', 'logout',
+    allowed = {'platform_organizations', 'platform_select_organization', 'platform_create_admin', 'logout',
                'health', 'static', 'organization_logo'}
     if request.endpoint in allowed:
         return None
@@ -550,6 +550,8 @@ def require_platform_tenant_selection():
 @platform_admin_required
 def platform_organizations():
     organizations = Organizacao.query.order_by(Organizacao.nome).all()
+    platform_form = PlatformAdminCreationForm()
+    platform_form.organizacao_id.choices = [(item.id, item.nome) for item in organizations if item.ativo]
     summaries = []
     for organization in organizations:
         summaries.append({
@@ -558,7 +560,33 @@ def platform_organizations():
             'protocols': Protocolo.query.filter_by(tenant_id=organization.id).count(),
             'selected': session.get('active_tenant_id') == organization.id,
         })
-    return render_template('plataforma.html', title='Administração da plataforma', summaries=summaries)
+    platform_admins = Usuario.query.filter_by(is_platform_admin=True).order_by(Usuario.nome_completo).all()
+    return render_template('plataforma.html', title='Administração da plataforma', summaries=summaries,
+                           platform_form=platform_form, platform_admins=platform_admins)
+
+@app.post('/plataforma/administradores/novo')
+@platform_admin_required
+def platform_create_admin():
+    organizations = Organizacao.query.filter_by(ativo=True).order_by(Organizacao.nome).all()
+    form = PlatformAdminCreationForm()
+    form.organizacao_id.choices = [(item.id, item.nome) for item in organizations]
+    if not form.validate_on_submit():
+        flash('Verifique os dados do novo administrador geral.', 'danger')
+        return redirect(url_for('platform_organizations'))
+    organization = Organizacao.query.filter_by(id=form.organizacao_id.data, ativo=True).first_or_404()
+    if Usuario.query.filter_by(tenant_id=organization.id, login=form.login.data.strip()).first():
+        flash('Esse login já existe na organização selecionada.', 'danger')
+        return redirect(url_for('platform_organizations'))
+    user = Usuario(
+        tenant_id=organization.id, nome=form.nome_completo.data.strip().split()[0],
+        nome_completo=form.nome_completo.data.strip(), login=form.login.data.strip(),
+        email=form.email.data.strip(),
+        senha=bcrypt.generate_password_hash(form.senha.data).decode('utf-8'),
+        tipo='admin', is_platform_admin=True, status='ativo')
+    db.session.add(user)
+    db.session.commit()
+    flash('Administrador geral criado com sucesso.', 'success')
+    return redirect(url_for('platform_organizations'))
 
 @app.post('/plataforma/cliente/<int:organization_id>')
 @platform_admin_required
