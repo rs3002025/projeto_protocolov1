@@ -1234,15 +1234,14 @@ def get_tipos_requerimento():
 @app.route('/api/bairros')
 @login_required
 def get_bairros():
-    """Retorna uma lista estática de bairros."""
-    bairros = [
-        "Centro", "Girilândia", "Padre Assis Monteiro", "Hermógenes Henrique Girão",
-        "São José", "Nossa Senhora da Conceição", "Planalto Aeroporto", "Júlia Santiago",
-        "São Francisco", "Nova Morada", "Divino Espírito Santo", "Alto Tiradentes",
-        "Capitão Dionísio Matos de Fontes", "Irapuan Nobre", "Dois de Agosto",
-        "Cristo Rei", "Sede Rural", "Outro"
-    ]
-    return jsonify(sorted(bairros))
+    """Retorna somente bairros já utilizados pela organização autenticada."""
+    bairros = tenant_query(Protocolo).with_entities(Protocolo.bairro).filter(
+        Protocolo.bairro.is_not(None), Protocolo.bairro != ''
+    ).distinct().order_by(Protocolo.bairro).all()
+    nomes = [bairro for bairro, in bairros if bairro.strip()]
+    if not any(nome.casefold() == 'outro' for nome in nomes):
+        nomes.append('Outro')
+    return jsonify(nomes)
 
 @app.route('/protocolos/ultimoNumero/<int:ano>')
 @permission_required('create')
