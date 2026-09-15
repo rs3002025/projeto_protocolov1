@@ -498,8 +498,7 @@ function initializeProtocolForm() {
 
     // Add event listeners
     document.getElementById('matricula').addEventListener('blur', fetchServidorByMatricula);
-    // CEP e endereço permanecem locais; não enviamos dados do requerente a
-    // serviços externos automaticamente.
+    document.getElementById('cep').addEventListener('blur', fetchCep);
 
     // Attach listener for the server search button directly
     const btnBuscarNome = document.getElementById('btnBuscarNome');
