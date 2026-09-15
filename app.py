@@ -262,7 +262,7 @@ def read_attachment_bytes(anexo):
 ROLE_PERMISSIONS = {
     'admin': {'view', 'create', 'edit', 'route', 'archive', 'delete', 'manage', 'reports'},
     # Cria e mantém protocolos, mas não administra usuários, setores ou a identidade do cliente.
-    'protocolista': {'view', 'create', 'edit', 'reports'},
+    'protocolista': {'view', 'create', 'edit', 'route', 'reports'},
     # Atua somente no fluxo: recebe, encaminha e responde processos do seu setor/usuário.
     'tramitador': {'view', 'route'},
     'consulta': {'view'},

@@ -872,7 +872,7 @@ def test_novos_perfis_separam_protocolo_de_tramitacao():
         'organizacao': 'cliente-a', 'login': 'protocolista', 'senha': 'senha-segura'})
     assert protocolista.get('/protocolo/novo').status_code == 200
     assert protocolista.get('/configuracoes').status_code == 302
-    assert protocolista.get('/pendencias-recebimento').status_code == 302
+    assert protocolista.get('/pendencias-recebimento').status_code == 200
 
     tramitador = app.test_client()
     tramitador.post('/login', data={
@@ -961,5 +961,22 @@ def test_somente_administrador_geral_cria_outro_administrador_geral():
         assert novo.tipo == 'admin' and novo.is_platform_admin is True
         Usuario.query.filter_by(id=novo.id).delete()
         Usuario.query.filter_by(tenant_id=1, login='admin').one().is_platform_admin = False
+        db.session.commit()
+
+
+def test_administrador_do_cliente_cria_mesmo_nivel_sem_conceder_acesso_global():
+    client = app.test_client()
+    login(client, 'cliente-a')
+    response = client.post('/admin/usuarios/novo', data={
+        'nome_completo': 'Administrador Cliente', 'login': 'admin-cliente',
+        'email': 'admin-cliente@example.test', 'senha': 'senha-cliente',
+        'tipo': 'admin', 'lotacao_id': 0, 'is_platform_admin': 'true',
+    })
+    assert response.status_code == 302
+    with app.app_context():
+        criado = Usuario.query.filter_by(tenant_id=1, login='admin-cliente').one()
+        assert criado.tipo == 'admin'
+        assert criado.is_platform_admin is False
+        db.session.delete(criado)
         db.session.commit()
 
