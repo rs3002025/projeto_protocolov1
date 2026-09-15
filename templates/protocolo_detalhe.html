@@ -5,7 +5,7 @@
         <h3>Detalhes do Protocolo: {{ protocolo.numero }}</h3>
         <div>
             {% if can('edit') and not protocolo.arquivado_em %}<form class="d-inline" method="POST" target="_blank" action="{{ url_for('gerar_documento_versionado', protocolo_id=protocolo.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="btn btn-info">Gerar e registrar documento</button></form>{% endif %}
-            {% if can('edit') %}<a href="{{ url_for('editar_protocolo', protocolo_id=protocolo.id) }}" class="btn btn-secondary">Editar</a>{% endif %}
+            {% if can('edit') and not protocolo.arquivado_em %}<a href="{{ url_for('editar_protocolo', protocolo_id=protocolo.id) }}" class="btn btn-secondary">Editar</a>{% endif %}
         </div>
     </div>
     <div class="card-body">
