@@ -747,6 +747,8 @@ def test_edicao_registra_campos_e_arquivado_fica_somente_leitura():
     client.post(f'/protocolo/{protocolo_id}/editar', data={'nome': 'Alteração proibida'})
     with app.app_context():
         assert db.session.get(Protocolo, protocolo_id).nome == 'Nome revisado'
+    detalhe = client.get(f'/protocolo/{protocolo_id}').get_data(as_text=True)
+    assert f'/protocolo/{protocolo_id}/editar' not in detalhe
     resposta = client.post('/protocolos/atualizar', json={'protocoloId': protocolo_id, 'novoStatus': 'STATUS LIVRE'})
     assert resposta.status_code == 400
 
