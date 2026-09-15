@@ -44,11 +44,11 @@
     <div class="card-body">
         {% if movimentacao_pendente %}
             <p>Encaminhado para <strong>{{ movimentacao_pendente.setor_destino.nome }}</strong>{% if movimentacao_pendente.destinatario_usuario %}, aos cuidados de <strong>{{ movimentacao_pendente.destinatario_usuario.nome }}</strong>{% else %}, disponível a todos do setor{% endif %}, em {{ movimentacao_pendente.enviado_em.strftime('%d/%m/%Y %H:%M') }}. Aguardando recebimento.</p>
-            <form method="POST" action="{{ url_for('receber_protocolo', protocolo_id=protocolo.id) }}">
+            {% if pode_receber %}<form method="POST" action="{{ url_for('receber_protocolo', protocolo_id=protocolo.id) }}">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button class="btn btn-success" type="submit">Registrar recebimento</button>
-            </form>
-        {% else %}
+            </form>{% else %}<p class="text-muted mb-0">O recebimento está disponível somente ao destinatário ou ao setor indicado.</p>{% endif %}
+        {% elif pode_encaminhar %}
             <form method="POST" action="{{ url_for('tramitar_protocolo', protocolo_id=protocolo.id) }}">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="row g-2">
@@ -79,7 +79,7 @@
                 setor.addEventListener('change', filtrar); filtrar();
               })();
             </script>
-        {% endif %}
+        {% else %}<p class="text-muted mb-0">Processo disponível somente para consulta; ele não está mais sob responsabilidade do seu setor.</p>{% endif %}
         {% if can('archive') %}
         <form class="mt-3" method="POST" action="{{ url_for('arquivar_protocolo', protocolo_id=protocolo.id) }}">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -165,3 +165,4 @@
 
 
 {% endblock content %}
+

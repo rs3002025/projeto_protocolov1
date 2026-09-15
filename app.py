@@ -96,6 +96,12 @@ def accessible_protocols_query():
 def accessible_protocol_or_404(protocolo_id):
     return accessible_protocols_query().filter(Protocolo.id == protocolo_id).first_or_404()
 
+def can_operate_protocol(protocolo):
+    """Tramitadores só alteram processos que ainda estão sob custódia do seu setor."""
+    if current_user.tipo != 'tramitador':
+        return True
+    return bool(current_user.lotacao_id and protocolo.setor_atual_id == current_user.lotacao_id)
+
 def pendencias_recebimento_query():
     query = tenant_query(Movimentacao).filter(Movimentacao.recebido_em.is_(None))
     if current_user.tipo == 'admin':
@@ -982,12 +988,17 @@ def detalhe_protocolo(protocolo_id):
     usuarios_destino = tenant_query(Usuario).filter_by(status='ativo').filter(
         Usuario.lotacao_id.isnot(None)).order_by(Usuario.nome).all()
     pendente = tenant_query(Movimentacao).filter_by(protocolo_id=protocolo.id, recebido_em=None).order_by(Movimentacao.id.desc()).first()
+    pode_receber = bool(pendente and (
+        current_user.tipo == 'admin' or
+        (current_user.lotacao_id == pendente.setor_destino_id and
+         (not pendente.destinatario_usuario_id or pendente.destinatario_usuario_id == current_user.id))))
+    pode_encaminhar = can_operate_protocol(protocolo) and not pendente
     documentos = {}
     for anexo in sorted(protocolo.anexos, key=lambda item: (item.versao, item.id)):
         # Os anexos anteriores ao versionamento tinham todos a chave 'anexo'.
         chave = anexo.documento_chave if anexo.documento_chave != 'anexo' else f'legado-{anexo.id}'
         documentos[chave] = anexo
-    return render_template('protocolo_detalhe.html', title=f"Protocolo {protocolo.numero}", protocolo=protocolo, anexo_form=anexo_form, lotacoes=lotacoes, usuarios_destino=usuarios_destino, movimentacao_pendente=pendente, documentos_atuais=list(documentos.values()))
+    return render_template('protocolo_detalhe.html', title=f"Protocolo {protocolo.numero}", protocolo=protocolo, anexo_form=anexo_form, lotacoes=lotacoes, usuarios_destino=usuarios_destino, movimentacao_pendente=pendente, pode_receber=pode_receber, pode_encaminhar=pode_encaminhar, documentos_atuais=list(documentos.values()))
 
 @app.route("/protocolo/<int:protocolo_id>/editar", methods=['GET', 'POST'])
 @permission_required('edit')
@@ -1164,6 +1175,8 @@ def atualizar_protocolo_status():
         return jsonify({'sucesso': False, 'mensagem': 'Dados insuficientes.'}), 400
 
     protocolo = accessible_protocol_or_404(protocolo_id)
+    if not can_operate_protocol(protocolo):
+        return jsonify({'sucesso': False, 'mensagem': 'O processo não está sob responsabilidade do seu setor.'}), 403
     if protocolo.arquivado_em:
         return jsonify({'sucesso': False, 'mensagem': 'Processo arquivado é somente para consulta.'}), 409
 
@@ -1196,6 +1209,8 @@ def atualizar_protocolo_status():
 @permission_required('route')
 def tramitar_protocolo(protocolo_id):
     protocolo = accessible_protocol_or_404(protocolo_id)
+    if not can_operate_protocol(protocolo):
+        abort(403)
     setor_destino = tenant_get_or_404(Lotacao, request.form.get('setor_destino_id', type=int))
     destinatario_id = request.form.get('destinatario_usuario_id', type=int)
     destinatario = None

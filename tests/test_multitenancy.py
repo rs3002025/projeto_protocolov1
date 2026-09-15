@@ -980,3 +980,36 @@ def test_administrador_do_cliente_cria_mesmo_nivel_sem_conceder_acesso_global():
         db.session.delete(criado)
         db.session.commit()
 
+
+def test_tramitador_mantem_consulta_mas_nao_altera_processo_que_saiu_do_setor():
+    with app.app_context():
+        tenant = Organizacao.query.filter_by(slug='cliente-a').one()
+        juridico = Lotacao.query.filter_by(tenant_id=tenant.id, nome='Jurídico').one()
+        protocolo_setor = Lotacao.query.filter_by(tenant_id=tenant.id, nome='Protocolo').one()
+        tramitador = Usuario.query.filter_by(tenant_id=tenant.id, login='tramitador').one()
+        admin = Usuario.query.filter_by(tenant_id=tenant.id, login='admin').one()
+        tramitador.lotacao_id = juridico.id
+        protocolo = Protocolo(tenant_id=tenant.id, numero='9003/2026', nome='Processo já encaminhado',
+                              data_solicitacao=date.today(), setor_atual_id=protocolo_setor.id,
+                              status='EM ANÁLISE')
+        db.session.add(protocolo)
+        db.session.flush()
+        db.session.add(Movimentacao(
+            tenant_id=tenant.id, protocolo_id=protocolo.id,
+            setor_origem_id=juridico.id, setor_destino_id=protocolo_setor.id,
+            enviado_por_id=tramitador.id, recebido_por_id=admin.id,
+            recebido_em=datetime.utcnow()))
+        db.session.commit()
+        protocolo_id, destino_id = protocolo.id, juridico.id
+
+    client = app.test_client()
+    client.post('/login', data={
+        'organizacao': 'cliente-a', 'login': 'tramitador', 'senha': 'senha-segura'})
+    detalhe = client.get(f'/protocolo/{protocolo_id}')
+    assert detalhe.status_code == 200
+    assert 'somente para consulta' in detalhe.get_data(as_text=True)
+    assert client.post('/protocolos/atualizar', json={
+        'protocoloId': protocolo_id, 'novoStatus': 'FINALIZADO'}).status_code == 403
+    assert client.post(f'/protocolo/{protocolo_id}/tramitar', data={
+        'setor_destino_id': destino_id}).status_code == 403
+
