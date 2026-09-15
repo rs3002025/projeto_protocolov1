@@ -155,6 +155,36 @@ def verified_upload_mime(filename, data):
             pass
     return None
 
+def normalize_logo_png(source):
+    """Valida, redimensiona e remove margens transparentes/brancas da logo."""
+    from PIL import Image, ImageChops, ImageOps
+
+    Image.MAX_IMAGE_PIXELS = 20_000_000
+    image = Image.open(source)
+    image.verify()
+    source.seek(0)
+    image = ImageOps.exif_transpose(Image.open(source)).convert('RGBA')
+    alpha_box = image.getchannel('A').getbbox()
+    if alpha_box and alpha_box != (0, 0, image.width, image.height):
+        content_box = alpha_box
+    else:
+        rgb = image.convert('RGB')
+        white = Image.new('RGB', rgb.size, 'white')
+        difference = ImageChops.difference(rgb, white).convert('L').point(
+            lambda value: 255 if value > 12 else 0
+        )
+        content_box = difference.getbbox()
+    if content_box:
+        padding = max(4, round(max(image.size) * 0.01))
+        left, top, right, bottom = content_box
+        image = image.crop((max(0, left - padding), max(0, top - padding),
+                            min(image.width, right + padding), min(image.height, bottom + padding)))
+    image.thumbnail((1600, 800))
+    output = io.BytesIO()
+    image.save(output, format='PNG', optimize=True)
+    output.seek(0)
+    return output
+
 def bucket_configured():
     return all(os.getenv(name) for name in (
         'AWS_ENDPOINT_URL', 'AWS_S3_BUCKET_NAME', 'AWS_DEFAULT_REGION',
@@ -254,7 +284,12 @@ def organization_logo(slug):
         default_slug = os.getenv('DEFAULT_ORGANIZATION_SLUG', 'prefeitura').strip().lower()
         fallback = 'img/logo.png' if organizacao and organizacao.slug == default_slug else 'img/logo-sysprot.svg'
         return redirect(url_for('static', filename=fallback))
-    response = send_file(io.BytesIO(organizacao.logo_data), mimetype='image/png',
+    try:
+        logo_stream = normalize_logo_png(io.BytesIO(organizacao.logo_data))
+    except Exception:
+        app.logger.exception('Falha ao normalizar a logo da organização %s.', organizacao.id)
+        logo_stream = io.BytesIO(organizacao.logo_data)
+    response = send_file(logo_stream, mimetype='image/png',
                          download_name='logo.png', max_age=3600, conditional=True)
     response.headers['X-Content-Type-Options'] = 'nosniff'
     return response
@@ -482,7 +517,7 @@ def configuracoes():
 @login_required
 @admin_required
 def admin_update_logo():
-    from PIL import Image, ImageOps, UnidentifiedImageError
+    from PIL import Image, UnidentifiedImageError
 
     form = BrandingForm()
     organizacao = current_user.organizacao
@@ -512,23 +547,14 @@ def admin_update_logo():
         flash('A imagem deve ter no máximo 5 MB.', 'danger')
         return redirect(url_for('configuracoes'))
     try:
-        Image.MAX_IMAGE_PIXELS = 20_000_000
-        imagem = Image.open(arquivo.stream)
-        imagem.verify()
-        arquivo.stream.seek(0)
-        imagem = Image.open(arquivo.stream)
-        imagem = ImageOps.exif_transpose(imagem)
-        imagem.thumbnail((1600, 800))
-        imagem = imagem.convert('RGBA' if 'A' in imagem.getbands() else 'RGB')
-        saida = io.BytesIO()
-        imagem.save(saida, format='PNG', optimize=True)
+        saida = normalize_logo_png(arquivo.stream)
     except (UnidentifiedImageError, OSError, Image.DecompressionBombError):
         flash('O arquivo enviado não é uma imagem válida ou excede os limites de segurança.', 'danger')
         return redirect(url_for('configuracoes'))
-    if saida.tell() > 2 * 1024 * 1024:
+    if saida.getbuffer().nbytes > 2 * 1024 * 1024:
         flash('Após o processamento, a logo excedeu 2 MB. Utilize uma imagem mais simples.', 'danger')
         return redirect(url_for('configuracoes'))
-    organizacao.logo_data = saida.getvalue()
+    organizacao.logo_data = saida.read()
     organizacao.logo_mime_type = 'image/png'
     organizacao.logo_nome_arquivo = secure_filename(arquivo.filename or 'logo.png')
     organizacao.logo_atualizada_em = datetime.utcnow()
