@@ -266,11 +266,6 @@ ROLE_PERMISSIONS = {
     # Atua somente no fluxo: recebe, encaminha e responde processos do seu setor/usuário.
     'tramitador': {'view', 'route'},
     'consulta': {'view'},
-    # Perfis legados mantidos apenas para não interromper contas existentes. Novas contas
-    # usam os nomes explícitos acima e os legados serão convertidos pela migração.
-    'gestor': {'view', 'create', 'edit', 'route', 'archive', 'reports'},
-    'user': {'view', 'create', 'edit', 'route'},
-    'atendente': {'view', 'create', 'edit', 'route'},
 }
 ROLE_LABELS = {
     'admin': 'Administrador do cliente',

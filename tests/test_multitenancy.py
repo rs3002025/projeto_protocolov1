@@ -413,9 +413,9 @@ def test_tramitacao_pode_destinar_usuario_ou_todo_setor():
         setor = Lotacao.query.filter_by(tenant_id=org.id, nome='Jurídico').one()
         senha = bcrypt.generate_password_hash('senha-segura').decode('utf-8')
         destinatario = Usuario(tenant_id=org.id, nome='João', login='joao', senha=senha,
-                               tipo='user', lotacao_id=setor.id)
+                               tipo='tramitador', lotacao_id=setor.id)
         colega = Usuario(tenant_id=org.id, nome='Maria', login='maria', senha=senha,
-                         tipo='user', lotacao_id=setor.id)
+                         tipo='tramitador', lotacao_id=setor.id)
         db.session.add_all([destinatario, colega])
         db.session.flush()
         protocolo = Protocolo(tenant_id=org.id, numero='DEST-1/2026', nome='Destino individual',
@@ -688,11 +688,11 @@ def test_administrador_edita_desativa_e_reativa_usuario_do_cliente():
         consulta_id, juridico_id = consulta.id, juridico.id
     response = client.post(f'/admin/usuarios/{consulta_id}/editar', data={
         'nome_completo': 'Consulta Atualizada', 'email': 'consulta@example.test',
-        'tipo': 'atendente', 'lotacao_id': juridico_id})
+        'tipo': 'protocolista', 'lotacao_id': juridico_id})
     assert response.status_code == 302
     with app.app_context():
         consulta = db.session.get(Usuario, consulta_id)
-        assert (consulta.nome_completo, consulta.tipo, consulta.lotacao_id) == ('Consulta Atualizada', 'atendente', juridico_id)
+        assert (consulta.nome_completo, consulta.tipo, consulta.lotacao_id) == ('Consulta Atualizada', 'protocolista', juridico_id)
     assert client.post(f'/admin/usuarios/{consulta_id}/status').status_code == 302
     inativo = app.test_client()
     response = inativo.post('/login', data={'organizacao': 'cliente-a', 'login': 'consulta', 'senha': 'senha-segura'}, follow_redirects=True)

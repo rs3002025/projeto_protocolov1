@@ -113,6 +113,14 @@ def bootstrap():
                     connection.execute(text('UPDATE protocolos SET status = :novo WHERE status = :antigo'),
                                        {'novo': novo, 'antigo': antigo})
 
+            if 'usuarios' in existing_tables:
+                # Consolida os perfis antigos no novo perfil não administrativo.
+                # Atribuições de tramitação devem ser explícitas e vinculadas a um setor.
+                connection.execute(text(
+                    "UPDATE usuarios SET tipo = 'protocolista' "
+                    "WHERE tipo IN ('user', 'atendente', 'gestor')"
+                ))
+
             if 'anexos' in existing_tables:
                 connection.execute(text("UPDATE anexos SET storage_backend = 'database' WHERE storage_backend IS NULL"))
 
