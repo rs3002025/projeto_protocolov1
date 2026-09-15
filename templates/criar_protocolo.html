@@ -35,7 +35,7 @@
         </div>
         <div class="form-group span-3">
             <label for="municipio">Município</label>
-            <input type="text" id="municipio" name="municipio" class="form-control" value="{{ protocolo.municipio if protocolo else (current_user.organizacao.municipio or '') }}">
+            <input type="text" id="municipio" name="municipio" class="form-control" value="{{ protocolo.municipio if protocolo else (active_organization.municipio or '') }}">
         </div>
         <div class="form-group span-3">
             <label for="bairro">Bairro</label>
@@ -152,3 +152,4 @@ window.protocoloData = {{ {
 {% endif %}
 </script>
 {% endblock %}
+

@@ -29,6 +29,7 @@ SCHEMA_COLUMNS = {
     },
     'usuarios': {
         'lotacao_id': 'BIGINT',
+        'is_platform_admin': 'BOOLEAN DEFAULT FALSE NOT NULL',
     },
     'protocolos': {
         'prazo_em': 'DATE',
@@ -144,3 +145,4 @@ def bootstrap():
 
 if __name__ == '__main__':
     bootstrap()
+

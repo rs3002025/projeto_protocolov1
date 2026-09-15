@@ -16,7 +16,7 @@ os.environ['SECRET_KEY'] = 'test-secret-key'
 os.environ['DATABASE_URL'] = 'sqlite:///' + str(Path(_test_directory.name) / 'tests.sqlite3')
 
 from app import app, bcrypt, db
-from models import Lotacao, Movimentacao, Organizacao, Protocolo, Usuario, ConsultaPublicaTentativa, LoginTentativa, Anexo, HistoricoProtocolo
+from models import Lotacao, Movimentacao, Organizacao, Protocolo, Usuario, ConsultaPublicaTentativa, LoginTentativa, Anexo, HistoricoProtocolo, Servidor
 
 
 def teardown_module():
@@ -146,6 +146,7 @@ def test_todas_as_operacoes_de_protocolo_bloqueiam_id_de_outro_cliente():
         setor_a_id = Lotacao.query.filter_by(tenant_id=1, nome='Jurídico').one().id
     client = app.test_client()
     login(client, 'cliente-a')
+
     requisicoes = [
         ('get', f'/protocolo/{protocolo_b_id}'),
         ('get', f'/api/protocolo/{protocolo_b_id}'),
@@ -166,6 +167,7 @@ def test_todas_as_operacoes_de_protocolo_bloqueiam_id_de_outro_cliente():
         'protocoloId': protocolo_b_id, 'novoStatus': 'EM ANÁLISE'
     })
     assert response.status_code == 404
+
     with app.app_context():
         protocolo_b = db.session.get(Protocolo, protocolo_b_id)
         assert protocolo_b.nome == 'Dado exclusivo B'
@@ -182,6 +184,7 @@ def test_apis_de_cadastro_e_bairros_nao_vazam_dados_de_outro_cliente():
         db.session.add(Servidor(tenant_id=protocolo_b.tenant_id, matricula='SERV-B',
                                 nome='Servidor exclusivo B'))
         db.session.commit()
+
     client = app.test_client()
     login(client, 'cliente-a')
     bairros = client.get('/api/bairros').get_json()
@@ -849,3 +852,84 @@ def test_pdf_gerado_e_armazenado_com_versionamento_e_historico():
         assert client.post(f'/protocolo/{protocolo_id}/documento/gerar').status_code == 302
     with app.app_context():
         assert Anexo.query.filter_by(protocolo_id=protocolo_id, documento_chave='documento-protocolo').count() == 2
+
+
+def test_novos_perfis_separam_protocolo_de_tramitacao():
+    with app.app_context():
+        tenant = Organizacao.query.filter_by(slug='cliente-a').one()
+        setor = Lotacao.query.filter_by(tenant_id=tenant.id).first()
+        senha = bcrypt.generate_password_hash('senha-segura').decode('utf-8')
+        db.session.add_all([
+            Usuario(tenant_id=tenant.id, nome='Protocolista', nome_completo='Protocolista',
+                    login='protocolista', senha=senha, tipo='protocolista', lotacao_id=setor.id),
+            Usuario(tenant_id=tenant.id, nome='Tramitador', nome_completo='Tramitador',
+                    login='tramitador', senha=senha, tipo='tramitador', lotacao_id=setor.id),
+        ])
+        db.session.commit()
+
+    protocolista = app.test_client()
+    protocolista.post('/login', data={
+        'organizacao': 'cliente-a', 'login': 'protocolista', 'senha': 'senha-segura'})
+    assert protocolista.get('/protocolo/novo').status_code == 200
+    assert protocolista.get('/configuracoes').status_code == 302
+    assert protocolista.get('/pendencias-recebimento').status_code == 302
+
+    tramitador = app.test_client()
+    tramitador.post('/login', data={
+        'organizacao': 'cliente-a', 'login': 'tramitador', 'senha': 'senha-segura'})
+    assert tramitador.get('/protocolo/novo').status_code == 302
+    assert tramitador.get('/configuracoes').status_code == 302
+    assert tramitador.get('/pendencias-recebimento').status_code == 200
+
+
+def test_tramitador_visualiza_somente_processos_do_seu_fluxo():
+    with app.app_context():
+        tenant = Organizacao.query.filter_by(slug='cliente-a').one()
+        protocolo_setor = Lotacao.query.filter_by(tenant_id=tenant.id, nome='Protocolo').one()
+        juridico = Lotacao.query.filter_by(tenant_id=tenant.id, nome='Jurídico').one()
+        tramitador = Usuario.query.filter_by(tenant_id=tenant.id, login='tramitador').one()
+        tramitador.lotacao_id = juridico.id
+        visivel = Protocolo(tenant_id=tenant.id, numero='9001/2026', nome='Visível no Jurídico',
+                            data_solicitacao=date.today(), setor_atual_id=juridico.id)
+        oculto = Protocolo(tenant_id=tenant.id, numero='9002/2026', nome='Oculto no Protocolo',
+                           data_solicitacao=date.today(), setor_atual_id=protocolo_setor.id)
+        db.session.add_all([visivel, oculto])
+        db.session.commit()
+        visivel_id, oculto_id = visivel.id, oculto.id
+
+    client = app.test_client()
+    client.post('/login', data={
+        'organizacao': 'cliente-a', 'login': 'tramitador', 'senha': 'senha-segura'})
+    html = client.get('/protocolos').get_data(as_text=True)
+    assert 'Visível no Jurídico' in html
+    assert 'Oculto no Protocolo' not in html
+    assert client.get(f'/protocolo/{visivel_id}').status_code == 200
+    assert client.get(f'/protocolo/{oculto_id}').status_code == 404
+    assert client.get(f'/api/protocolo/{oculto_id}').status_code == 404
+
+
+def test_administrador_plataforma_escolhe_cliente_explicitamente():
+    with app.app_context():
+        admin = Usuario.query.filter_by(tenant_id=1, login='admin').one()
+        admin.is_platform_admin = True
+        cliente_b = Organizacao.query.filter_by(slug='cliente-b').one()
+        cliente_b_id = cliente_b.id
+        db.session.commit()
+
+    client = app.test_client()
+    response = client.post('/login', data={
+        'organizacao': 'cliente-a', 'login': 'admin', 'senha': 'senha-segura'})
+    assert response.headers['Location'] == '/plataforma'
+    painel = client.get('/plataforma').get_data(as_text=True)
+    assert 'Cliente A' in painel and 'Cliente B' in painel
+    assert client.get('/protocolos').headers['Location'] == '/plataforma'
+    assert client.post(f'/plataforma/cliente/{cliente_b_id}').headers['Location'] == '/home'
+    protocolos = client.get('/protocolos').get_data(as_text=True)
+    assert 'Dado exclusivo B' in protocolos
+    assert 'Dado exclusivo A' not in protocolos
+
+    with app.app_context():
+        admin = Usuario.query.filter_by(tenant_id=1, login='admin').one()
+        admin.is_platform_admin = False
+        db.session.commit()
+

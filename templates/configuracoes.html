@@ -57,7 +57,7 @@
                         <td><form id="edit-user-{{ user.id }}" method="POST" action="{{ url_for('admin_update_user', user_id=user.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form><input form="edit-user-{{ user.id }}" class="form-control form-control-sm" name="nome_completo" value="{{ user.nome_completo }}" required></td>
                         <td>{{ user.login }}</td>
                         <td><input form="edit-user-{{ user.id }}" class="form-control form-control-sm" name="email" type="email" value="{{ user.email }}" required></td>
-                        <td><select form="edit-user-{{ user.id }}" class="form-select form-select-sm" name="tipo">{% for role in ['consulta','atendente','user','gestor','admin'] %}<option value="{{ role }}" {% if user.tipo == role %}selected{% endif %}>{{ role }}</option>{% endfor %}</select></td>
+                        <td><select form="edit-user-{{ user.id }}" class="form-select form-select-sm" name="tipo">{% for role in ['consulta','tramitador','protocolista','admin'] %}<option value="{{ role }}" {% if user.tipo == role %}selected{% endif %}>{{ role_labels[role] }}</option>{% endfor %}{% if user.tipo not in role_labels %}<option value="{{ user.tipo }}" selected>Legado: {{ user.tipo }}</option>{% endif %}</select></td>
                         <td><span class="badge {{ 'bg-success' if user.status == 'ativo' else 'bg-danger' }}">{{ user.status }}</span></td>
                         <td>
                           <select form="edit-user-{{ user.id }}" class="form-select form-select-sm mb-1" name="lotacao_id"><option value="0">Sem setor</option>{% for lotacao in lotacoes if lotacao.ativo %}<option value="{{ lotacao.id }}" {% if user.lotacao_id == lotacao.id %}selected{% endif %}>{{ lotacao.nome }}</option>{% endfor %}</select>
@@ -132,3 +132,4 @@
     </div>
 </div>
 {% endblock content %}
+

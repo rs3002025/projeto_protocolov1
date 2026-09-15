@@ -39,6 +39,7 @@ class Usuario(TenantMixin, db.Model, UserMixin):
     login = db.Column(db.Text, nullable=False)
     senha = db.Column(db.Text, nullable=False)
     tipo = db.Column(db.Text, nullable=False)
+    is_platform_admin = db.Column(db.Boolean, nullable=False, default=False)
     email = db.Column(db.Text)
     lotacao_id = db.Column(ID_TYPE, db.ForeignKey('lotacoes.id'))
     organizacao = db.relationship('Organizacao')
@@ -182,3 +183,4 @@ class EmailSistema(TenantMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.Text, nullable=False)
     email = db.Column(db.Text, nullable=False)
+

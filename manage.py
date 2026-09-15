@@ -33,6 +33,19 @@ def create_organization(args):
         print(f'Organização {slug!r} e administrador criados com sucesso.')
 
 
+def promote_platform_admin(args):
+    with app.app_context():
+        organization = Organizacao.query.filter_by(slug=args.organization.strip().lower()).first()
+        user = Usuario.query.filter_by(
+            tenant_id=organization.id if organization else None, login=args.login).first()
+        if not user:
+            raise SystemExit('Usuário não encontrado nessa organização.')
+        user.is_platform_admin = True
+        user.tipo = 'admin'
+        db.session.commit()
+        print(f'Usuário {user.login!r} promovido a administrador da plataforma.')
+
+
 parser = argparse.ArgumentParser()
 subcommands = parser.add_subparsers(required=True)
 create = subcommands.add_parser('create-organization')
@@ -42,6 +55,11 @@ create.add_argument('--admin-login', required=True)
 create.add_argument('--admin-name', required=True)
 create.add_argument('--admin-email')
 create.set_defaults(handler=create_organization)
+promote = subcommands.add_parser('promote-platform-admin')
+promote.add_argument('--organization', required=True)
+promote.add_argument('--login', required=True)
+promote.set_defaults(handler=promote_platform_admin)
 
 arguments = parser.parse_args()
 arguments.handler(arguments)
+

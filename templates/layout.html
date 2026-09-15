@@ -15,7 +15,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs/qrcode.min.js"></script>
 </head>
-<body class="{% if request.endpoint == 'login' %}login-page-bg{% endif %}" data-branding-logo-url="{{ branding_logo_url }}" data-organization-name="{{ current_user.organizacao.nome if current_user.is_authenticated else '' }}" data-organization-office="{{ current_user.organizacao.orgao if current_user.is_authenticated and current_user.organizacao.orgao else '' }}" data-organization-city="{{ current_user.organizacao.municipio if current_user.is_authenticated and current_user.organizacao.municipio else '' }}">
+<body class="{% if request.endpoint == 'login' %}login-page-bg{% endif %}" data-branding-logo-url="{{ branding_logo_url }}" data-organization-name="{{ active_organization.nome if active_organization else '' }}" data-organization-office="{{ active_organization.orgao if active_organization and active_organization.orgao else '' }}" data-organization-city="{{ active_organization.municipio if active_organization and active_organization.municipio else '' }}">
     
 
     {% if current_user.is_authenticated %}
@@ -34,8 +34,8 @@
                             👤
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userMenuButton">
-                            <li><a class="dropdown-item" href="{{ url_for('configuracoes') }}">Configurações</a></li>
-                            <li><hr class="dropdown-divider"></li>
+                            {% if can('manage') %}<li><a class="dropdown-item" href="{{ url_for('configuracoes') }}">Configurações</a></li>
+                            <li><hr class="dropdown-divider"></li>{% endif %}
                             <li>
                                 <form method="POST" action="{{ url_for('logout') }}">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -48,8 +48,9 @@
             </div>
             <div class="header-bottom-row">
                 <nav class="main-nav">
+                    {% if current_user.is_platform_admin %}<a href="{{ url_for('platform_organizations') }}" class="nav-link">Clientes</a>{% endif %}
                     <a href="{{ url_for('home') }}" class="nav-link">Dashboard</a>
-                    <a href="{{ url_for('criar_protocolo') }}" class="nav-link">Novo Protocolo</a>
+                    {% if can('create') %}<a href="{{ url_for('criar_protocolo') }}" class="nav-link">Novo Protocolo</a>{% endif %}
                     <a href="{{ url_for('listar_protocolos') }}" class="nav-link">Protocolos</a>
                     <a href="{{ url_for('meus_protocolos') }}" class="nav-link">Meus Protocolos</a>
                     {% if can('route') %}<a href="{{ url_for('pendencias_recebimento') }}" class="nav-link">Recebimentos{% if pendencias_recebimento %} <span class="badge bg-danger">{{ pendencias_recebimento }}</span>{% endif %}</a>{% endif %}
@@ -190,7 +191,7 @@
                 <div class="linha-assinatura-recebimento"></div>
             </div>
             <p class="texto-assinatura-recebimento">Assinatura de Recebimento</p>
-            {% if current_user.is_authenticated and current_user.organizacao.rodape_documento %}<div class="rodape-pdf" style="white-space:pre-line">{{ current_user.organizacao.rodape_documento }}</div>{% endif %}
+            {% if active_organization and active_organization.rodape_documento %}<div class="rodape-pdf" style="white-space:pre-line">{{ active_organization.rodape_documento }}</div>{% endif %}
         </div>
     </div>
 
@@ -283,3 +284,4 @@
     {% block scripts %}{% endblock %}
 </body>
 </html>
+

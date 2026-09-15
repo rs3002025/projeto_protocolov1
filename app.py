@@ -40,7 +40,7 @@ login_manager.login_view = 'login'
 login_manager.login_message_category = 'info'
 
 # --- Imports for Routes and Models ---
-from flask import render_template, url_for, flash, redirect, request, abort
+from flask import render_template, url_for, flash, redirect, request, abort, session
 from flask_login import login_user, current_user, logout_user, login_required
 from flask import send_file, Response, jsonify, make_response
 from werkzeug.utils import secure_filename
@@ -52,7 +52,7 @@ import uuid
 from functools import wraps
 from urllib.parse import urlsplit
 from openpyxl import Workbook
-from sqlalchemy import func, cast, Date, text, or_, false
+from sqlalchemy import func, cast, Date, text, or_, false, exists
 from datetime import datetime, timedelta
 from forms import LoginForm, RegistrationForm, ProtocoloForm, AnexoForm, AdminUserCreationForm, AdminListItemForm, ConsultaPublicaForm, BrandingForm
 from models import Organizacao, Usuario, Protocolo, HistoricoProtocolo, Movimentacao, ConsultaPublicaTentativa, LoginTentativa, Anexo, Lotacao, TipoRequerimento, Servidor, db
@@ -60,12 +60,41 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
 
+def current_tenant_id():
+    if current_user.is_authenticated and current_user.is_platform_admin:
+        return session.get('active_tenant_id') or current_user.tenant_id
+    return current_user.tenant_id
+
+def active_organization():
+    return db.session.get(Organizacao, current_tenant_id())
+
 def tenant_query(model):
     """Consulta obrigatoriamente limitada à organização autenticada."""
-    return model.query.filter(model.tenant_id == current_user.tenant_id)
+    return model.query.filter(model.tenant_id == current_tenant_id())
 
 def tenant_get_or_404(model, object_id):
     return tenant_query(model).filter(model.id == object_id).first_or_404()
+
+def accessible_protocols_query():
+    """Limita o tramitador aos processos dos quais seu setor ou ele participa."""
+    query = tenant_query(Protocolo)
+    if current_user.tipo != 'tramitador':
+        return query
+    if not current_user.lotacao_id:
+        return query.filter(false())
+    participacao = exists().where(
+        Movimentacao.tenant_id == current_tenant_id(),
+        Movimentacao.protocolo_id == Protocolo.id,
+        or_(Movimentacao.setor_origem_id == current_user.lotacao_id,
+            Movimentacao.setor_destino_id == current_user.lotacao_id,
+            Movimentacao.enviado_por_id == current_user.id,
+            Movimentacao.recebido_por_id == current_user.id,
+            Movimentacao.destinatario_usuario_id == current_user.id),
+    )
+    return query.filter(or_(Protocolo.setor_atual_id == current_user.lotacao_id, participacao))
+
+def accessible_protocol_or_404(protocolo_id):
+    return accessible_protocols_query().filter(Protocolo.id == protocolo_id).first_or_404()
 
 def pendencias_recebimento_query():
     query = tenant_query(Movimentacao).filter(Movimentacao.recebido_em.is_(None))
@@ -164,6 +193,7 @@ def normalize_logo_png(source):
     image.verify()
     source.seek(0)
     image = ImageOps.exif_transpose(Image.open(source)).convert('RGBA')
+
     alpha_box = image.getchannel('A').getbbox()
     if alpha_box and alpha_box != (0, 0, image.width, image.height):
         content_box = alpha_box
@@ -179,6 +209,7 @@ def normalize_logo_png(source):
         left, top, right, bottom = content_box
         image = image.crop((max(0, left - padding), max(0, top - padding),
                             min(image.width, right + padding), min(image.height, bottom + padding)))
+
     image.thumbnail((1600, 800))
     output = io.BytesIO()
     image.save(output, format='PNG', optimize=True)
@@ -230,24 +261,39 @@ def read_attachment_bytes(anexo):
 
 ROLE_PERMISSIONS = {
     'admin': {'view', 'create', 'edit', 'route', 'archive', 'delete', 'manage', 'reports'},
+    # Cria e mantém protocolos, mas não administra usuários, setores ou a identidade do cliente.
+    'protocolista': {'view', 'create', 'edit', 'reports'},
+    # Atua somente no fluxo: recebe, encaminha e responde processos do seu setor/usuário.
+    'tramitador': {'view', 'route'},
+    'consulta': {'view'},
+    # Perfis legados mantidos apenas para não interromper contas existentes. Novas contas
+    # usam os nomes explícitos acima e os legados serão convertidos pela migração.
     'gestor': {'view', 'create', 'edit', 'route', 'archive', 'reports'},
     'user': {'view', 'create', 'edit', 'route'},
     'atendente': {'view', 'create', 'edit', 'route'},
-    'consulta': {'view'},
+}
+ROLE_LABELS = {
+    'admin': 'Administrador do cliente',
+    'protocolista': 'Protocolista',
+    'tramitador': 'Tramitação e respostas',
+    'consulta': 'Somente consulta',
 }
 PROTOCOL_STATUSES = ('PROTOCOLO GERADO', 'EM ANÁLISE', 'PENDENTE DE DOCUMENTO', 'FINALIZADO', 'CONCLUÍDO', 'EM TRAMITAÇÃO', 'ARQUIVADO')
 
 @app.context_processor
 def permission_context():
     logo_url = url_for('static', filename='img/logo-sysprot.svg')
-    if current_user.is_authenticated and current_user.organizacao:
-        version = int(current_user.organizacao.logo_atualizada_em.timestamp()) if current_user.organizacao.logo_atualizada_em else 0
-        logo_url = url_for('organization_logo', slug=current_user.organizacao.slug, v=version)
+    organization = active_organization() if current_user.is_authenticated else None
+    if organization:
+        version = int(organization.logo_atualizada_em.timestamp()) if organization.logo_atualizada_em else 0
+        logo_url = url_for('organization_logo', slug=organization.slug, v=version)
     pendencias_recebimento = 0
     if current_user.is_authenticated:
         pendencias_recebimento = pendencias_recebimento_query().count()
     return {
         'can': lambda permission: current_user.is_authenticated and permission in ROLE_PERMISSIONS.get(current_user.tipo, set()),
+        'role_labels': ROLE_LABELS,
+        'active_organization': organization,
         'branding_logo_url': logo_url,
         'pendencias_recebimento': pendencias_recebimento,
     }
@@ -438,7 +484,11 @@ def login():
             login_user(user, remember=form.remember.data)
             next_page = request.args.get('next')
             flash('Login bem-sucedido!', 'success')
-            return redirect(safe_local_redirect(next_page) or url_for('home'))
+            destination = safe_local_redirect(next_page)
+            if user.is_platform_admin:
+                session.pop('active_tenant_id', None)
+                destination = url_for('platform_organizations')
+            return redirect(destination or url_for('home'))
         else:
             if not tentativa:
                 tentativa = LoginTentativa(identificador_hash=fingerprint, tentativas=0,
@@ -455,6 +505,7 @@ def login():
 @app.post("/logout")
 @login_required
 def logout():
+    session.pop('active_tenant_id', None)
     logout_user()
     flash('Você saiu da sua conta.', 'info')
     return redirect(url_for('login'))
@@ -463,7 +514,7 @@ def logout():
 @login_required
 def meus_protocolos():
     page = request.args.get('page', 1, type=int)
-    protocolos = tenant_query(Protocolo).filter_by(responsavel=current_user.login)\
+    protocolos = accessible_protocols_query().filter_by(responsavel=current_user.login)\
         .order_by(Protocolo.id.desc())\
         .paginate(page=page, per_page=10)
     return render_template('protocolos.html', protocolos=protocolos, title="Meus Protocolos")
@@ -477,13 +528,59 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+def platform_admin_required(f):
+    @wraps(f)
+    @login_required
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_platform_admin:
+            abort(403)
+        return f(*args, **kwargs)
+    return decorated_function
+
+@app.before_request
+def require_platform_tenant_selection():
+    if not current_user.is_authenticated or not current_user.is_platform_admin:
+        return None
+    allowed = {'platform_organizations', 'platform_select_organization', 'logout',
+               'health', 'static', 'organization_logo'}
+    if request.endpoint in allowed:
+        return None
+    selected = session.get('active_tenant_id')
+    if not selected or not Organizacao.query.filter_by(id=selected, ativo=True).first():
+        session.pop('active_tenant_id', None)
+        return redirect(url_for('platform_organizations'))
+    return None
+
+@app.get('/plataforma')
+@platform_admin_required
+def platform_organizations():
+    organizations = Organizacao.query.order_by(Organizacao.nome).all()
+    summaries = []
+    for organization in organizations:
+        summaries.append({
+            'organization': organization,
+            'users': Usuario.query.filter_by(tenant_id=organization.id, status='ativo').count(),
+            'protocols': Protocolo.query.filter_by(tenant_id=organization.id).count(),
+            'selected': session.get('active_tenant_id') == organization.id,
+        })
+    return render_template('plataforma.html', title='Administração da plataforma', summaries=summaries)
+
+@app.post('/plataforma/cliente/<int:organization_id>')
+@platform_admin_required
+def platform_select_organization(organization_id):
+    organization = Organizacao.query.filter_by(id=organization_id, ativo=True).first_or_404()
+    session['active_tenant_id'] = organization.id
+    session.modified = True
+    flash(f'Cliente ativo: {organization.nome}.', 'info')
+    return redirect(url_for('home'))
+
 @app.route("/relatorios")
 @permission_required('reports')
 def relatorios():
     # This route essentially does the same as listar_protocolos but renders a different template
     # to match the original app's structure.
     page = request.args.get('page', 1, type=int)
-    query = apply_protocol_filters(tenant_query(Protocolo), request.args)
+    query = apply_protocol_filters(accessible_protocols_query(), request.args)
     protocolos = query.order_by(Protocolo.id.desc()).paginate(page=page, per_page=10)
     return render_template('relatorios.html', protocolos=protocolos, title="Relatórios",
                            pagination_args=pagination_filter_args(request.args))
@@ -505,13 +602,13 @@ def configuracoes():
 
     lotacoes = tenant_query(Lotacao).all()
     user_form.lotacao_id.choices = [(0, 'Sem setor definido')] + [(item.id, item.nome) for item in lotacoes if item.ativo]
-    users = tenant_query(Usuario).all()
+    users = tenant_query(Usuario).filter_by(is_platform_admin=False).all()
     tipos = tenant_query(TipoRequerimento).all()
 
     return render_template('configuracoes.html', title="Configurações",
                            users=users, lotacoes=lotacoes, tipos=tipos,
                            user_form=user_form, lotacao_form=lotacao_form, tipo_form=tipo_form,
-                           branding_form=branding_form, organizacao=current_user.organizacao)
+                           branding_form=branding_form, organizacao=active_organization())
 
 @app.post('/admin/identidade/logo')
 @login_required
@@ -520,7 +617,7 @@ def admin_update_logo():
     from PIL import Image, UnidentifiedImageError
 
     form = BrandingForm()
-    organizacao = current_user.organizacao
+    organizacao = active_organization()
     organizacao.municipio = (request.form.get('municipio') or '').strip() or None
     organizacao.orgao = (request.form.get('orgao') or '').strip() or None
     organizacao.rodape_documento = (request.form.get('rodape_documento') or '').strip() or None
@@ -572,7 +669,7 @@ def admin_create_user():
     if form.validate_on_submit():
         hashed_password = bcrypt.generate_password_hash(form.senha.data).decode('utf-8')
         user = Usuario(
-            tenant_id=current_user.tenant_id,
+            tenant_id=current_tenant_id(),
             nome_completo=form.nome_completo.data,
             login=form.login.data,
             email=form.email.data,
@@ -594,6 +691,8 @@ def admin_create_user():
 @admin_required
 def admin_update_user(user_id):
     user = tenant_get_or_404(Usuario, user_id)
+    if user.is_platform_admin:
+        abort(404)
     nome = (request.form.get('nome_completo') or '').strip()
     email = (request.form.get('email') or '').strip()
     tipo = (request.form.get('tipo') or '').strip()
@@ -620,6 +719,8 @@ def admin_update_user(user_id):
 @admin_required
 def admin_toggle_user_status(user_id):
     user = tenant_get_or_404(Usuario, user_id)
+    if user.is_platform_admin:
+        abort(404)
     if user.id == current_user.id:
         flash('Não é possível desativar a própria conta durante o uso.', 'warning')
         return redirect(url_for('configuracoes'))
@@ -647,7 +748,7 @@ def admin_create_list_item(item_type):
             Model = TipoRequerimento
 
         if Model:
-            new_item = Model(tenant_id=current_user.tenant_id, nome=form.nome.data, ativo=True)
+            new_item = Model(tenant_id=current_tenant_id(), nome=form.nome.data, ativo=True)
             db.session.add(new_item)
             db.session.commit()
             flash(f'{item_type.capitalize()} adicionado com sucesso!', 'success')
@@ -678,21 +779,22 @@ def render_protocol_pdf(protocolo):
     import base64
     import qrcode
     from weasyprint import HTML
-    version = int(current_user.organizacao.logo_atualizada_em.timestamp()) if current_user.organizacao.logo_atualizada_em else 0
+    organizacao = active_organization()
+    version = int(organizacao.logo_atualizada_em.timestamp()) if organizacao.logo_atualizada_em else 0
     consulta_url = url_for('consulta_publica', consulta_token=protocolo.consulta_token, _external=True)
     qr_buffer = io.BytesIO()
     qrcode.make(consulta_url).save(qr_buffer, format='PNG')
     qr_code_url = 'data:image/png;base64,' + base64.b64encode(qr_buffer.getvalue()).decode('ascii')
     rendered_html = render_template(
-        'pdf_template.html', protocolo=protocolo, organizacao=current_user.organizacao,
-        pdf_logo_url=url_for('organization_logo', slug=current_user.organizacao.slug,
+        'pdf_template.html', protocolo=protocolo, organizacao=organizacao,
+        pdf_logo_url=url_for('organization_logo', slug=organizacao.slug,
                              v=version, _external=True), qr_code_url=qr_code_url)
     return HTML(string=rendered_html, base_url=request.base_url).write_pdf()
 
 @app.route('/protocolo/<int:protocolo_id>/pdf')
 @login_required
 def gerar_pdf_protocolo(protocolo_id):
-    protocolo = tenant_get_or_404(Protocolo, protocolo_id)
+    protocolo = accessible_protocol_or_404(protocolo_id)
     pdf_bytes = render_protocol_pdf(protocolo)
 
     # Cria a resposta HTTP com o PDF
@@ -723,14 +825,14 @@ def gerar_documento_versionado(protocolo_id):
               .with_entities(func.max(Anexo.versao)).scalar() or 0) + 1
     filename = f'protocolo_{protocolo.numero.replace("/", "-")}_v{versao}.pdf'
     storage_path, storage_backend, file_hash, stored_data = store_attachment_bytes(
-        pdf_bytes, current_user.tenant_id, protocolo.id, chave, versao, filename, 'application/pdf')
+        pdf_bytes, current_tenant_id(), protocolo.id, chave, versao, filename, 'application/pdf')
     documento = Anexo(
-        tenant_id=current_user.tenant_id, protocolo_id=protocolo.id,
+        tenant_id=current_tenant_id(), protocolo_id=protocolo.id,
         file_name=filename, storage_path=storage_path, storage_backend=storage_backend,
         file_hash=file_hash, file_size=len(pdf_bytes), mime_type='application/pdf', file_data=stored_data,
         documento_chave=chave, versao=versao, enviado_por_id=current_user.id)
     db.session.add_all([documento, HistoricoProtocolo(
-        tenant_id=current_user.tenant_id, protocolo_id=protocolo.id,
+        tenant_id=current_tenant_id(), protocolo_id=protocolo.id,
         status=protocolo.status, responsavel=current_user.login, usuario_id=current_user.id,
         acao='DOCUMENTO_GERADO', observacao=f'{filename} — versão {versao}.')])
     db.session.commit()
@@ -745,7 +847,7 @@ def gerar_documento_versionado(protocolo_id):
 @login_required
 def listar_protocolos():
     page = request.args.get('page', 1, type=int)
-    query = apply_protocol_filters(tenant_query(Protocolo), request.args)
+    query = apply_protocol_filters(accessible_protocols_query(), request.args)
 
     # Ordena por ano (descendente) e depois pelo número do protocolo (descendente)
     protocolos = query.order_by(
@@ -762,7 +864,7 @@ def gerar_proximo_numero_protocolo():
     current_year = now.year
 
     # A linha da organização serializa a numeração por cliente no PostgreSQL.
-    Organizacao.query.filter_by(id=current_user.tenant_id).with_for_update().one()
+    Organizacao.query.filter_by(id=current_tenant_id()).with_for_update().one()
     # Busca os protocolos dentro da mesma transação protegida.
     protocolos_do_ano = tenant_query(Protocolo).filter(
         Protocolo.numero.like(f'%/{current_year}')
@@ -803,7 +905,7 @@ def criar_protocolo():
             abort(400, description='O nome do requerente é obrigatório.')
 
         protocolo = Protocolo(
-            tenant_id=current_user.tenant_id,
+            tenant_id=current_tenant_id(),
             numero=novo_numero,
             nome=nome,
             matricula=request.form.get('matricula'),
@@ -830,7 +932,7 @@ def criar_protocolo():
         db.session.add(protocolo)
         db.session.flush()
         historico = HistoricoProtocolo(
-            tenant_id=current_user.tenant_id,
+            tenant_id=current_tenant_id(),
             protocolo_id=protocolo.id,
             status=protocolo.status,
             responsavel=protocolo.responsavel,
@@ -851,7 +953,7 @@ def criar_protocolo():
 @app.route("/protocolo/<int:protocolo_id>")
 @login_required
 def detalhe_protocolo(protocolo_id):
-    protocolo = tenant_get_or_404(Protocolo, protocolo_id)
+    protocolo = accessible_protocol_or_404(protocolo_id)
     anexo_form = AnexoForm()
     lotacoes = tenant_query(Lotacao).filter_by(ativo=True).order_by(Lotacao.nome).all()
     usuarios_destino = tenant_query(Usuario).filter_by(status='ativo').filter(
@@ -867,7 +969,7 @@ def detalhe_protocolo(protocolo_id):
 @app.route("/protocolo/<int:protocolo_id>/editar", methods=['GET', 'POST'])
 @permission_required('edit')
 def editar_protocolo(protocolo_id):
-    protocolo = tenant_get_or_404(Protocolo, protocolo_id)
+    protocolo = accessible_protocol_or_404(protocolo_id)
     if protocolo.arquivado_em:
         flash('Processos arquivados são somente para consulta.', 'warning')
         return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
@@ -905,7 +1007,7 @@ def editar_protocolo(protocolo_id):
             alteracoes.append(f'prazo: {prazo_anterior or "(vazio)"} → {protocolo.prazo_em or "(vazio)"}')
 
         historico = HistoricoProtocolo(
-            tenant_id=current_user.tenant_id,
+            tenant_id=current_tenant_id(),
             protocolo_id=protocolo.id,
             status=protocolo.status,
             responsavel=current_user.login,
@@ -928,7 +1030,7 @@ def editar_protocolo(protocolo_id):
 @app.route("/protocolo/<int:protocolo_id>/deletar", methods=['POST'])
 @permission_required('delete')
 def deletar_protocolo(protocolo_id):
-    protocolo = tenant_get_or_404(Protocolo, protocolo_id)
+    protocolo = accessible_protocol_or_404(protocolo_id)
     flash('A exclusão permanente está desativada para preservar o histórico. Utilize o arquivamento eletrônico.', 'warning')
     return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
 
@@ -970,9 +1072,9 @@ def adicionar_anexo(protocolo_id):
                       .with_entities(func.max(Anexo.versao)).scalar() or 0) + 1
 
         storage_path, storage_backend, file_hash, stored_data = store_attachment_bytes(
-            file_data, current_user.tenant_id, protocolo.id, chave, versao, filename, mime_type)
+            file_data, current_tenant_id(), protocolo.id, chave, versao, filename, mime_type)
         novo_anexo = Anexo(
-            tenant_id=current_user.tenant_id,
+            tenant_id=current_tenant_id(),
             protocolo_id=protocolo.id,
             file_name=filename,
             storage_path=storage_path,
@@ -987,7 +1089,7 @@ def adicionar_anexo(protocolo_id):
         )
         db.session.add(novo_anexo)
         db.session.add(HistoricoProtocolo(
-            tenant_id=current_user.tenant_id, protocolo_id=protocolo.id,
+            tenant_id=current_tenant_id(), protocolo_id=protocolo.id,
             status=protocolo.status, responsavel=current_user.login, usuario_id=current_user.id,
             acao='NOVA_VERSAO_DOCUMENTO' if versao > 1 else 'ANEXO_ADICIONADO',
             observacao=f'{filename} — versão {versao}. Documento {chave}.',
@@ -1005,6 +1107,7 @@ def adicionar_anexo(protocolo_id):
 @login_required
 def baixar_anexo(anexo_id):
     anexo = tenant_get_or_404(Anexo, anexo_id)
+    accessible_protocol_or_404(anexo.protocolo_id)
     try:
         file_data = read_attachment_bytes(anexo)
     except Exception:
@@ -1037,7 +1140,7 @@ def atualizar_protocolo_status():
     if not protocolo_id or novo_status not in PROTOCOL_STATUSES or novo_status in ('EM TRAMITAÇÃO', 'ARQUIVADO'):
         return jsonify({'sucesso': False, 'mensagem': 'Dados insuficientes.'}), 400
 
-    protocolo = tenant_get_or_404(Protocolo, protocolo_id)
+    protocolo = accessible_protocol_or_404(protocolo_id)
     if protocolo.arquivado_em:
         return jsonify({'sucesso': False, 'mensagem': 'Processo arquivado é somente para consulta.'}), 409
 
@@ -1048,7 +1151,7 @@ def atualizar_protocolo_status():
 
     # Adiciona registro ao histórico
     historico = HistoricoProtocolo(
-        tenant_id=current_user.tenant_id,
+        tenant_id=current_tenant_id(),
         protocolo_id=protocolo.id,
         status=novo_status,
         responsavel=current_user.login, # Quem fez a ação
@@ -1069,7 +1172,7 @@ def atualizar_protocolo_status():
 @app.post('/protocolo/<int:protocolo_id>/tramitar')
 @permission_required('route')
 def tramitar_protocolo(protocolo_id):
-    protocolo = tenant_get_or_404(Protocolo, protocolo_id)
+    protocolo = accessible_protocol_or_404(protocolo_id)
     setor_destino = tenant_get_or_404(Lotacao, request.form.get('setor_destino_id', type=int))
     destinatario_id = request.form.get('destinatario_usuario_id', type=int)
     destinatario = None
@@ -1084,7 +1187,7 @@ def tramitar_protocolo(protocolo_id):
         return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
 
     movimento = Movimentacao(
-        tenant_id=current_user.tenant_id,
+        tenant_id=current_tenant_id(),
         protocolo_id=protocolo.id,
         setor_origem_id=protocolo.setor_atual_id,
         setor_destino_id=setor_destino.id,
@@ -1094,7 +1197,7 @@ def tramitar_protocolo(protocolo_id):
     )
     protocolo.status = 'EM TRAMITAÇÃO'
     db.session.add_all([movimento, HistoricoProtocolo(
-        tenant_id=current_user.tenant_id,
+        tenant_id=current_tenant_id(),
         protocolo_id=protocolo.id,
         status=protocolo.status,
         responsavel=current_user.login,
@@ -1112,7 +1215,7 @@ def tramitar_protocolo(protocolo_id):
 @app.post('/protocolo/<int:protocolo_id>/receber')
 @permission_required('route')
 def receber_protocolo(protocolo_id):
-    protocolo = tenant_get_or_404(Protocolo, protocolo_id)
+    protocolo = accessible_protocol_or_404(protocolo_id)
     movimento = tenant_query(Movimentacao).filter_by(protocolo_id=protocolo.id, recebido_em=None).order_by(Movimentacao.id.desc()).first_or_404()
     if current_user.tipo != 'admin' and (
             current_user.lotacao_id != movimento.setor_destino_id or
@@ -1125,7 +1228,7 @@ def receber_protocolo(protocolo_id):
     protocolo.responsavel = current_user.login
     protocolo.status = 'EM ANÁLISE'
     db.session.add(HistoricoProtocolo(
-        tenant_id=current_user.tenant_id, protocolo_id=protocolo.id,
+        tenant_id=current_tenant_id(), protocolo_id=protocolo.id,
         status=protocolo.status, responsavel=current_user.login,
         usuario_id=current_user.id, acao='RECEBIMENTO',
         observacao=f'Recebido pelo setor {movimento.setor_destino.nome}.',
@@ -1137,7 +1240,7 @@ def receber_protocolo(protocolo_id):
 @app.post('/protocolo/<int:protocolo_id>/arquivar')
 @permission_required('archive')
 def arquivar_protocolo(protocolo_id):
-    protocolo = tenant_get_or_404(Protocolo, protocolo_id)
+    protocolo = accessible_protocol_or_404(protocolo_id)
     pendente = tenant_query(Movimentacao).filter_by(protocolo_id=protocolo.id, recebido_em=None).first()
     if pendente:
         flash('Receba ou regularize a tramitação pendente antes de arquivar.', 'warning')
@@ -1148,7 +1251,7 @@ def arquivar_protocolo(protocolo_id):
     protocolo.arquivado_em = datetime.utcnow()
     protocolo.status = 'ARQUIVADO'
     db.session.add(HistoricoProtocolo(
-        tenant_id=current_user.tenant_id, protocolo_id=protocolo.id,
+        tenant_id=current_tenant_id(), protocolo_id=protocolo.id,
         status=protocolo.status, responsavel=current_user.login,
         usuario_id=current_user.id, acao='ARQUIVAMENTO',
         observacao=request.form.get('observacao') or 'Processo arquivado eletronicamente.',
@@ -1163,7 +1266,7 @@ def arquivar_protocolo(protocolo_id):
 @permission_required('reports')
 def backup_excel():
     """Gera um arquivo Excel com todos os protocolos, aplicando os filtros ativos."""
-    query = apply_protocol_filters(tenant_query(Protocolo), request.args)
+    query = apply_protocol_filters(accessible_protocols_query(), request.args)
 
     protocolos = query.order_by(Protocolo.id.asc()).all()
 
@@ -1294,7 +1397,7 @@ def get_ultimo_numero(ano):
 @app.route('/api/protocolo/<int:protocolo_id>')
 @login_required
 def get_protocolo_api(protocolo_id):
-    protocolo = tenant_get_or_404(Protocolo, protocolo_id)
+    protocolo = accessible_protocol_or_404(protocolo_id)
     return jsonify({
         'id': protocolo.id,
         'numero': protocolo.numero,
@@ -1333,14 +1436,14 @@ def dashboard_stats():
         evolucao_agrupamento = request.args.get('evolucaoAgrupamento', 'day')
 
         # --- Base Query Construction ---
-        base_query = tenant_query(Protocolo)
+        base_query = accessible_protocols_query()
         if status:
             base_query = base_query.filter(Protocolo.status == status)
         if tipo:
             base_query = base_query.filter(Protocolo.tipo_requerimento == tipo)
         if lotacao:
             base_query = base_query.join(Lotacao, Protocolo.setor_atual_id == Lotacao.id).filter(
-                Lotacao.tenant_id == current_user.tenant_id, Lotacao.nome == lotacao)
+                Lotacao.tenant_id == current_tenant_id(), Lotacao.nome == lotacao)
 
         # --- Period-Filtered Query ---
         period_query = base_query
@@ -1441,3 +1544,4 @@ if __name__ == '__main__':
     # The port must be available. Railway provides the PORT env var.
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=True)
+
