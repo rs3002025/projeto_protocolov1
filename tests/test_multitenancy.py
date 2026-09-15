@@ -138,6 +138,60 @@ def test_acesso_direto_a_protocolo_de_outro_cliente_retorna_404():
     assert client.get(f'/protocolo/{protocolo_b_id}').status_code == 404
 
 
+def test_todas_as_operacoes_de_protocolo_bloqueiam_id_de_outro_cliente():
+    with app.app_context():
+        protocolo_b_id = Protocolo.query.filter_by(nome='Dado exclusivo B').one().id
+        setor_a_id = Lotacao.query.filter_by(tenant_id=1, nome='Jurídico').one().id
+    client = app.test_client()
+    login(client, 'cliente-a')
+    requisicoes = [
+        ('get', f'/protocolo/{protocolo_b_id}'),
+        ('get', f'/api/protocolo/{protocolo_b_id}'),
+        ('get', f'/protocolo/{protocolo_b_id}/pdf'),
+        ('post', f'/protocolo/{protocolo_b_id}/documento/gerar'),
+        ('post', f'/protocolo/{protocolo_b_id}/editar'),
+        ('post', f'/protocolo/{protocolo_b_id}/deletar'),
+        ('post', f'/protocolo/{protocolo_b_id}/anexo/novo'),
+        ('post', f'/protocolo/{protocolo_b_id}/tramitar'),
+        ('post', f'/protocolo/{protocolo_b_id}/receber'),
+        ('post', f'/protocolo/{protocolo_b_id}/arquivar'),
+    ]
+    for metodo, caminho in requisicoes:
+        dados = {'setor_destino_id': setor_a_id} if caminho.endswith('/tramitar') else {}
+        response = getattr(client, metodo)(caminho, data=dados)
+        assert response.status_code == 404, caminho
+    response = client.post('/protocolos/atualizar', json={
+        'protocoloId': protocolo_b_id, 'novoStatus': 'EM ANÁLISE'
+    })
+    assert response.status_code == 404
+    with app.app_context():
+        protocolo_b = db.session.get(Protocolo, protocolo_b_id)
+        assert protocolo_b.nome == 'Dado exclusivo B'
+        assert protocolo_b.status == 'Aberto'
+        assert protocolo_b.arquivado_em is None
+
+
+def test_apis_de_cadastro_e_bairros_nao_vazam_dados_de_outro_cliente():
+    with app.app_context():
+        protocolo_a = Protocolo.query.filter_by(nome='Dado exclusivo A').one()
+        protocolo_b = Protocolo.query.filter_by(nome='Dado exclusivo B').one()
+        protocolo_a.bairro = 'Bairro exclusivo A'
+        protocolo_b.bairro = 'Bairro secreto B'
+        db.session.add(Servidor(tenant_id=protocolo_b.tenant_id, matricula='SERV-B',
+                                nome='Servidor exclusivo B'))
+        db.session.commit()
+    client = app.test_client()
+    login(client, 'cliente-a')
+    bairros = client.get('/api/bairros').get_json()
+    assert 'Bairro exclusivo A' in bairros
+    assert 'Bairro secreto B' not in bairros
+    assert 'Outro' in bairros
+    assert client.get('/api/servidor/SERV-B').status_code == 404
+    assert client.get('/api/servidores/search?nome=Servidor').get_json() == []
+    usuarios = client.get('/api/usuarios').get_json()
+    assert all(usuario['login'] != 'admin' or usuario['nome'] == 'Ana' for usuario in usuarios)
+
+
 def test_mesmo_login_e_numero_podem_existir_em_clientes_distintos():
     with app.app_context():
         assert Usuario.query.filter_by(login='admin').count() == 2
