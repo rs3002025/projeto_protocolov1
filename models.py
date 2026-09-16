@@ -184,3 +184,35 @@ class EmailSistema(TenantMixin, db.Model):
     nome = db.Column(db.Text, nullable=False)
     email = db.Column(db.Text, nullable=False)
 
+
+class ChamadoSuporte(TenantMixin, db.Model):
+    __tablename__ = 'chamados_suporte'
+    id = db.Column(ID_TYPE, primary_key=True)
+    assunto = db.Column(db.String(180), nullable=False)
+    descricao = db.Column(db.Text, nullable=False)
+    categoria = db.Column(db.String(40), nullable=False, default='OUTRO')
+    prioridade = db.Column(db.String(20), nullable=False, default='NORMAL')
+    status = db.Column(db.String(30), nullable=False, default='ABERTO', index=True)
+    aberto_por_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False, index=True)
+    atribuido_a_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), index=True)
+    criado_em = db.Column(db.TIMESTAMP(timezone=True), server_default=db.func.now(), nullable=False)
+    atualizado_em = db.Column(db.TIMESTAMP(timezone=True), server_default=db.func.now(),
+                              onupdate=db.func.now(), nullable=False)
+    encerrado_em = db.Column(db.TIMESTAMP(timezone=True))
+
+    aberto_por = db.relationship('Usuario', foreign_keys=[aberto_por_id])
+    atribuido_a = db.relationship('Usuario', foreign_keys=[atribuido_a_id])
+    mensagens = db.relationship('MensagemSuporte', backref='chamado', lazy=True,
+                                cascade='all, delete-orphan', order_by='MensagemSuporte.criado_em')
+
+
+class MensagemSuporte(TenantMixin, db.Model):
+    __tablename__ = 'mensagens_suporte'
+    id = db.Column(ID_TYPE, primary_key=True)
+    chamado_id = db.Column(ID_TYPE, db.ForeignKey('chamados_suporte.id'), nullable=False, index=True)
+    autor_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)
+    mensagem = db.Column(db.Text, nullable=False)
+    criado_em = db.Column(db.TIMESTAMP(timezone=True), server_default=db.func.now(), nullable=False)
+
+    autor = db.relationship('Usuario', foreign_keys=[autor_id])
+

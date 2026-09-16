@@ -1,0 +1,85 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h1 class="h3 mb-1">Central de suporte</h1>
+    <p class="text-muted mb-0">Abra chamados e acompanhe as respostas da equipe técnica.</p>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-4">
+    <div class="card h-100">
+      <div class="card-header"><h2 class="h5 mb-0">Novo chamado</h2></div>
+      <div class="card-body">
+        <form method="POST" action="{{ url_for('support_create') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="mb-3">
+            <label class="form-label" for="assunto">Assunto</label>
+            <input class="form-control" id="assunto" name="assunto" minlength="5" maxlength="180" required>
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col-sm-7">
+              <label class="form-label" for="categoria">Categoria</label>
+              <select class="form-select" id="categoria" name="categoria" required>
+                {% for categoria in ['ACESSO', 'PROTOCOLOS', 'DOCUMENTOS', 'RELATÓRIOS', 'CONFIGURAÇÃO', 'OUTRO'] %}
+                <option value="{{ categoria }}">{{ categoria.title() }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-sm-5">
+              <label class="form-label" for="prioridade">Prioridade</label>
+              <select class="form-select" id="prioridade" name="prioridade" required>
+                {% for prioridade in ['BAIXA', 'NORMAL', 'ALTA', 'CRÍTICA'] %}
+                <option value="{{ prioridade }}" {% if prioridade == 'NORMAL' %}selected{% endif %}>{{ prioridade.title() }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="descricao">Descrição</label>
+            <textarea class="form-control" id="descricao" name="descricao" rows="6" minlength="10" maxlength="5000" required></textarea>
+            <div class="form-text">Descreva o que ocorreu, a tela utilizada e o resultado esperado.</div>
+          </div>
+          <button class="btn btn-primary w-100" type="submit">Abrir chamado</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h2 class="h5 mb-0">{% if current_user.is_platform_admin %}Todos os chamados{% else %}Meus chamados{% endif %}</h2>
+        <form method="GET" class="d-flex gap-2">
+          <select class="form-select form-select-sm" name="status" aria-label="Filtrar por status">
+            <option value="">Todos os status</option>
+            {% for item in support_statuses %}<option value="{{ item }}" {% if request.args.get('status', '').upper() == item %}selected{% endif %}>{{ item.title() }}</option>{% endfor %}
+          </select>
+          <button class="btn btn-sm btn-outline-primary" type="submit">Filtrar</button>
+        </form>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead><tr><th>Número</th>{% if current_user.is_platform_admin %}<th>Cliente</th><th>Solicitante</th>{% endif %}<th>Assunto</th><th>Prioridade</th><th>Status</th><th>Atualizado</th><th></th></tr></thead>
+          <tbody>
+          {% for chamado in chamados %}
+            <tr>
+              <td>SUP-{{ '%06d'|format(chamado.id) }}</td>
+              {% if current_user.is_platform_admin %}<td>{{ chamado.aberto_por.organizacao.nome }}</td><td>{{ chamado.aberto_por.nome_completo or chamado.aberto_por.nome }}</td>{% endif %}
+              <td>{{ chamado.assunto }}</td>
+              <td>{{ chamado.prioridade.title() }}</td>
+              <td><span class="badge bg-{% if chamado.status in ['RESOLVIDO', 'FECHADO'] %}success{% elif chamado.status == 'ABERTO' %}warning text-dark{% else %}info text-dark{% endif %}">{{ chamado.status }}</span></td>
+              <td>{{ chamado.atualizado_em.strftime('%d/%m/%Y %H:%M') }}</td>
+              <td><a class="btn btn-sm btn-outline-primary" href="{{ url_for('support_detail', ticket_id=chamado.id) }}">Acompanhar</a></td>
+            </tr>
+          {% else %}
+            <tr><td colspan="{% if current_user.is_platform_admin %}8{% else %}6{% endif %}" class="text-center py-4">Nenhum chamado encontrado.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+

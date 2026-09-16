@@ -55,7 +55,9 @@ from openpyxl import Workbook
 from sqlalchemy import func, cast, Date, text, or_, false, exists
 from datetime import datetime, timedelta
 from forms import LoginForm, RegistrationForm, ProtocoloForm, AnexoForm, AdminUserCreationForm, PlatformAdminCreationForm, AdminListItemForm, ConsultaPublicaForm, BrandingForm
-from models import Organizacao, Usuario, Protocolo, HistoricoProtocolo, Movimentacao, ConsultaPublicaTentativa, LoginTentativa, Anexo, Lotacao, TipoRequerimento, Servidor, db
+from models import (Organizacao, Usuario, Protocolo, HistoricoProtocolo, Movimentacao,
+                    ConsultaPublicaTentativa, LoginTentativa, Anexo, Lotacao,
+                    TipoRequerimento, Servidor, ChamadoSuporte, MensagemSuporte, db)
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
@@ -292,6 +294,19 @@ ROLE_LABELS = {
     'consulta': 'Somente consulta',
 }
 PROTOCOL_STATUSES = ('PROTOCOLO GERADO', 'EM ANÁLISE', 'PENDENTE DE DOCUMENTO', 'FINALIZADO', 'CONCLUÍDO', 'EM TRAMITAÇÃO', 'ARQUIVADO')
+SUPPORT_STATUSES = ('ABERTO', 'EM ATENDIMENTO', 'AGUARDANDO USUÁRIO', 'RESOLVIDO', 'FECHADO')
+SUPPORT_CATEGORIES = ('ACESSO', 'PROTOCOLOS', 'DOCUMENTOS', 'RELATÓRIOS', 'CONFIGURAÇÃO', 'OUTRO')
+SUPPORT_PRIORITIES = ('BAIXA', 'NORMAL', 'ALTA', 'CRÍTICA')
+
+def support_tickets_query():
+    query = ChamadoSuporte.query
+    if current_user.is_platform_admin:
+        return query
+    return query.filter(ChamadoSuporte.tenant_id == current_user.tenant_id,
+                        ChamadoSuporte.aberto_por_id == current_user.id)
+
+def accessible_support_ticket_or_404(ticket_id):
+    return support_tickets_query().filter(ChamadoSuporte.id == ticket_id).first_or_404()
 
 @app.context_processor
 def permission_context():
@@ -303,6 +318,10 @@ def permission_context():
     pendencias_recebimento = 0
     if current_user.is_authenticated:
         pendencias_recebimento = pendencias_recebimento_query().count()
+    chamados_pendentes = 0
+    if current_user.is_authenticated:
+        chamados_pendentes = support_tickets_query().filter(
+            ~ChamadoSuporte.status.in_(['RESOLVIDO', 'FECHADO'])).count()
     return {
         'can': lambda permission: current_user.is_authenticated and permission in ROLE_PERMISSIONS.get(current_user.tipo, set()),
         'protocol_location': protocol_location,
@@ -310,6 +329,7 @@ def permission_context():
         'active_organization': organization,
         'branding_logo_url': logo_url,
         'pendencias_recebimento': pendencias_recebimento,
+        'chamados_pendentes': chamados_pendentes,
     }
 
 def permission_required(permission):
@@ -457,6 +477,115 @@ def home():
     # and the data will be fetched client-side.
     return render_template('home.html', title="Dashboard")
 
+
+@app.get('/suporte')
+@login_required
+def support_list():
+    status = (request.args.get('status') or '').strip().upper()
+    query = support_tickets_query()
+    if status:
+        if status not in SUPPORT_STATUSES:
+            abort(400, description='Status de chamado inválido.')
+        query = query.filter(ChamadoSuporte.status == status)
+    chamados = query.order_by(ChamadoSuporte.atualizado_em.desc(),
+                              ChamadoSuporte.id.desc()).all()
+    return render_template('suporte.html', title='Suporte', chamados=chamados,
+                           support_statuses=SUPPORT_STATUSES)
+
+
+@app.post('/suporte/novo')
+@login_required
+def support_create():
+    assunto = (request.form.get('assunto') or '').strip()
+    descricao = (request.form.get('descricao') or '').strip()
+    categoria = (request.form.get('categoria') or '').strip().upper()
+    prioridade = (request.form.get('prioridade') or '').strip().upper()
+    if not 5 <= len(assunto) <= 180 or not 10 <= len(descricao) <= 5000:
+        flash('Informe um assunto e uma descrição suficientemente detalhada.', 'danger')
+        return redirect(url_for('support_list'))
+    if categoria not in SUPPORT_CATEGORIES or prioridade not in SUPPORT_PRIORITIES:
+        abort(400, description='Classificação de chamado inválida.')
+    # O administrador geral também possui uma organização de origem. Chamados
+    # abertos por ele permanecem vinculados a essa organização, ainda que esteja
+    # administrando outro cliente no momento.
+    tenant_id = current_user.tenant_id if current_user.is_platform_admin else current_tenant_id()
+    chamado = ChamadoSuporte(
+        tenant_id=tenant_id, assunto=assunto, descricao=descricao,
+        categoria=categoria, prioridade=prioridade, status='ABERTO',
+        aberto_por_id=current_user.id)
+    db.session.add(chamado)
+    db.session.commit()
+    flash(f'Chamado SUP-{chamado.id:06d} aberto com sucesso.', 'success')
+    return redirect(url_for('support_detail', ticket_id=chamado.id))
+
+
+@app.get('/suporte/<int:ticket_id>')
+@login_required
+def support_detail(ticket_id):
+    chamado = accessible_support_ticket_or_404(ticket_id)
+    organizacao_chamado = db.session.get(Organizacao, chamado.tenant_id)
+    return render_template('suporte_detalhe.html', title=f'Chamado SUP-{chamado.id:06d}',
+                           chamado=chamado, organizacao_chamado=organizacao_chamado,
+                           support_statuses=SUPPORT_STATUSES)
+
+
+@app.post('/suporte/<int:ticket_id>/mensagem')
+@login_required
+def support_reply(ticket_id):
+    chamado = accessible_support_ticket_or_404(ticket_id)
+    if chamado.status == 'FECHADO':
+        flash('Chamados fechados não aceitam novas mensagens.', 'warning')
+        return redirect(url_for('support_detail', ticket_id=chamado.id))
+    mensagem = (request.form.get('mensagem') or '').strip()
+    if not 2 <= len(mensagem) <= 5000:
+        flash('A mensagem deve conter entre 2 e 5.000 caracteres.', 'danger')
+        return redirect(url_for('support_detail', ticket_id=chamado.id))
+    db.session.add(MensagemSuporte(
+        tenant_id=chamado.tenant_id, chamado_id=chamado.id,
+        autor_id=current_user.id, mensagem=mensagem))
+    chamado.atualizado_em = datetime.utcnow()
+    if not current_user.is_platform_admin and chamado.status == 'AGUARDANDO USUÁRIO':
+        chamado.status = 'EM ATENDIMENTO'
+    db.session.commit()
+    flash('Mensagem adicionada ao chamado.', 'success')
+    return redirect(url_for('support_detail', ticket_id=chamado.id))
+
+
+@app.post('/suporte/<int:ticket_id>/assumir')
+@login_required
+def support_assign(ticket_id):
+    if not current_user.is_platform_admin:
+        abort(403)
+    chamado = ChamadoSuporte.query.filter_by(id=ticket_id).first_or_404()
+    if chamado.status in ('RESOLVIDO', 'FECHADO'):
+        flash('O chamado já está encerrado.', 'warning')
+        return redirect(url_for('support_detail', ticket_id=chamado.id))
+    chamado.atribuido_a_id = current_user.id
+    chamado.status = 'EM ATENDIMENTO'
+    chamado.atualizado_em = datetime.utcnow()
+    db.session.commit()
+    flash(f'Chamado SUP-{chamado.id:06d} atribuído a você.', 'success')
+    return redirect(url_for('support_detail', ticket_id=chamado.id))
+
+
+@app.post('/suporte/<int:ticket_id>/status')
+@login_required
+def support_update_status(ticket_id):
+    if not current_user.is_platform_admin:
+        abort(403)
+    chamado = ChamadoSuporte.query.filter_by(id=ticket_id).first_or_404()
+    novo_status = (request.form.get('status') or '').strip().upper()
+    if novo_status not in SUPPORT_STATUSES:
+        abort(400, description='Status de chamado inválido.')
+    if not chamado.atribuido_a_id:
+        chamado.atribuido_a_id = current_user.id
+    chamado.status = novo_status
+    chamado.atualizado_em = datetime.utcnow()
+    chamado.encerrado_em = datetime.utcnow() if novo_status in ('RESOLVIDO', 'FECHADO') else None
+    db.session.commit()
+    flash('Status do chamado atualizado.', 'success')
+    return redirect(url_for('support_detail', ticket_id=chamado.id))
+
 @app.get('/pendencias-recebimento')
 @permission_required('route')
 def pendencias_recebimento():
@@ -556,6 +685,8 @@ def require_platform_tenant_selection():
     if not current_user.is_authenticated or not current_user.is_platform_admin:
         return None
     allowed = {'platform_organizations', 'platform_select_organization', 'platform_create_admin', 'logout',
+               'support_list', 'support_create', 'support_detail', 'support_reply',
+               'support_assign', 'support_update_status',
                'health', 'static', 'organization_logo'}
     if request.endpoint in allowed:
         return None

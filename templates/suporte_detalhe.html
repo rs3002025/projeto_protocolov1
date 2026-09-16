@@ -1,0 +1,76 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-4">
+  <div>
+    <a href="{{ url_for('support_list') }}" class="text-decoration-none">← Voltar para o suporte</a>
+    <h1 class="h3 mt-2 mb-1">SUP-{{ '%06d'|format(chamado.id) }} {{ chamado.assunto }}</h1>
+    <p class="text-muted mb-0">Aberto em {{ chamado.criado_em.strftime('%d/%m/%Y %H:%M') }} por {{ chamado.aberto_por.nome_completo or chamado.aberto_por.nome }}{% if current_user.is_platform_admin %} · {{ organizacao_chamado.nome }}{% endif %}</p>
+  </div>
+  <span class="badge fs-6 bg-{% if chamado.status in ['RESOLVIDO', 'FECHADO'] %}success{% elif chamado.status == 'ABERTO' %}warning text-dark{% else %}info text-dark{% endif %}">{{ chamado.status }}</span>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-8">
+    <div class="card mb-4">
+      <div class="card-header"><h2 class="h5 mb-0">Descrição</h2></div>
+      <div class="card-body"><p class="mb-0" style="white-space: pre-wrap">{{ chamado.descricao }}</p></div>
+    </div>
+    <div class="card mb-4">
+      <div class="card-header"><h2 class="h5 mb-0">Acompanhamento</h2></div>
+      <div class="card-body">
+        {% for item in chamado.mensagens %}
+          <article class="border-bottom pb-3 mb-3">
+            <div class="d-flex justify-content-between gap-3 mb-2">
+              <strong>{{ item.autor.nome_completo or item.autor.nome }}{% if item.autor.is_platform_admin %} · Suporte técnico{% endif %}</strong>
+              <small class="text-muted">{{ item.criado_em.strftime('%d/%m/%Y %H:%M') }}</small>
+            </div>
+            <p class="mb-0" style="white-space: pre-wrap">{{ item.mensagem }}</p>
+          </article>
+        {% else %}<p class="text-muted">Ainda não há mensagens neste chamado.</p>{% endfor %}
+      </div>
+    </div>
+    {% if chamado.status != 'FECHADO' %}
+    <div class="card">
+      <div class="card-header"><h2 class="h5 mb-0">Adicionar mensagem</h2></div>
+      <div class="card-body">
+        <form method="POST" action="{{ url_for('support_reply', ticket_id=chamado.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <textarea class="form-control mb-3" name="mensagem" rows="5" minlength="2" maxlength="5000" required></textarea>
+          <button class="btn btn-primary" type="submit">Enviar mensagem</button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  <div class="col-lg-4">
+    <div class="card">
+      <div class="card-header"><h2 class="h5 mb-0">Dados do chamado</h2></div>
+      <div class="card-body">
+        <dl class="row mb-0">
+          <dt class="col-5">Categoria</dt><dd class="col-7">{{ chamado.categoria.title() }}</dd>
+          <dt class="col-5">Prioridade</dt><dd class="col-7">{{ chamado.prioridade.title() }}</dd>
+          <dt class="col-5">Responsável</dt><dd class="col-7">{{ chamado.atribuido_a.nome_completo if chamado.atribuido_a else 'Aguardando atribuição' }}</dd>
+        </dl>
+        {% if current_user.is_platform_admin %}
+          <hr>
+          {% if not chamado.atribuido_a_id and chamado.status not in ['RESOLVIDO', 'FECHADO'] %}
+          <form method="POST" action="{{ url_for('support_assign', ticket_id=chamado.id) }}" class="mb-3">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-success w-100" type="submit">Assumir chamado</button>
+          </form>
+          {% endif %}
+          <form method="POST" action="{{ url_for('support_update_status', ticket_id=chamado.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <label class="form-label" for="status">Alterar status</label>
+            <select class="form-select mb-2" id="status" name="status">
+              {% for item in support_statuses %}<option value="{{ item }}" {% if chamado.status == item %}selected{% endif %}>{{ item.title() }}</option>{% endfor %}
+            </select>
+            <button class="btn btn-outline-primary w-100" type="submit">Atualizar status</button>
+          </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+

@@ -16,7 +16,9 @@ os.environ['SECRET_KEY'] = 'test-secret-key'
 os.environ['DATABASE_URL'] = 'sqlite:///' + str(Path(_test_directory.name) / 'tests.sqlite3')
 
 from app import app, bcrypt, db
-from models import Lotacao, Movimentacao, Organizacao, Protocolo, Usuario, ConsultaPublicaTentativa, LoginTentativa, Anexo, HistoricoProtocolo, Servidor
+from models import (Lotacao, Movimentacao, Organizacao, Protocolo, Usuario,
+                    ConsultaPublicaTentativa, LoginTentativa, Anexo,
+                    HistoricoProtocolo, Servidor, ChamadoSuporte, MensagemSuporte)
 
 
 def teardown_module():
@@ -1053,4 +1055,63 @@ def test_tramitador_mantem_consulta_mas_nao_altera_processo_que_saiu_do_setor():
         'protocoloId': protocolo_id, 'novoStatus': 'FINALIZADO'}).status_code == 403
     assert client.post(f'/protocolo/{protocolo_id}/tramitar', data={
         'setor_destino_id': destino_id}).status_code == 403
+
+
+def test_usuario_abre_e_acompanha_apenas_os_proprios_chamados():
+    consulta = app.test_client()
+    consulta.post('/login', data={
+        'organizacao': 'cliente-a', 'login': 'consulta', 'senha': 'senha-segura'})
+    response = consulta.post('/suporte/novo', data={
+        'assunto': 'Erro ao consultar processo',
+        'descricao': 'A tela informa que o processo não foi localizado.',
+        'categoria': 'PROTOCOLOS', 'prioridade': 'NORMAL'}, follow_redirects=True)
+    assert response.status_code == 200
+    assert 'Chamado SUP-' in response.get_data(as_text=True)
+    with app.app_context():
+        chamado = ChamadoSuporte.query.filter_by(assunto='Erro ao consultar processo').one()
+        chamado_id = chamado.id
+        assert chamado.tenant_id == 1 and chamado.aberto_por.login == 'consulta'
+
+    outro_cliente = app.test_client()
+    login(outro_cliente, 'cliente-b')
+    assert outro_cliente.get('/suporte').status_code == 200
+    assert 'Erro ao consultar processo' not in outro_cliente.get('/suporte').get_data(as_text=True)
+    assert outro_cliente.get(f'/suporte/{chamado_id}').status_code == 404
+
+    resposta = consulta.post(f'/suporte/{chamado_id}/mensagem',
+                             data={'mensagem': 'O problema continua ocorrendo.'},
+                             follow_redirects=True)
+    assert 'O problema continua ocorrendo.' in resposta.get_data(as_text=True)
+    assert consulta.post(f'/suporte/{chamado_id}/assumir').status_code == 403
+    assert consulta.post(f'/suporte/{chamado_id}/status', data={'status': 'FECHADO'}).status_code == 403
+
+
+def test_administrador_geral_visualiza_assume_e_responde_chamados_de_todos_clientes():
+    with app.app_context():
+        admin = Usuario.query.filter_by(tenant_id=1, login='admin').one()
+        admin.is_platform_admin = True
+        chamado = ChamadoSuporte.query.filter_by(assunto='Erro ao consultar processo').one()
+        chamado_id = chamado.id
+        db.session.commit()
+
+    global_client = app.test_client()
+    global_client.post('/login', data={
+        'organizacao': 'cliente-a', 'login': 'admin', 'senha': 'senha-segura'})
+    painel = global_client.get('/suporte').get_data(as_text=True)
+    assert 'Todos os chamados' in painel
+    assert 'Erro ao consultar processo' in painel
+    assert global_client.post(f'/suporte/{chamado_id}/assumir').status_code == 302
+    assert global_client.post(f'/suporte/{chamado_id}/mensagem', data={
+        'mensagem': 'A equipe técnica iniciou a análise.'}).status_code == 302
+    assert global_client.post(f'/suporte/{chamado_id}/status', data={
+        'status': 'AGUARDANDO USUÁRIO'}).status_code == 302
+
+    with app.app_context():
+        chamado = db.session.get(ChamadoSuporte, chamado_id)
+        assert chamado.atribuido_a.login == 'admin'
+        assert chamado.status == 'AGUARDANDO USUÁRIO'
+        assert MensagemSuporte.query.filter_by(chamado_id=chamado_id).count() == 2
+        Usuario.query.filter_by(tenant_id=1, login='admin').one().is_platform_admin = False
+        db.session.delete(chamado)
+        db.session.commit()
 

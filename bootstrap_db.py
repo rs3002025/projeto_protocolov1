@@ -15,6 +15,7 @@ from models import Organizacao, Protocolo
 TENANT_TABLES = (
     'usuarios', 'protocolos', 'anexos', 'historico_protocolos', 'lotacoes',
     'servidores', 'tipos_requerimento', 'emails_sistema', 'movimentacoes',
+    'chamados_suporte', 'mensagens_suporte',
 )
 
 SCHEMA_COLUMNS = {
