@@ -38,6 +38,7 @@ csrf = CSRFProtect(app)
 login_manager.login_view = 'login'
 # 'info' is a bootstrap class for message flashing
 login_manager.login_message_category = 'info'
+login_manager.login_message = 'Faça login para acessar esta página.'
 
 # --- Imports for Routes and Models ---
 from flask import render_template, url_for, flash, redirect, request, abort, session
