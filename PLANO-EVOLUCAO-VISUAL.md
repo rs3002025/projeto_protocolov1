@@ -10,6 +10,8 @@ Este documento é a referência permanente para a modernização visual e a melh
 - **Desenvolvimento principal:** permanece disponível para correções funcionais e não receberá os experimentos visuais.
 - **Branch visual:** `codex/visual-development`.
 - **Ambiente Railway:** `visual-development`, ligado exclusivamente à branch visual.
+- **Identificador do ambiente Railway:** `10a1c7a3-ca28-4612-bbb1-7f9bd36afe53`.
+- **Endereço de homologação visual:** `https://projetoprotocolov1-visual-development.up.railway.app`.
 - Alterações visuais somente serão promovidas para os demais ambientes depois de revisão, testes e autorização.
 
 ## 3. Diagnóstico atual
@@ -244,6 +246,20 @@ Cada etapa deverá ser registrada abaixo com data, decisão, telas afetadas, tes
 - Revisadas as telas de login, dashboard, novo protocolo, listagem, detalhes, suporte, relatórios e configurações.
 - Confirmados problemas de consistência, densidade, hierarquia e responsividade.
 - Definida a estratégia de trabalho em ambiente visual isolado.
+- Criada a branch `codex/visual-development` no repositório local e no GitHub.
+- Criado no Railway o ambiente `visual-development`, derivado de `development`, com aplicação, PostgreSQL, volume e bucket próprios.
+- Vinculado o serviço da aplicação exclusivamente à branch `codex/visual-development`, mantendo `development` e produção sem alterações.
+
+### 18/09/2026 — primeira aplicação visual
+
+- Implantado novo sistema visual com paleta, tipografia, espaçamentos, sombras, bordas, botões, campos, cartões, tabelas, alertas e estados de foco unificados.
+- Cabeçalho reduzido e reorganizado, com identidade do cliente, identificação do usuário, indicação da página ativa e menu móvel recolhível.
+- Dashboard reorganizado com hierarquia mais clara, filtros rotulados e ações de impressão secundárias.
+- Formulário de protocolo dividido visualmente em identificação, endereço, dados funcionais e requerimento, com ações fixas durante a rolagem.
+- Listagem de protocolos recebeu filtros com rótulos permanentes, ações coerentes com permissões e adaptação das tabelas para cartões em celulares.
+- Incluídos atalho para conteúdo, foco visível, respeito à preferência por movimento reduzido e prevenção de envio duplicado de formulários.
+- Validação automatizada concluída com 53 testes aprovados.
+- Validação responsiva da tela de login concluída em 375 px, sem rolagem horizontal nem erros de console.
 
 ## 9. Regra de promoção
 
