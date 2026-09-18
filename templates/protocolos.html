@@ -1,10 +1,10 @@
 {% extends "layout.html" %}
 {% block content %}
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1>Todos os Protocolos</h1>
+        <div><h1 class="mb-1">Protocolos</h1><p class="text-muted mb-0">Pesquise, acompanhe e execute ações nos processos cadastrados.</p></div>
         <div>
             {% if can('reports') %}<a href="{{ url_for('backup_excel', **pagination_args) }}" class="btn btn-info">Exportar para Excel</a>{% endif %}
-            <a href="{{ url_for('criar_protocolo') }}" class="btn btn-success">Novo Protocolo</a>
+            {% if can('create') %}<a href="{{ url_for('criar_protocolo') }}" class="btn btn-primary">Novo protocolo</a>{% endif %}
         </div>
     </div>
 
@@ -14,13 +14,15 @@
             <form method="GET" action="{{ url_for('listar_protocolos') }}">
                 <div class="row g-3">
                     <div class="col-md-4">
-                        <input type="text" name="numero" class="form-control" placeholder="Número do Protocolo" value="{{ request.args.get('numero', '') }}">
+                        <label class="form-label" for="filtro-numero">Número</label>
+                        <input id="filtro-numero" type="text" name="numero" class="form-control" placeholder="Ex.: 0123/2026" value="{{ request.args.get('numero', '') }}">
                     </div>
                     <div class="col-md-4">
-                        <input type="text" name="nome" class="form-control" placeholder="Nome do Requerente" value="{{ request.args.get('nome', '') }}">
+                        <label class="form-label" for="filtro-nome">Requerente</label>
+                        <input id="filtro-nome" type="text" name="nome" class="form-control" placeholder="Nome do requerente" value="{{ request.args.get('nome', '') }}">
                     </div>
                     <div class="col-md-4">
-                         <select name="status" class="form-select">
+                         <label class="form-label" for="filtro-status">Status</label><select id="filtro-status" name="status" class="form-select">
                             <option value="">Todos os Status</option>
                              {% set statuses = ["PROTOCOLO GERADO", "EM ANÁLISE", "PENDENTE DE DOCUMENTO", "FINALIZADO", "CONCLUÍDO", "EM TRAMITAÇÃO", "ARQUIVADO"] %}
                              {% for status in statuses %}
@@ -29,16 +31,16 @@
                         </select>
                     </div>
                     <div class="col-md-2">
-                        <input type="date" name="data_inicio" class="form-control" title="Data de Início" value="{{ request.args.get('data_inicio', '') }}">
+                        <label class="form-label" for="filtro-inicio">Data inicial</label><input id="filtro-inicio" type="date" name="data_inicio" class="form-control" value="{{ request.args.get('data_inicio', '') }}">
                     </div>
                     <div class="col-md-2">
-                        <input type="date" name="data_fim" class="form-control" title="Data Final" value="{{ request.args.get('data_fim', '') }}">
+                        <label class="form-label" for="filtro-fim">Data final</label><input id="filtro-fim" type="date" name="data_fim" class="form-control" value="{{ request.args.get('data_fim', '') }}">
                     </div>
                     <div class="col-md-4">
-                         <input type="text" name="tipo" class="form-control" placeholder="Tipo de Requerimento" value="{{ request.args.get('tipo', '') }}">
+                         <label class="form-label" for="filtro-tipo">Tipo</label><input id="filtro-tipo" type="text" name="tipo" class="form-control" placeholder="Tipo de requerimento" value="{{ request.args.get('tipo', '') }}">
                     </div>
                     <div class="col-md-4">
-                        <select name="prazo" class="form-select" aria-label="Situação do prazo">
+                        <label class="form-label" for="filtro-prazo">Situação do prazo</label><select id="filtro-prazo" name="prazo" class="form-select">
                             <option value="">Todos os prazos</option>
                             <option value="vencido" {% if request.args.get('prazo') == 'vencido' %}selected{% endif %}>Prazo vencido</option>
                             <option value="hoje" {% if request.args.get('prazo') == 'hoje' %}selected{% endif %}>Vence hoje</option>
@@ -46,10 +48,10 @@
                             <option value="sem_prazo" {% if request.args.get('prazo') == 'sem_prazo' %}selected{% endif %}>Sem prazo definido</option>
                         </select>
                     </div>
-                    <div class="col-md-2">
+                    <div class="col-md-2 align-self-end">
                         <button type="submit" class="btn btn-primary w-100">Pesquisar</button>
                     </div>
-                     <div class="col-md-2">
+                     <div class="col-md-2 align-self-end">
                         <a href="{{ url_for('listar_protocolos') }}" class="btn btn-secondary w-100">Limpar</a>
                     </div>
                 </div>
@@ -128,4 +130,3 @@
         </ul>
     </nav>
 {% endblock content %}
-

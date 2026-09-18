@@ -16,22 +16,26 @@
     <script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs/qrcode.min.js"></script>
 </head>
 <body class="{% if request.endpoint == 'login' %}login-page-bg{% endif %}" data-branding-logo-url="{{ branding_logo_url }}" data-organization-name="{{ active_organization.nome if active_organization else '' }}" data-organization-office="{{ active_organization.orgao if active_organization and active_organization.orgao else '' }}" data-organization-city="{{ active_organization.municipio if active_organization and active_organization.municipio else '' }}">
-    
+    <a class="skip-link" href="#conteudo-principal">Ir para o conteúdo principal</a>
 
     {% if current_user.is_authenticated %}
     <header class="main-header">
         <div class="header-container">
             <div class="header-top-row">
                 <div class="header-logo-wrapper">
-                    <a href="{{ url_for('home') }}" class="header-logo">
+                    <a href="{{ url_for('home') }}" class="header-logo" aria-label="Ir para o painel">
                         <img src="{{ branding_logo_url }}" alt="Logo da organização">
-                        <span>Sistema de Protocolo</span>
+                        <span class="brand-copy"><strong>Sysprot+</strong><small>{{ active_organization.nome if active_organization else 'Sistema de Protocolo' }}</small></span>
                     </a>
                 </div>
+                <button class="mobile-nav-toggle" type="button" aria-controls="mainNavigation" aria-expanded="false">
+                    <span class="mobile-nav-icon" aria-hidden="true"></span><span class="visually-hidden">Abrir menu</span>
+                </button>
                 <div class="header-user-menu">
                      <div class="dropdown">
-                        <button class="btn btn-secondary dropdown-toggle user-dropdown-btn" type="button" id="userMenuButton" data-bs-toggle="dropdown" aria-expanded="false" title="{{ current_user.nome }}">
-                            👤
+                        <button class="dropdown-toggle user-dropdown-btn" type="button" id="userMenuButton" data-bs-toggle="dropdown" aria-expanded="false" title="Abrir menu do usuário">
+                            <span class="user-avatar" aria-hidden="true">{{ (current_user.nome or current_user.login or 'U')[0]|upper }}</span>
+                            <span class="user-copy"><strong>{{ current_user.nome or current_user.login }}</strong><small>{{ current_user.tipo|replace('_', ' ')|title }}</small></span>
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userMenuButton">
                             {% if can('manage') %}<li><a class="dropdown-item" href="{{ url_for('configuracoes') }}">Configurações</a></li>
@@ -46,26 +50,26 @@
                     </div>
                 </div>
             </div>
-            <div class="header-bottom-row">
-                <nav class="main-nav">
-                    {% if current_user.is_platform_admin %}<a href="{{ url_for('platform_organizations') }}" class="nav-link">Clientes</a>{% endif %}
-                    <a href="{{ url_for('home') }}" class="nav-link">Dashboard</a>
-                    {% if can('create') %}<a href="{{ url_for('criar_protocolo') }}" class="nav-link">Novo Protocolo</a>{% endif %}
-                    <a href="{{ url_for('listar_protocolos') }}" class="nav-link">Protocolos</a>
-                    <a href="{{ url_for('meus_protocolos') }}" class="nav-link">Meus Protocolos</a>
-                    {% if can('route') %}<a href="{{ url_for('pendencias_recebimento') }}" class="nav-link">Recebimentos{% if pendencias_recebimento %} <span class="badge bg-danger">{{ pendencias_recebimento }}</span>{% endif %}</a>{% endif %}
-                    {% if can('reports') %}<a href="{{ url_for('relatorios') }}" class="nav-link">Relatórios</a>{% endif %}
-                    <a href="{{ url_for('support_list') }}" class="nav-link">Suporte{% if chamados_pendentes %} <span class="badge bg-danger">{{ chamados_pendentes }}</span>{% endif %}</a>
+            <div class="header-bottom-row" id="mainNavigation">
+                <nav class="main-nav" aria-label="Navegação principal">
+                    {% if current_user.is_platform_admin %}<a href="{{ url_for('platform_organizations') }}" class="nav-link {{ 'active' if request.endpoint == 'platform_organizations' else '' }}">Clientes</a>{% endif %}
+                    <a href="{{ url_for('home') }}" class="nav-link {{ 'active' if request.endpoint == 'home' else '' }}">Visão geral</a>
+                    {% if can('create') %}<a href="{{ url_for('criar_protocolo') }}" class="nav-link {{ 'active' if request.endpoint in ['criar_protocolo', 'editar_protocolo'] else '' }}">Novo protocolo</a>{% endif %}
+                    <a href="{{ url_for('listar_protocolos') }}" class="nav-link {{ 'active' if request.endpoint in ['listar_protocolos', 'detalhe_protocolo'] else '' }}">Protocolos</a>
+                    <a href="{{ url_for('meus_protocolos') }}" class="nav-link {{ 'active' if request.endpoint == 'meus_protocolos' else '' }}">Meus protocolos</a>
+                    {% if can('route') %}<a href="{{ url_for('pendencias_recebimento') }}" class="nav-link {{ 'active' if request.endpoint == 'pendencias_recebimento' else '' }}">Recebimentos{% if pendencias_recebimento %} <span class="nav-count">{{ pendencias_recebimento }}</span>{% endif %}</a>{% endif %}
+                    {% if can('reports') %}<a href="{{ url_for('relatorios') }}" class="nav-link {{ 'active' if request.endpoint == 'relatorios' else '' }}">Relatórios</a>{% endif %}
+                    <a href="{{ url_for('support_list') }}" class="nav-link {{ 'active' if request.endpoint in ['support_list', 'support_detail'] else '' }}">Suporte{% if chamados_pendentes %} <span class="nav-count">{{ chamados_pendentes }}</span>{% endif %}</a>
                 </nav>
             </div>
         </div>
     </header>
     {% endif %}
 
-    <main class="main-content">
+    <main class="main-content" id="conteudo-principal" tabindex="-1">
         {# On the login page, the content block is not wrapped in a container #}
         {# On other pages, it is. This structure avoids defining the block twice. #}
-        <div class="{% if request.endpoint != 'login' %}container-fluid mt-4{% endif %}">
+        <div class="{% if request.endpoint != 'login' %}app-container{% endif %}">
             {% if request.endpoint != 'login' %}
                 {% with messages = get_flashed_messages(with_categories=true) %}
                     {% if messages %}
@@ -285,4 +289,3 @@
     {% block scripts %}{% endblock %}
 </body>
 </html>
-
