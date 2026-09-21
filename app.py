@@ -658,11 +658,18 @@ def logout():
 @login_required
 def meus_protocolos():
     page = request.args.get('page', 1, type=int)
-    protocolos = accessible_protocols_query().filter_by(responsavel=current_user.login)\
+    query = apply_protocol_filters(
+        accessible_protocols_query().filter_by(responsavel=current_user.login),
+        request.args,
+    )
+    protocolos = query\
         .order_by(Protocolo.id.desc())\
         .paginate(page=page, per_page=10)
-    
-    return render_template('protocolos.html', protocolos=protocolos, title="Meus Protocolos", pagination_args={})
+    return render_template(
+        'protocolos.html', protocolos=protocolos, title="Meus Protocolos",
+        list_endpoint='meus_protocolos',
+        pagination_args=pagination_filter_args(request.args),
+    )
 
 def admin_required(f):
     @wraps(f)
@@ -1729,4 +1736,3 @@ if __name__ == '__main__':
     # The port must be available. Railway provides the PORT env var.
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=True)
-
