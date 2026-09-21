@@ -177,6 +177,23 @@ def test_todas_as_operacoes_de_protocolo_bloqueiam_id_de_outro_cliente():
         assert protocolo_b.arquivado_em is None
 
 
+def test_protocolo_legado_sem_data_continua_consultavel():
+    client = app.test_client()
+    login(client, 'cliente-a')
+    with app.app_context():
+        organizacao = Organizacao.query.filter_by(slug='cliente-a').one()
+        legado = Protocolo(
+            tenant_id=organizacao.id, numero='0999/2024', nome='Registro legado sem data',
+            matricula='LEGADO-SEM-DATA', data_solicitacao=None,
+        )
+        db.session.add(legado)
+        db.session.commit()
+        protocolo_id = legado.id
+    for rota in (f'/protocolo/{protocolo_id}', '/protocolos', '/relatorios'):
+        response = client.get(rota)
+        assert response.status_code == 200
+        assert 'Não informada' in response.get_data(as_text=True)
+
 def test_apis_de_cadastro_e_bairros_nao_vazam_dados_de_outro_cliente():
     with app.app_context():
         protocolo_a = Protocolo.query.filter_by(nome='Dado exclusivo A').one()
@@ -1114,4 +1131,3 @@ def test_administrador_geral_visualiza_assume_e_responde_chamados_de_todos_clien
         Usuario.query.filter_by(tenant_id=1, login='admin').one().is_platform_admin = False
         db.session.delete(chamado)
         db.session.commit()
-
