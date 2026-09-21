@@ -261,6 +261,25 @@ Cada etapa deverá ser registrada abaixo com data, decisão, telas afetadas, tes
 - Validação automatizada concluída com 53 testes aprovados.
 - Validação responsiva da tela de login concluída em 375 px, sem rolagem horizontal nem erros de console.
 
+### 21/09/2026 — homologação funcional e acessibilidade
+
+- Corrigida a rota “Meus Protocolos”, incluindo filtros, título, limpeza e paginação sem retorno indevido à listagem geral.
+- Percorridas no Railway as telas de painel, novo protocolo, listagens, recebimentos, relatórios, suporte, configurações e detalhe; nenhuma apresentou erro HTTP 500 ou erro de console.
+- Executada a suíte completa no ambiente virtual do projeto: 53 testes aprovados.
+- Corrigida a grade do painel para não criar uma segunda coluna implícita em telas pequenas; cabeçalhos e filtros dos gráficos passam a se reorganizar no celular.
+- Adicionado versionamento às URLs de CSS e JavaScript para evitar que o navegador mantenha recursos visuais antigos após um deploy.
+- Adicionados rótulos acessíveis aos filtros dos gráficos, relatório, tramitação e anexos.
+- “Pendências de recebimento” e “Detalhes do Protocolo” agora possuem título principal semântico.
+- Eliminados IDs duplicados e controles sem identificação acessível na tela de Configurações.
+- Deploy dos ajustes confirmado como bem-sucedido no ambiente `visual-development` e auditoria repetida no navegador.
+
+#### Pendências desta homologação
+
+- Repetir a inspeção visual responsiva em larguras de 375 px, tablet e 1366 px após a estabilização do controle de viewport do navegador.
+- Executar fluxos destrutivos ou que alteram dados com contas de cada perfil em uma massa de testes dedicada.
+- Homologar visualmente PDFs e downloads gerados no contêiner Linux.
+- Substituir gradualmente usos de `datetime.utcnow()` por datas UTC com fuso explícito; atualmente geram avisos, sem falha funcional.
+
 ## 9. Regra de promoção
 
 Nenhuma alteração desta iniciativa será enviada automaticamente para `development` ou `main`. A promoção dependerá de:
