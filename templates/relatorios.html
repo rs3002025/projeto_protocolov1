@@ -84,7 +84,7 @@
                         <td>{{ protocolo.prazo_em.strftime('%d/%m/%Y') if protocolo.prazo_em else 'Não definido' }}</td>
                         <td><span class="badge bg-info">{{ protocolo.status }}</span></td>
                         <td>{{ protocol_location(protocolo) }}</td>
-                        <td>{{ protocolo.responsavel }}</td>
+                        <td>{{ protocolo.responsavel or 'Não definido' }}</td>
                         <td>
                              <a href="{{ url_for('detalhe_protocolo', protocolo_id=protocolo.id) }}" class="btn btn-sm btn-outline-primary">Detalhes</a>
                         </td>

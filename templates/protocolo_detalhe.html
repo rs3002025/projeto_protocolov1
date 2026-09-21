@@ -21,7 +21,7 @@
             </div>
             <div class="col-md-6">
                 <p><strong>Status:</strong> <span class="badge bg-primary">{{ protocolo.status }}</span></p>
-                <p><strong>Responsável Atual:</strong> {{ protocolo.responsavel }}</p>
+                <p><strong>Responsável Atual:</strong> {{ protocolo.responsavel or 'Não definido' }}</p>
                 <p><strong>Localização atual:</strong> {{ protocol_location(protocolo) }}</p>
                 <p><strong>Prazo:</strong> {{ protocolo.prazo_em.strftime('%d/%m/%Y') if protocolo.prazo_em else 'Não definido' }}</p>
                 <p><strong>Telefone:</strong> {{ protocolo.telefone or 'Não informado' }}</p>
