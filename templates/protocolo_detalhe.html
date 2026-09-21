@@ -14,7 +14,7 @@
         <hr>
         <div class="row">
             <div class="col-md-6">
-                <p><strong>Data da Solicitação:</strong> {{ protocolo.data_solicitacao.strftime('%d/%m/%Y') }}</p>
+                <p><strong>Data da Solicitação:</strong> {{ protocolo.data_solicitacao.strftime('%d/%m/%Y') if protocolo.data_solicitacao else 'Não informada' }}</p>
                 <p><strong>Tipo de Requerimento:</strong> {{ protocolo.tipo_requerimento }}</p>
                 <p><strong>CPF:</strong> {{ protocolo.cpf or 'Não informado' }}</p>
                 <p><strong>RG:</strong> {{ protocolo.rg or 'Não informado' }}</p>
