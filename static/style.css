@@ -833,7 +833,13 @@ h1, .h1 { font-size: clamp(1.65rem, 2.6vw, 2.2rem); }
     .header-bottom-row { overflow-x: auto; justify-content: flex-start; padding-bottom: .35rem; }
     .main-nav { gap: 1rem; min-width: max-content; }
     .main-nav .nav-link { font-size: .95rem; }
-    .dashboard-cards, .dashboard-charts-grid { grid-template-columns: 1fr; }
+    .dashboard-cards, .dashboard-charts-grid { grid-template-columns: minmax(0, 1fr); }
+    .dashboard-charts-grid > *, .chart-container { min-width: 0; }
+    .chart-container.full-width { grid-column: 1 / -1; }
+    .chart-header { align-items: flex-start; flex-direction: column; gap: .75rem; }
+    .chart-filters { flex-wrap: wrap; width: 100%; }
+    .chart-filters select { flex: 1 1 145px; min-width: 0; }
+    .chart-container canvas { max-width: 100% !important; }
     .filtros { grid-template-columns: 1fr; }
     .card-header.d-flex, .d-flex.justify-content-between.align-items-center { flex-wrap: wrap; gap: .75rem; }
     .doc-container { max-width: 100%; overflow-wrap: anywhere; }
