@@ -661,7 +661,8 @@ def meus_protocolos():
     protocolos = accessible_protocols_query().filter_by(responsavel=current_user.login)\
         .order_by(Protocolo.id.desc())\
         .paginate(page=page, per_page=10)
-    return render_template('protocolos.html', protocolos=protocolos, title="Meus Protocolos")
+    
+    return render_template('protocolos.html', protocolos=protocolos, title="Meus Protocolos", pagination_args={})
 
 def admin_required(f):
     @wraps(f)
