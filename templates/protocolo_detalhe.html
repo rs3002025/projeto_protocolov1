@@ -2,7 +2,7 @@
 {% block content %}
 <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
-        <h3>Detalhes do Protocolo: {{ protocolo.numero }}</h3>
+        <h1 class="h3 mb-0">Detalhes do Protocolo: {{ protocolo.numero }}</h1>
         <div>
             {% if can('edit') and not protocolo.arquivado_em %}<form class="d-inline" method="POST" target="_blank" action="{{ url_for('gerar_documento_versionado', protocolo_id=protocolo.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="btn btn-info">Gerar e registrar documento</button></form>{% endif %}
             {% if can('edit') and not protocolo.arquivado_em %}<a href="{{ url_for('editar_protocolo', protocolo_id=protocolo.id) }}" class="btn btn-secondary">Editar</a>{% endif %}
@@ -53,18 +53,20 @@
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="row g-2">
                     <div class="col-md-4">
+                        <label class="form-label" for="setor-destino">Setor destinatário</label>
                         <select class="form-select" name="setor_destino_id" id="setor-destino" required>
                             <option value="">Selecione o setor destinatário</option>
                             {% for setor in lotacoes %}<option value="{{ setor.id }}">{{ setor.nome }}</option>{% endfor %}
                         </select>
                     </div>
                     <div class="col-md-4">
+                        <label class="form-label" for="usuario-destino">Usuário destinatário (opcional)</label>
                         <select class="form-select" name="destinatario_usuario_id" id="usuario-destino">
                             <option value="">Qualquer usuário do setor</option>
                             {% for usuario in usuarios_destino %}<option value="{{ usuario.id }}" data-setor="{{ usuario.lotacao_id }}">{{ usuario.nome }}</option>{% endfor %}
                         </select>
                     </div>
-                    <div class="col-md-2"><input class="form-control" name="observacao" placeholder="Despacho"></div>
+                    <div class="col-md-2"><label class="form-label" for="despacho-tramitacao">Despacho</label><input id="despacho-tramitacao" class="form-control" name="observacao" placeholder="Despacho"></div>
                     <div class="col-md-2"><button class="btn btn-primary w-100" type="submit">Tramitar</button></div>
                 </div>
             </form>
@@ -129,6 +131,7 @@
                     {% endfor %}
                 </select>
                 <p class="form-text">Até 20 MB por arquivo. Uma nova versão não apaga a anterior.</p>
+                <label for="anexo" class="form-label">Arquivo</label>
                 <div class="input-group">
                     {{ anexo_form.anexo(class="form-control") }}
                     {{ anexo_form.submit_anexo(class="btn btn-primary") }}
@@ -165,4 +168,3 @@
 
 
 {% endblock content %}
-

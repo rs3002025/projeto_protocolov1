@@ -13,13 +13,16 @@
             <form method="GET" action="{{ url_for('relatorios') }}">
                 <div class="row g-3">
                     <div class="col-md-4">
-                        <input type="text" name="numero" class="form-control" placeholder="Número do Protocolo" value="{{ request.args.get('numero', '') }}">
+                        <label for="relatorio-numero" class="form-label">Número</label>
+                        <input id="relatorio-numero" type="text" name="numero" class="form-control" placeholder="Número do protocolo" value="{{ request.args.get('numero', '') }}">
                     </div>
                     <div class="col-md-4">
-                        <input type="text" name="nome" class="form-control" placeholder="Nome do Requerente" value="{{ request.args.get('nome', '') }}">
+                        <label for="relatorio-nome" class="form-label">Requerente</label>
+                        <input id="relatorio-nome" type="text" name="nome" class="form-control" placeholder="Nome do requerente" value="{{ request.args.get('nome', '') }}">
                     </div>
                     <div class="col-md-4">
-                         <select name="status" class="form-select">
+                         <label for="relatorio-status" class="form-label">Status</label>
+                         <select id="relatorio-status" name="status" class="form-select">
                             <option value="">Todos os Status</option>
                              {% set statuses = ["PROTOCOLO GERADO", "EM ANÁLISE", "PENDENTE DE DOCUMENTO", "FINALIZADO", "CONCLUÍDO", "EM TRAMITAÇÃO", "ARQUIVADO"] %}
                              {% for status in statuses %}
@@ -29,15 +32,15 @@
                     </div>
                     <div class="col-md-3">
                         <label for="data_inicio" class="form-label">Data Início</label>
-                        <input type="date" name="data_inicio" class="form-control" title="Data de Início" value="{{ request.args.get('data_inicio', '') }}">
+                        <input id="data_inicio" type="date" name="data_inicio" class="form-control" value="{{ request.args.get('data_inicio', '') }}">
                     </div>
                     <div class="col-md-3">
                         <label for="data_fim" class="form-label">Data Fim</label>
-                        <input type="date" name="data_fim" class="form-control" title="Data Final" value="{{ request.args.get('data_fim', '') }}">
+                        <input id="data_fim" type="date" name="data_fim" class="form-control" value="{{ request.args.get('data_fim', '') }}">
                     </div>
                     <div class="col-md-3">
                          <label for="tipo" class="form-label">Tipo</label>
-                         <input type="text" name="tipo" class="form-control" placeholder="Tipo de Requerimento" value="{{ request.args.get('tipo', '') }}">
+                         <input id="tipo" type="text" name="tipo" class="form-control" placeholder="Tipo de requerimento" value="{{ request.args.get('tipo', '') }}">
                     </div>
                     <div class="col-md-3">
                         <label for="prazo" class="form-label">Situação do prazo</label>
@@ -124,4 +127,3 @@
         </ul>
     </nav>
 {% endblock content %}
-
