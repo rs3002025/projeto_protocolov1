@@ -193,6 +193,7 @@ def test_protocolo_legado_sem_data_continua_consultavel():
         response = client.get(rota)
         assert response.status_code == 200
         assert 'Não informada' in response.get_data(as_text=True)
+        assert 'Não definido' in response.get_data(as_text=True)
 
 def test_apis_de_cadastro_e_bairros_nao_vazam_dados_de_outro_cliente():
     with app.app_context():
@@ -861,7 +862,9 @@ def test_dados_institucionais_sao_isolados_e_usados_no_pdf():
             assert 'Secretaria da Administração' not in modelo
             assert 'background: #2e7d32' in modelo
             assert 'width: 52px; height: 52px' in modelo
-            assert '@page { size: A4; margin: 8mm 12mm 10mm; }' in modelo
+            assert '@page { size: A4; margin: 10mm 8mm; }' in modelo
+            assert 'class="paragrafo-pdf"' in modelo
+            assert 'class="fechamento-pdf"' in modelo
             assert modelo.index('PROTOCOLO DE REQUERIMENTO') < modelo.index('DADOS DO REQUERENTE')
             assert modelo.index('Praça da Matriz') > modelo.index('Assinatura do Requerente')
     html = client.get(f'/protocolo/{protocolo_id}').get_data(as_text=True)
