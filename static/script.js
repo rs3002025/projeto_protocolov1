@@ -897,7 +897,7 @@ window.gerarPDF = async function() {
     html2canvas: { scale: 2, scrollY: 0, useCORS: true },
     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
     pagebreak: {
-      mode: ['css', 'legacy'],
+      mode: ['avoid-all', 'css', 'legacy'],
       avoid: ['.paragrafo-pdf', '.fechamento-pdf']
     }
   };
