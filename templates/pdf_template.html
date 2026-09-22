@@ -8,9 +8,9 @@
         html, body { margin: 0; padding: 0; }
         body { font-family: 'Liberation Sans', sans-serif; color: #333; font-size: 12px; }
         .doc-container { width: 100%; margin: 0; padding: 0; }
-        .pdf-header { display: flex; justify-content: space-between; align-items: center; min-height: 62px; border-bottom: 2px solid #ddd; padding-bottom: 5px; margin-bottom: 6px; }
-        .logo-pdf { width: 230px; height: 62px; display: flex; align-items: center; justify-content: flex-start; }
-        .logo-pdf img { display: block; width: auto; height: auto; max-width: 100%; max-height: 62px; object-fit: contain; }
+        .pdf-header { display: flex; justify-content: space-between; align-items: center; min-height: 70px; border-bottom: 2px solid #ddd; padding-bottom: 5px; margin-bottom: 6px; }
+        .logo-pdf { width: 300px; height: 70px; display: flex; align-items: center; justify-content: flex-start; }
+        .logo-pdf img { display: block; width: auto; height: auto; max-width: 100%; max-height: 68px; object-fit: contain; }
         .consulta-qr { width: 78px; text-align: center; font-size: 7px; line-height: 1.05; color: #444; }
         .consulta-qr img { display: block; width: 52px; height: 52px; margin: 0 auto 1px; }
         .titulo-principal-pdf { text-align: center; margin: 2px 0; font-size: 20px; }
@@ -26,6 +26,15 @@
         .assinatura-pdf { text-align: center; flex: 1; }
         .rodape-institucional { margin-top: 25px; padding-top: 8px; border-top: 1px solid #bbb; text-align: center; white-space: pre-line; }
         .linha-assinatura { border-top: 1px solid #000; margin-top: 40px; margin-bottom: 5px; }
+        .recebido-container { margin-top: 28px; page-break-inside: avoid; display: flex; align-items: flex-end; gap: 34px; }
+        .recebido-bloco { flex: 1; text-align: center; }
+        .recebido-data { min-height: 28px; margin: 0; display: flex; align-items: flex-end; justify-content: center; font-weight: bold; white-space: nowrap; }
+        .recebido-data span { display: inline-block; border-bottom: 1px solid #000; }
+        .recebido-data .data-curta { width: 24px; }
+        .recebido-data .data-ano { width: 46px; }
+        .recebido-data .separador { margin: 0 3px; border: 0; }
+        .linha-assinatura-recebimento { border-top: 1px solid #000; margin: 27px 0 5px; }
+        .rotulo-recebimento { margin-top: 5px; font-size: 11px; }
     </style>
 </head>
 <body>
@@ -72,6 +81,16 @@
             <div class="assinaturas-flex">
                 <div class="assinatura-pdf"><div class="linha-assinatura"></div>Assinatura do Requerente</div>
                 <div class="assinatura-pdf"><div class="linha-assinatura"></div>Responsável pelo Protocolo</div>
+            </div>
+        </div>
+        <div class="recebido-container">
+            <div class="recebido-bloco">
+                <p class="recebido-data"><strong>Recebido em:&nbsp;</strong><span class="data-curta"></span><span class="separador">/</span><span class="data-curta"></span><span class="separador">/</span><span class="data-ano"></span></p>
+                <div class="rotulo-recebimento">Data do recebimento</div>
+            </div>
+            <div class="recebido-bloco">
+                <div class="linha-assinatura-recebimento"></div>
+                <div class="rotulo-recebimento">Assinatura de recebimento</div>
             </div>
         </div>
         {% if organizacao.rodape_documento %}<div class="rodape-institucional">{{ organizacao.rodape_documento }}</div>{% endif %}

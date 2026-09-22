@@ -8,7 +8,7 @@
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Custom CSS -->
-    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css', v='visual-20260921-1') }}">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css', v='visual-20260922-2') }}">
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- html2pdf.js and qrcode.js -->
@@ -89,7 +89,7 @@
     <!-- Bootstrap JS Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <!-- Custom JS -->
-    <script src="{{ url_for('static', filename='script.js', v='visual-20260921-1') }}"></script>
+    <script src="{{ url_for('static', filename='script.js', v='visual-20260922-1') }}"></script>
 
     <!-- Modals and Hidden Templates -->
 
@@ -117,10 +117,10 @@
         <style>
             .pdf-body { font-family: 'Inter', 'Segoe UI', 'Open Sans', sans-serif; color: #000; margin: 0; padding: 0; box-sizing: border-box; }
             .doc-container { background: white; width: 100%; max-width: 700px; margin: 10px auto; padding: 20px; border: 1px solid #ccc; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-            .pdf-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #ddd; padding-bottom: 15px; margin-bottom: 20px;}
-            .logo-pdf { width: 220px; height: 80px; display: flex; align-items: flex-start; justify-content: flex-start; }
-            .logo-pdf img { display: block; width: auto; height: auto; max-width: 100%; max-height: 80px; object-fit: contain; }
-            #qrcode-container { padding-left: 20px; }
+            .pdf-header { display: flex; justify-content: space-between; align-items: center; min-height: 90px; border-bottom: 2px solid #ddd; padding-bottom: 12px; margin-bottom: 18px;}
+            .logo-pdf { width: 310px; height: 90px; display: flex; align-items: center; justify-content: flex-start; }
+            .logo-pdf img { display: block; width: auto; height: auto; max-width: 100%; max-height: 82px; object-fit: contain; }
+            #qrcode-container { width: 90px; height: 90px; display: flex; align-items: center; justify-content: center; padding: 0; flex: 0 0 90px; }
             .titulo-principal-pdf { text-align: center; margin: 2px 0; font-size: 22px; }
             .titulo-central-pdf { text-align: center; margin-bottom: 20px; }
             .titulo-central-pdf span { background: #2e7d32; color: white; font-size: 16px; padding: 8px 20px; border-radius: 4px; display: inline-block; font-weight: bold; }
@@ -134,14 +134,15 @@
             .assinaturas-flex { display: flex; justify-content: space-between; gap: 20px; }
             .assinatura-pdf { text-align: center; flex: 1; }
             .linha-assinatura { border-top: 1px solid #000; margin-top: 40px; margin-bottom: 5px; }
-            .recebido-container { margin-top: 30px; page-break-inside: avoid; display: flex; align-items: flex-end; justify-content: space-between; }
-            .recebido-data { font-size: 14px; font-weight: bold; display: flex; align-items: flex-end; }
+            .recebido-container { margin-top: 34px; page-break-inside: avoid; display: grid; grid-template-columns: minmax(250px, .9fr) minmax(280px, 1.1fr); gap: 44px; align-items: end; }
+            .recebido-bloco { min-width: 0; }
+            .recebido-data { min-height: 32px; margin: 0; font-size: 14px; font-weight: bold; display: flex; align-items: flex-end; justify-content: center; white-space: nowrap; }
             .recebido-data span { border-bottom: 1px solid #000; text-align: center; }
             .recebido-data .data-dia, .recebido-data .data-mes { width: 25px; }
             .recebido-data .data-ano { width: 50px; }
             .recebido-data .separador { margin: 0 4px; }
-            .linha-assinatura-recebimento { flex-grow: 1; border-top: 1px solid #000; margin-left: 20px; margin-bottom: 5px; }
-            .texto-assinatura-recebimento { text-align: right; font-size: 12px; margin-top: 5px; padding-right: 0px; }
+            .linha-assinatura-recebimento { border-top: 1px solid #000; margin: 31px 0 5px; }
+            .texto-assinatura-recebimento, .texto-data-recebimento { text-align: center; font-size: 12px; margin-top: 5px; }
             .rodape-pdf { text-align: center; margin-top: 20px; page-break-inside: avoid; }
             .rodape-pdf img { max-width: 100%; height: auto; }
         </style>
@@ -185,17 +186,18 @@
                 </div>
             </div>
             <div class="recebido-container">
-                <p class="recebido-data">
-                    <strong>Recebido em:</strong>
-                    <span class="data-dia"></span>
-                    <span class="separador">/</span>
-                    <span class="data-mes"></span>
-                    <span class="separador">/</span>
-                    <span class="data-ano"></span>
-                </p>
-                <div class="linha-assinatura-recebimento"></div>
+                <div class="recebido-bloco">
+                    <p class="recebido-data">
+                        <strong>Recebido em:&nbsp;</strong>
+                        <span class="data-dia"></span><span class="separador">/</span><span class="data-mes"></span><span class="separador">/</span><span class="data-ano"></span>
+                    </p>
+                    <div class="texto-data-recebimento">Data do recebimento</div>
+                </div>
+                <div class="recebido-bloco">
+                    <div class="linha-assinatura-recebimento"></div>
+                    <div class="texto-assinatura-recebimento">Assinatura de recebimento</div>
+                </div>
             </div>
-            <p class="texto-assinatura-recebimento">Assinatura de Recebimento</p>
             {% if active_organization and active_organization.rodape_documento %}<div class="rodape-pdf" style="white-space:pre-line">{{ active_organization.rodape_documento }}</div>{% endif %}
         </div>
     </div>
