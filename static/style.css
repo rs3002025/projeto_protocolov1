@@ -901,3 +901,8 @@ h1, .h1 { font-size: clamp(1.65rem, 2.6vw, 2.2rem); }
 @media (max-width: 768px) {
     .responsive-table { table-layout: fixed; }
 }
+
+
+@media (max-width: 768px) {
+    .app-container .row { margin-right: 0; margin-left: 0; }
+}
