@@ -89,7 +89,7 @@
     <!-- Bootstrap JS Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <!-- Custom JS -->
-    <script src="{{ url_for('static', filename='script.js', v='visual-20260922-1') }}"></script>
+    <script src="{{ url_for('static', filename='script.js', v='visual-20260922-2') }}"></script>
 
     <!-- Modals and Hidden Templates -->
 
@@ -129,7 +129,10 @@
             .section-title-pdf { background: #f0f0f0; font-weight: bold; padding: 6px 10px; border-left: 4px solid #4caf50; margin-top: 20px; }
             .grid-pdf { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 30px; margin-top: 10px; }
             .grid-pdf div { font-size: 14px; }
-            .box-pdf { border: 1px solid #ddd; padding: 10px; border-radius: 6px; background: #fafafa; margin-top: 10px; font-style: italic; }
+            .box-pdf { border: 1px solid #ddd; padding: 10px; border-radius: 6px; background: #fafafa; margin-top: 10px; font-style: italic; overflow-wrap: anywhere; }
+            .paragrafo-pdf { margin: 0 0 12px; break-inside: avoid; page-break-inside: avoid; }
+            .paragrafo-pdf:last-child { margin-bottom: 0; }
+            .fechamento-pdf { break-inside: avoid; page-break-inside: avoid; }
             .assinaturas-container { margin-top: 60px; page-break-inside: avoid; }
             .assinaturas-flex { display: flex; justify-content: space-between; gap: 20px; }
             .assinatura-pdf { text-align: center; flex: 1; }
@@ -173,29 +176,31 @@
                 <div style="margin-bottom: 10px;"><strong>Requer ao:</strong> <span id="doc_requerAo"></span></div>
             </div>
             <div class="box-pdf" id="doc_complemento"></div>
-            <div class="assinaturas-container">
-                <div class="assinaturas-flex">
-                    <div class="assinatura-pdf">
-                        <div class="linha-assinatura"></div>
-                        Assinatura do Requerente
-                    </div>
-                    <div class="assinatura-pdf">
-                        <div class="linha-assinatura"></div>
-                        Responsável pelo Protocolo
+            <div class="fechamento-pdf">
+                <div class="assinaturas-container">
+                    <div class="assinaturas-flex">
+                        <div class="assinatura-pdf">
+                            <div class="linha-assinatura"></div>
+                            Assinatura do Requerente
+                        </div>
+                        <div class="assinatura-pdf">
+                            <div class="linha-assinatura"></div>
+                            Responsável pelo Protocolo
+                        </div>
                     </div>
                 </div>
-            </div>
-            <div class="recebido-container">
-                <div class="recebido-bloco">
-                    <p class="recebido-data">
-                        <strong>Recebido em:&nbsp;</strong>
-                        <span class="data-dia"></span><span class="separador">/</span><span class="data-mes"></span><span class="separador">/</span><span class="data-ano"></span>
-                    </p>
-                    <div class="texto-data-recebimento">Data do recebimento</div>
-                </div>
-                <div class="recebido-bloco">
-                    <div class="linha-assinatura-recebimento"></div>
-                    <div class="texto-assinatura-recebimento">Assinatura de recebimento</div>
+                <div class="recebido-container">
+                    <div class="recebido-bloco">
+                        <p class="recebido-data">
+                            <strong>Recebido em:&nbsp;</strong>
+                            <span class="data-dia"></span><span class="separador">/</span><span class="data-mes"></span><span class="separador">/</span><span class="data-ano"></span>
+                        </p>
+                        <div class="texto-data-recebimento">Data do recebimento</div>
+                    </div>
+                    <div class="recebido-bloco">
+                        <div class="linha-assinatura-recebimento"></div>
+                        <div class="texto-assinatura-recebimento">Assinatura de recebimento</div>
+                    </div>
                 </div>
             </div>
             {% if active_organization and active_organization.rodape_documento %}<div class="rodape-pdf" style="white-space:pre-line">{{ active_organization.rodape_documento }}</div>{% endif %}
