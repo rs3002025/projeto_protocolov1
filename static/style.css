@@ -876,3 +876,18 @@ h1, .h1 { font-size: clamp(1.65rem, 2.6vw, 2.2rem); }
     .responsive-table tbody td[colspan] { display: block; text-align: center; }
     .responsive-table tbody td[colspan]::before { display: none; }
 }
+
+
+@media (max-width: 768px) {
+    /* Evita rolagem lateral causada pelos gutters negativos e pela paginação. */
+    .app-container > .row {
+        margin-right: 0;
+        margin-left: 0;
+    }
+
+    .pagination {
+        flex-wrap: wrap;
+        justify-content: center;
+        width: 100%;
+    }
+}
