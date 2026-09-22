@@ -682,7 +682,16 @@ body {
 .header-logo-wrapper { flex: 1; min-width: 0; }
 .header-logo { display: inline-flex; align-items: center; gap: .85rem; color: #fff; text-decoration: none; min-width: 0; }
 .header-logo:hover { color: #fff; }
-.header-logo img { width: 46px; height: 46px; object-fit: contain; background: #fff; padding: .25rem; border-radius: .7rem; }
+.header-logo img {
+    width: auto;
+    height: auto;
+    max-width: min(280px, 46vw);
+    max-height: 58px;
+    object-fit: contain;
+    background: #fff;
+    padding: .25rem .45rem;
+    border-radius: .7rem;
+}
 .brand-copy { display: flex; flex-direction: column; min-width: 0; line-height: 1.15; }
 .brand-copy strong { font-size: 1.12rem; letter-spacing: -.02em; }
 .brand-copy small { margin-top: .25rem; max-width: 420px; color: rgba(255,255,255,.72); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -794,7 +803,7 @@ h1, .h1 { font-size: clamp(1.65rem, 2.6vw, 2.2rem); }
 @media (max-width: 768px) {
     .header-container { padding: 0 1rem; }
     .header-top-row { min-height: 64px; }
-    .header-logo img { width: 40px; height: 40px; }
+    .header-logo img { width: auto; height: auto; max-width: min(190px, 56vw); max-height: 48px; }
     .brand-copy small, .user-copy { display: none; }
     .mobile-nav-toggle { display: block; order: 2; }
     .header-user-menu { order: 3; }
@@ -843,6 +852,12 @@ h1, .h1 { font-size: clamp(1.65rem, 2.6vw, 2.2rem); }
     .filtros { grid-template-columns: 1fr; }
     .card-header.d-flex, .d-flex.justify-content-between.align-items-center { flex-wrap: wrap; gap: .75rem; }
     .doc-container { max-width: 100%; overflow-wrap: anywhere; }
+    /* As linhas Bootstrap usam margens negativas para compensar gutters. Em
+       páginas cujo conteúdo já ocupa toda a largura útil isso criava 4 px de
+       rolagem horizontal no celular. */
+    .app-container .row { margin-right: 0; margin-left: 0; }
+    .pagination { flex-wrap: wrap; justify-content: center; width: 100%; }
+    .responsive-table { min-width: 0; width: 100%; table-layout: fixed; }
 }
 
 /* Deve permanecer por último: neutraliza regras móveis legadas. */
@@ -875,34 +890,4 @@ h1, .h1 { font-size: clamp(1.65rem, 2.6vw, 2.2rem); }
     .responsive-table tbody td::before { content: attr(data-label); color: var(--ink-500); font-size: .72rem; font-weight: 800; letter-spacing: .035em; text-transform: uppercase; }
     .responsive-table tbody td[colspan] { display: block; text-align: center; }
     .responsive-table tbody td[colspan]::before { display: none; }
-}
-
-
-@media (max-width: 768px) {
-    /* Evita rolagem lateral causada pelos gutters negativos e pela paginação. */
-    .app-container > .row {
-        margin-right: 0;
-        margin-left: 0;
-    }
-
-    .pagination {
-        flex-wrap: wrap;
-        justify-content: center;
-        width: 100%;
-    }
-}
-
-
-@media (max-width: 768px) {
-    .responsive-table { min-width: 0; width: 100%; }
-}
-
-
-@media (max-width: 768px) {
-    .responsive-table { table-layout: fixed; }
-}
-
-
-@media (max-width: 768px) {
-    .app-container .row { margin-right: 0; margin-left: 0; }
 }
