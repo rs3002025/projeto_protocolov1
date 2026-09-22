@@ -870,8 +870,15 @@ window.previsualizarPDF = async function(id = null, isFromForm = false) {
   clone.querySelector('#doc_tipo').textContent = protocolo.tipo_requerimento || '';
   clone.querySelector('#doc_requerAo').textContent = protocolo.requer_ao || '';
   const complemento = clone.querySelector('#doc_complemento');
-  complemento.textContent = protocolo.observacoes || 'Nenhuma informação adicional.';
-  complemento.style.whiteSpace = 'pre-wrap';
+  const textoComplemento = (protocolo.observacoes || 'Nenhuma informação adicional.').trim();
+  const paragrafos = textoComplemento.split(/\n\s*\n|\n/).filter(Boolean);
+  complemento.innerHTML = '';
+  paragrafos.forEach((texto) => {
+      const paragrafo = document.createElement('p');
+      paragrafo.className = 'paragrafo-pdf';
+      paragrafo.textContent = texto;
+      complemento.appendChild(paragrafo);
+  });
 
   pdfContentDiv.innerHTML = '';
   pdfContentDiv.appendChild(clone.querySelector('.pdf-body'));
@@ -884,11 +891,15 @@ window.gerarPDF = async function() {
   if (!protocoloParaGerar) { alert("Nenhum protocolo para gerar."); return; }
   const element = document.getElementById('pdfContent').querySelector('.doc-container');
   const opt = {
-    margin: [0, 0, 0, 0],
+    margin: [10, 8, 10, 8],
     filename: `Protocolo_${(protocoloParaGerar.numero || 'Novo').replace(/[\/\\]/g, '-')}.pdf`,
     image: { type: 'jpeg', quality: 0.98 },
     html2canvas: { scale: 2, scrollY: 0, useCORS: true },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    pagebreak: {
+      mode: ['css', 'legacy'],
+      avoid: ['.paragrafo-pdf', '.fechamento-pdf']
+    }
   };
   try {
     await html2pdf().set(opt).from(element).save();
