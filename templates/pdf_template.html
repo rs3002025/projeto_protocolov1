@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <title>Protocolo {{ protocolo.numero }}</title>
     <style>
-        @page { size: A4; margin: 8mm 12mm 10mm; }
+        @page { size: A4; margin: 10mm 8mm; }
         html, body { margin: 0; padding: 0; }
-        body { font-family: 'Liberation Sans', sans-serif; color: #333; font-size: 12px; }
+        body { font-family: 'Liberation Sans', sans-serif; color: #111; font-size: 14px; line-height: 1.42; }
         .doc-container { width: 100%; margin: 0; padding: 0; }
         .pdf-header { display: flex; justify-content: space-between; align-items: center; min-height: 70px; border-bottom: 2px solid #ddd; padding-bottom: 5px; margin-bottom: 6px; }
         .logo-pdf { width: 300px; height: 70px; display: flex; align-items: center; justify-content: flex-start; }
@@ -20,8 +20,11 @@
         .campo-destaque-pdf { font-weight: bold; font-size: 14px; background-color: #2e7d32; color: white; padding: 8px 12px; border-radius: 5px; margin: 4px 0; flex: 1; text-align: center; }
         .section-title-pdf { background: #f0f0f0; font-weight: bold; padding: 6px 10px; border-left: 4px solid #4caf50; margin-top: 20px; font-size: 14px; }
         .grid-pdf { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 30px; margin-top: 10px; }
-        .box-pdf { border: 1px solid #ddd; padding: 10px; margin-top: 10px; }
-        .assinaturas-container { margin-top: 50px; page-break-inside: avoid; }
+        .box-pdf { border: 1px solid #ddd; padding: 10px; border-radius: 6px; background: #fafafa; margin-top: 10px; font-style: italic; overflow-wrap: anywhere; }
+        .paragrafo-pdf { margin: 0 0 12px; break-inside: avoid; page-break-inside: avoid; }
+        .paragrafo-pdf:last-child { margin-bottom: 0; }
+        .fechamento-pdf { break-inside: avoid; page-break-inside: avoid; }
+        .assinaturas-container { margin-top: 50px; }
         .assinaturas-flex { display: flex; justify-content: space-between; gap: 20px; }
         .assinatura-pdf { text-align: center; flex: 1; }
         .rodape-institucional { margin-top: 25px; padding-top: 8px; border-top: 1px solid #bbb; text-align: center; white-space: pre-line; }
@@ -73,24 +76,31 @@
             <p><strong>Tipo de Requerimento:</strong> {{ protocolo.tipo_requerimento or 'N/A' }}</p>
             <p><strong>Requer ao:</strong> {{ protocolo.requer_ao or 'N/A' }}</p>
         </div>
-        <div class="section-title-pdf">OBSERVAÇÕES</div>
         <div class="box-pdf">
-            <p>{{ protocolo.observacoes or 'Nenhuma observação.' }}</p>
+            {% if protocolo.observacoes %}
+                {% for paragrafo in protocolo.observacoes.split('\n') if paragrafo.strip() %}
+                    <p class="paragrafo-pdf">{{ paragrafo }}</p>
+                {% endfor %}
+            {% else %}
+                <p class="paragrafo-pdf">Nenhuma observação.</p>
+            {% endif %}
         </div>
-        <div class="assinaturas-container">
-            <div class="assinaturas-flex">
-                <div class="assinatura-pdf"><div class="linha-assinatura"></div>Assinatura do Requerente</div>
-                <div class="assinatura-pdf"><div class="linha-assinatura"></div>Responsável pelo Protocolo</div>
+        <div class="fechamento-pdf">
+            <div class="assinaturas-container">
+                <div class="assinaturas-flex">
+                    <div class="assinatura-pdf"><div class="linha-assinatura"></div>Assinatura do Requerente</div>
+                    <div class="assinatura-pdf"><div class="linha-assinatura"></div>Responsável pelo Protocolo</div>
+                </div>
             </div>
-        </div>
-        <div class="recebido-container">
-            <div class="recebido-bloco">
-                <p class="recebido-data"><strong>Recebido em:&nbsp;</strong><span class="data-curta"></span><span class="separador">/</span><span class="data-curta"></span><span class="separador">/</span><span class="data-ano"></span></p>
-                <div class="rotulo-recebimento">Data do recebimento</div>
-            </div>
-            <div class="recebido-bloco">
-                <div class="linha-assinatura-recebimento"></div>
-                <div class="rotulo-recebimento">Assinatura de recebimento</div>
+            <div class="recebido-container">
+                <div class="recebido-bloco">
+                    <p class="recebido-data"><strong>Recebido em:&nbsp;</strong><span class="data-curta"></span><span class="separador">/</span><span class="data-curta"></span><span class="separador">/</span><span class="data-ano"></span></p>
+                    <div class="rotulo-recebimento">Data do recebimento</div>
+                </div>
+                <div class="recebido-bloco">
+                    <div class="linha-assinatura-recebimento"></div>
+                    <div class="rotulo-recebimento">Assinatura de recebimento</div>
+                </div>
             </div>
         </div>
         {% if organizacao.rodape_documento %}<div class="rodape-institucional">{{ organizacao.rodape_documento }}</div>{% endif %}
