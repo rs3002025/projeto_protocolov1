@@ -2,19 +2,19 @@
 {% block content %}
 <div id="dashboard" class="dashboard-screen">
     <div class="d-flex justify-content-between align-items-center mb-4">
-      <h3 class="page-header" style="margin-bottom: 0; border-bottom: none;">Dashboard Gerencial</h3>
-      <div>
-        <button class="btn btn-info" onclick="imprimirDashboard()">🖨️ Impressão Rápida</button>
-        <button class="btn btn-secondary" onclick="abrirModalImpressao()">📄 Impressão Personalizada</button>
+      <div><h1 class="page-header mb-1">Visão geral</h1><p class="text-muted mb-0">Acompanhe volumes, prazos e distribuição dos protocolos.</p></div>
+      <div class="dashboard-actions">
+        <button class="btn btn-info" onclick="imprimirDashboard()">Impressão rápida</button>
+        <button class="btn btn-outline-primary" onclick="abrirModalImpressao()">Personalizar impressão</button>
       </div>
     </div>
-    <div class="filtros">
-        <input type="date" id="dashDataInicio" class="form-control" title="Data de Início">
-        <input type="date" id="dashDataFim" class="form-control" title="Data Final">
-        <select id="dashStatus" class="form-select"><option value="">Todos os Status</option></select>
-        <select id="dashTipo" class="form-select"><option value="">Todo tipo de Requerimento</option></select>
-        <select id="dashLotacao" class="form-select"><option value="">Todas as Lotações</option></select>
-        <button class="btn btn-primary" onclick="carregarDashboard()">Filtrar</button>
+    <div class="filtros" aria-label="Filtros do painel">
+        <div><label class="form-label" for="dashDataInicio">Data inicial</label><input type="date" id="dashDataInicio" class="form-control"></div>
+        <div><label class="form-label" for="dashDataFim">Data final</label><input type="date" id="dashDataFim" class="form-control"></div>
+        <div><label class="form-label" for="dashStatus">Status</label><select id="dashStatus" class="form-select"><option value="">Todos os status</option></select></div>
+        <div><label class="form-label" for="dashTipo">Tipo</label><select id="dashTipo" class="form-select"><option value="">Todos os tipos</option></select></div>
+        <div><label class="form-label" for="dashLotacao">Lotação</label><select id="dashLotacao" class="form-select"><option value="">Todas as lotações</option></select></div>
+        <button class="btn btn-primary align-self-end" onclick="carregarDashboard()">Aplicar filtros</button>
     </div>
     <div class="dashboard-cards">
         <div class="stat-card" id="card-novos">
@@ -27,21 +27,21 @@
         </div>
         <div class="stat-card" id="card-finalizados">
             <div class="stat-value" id="stat-finalizados">0</div>
-            <div class="stat-label">Finalizados (no Período)</div>
+            <div class="stat-label">Finalizados no período</div>
         </div>
     </div>
     <div class="dashboard-charts-grid">
       <div class="chart-container">
           <div class="chart-header">
-            <h4>Top 5 Tipos de Requerimento (no Período)</h4>
+            <h2 class="h5">Tipos mais solicitados</h2>
           </div>
           <canvas id="tiposChart"></canvas>
       </div>
       <div class="chart-container">
         <div class="chart-header">
-            <h4 id="pieChartTitle">Protocolos por Status (no Período)</h4>
+            <h2 class="h5" id="pieChartTitle">Protocolos por status</h2>
             <div class="chart-filters">
-                <select id="pieChartDataType" class="form-select form-select-sm" onchange="carregarDashboard()">
+                <select id="pieChartDataType" class="form-select form-select-sm" aria-label="Dados exibidos no gráfico de distribuição" onchange="carregarDashboard()">
                     <option value="status" selected>Por Status</option>
                     <option value="tipo">Por Tipo de Requerimento</option>
                 </select>
@@ -51,15 +51,15 @@
       </div>
       <div class="chart-container full-width">
         <div class="chart-header">
-            <h4 id="evolucaoChartTitle">Evolução de Novos Protocolos</h4>
+            <h2 class="h5" id="evolucaoChartTitle">Evolução de novos protocolos</h2>
             <div class="chart-filters">
-                <select id="evolucaoPeriodo" class="form-select form-select-sm" onchange="carregarDashboard()">
+                <select id="evolucaoPeriodo" class="form-select form-select-sm" aria-label="Período do gráfico de evolução" onchange="carregarDashboard()">
                     <option value="7d">Últimos 7 dias</option>
                     <option value="30d" selected>Últimos 30 dias</option>
                     <option value="month">Mês Atual</option>
                     <option value="all">Desde o início</option>
                 </select>
-                <select id="evolucaoAgrupamento" class="form-select form-select-sm" onchange="carregarDashboard()">
+                <select id="evolucaoAgrupamento" class="form-select form-select-sm" aria-label="Agrupamento do gráfico de evolução" onchange="carregarDashboard()">
                     <option value="day" selected>Agrupar por Dia</option>
                     <option value="month">Agrupar por Mês</option>
                 </select>
@@ -68,7 +68,7 @@
         <canvas id="evolucaoChart"></canvas>
       </div>
       <div class="chart-container full-width">
-        <div class="chart-header"><h4>Protocolos por setor atual (no período)</h4></div>
+        <div class="chart-header"><h2 class="h5">Protocolos por setor atual</h2></div>
         <div class="table-responsive">
           <table class="table table-sm"><thead><tr><th>Setor atual</th><th>Quantidade</th></tr></thead>
             <tbody id="setoresStats"><tr><td colspan="2">Carregando...</td></tr></tbody>
