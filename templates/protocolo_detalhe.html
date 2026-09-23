@@ -11,7 +11,7 @@
             <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#modalAutenticarEmissao">Autenticar emissão</button>
             {% endif %}
             {% if can('edit') and not protocolo.arquivado_em %}<form method="POST" target="_blank" action="{{ url_for('gerar_documento_versionado', protocolo_id=protocolo.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="btn btn-primary">Gerar e registrar documento</button></form>{% endif %}
-            {% if can('edit') and not protocolo.arquivado_em %}<a href="{{ url_for('editar_protocolo', protocolo_id=protocolo.id) }}" class="btn btn-outline-secondary">Editar</a>{% endif %}
+            {% if can('edit') and not protocolo.arquivado_em and protocolo.emissao_eletronica and protocolo.emissao_eletronica.status == 'VALIDA' %}<a href="{{ url_for('retificar_protocolo', protocolo_id=protocolo.id) }}" class="btn btn-outline-secondary">Retificar</a>{% elif can('edit') and not protocolo.arquivado_em and not protocolo.emissao_eletronica %}<a href="{{ url_for('editar_protocolo', protocolo_id=protocolo.id) }}" class="btn btn-outline-secondary">Editar</a>{% endif %}
     </div>
 </div>
 
@@ -33,6 +33,8 @@
     <div class="protocol-summary-item"><span>Responsável</span><strong>{{ protocolo.responsavel or 'Não definido' }}</strong></div>
     {% if protocolo.emissao_eletronica %}<div class="protocol-summary-item"><span>Emissão eletrônica</span><strong>{{ protocolo.emissao_eletronica.codigo_publico }} · {{ protocolo.emissao_eletronica.status }}</strong></div>{% endif %}
 </div>
+{% if protocolo.protocolo_original %}<div class="alert alert-info">Este protocolo retifica o <a href="{{ url_for('detalhe_protocolo', protocolo_id=protocolo.protocolo_original.id) }}">protocolo {{ protocolo.protocolo_original.numero }}</a>.</div>{% endif %}
+{% if protocolo.retificacoes %}<div class="alert alert-warning">Este protocolo possui retificação: {% for item in protocolo.retificacoes %}<a href="{{ url_for('detalhe_protocolo', protocolo_id=item.id) }}">{{ item.numero }}</a>{% if not loop.last %}, {% endif %}{% endfor %}.</div>{% endif %}
 
 <nav class="detail-section-nav mb-4" aria-label="Seções do protocolo">
     <a href="#visao-geral">Visão geral</a>
