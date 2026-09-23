@@ -52,7 +52,7 @@
         </div>
         <h1 class="titulo-principal-pdf">{{ organizacao.orgao or organizacao.nome }}</h1>
         {% if organizacao.municipio %}<p style="text-align:center">{{ organizacao.municipio }}</p>{% endif %}
-        <div class="titulo-central-pdf"><span>{% if protocolo.retifica_protocolo_id %}RETIFICAÇÃO DO PROTOCOLO {{ protocolo.protocolo_original.numero }}{% else %}PROTOCOLO DE REQUERIMENTO{% endif %}</span></div>
+        <div class="titulo-central-pdf"><span>{% if emissao and emissao.versao > 1 %}RETIFICAÇÃO — VERSÃO {{ emissao.versao }}{% else %}PROTOCOLO DE REQUERIMENTO{% endif %}</span></div>
         <div class="info-pdf">
             <div class="campo-destaque-pdf"><strong>Número:</strong> {{ protocolo.numero }}</div>
             <div class="campo-destaque-pdf"><strong>Data:</strong> {{ protocolo.data_solicitacao.strftime('%d/%m/%Y') if protocolo.data_solicitacao else '' }}</div>
@@ -94,7 +94,7 @@
                     <div class="assinatura-pdf" style="border:1px solid #777;padding:8px;text-align:left;font-size:10px">
                         <strong>Emissão autenticada eletronicamente</strong><br>
                         {{ emissao.nome_emitente }} (usuário {{ emissao.login_emitente }})<br>
-                        {{ emissao.emitido_em.strftime('%d/%m/%Y %H:%M:%S %z') }} · Código {{ emissao.codigo_publico }}<br>
+                        {{ emissao.emitido_em.strftime('%d/%m/%Y %H:%M:%S %z') }} · Versão {{ emissao.versao }} · Código {{ emissao.codigo_publico }}<br>
                         Documento íntegro verificável pelo QR Code.
                     </div>
                     {% else %}<div class="assinatura-pdf"><div class="linha-assinatura"></div>Responsável pelo Protocolo</div>{% endif %}
