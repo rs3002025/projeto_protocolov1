@@ -11,7 +11,8 @@
             <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#modalAutenticarEmissao">Autenticar emissão</button>
             {% endif %}
             {% if can('edit') and not protocolo.arquivado_em %}<form method="POST" target="_blank" action="{{ url_for('gerar_documento_versionado', protocolo_id=protocolo.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="btn btn-primary">Gerar e registrar documento</button></form>{% endif %}
-            {% if can('edit') and not protocolo.arquivado_em and protocolo.emissao_eletronica and not protocolo.retificacao_pendente %}<a href="{{ url_for('retificar_protocolo', protocolo_id=protocolo.id) }}" class="btn btn-outline-secondary">Retificar</a>{% elif can('edit') and not protocolo.arquivado_em and not protocolo.emissao_eletronica %}<a href="{{ url_for('editar_protocolo', protocolo_id=protocolo.id) }}" class="btn btn-outline-secondary">Editar</a>{% endif %}
+            {% if can('edit') and not protocolo.arquivado_em and protocolo.emissao_eletronica and protocolo.emissao_eletronica.status == 'VALIDA' and not protocolo.retificacao_pendente %}<a href="{{ url_for('retificar_protocolo', protocolo_id=protocolo.id) }}" class="btn btn-outline-secondary">Retificar</a>{% elif can('edit') and not protocolo.arquivado_em and not protocolo.emissao_eletronica %}<a href="{{ url_for('editar_protocolo', protocolo_id=protocolo.id) }}" class="btn btn-outline-secondary">Editar</a>{% endif %}
+            {% if active_organization.emissao_eletronica_protocolista_enabled and protocolo.emissao_eletronica and protocolo.emissao_eletronica.status == 'VALIDA' and not protocolo.retificacao_pendente and current_user.tipo in ['admin', 'protocolista'] %}<button class="btn btn-outline-danger" type="button" data-bs-toggle="modal" data-bs-target="#modalCancelarEmissao">Cancelar emissão</button>{% endif %}
     </div>
 </div>
 
@@ -26,6 +27,17 @@
 </div></div></div>
 {% endif %}
 
+{% if active_organization.emissao_eletronica_protocolista_enabled and protocolo.emissao_eletronica and protocolo.emissao_eletronica.status == 'VALIDA' and not protocolo.retificacao_pendente and current_user.tipo in ['admin', 'protocolista'] %}
+<div class="modal fade" id="modalCancelarEmissao" tabindex="-1" aria-hidden="true"><div class="modal-dialog"><div class="modal-content">
+  <form method="POST" action="{{ url_for('cancelar_emissao_protocolo', protocolo_id=protocolo.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="modal-header"><h2 class="modal-title h5">Cancelar emissão autenticada</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
+    <div class="modal-body"><p>O PDF e todas as evidências serão preservados, mas a validação pública passará a informar que a versão {{ protocolo.emissao_eletronica.versao }} foi cancelada.</p><label class="form-label" for="motivo-cancelamento">Justificativa</label><textarea class="form-control" id="motivo-cancelamento" name="motivo" minlength="10" required></textarea><label class="form-label mt-3" for="senha-cancelamento">Confirme sua senha</label><input class="form-control" id="senha-cancelamento" name="senha" type="password" required autocomplete="current-password"></div>
+    <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Voltar</button><button type="submit" class="btn btn-danger">Confirmar cancelamento</button></div>
+  </form>
+</div></div></div>
+{% endif %}
+
 <div class="protocol-summary-grid mb-3" aria-label="Resumo do protocolo">
     <div class="protocol-summary-item"><span>Status</span><strong>{{ protocolo.status }}</strong></div>
     <div class="protocol-summary-item"><span>Prazo</span><strong>{{ protocolo.prazo_em.strftime('%d/%m/%Y') if protocolo.prazo_em else 'Não definido' }}</strong></div>
@@ -34,6 +46,7 @@
     {% if protocolo.emissao_eletronica %}<div class="protocol-summary-item"><span>Emissão eletrônica</span><strong>Versão {{ protocolo.emissao_eletronica.versao }} · {{ protocolo.emissao_eletronica.codigo_publico }} · {{ protocolo.emissao_eletronica.status }}</strong></div>{% endif %}
 </div>
 {% if protocolo.retificacao_pendente %}<div class="alert alert-warning">Há uma retificação preparada aguardando autenticação. Até lá, a versão anterior continua sendo o documento autenticado vigente.</div>{% endif %}
+{% if protocolo.emissao_eletronica and protocolo.emissao_eletronica.status == 'CANCELADA' %}<div class="alert alert-danger"><strong>Emissão cancelada.</strong> A versão autenticada permanece preservada para auditoria e download. Motivo: {{ protocolo.emissao_eletronica.motivo_cancelamento }}</div>{% endif %}
 
 <nav class="detail-section-nav mb-4" aria-label="Seções do protocolo">
     <a href="#visao-geral">Visão geral</a>
@@ -154,7 +167,7 @@
         <h4>Anexos</h4>
     </div>
     <div class="card-body">
-        {% if protocolo.emissoes_eletronicas %}<div class="mb-4"><h5>Versões autenticadas do requerimento</h5><ul class="list-group">{% for versao in protocolo.emissoes_eletronicas|reverse %}<li class="list-group-item d-flex justify-content-between align-items-center"><span><strong>Versão {{ versao.versao }}</strong> · {{ versao.status }} · código {{ versao.codigo_publico }}<small class="d-block">Autenticada por {{ versao.nome_emitente }} em {{ versao.emitido_em.strftime('%d/%m/%Y %H:%M') }}</small></span><a class="btn btn-sm btn-outline-primary" href="{{ url_for('baixar_anexo', anexo_id=versao.pdf_anexo_id) }}">Download</a></li>{% endfor %}</ul></div><hr>{% endif %}
+        {% if protocolo.emissoes_eletronicas %}<div class="mb-4"><h5>Versões autenticadas do requerimento</h5><ul class="list-group">{% for versao in protocolo.emissoes_eletronicas|reverse %}<li class="list-group-item d-flex justify-content-between align-items-center"><span><strong>Versão {{ versao.versao }}</strong> · {{ versao.status }} · código {{ versao.codigo_publico }}<small class="d-block">Autenticada por {{ versao.nome_emitente }} em {{ versao.emitido_em.strftime('%d/%m/%Y %H:%M') }}</small>{% if versao.status == 'CANCELADA' %}<small class="d-block text-danger">Cancelada em {{ versao.cancelado_em.strftime('%d/%m/%Y %H:%M') }}. Motivo: {{ versao.motivo_cancelamento }}</small>{% endif %}</span><a class="btn btn-sm btn-outline-primary" href="{{ url_for('baixar_anexo', anexo_id=versao.pdf_anexo_id) }}">Download</a></li>{% endfor %}</ul></div><hr>{% endif %}
         <div class="mb-3">
             <h5>Adicionar documento ou nova versão</h5>
             {% if can('edit') and not protocolo.arquivado_em %}
