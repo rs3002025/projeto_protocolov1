@@ -855,6 +855,8 @@ h1, .h1 { font-size: clamp(1.65rem, 2.6vw, 2.2rem); }
 .active-filters span { padding: .28rem .55rem; border: 1px solid #b8ddd4; border-radius: 2rem; background: #fff; font-size: .8rem; }
 .active-filters a { margin-left: auto; font-weight: 700; }
 .action-group { display: flex; align-items: center; gap: .4rem; white-space: nowrap; }
+.action-group-visible { flex-wrap: wrap; }
+.protocol-number { display: inline-block; padding: .3rem .58rem; border: 1px solid #b8ddd4; border-radius: .55rem; color: var(--brand-800); background: var(--brand-50); font-weight: 800; letter-spacing: .015em; white-space: nowrap; }
 .dashboard-charts-grid { gap: 1rem; }
 .chart-container { padding: 1.2rem; }
 .chart-header h4 { font-size: 1rem; }
@@ -974,3 +976,4 @@ h1, .h1 { font-size: clamp(1.65rem, 2.6vw, 2.2rem); }
     .responsive-table tbody td[colspan] { display: block; text-align: center; }
     .responsive-table tbody td[colspan]::before { display: none; }
 }
+
