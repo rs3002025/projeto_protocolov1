@@ -208,10 +208,12 @@ O hash do arquivo final será calculado depois da geração. Não se tentará im
 
 ### Retificação
 
-- preserva o requerimento original;
-- gera novo documento e novo hash;
-- cria relação entre original e retificação;
-- informa essa situação na consulta pública.
+- mantém o mesmo número e o mesmo registro de protocolo;
+- prepara a alteração no protocolo existente e exige nova autenticação;
+- gera uma nova versão do requerimento, com PDF, código público e hash próprios;
+- preserva todas as versões autenticadas para consulta, auditoria e download;
+- marca a versão anterior como `RETIFICADA` somente após a autenticação da nova versão;
+- informa a versão e a situação na consulta pública, sem apagar ou sobrescrever evidências.
 
 ### Cancelamento
 
@@ -280,9 +282,10 @@ Correções de integração concluídas no mesmo ambiente:
 
 - o botão “Documento” da listagem abre o original autenticado quando ele existe;
 - o QR Code de acompanhamento foi preservado e a validação recebeu um segundo QR Code;
-- foi criado o fluxo formal de retificação, com novo número, nova autenticação e novo PDF;
-- a versão original permanece armazenada e passa ao estado `RETIFICADA` somente quando a nova versão é autenticada;
-- detalhes e histórico mantêm os vínculos entre original e retificação.
+- foi criado o fluxo formal de retificação no mesmo protocolo e com o mesmo número, mediante nova autenticação e novo PDF versionado;
+- todas as versões autenticadas permanecem armazenadas e disponíveis para download;
+- a versão anterior passa ao estado `RETIFICADA` somente quando a nova versão é autenticada;
+- detalhes, validação pública e histórico identificam a versão e preservam o encadeamento entre elas.
 
 ### Etapa 1 — Papéis e dados
 
@@ -338,7 +341,7 @@ Correções de integração concluídas no mesmo ambiente:
 - anexos não podem ser substituídos;
 - hash original nunca é sobrescrito;
 - reimpressão entrega o mesmo arquivo;
-- retificação preserva o original;
+- retificação mantém o mesmo número, preserva todas as versões autenticadas e disponibiliza cada PDF para download;
 - cancelamento não apaga evidências;
 - falha no banco ou bucket não deixa estado parcial;
 - PDF com várias páginas mantém o selo corretamente.
