@@ -242,11 +242,11 @@
 
 
     <!-- Modal para Impressão Personalizada -->
-    <div id="modalImpressaoDashboard" class="modal-overlay" onclick="fecharModal('modalImpressaoDashboard')">
+    <div id="modalImpressaoDashboard" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modalImpressaoDashboardTitulo" aria-hidden="true" onclick="fecharModal('modalImpressaoDashboard')">
         <div class="modal-dialog-print" onclick="event.stopPropagation();">
             <div class="modal-header-print">
-                <h4>Impressão Personalizada do Dashboard</h4>
-                <button onclick="fecharModal('modalImpressaoDashboard')" class="btn-close"></button>
+                <h4 id="modalImpressaoDashboardTitulo">Impressão Personalizada do Dashboard</h4>
+                <button type="button" onclick="fecharModal('modalImpressaoDashboard')" class="btn-close" aria-label="Fechar"></button>
             </div>
             <div class="modal-body-print">
                 <p>Selecione os itens que deseja incluir na impressão:</p>
@@ -277,11 +277,11 @@
     </div>
 
     <!-- Modal para Pré-visualização da Impressão -->
-    <div id="modalPreviewImpressao" class="modal-overlay" onclick="fecharModal('modalPreviewImpressao')">
+    <div id="modalPreviewImpressao" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modalPreviewImpressaoTitulo" aria-hidden="true" onclick="fecharModal('modalPreviewImpressao')">
         <div class="modal-dialog-print" style="max-width: 800px;" onclick="event.stopPropagation();">
             <div class="modal-header-print">
-                <h4>Pré-visualização da Impressão</h4>
-                <button onclick="fecharModal('modalPreviewImpressao')" class="btn-close"></button>
+                <h4 id="modalPreviewImpressaoTitulo">Pré-visualização da Impressão</h4>
+                <button type="button" onclick="fecharModal('modalPreviewImpressao')" class="btn-close" aria-label="Fechar"></button>
             </div>
             <div id="previewContent" class="modal-body-print" style="text-align: center;">
                 <!-- Preview content will be injected here -->
@@ -296,3 +296,4 @@
     {% block scripts %}{% endblock %}
 </body>
 </html>
+
