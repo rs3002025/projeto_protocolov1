@@ -1661,6 +1661,16 @@ def dashboard_stats():
             Protocolo.prazo_em != None, Protocolo.prazo_em < datetime.now().date(),
             ~Protocolo.status.in_(encerrados)).count()
 
+        hoje = datetime.now().date()
+        vencem_proximos_7 = base_query.filter(
+            Protocolo.prazo_em != None,
+            Protocolo.prazo_em >= hoje,
+            Protocolo.prazo_em <= hoje + timedelta(days=7),
+            ~Protocolo.status.in_(encerrados)).count()
+        sem_prazo = base_query.filter(
+            Protocolo.prazo_em == None,
+            ~Protocolo.status.in_(encerrados)).count()
+
         # --- Finalizados no Período (Card) ---
         total_finalizados = period_query.filter(Protocolo.status.in_(['FINALIZADO', 'CONCLUÍDO'])).count()
 
@@ -1718,6 +1728,8 @@ def dashboard_stats():
         stats = {
             'novosNoPeriodo': novos_no_periodo,
             'pendentesAntigos': pendentes_antigos or 0,
+            'vencemProximos7': vencem_proximos_7 or 0,
+            'semPrazo': sem_prazo or 0,
             'totalFinalizados': total_finalizados,
             'topTipos': [{'tipo_requerimento': r.tipo_requerimento, 'total': r.total} for r in top_tipos],
             'todosTipos': [{'tipo_requerimento': r.tipo_requerimento, 'total': r.total} for r in todos_tipos],

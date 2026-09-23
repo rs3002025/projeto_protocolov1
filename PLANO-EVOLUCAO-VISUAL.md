@@ -332,3 +332,16 @@ Nenhuma alteração desta iniciativa será enviada automaticamente para `develop
 3. validação visual no navegador;
 4. homologação pelo responsável;
 5. autorização explícita para promover.
+# Conclusão do bloco visual — 22/09/2026
+
+O escopo visual planejado foi concluído no ambiente `visual-development` com os seguintes fechamentos:
+
+- painel com cartões clicáveis e área “Exige sua atenção” para prazos, recebimentos e suporte;
+- central de suporte orientada à lista, abertura de chamado recolhível e indicação de prioridade, responsável e atualização;
+- configurações divididas por áreas, navegação interna, criação de usuário recolhível e pesquisa instantânea de usuários;
+- filtros ativos visíveis nas listagens e hierarquia padronizada entre ação principal e ações secundárias;
+- preservação das confirmações para ações sensíveis e revisão antes do cadastro de protocolo;
+- comportamento responsivo para desktop, tablet e celular, com navegação por teclado e foco visível;
+- validação automatizada das regras de perfis, isolamento entre organizações, anexos, suporte, documentos e identidade visual.
+
+Critério de aceite técnico: suíte completa com 54 testes aprovados. Os avisos restantes são de depreciação gradual do Python e não representam falha funcional deste bloco.
