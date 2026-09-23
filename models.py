@@ -92,6 +92,9 @@ class Protocolo(TenantMixin, db.Model):
     observacoes = db.Column(db.Text)
     responsavel = db.Column(db.String)
     criado_por_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'))
+    requerente_servidor_id = db.Column(ID_TYPE, db.ForeignKey('servidores.id'))
+    emitido_por_usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'))
+    modalidade_abertura = db.Column(db.String(30), nullable=False, default='presencial_protocolista')
     setor_atual_id = db.Column(ID_TYPE, db.ForeignKey('lotacoes.id'))
     data_envio = db.Column(db.TIMESTAMP, server_default=db.func.current_timestamp())
     status = db.Column(db.String, default='Aberto')
@@ -104,6 +107,39 @@ class Protocolo(TenantMixin, db.Model):
     historico = db.relationship('HistoricoProtocolo', backref='protocolo', lazy=True, cascade="all, delete-orphan")
     movimentacoes = db.relationship('Movimentacao', backref='protocolo', lazy=True, cascade="all, delete-orphan")
     setor_atual = db.relationship('Lotacao', foreign_keys=[setor_atual_id])
+    criado_por = db.relationship('Usuario', foreign_keys=[criado_por_id])
+    emitido_por = db.relationship('Usuario', foreign_keys=[emitido_por_usuario_id])
+    requerente_servidor = db.relationship('Servidor', foreign_keys=[requerente_servidor_id])
+    emissao_eletronica = db.relationship('EmissaoEletronica', back_populates='protocolo',
+                                         uselist=False, cascade='all, delete-orphan')
+
+
+class EmissaoEletronica(TenantMixin, db.Model):
+    """Evidência imutável da emissão eletrônica do requerimento/protocolo."""
+    __tablename__ = 'emissoes_eletronicas'
+    id = db.Column(ID_TYPE, primary_key=True)
+    protocolo_id = db.Column(ID_TYPE, db.ForeignKey('protocolos.id'), nullable=False, unique=True, index=True)
+    emitido_por_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False, index=True)
+    pdf_anexo_id = db.Column(ID_TYPE, db.ForeignKey('anexos.id'), nullable=False, unique=True)
+    token_publico = db.Column(db.String(64), nullable=False, unique=True, index=True)
+    codigo_publico = db.Column(db.String(20), nullable=False, unique=True, index=True)
+    pdf_sha256 = db.Column(db.String(64), nullable=False)
+    metodo = db.Column(db.String(40), nullable=False, default='senha_individual')
+    nivel_garantia = db.Column(db.String(20), nullable=False, default='interno')
+    declaracao = db.Column(db.Text, nullable=False)
+    nome_emitente = db.Column(db.String(180), nullable=False)
+    login_emitente = db.Column(db.String(80), nullable=False)
+    ip_hash = db.Column(db.String(64), nullable=False)
+    user_agent_hash = db.Column(db.String(64), nullable=False)
+    emitido_em = db.Column(db.TIMESTAMP(timezone=True), server_default=db.func.now(), nullable=False)
+    status = db.Column(db.String(20), nullable=False, default='VALIDA')
+    cancelado_em = db.Column(db.TIMESTAMP(timezone=True))
+    cancelado_por_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'))
+    motivo_cancelamento = db.Column(db.Text)
+
+    protocolo = db.relationship('Protocolo', back_populates='emissao_eletronica', foreign_keys=[protocolo_id])
+    emitido_por = db.relationship('Usuario', foreign_keys=[emitido_por_id])
+    pdf_anexo = db.relationship('Anexo', foreign_keys=[pdf_anexo_id])
 
 class Anexo(TenantMixin, db.Model):
     __tablename__ = 'anexos'
@@ -234,3 +270,4 @@ class MensagemSuporte(TenantMixin, db.Model):
     criado_em = db.Column(db.TIMESTAMP(timezone=True), server_default=db.func.now(), nullable=False)
 
     autor = db.relationship('Usuario', foreign_keys=[autor_id])
+
