@@ -11,6 +11,7 @@
         .pdf-header { display: flex; justify-content: space-between; align-items: center; min-height: 70px; border-bottom: 2px solid #ddd; padding-bottom: 5px; margin-bottom: 6px; }
         .logo-pdf { width: 300px; height: 70px; display: flex; align-items: center; justify-content: flex-start; }
         .logo-pdf img { display: block; width: auto; height: auto; max-width: 100%; max-height: 68px; object-fit: contain; }
+        .qr-group { display:flex; gap:8px; align-items:flex-start; }
         .consulta-qr { width: 78px; text-align: center; font-size: 7px; line-height: 1.05; color: #444; }
         .consulta-qr img { display: block; width: 52px; height: 52px; margin: 0 auto 1px; }
         .titulo-principal-pdf { text-align: center; margin: 2px 0; font-size: 20px; }
@@ -44,14 +45,14 @@
     <div class="doc-container">
         <div class="pdf-header">
             <div class="logo-pdf"><img src="{{ pdf_logo_url }}" alt="Logo da organização"></div>
-            <div class="consulta-qr">
-                <img src="{{ qr_code_url }}" alt="QR Code para consulta do andamento">
-                {% if emissao %}Valide a autenticidade<br>pelo código {{ emissao.codigo_publico }}{% else %}Consulte o andamento<br>e confirme sua matrícula{% endif %}
+            <div class="qr-group">
+              <div class="consulta-qr"><img src="{{ qr_code_url }}" alt="QR Code para consulta do andamento">Acompanhe o andamento<br>com sua matrícula</div>
+              {% if emissao %}<div class="consulta-qr"><img src="{{ qr_validacao_url }}" alt="QR Code para validar a autenticidade">Valide a autenticidade<br>{{ emissao.codigo_publico }}</div>{% endif %}
             </div>
         </div>
         <h1 class="titulo-principal-pdf">{{ organizacao.orgao or organizacao.nome }}</h1>
         {% if organizacao.municipio %}<p style="text-align:center">{{ organizacao.municipio }}</p>{% endif %}
-        <div class="titulo-central-pdf"><span>PROTOCOLO DE REQUERIMENTO</span></div>
+        <div class="titulo-central-pdf"><span>{% if protocolo.retifica_protocolo_id %}RETIFICAÇÃO DO PROTOCOLO {{ protocolo.protocolo_original.numero }}{% else %}PROTOCOLO DE REQUERIMENTO{% endif %}</span></div>
         <div class="info-pdf">
             <div class="campo-destaque-pdf"><strong>Número:</strong> {{ protocolo.numero }}</div>
             <div class="campo-destaque-pdf"><strong>Data:</strong> {{ protocolo.data_solicitacao.strftime('%d/%m/%Y') if protocolo.data_solicitacao else '' }}</div>
