@@ -40,8 +40,8 @@
           <label class="form-label" for="assurance-{{ item.organization.id }}">Nível de garantia</label>
           <select class="form-select mb-2" id="assurance-{{ item.organization.id }}" name="nivel_garantia_assinatura">
             <option value="interno" {{ 'selected' if item.organization.nivel_garantia_assinatura == 'interno' else '' }}>Interno auditável</option>
-            <option value="forte" {{ 'selected' if item.organization.nivel_garantia_assinatura == 'forte' else '' }}>Confirmação criptográfica forte</option>
-            <option value="externo" {{ 'selected' if item.organization.nivel_garantia_assinatura == 'externo' else '' }}>Provedor externo</option>
+            <option value="forte" disabled>Confirmação criptográfica forte (em desenvolvimento)</option>
+            <option value="externo" disabled>Provedor externo (integração futura)</option>
           </select>
           <input class="form-control mb-2" type="text" name="motivo" maxlength="500" placeholder="Referência ou motivo da alteração">
           <button class="btn btn-outline-primary" type="submit">Salvar capacidades</button>
@@ -80,3 +80,4 @@
   </div>
 </div>
 {% endblock %}
+
