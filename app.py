@@ -1050,17 +1050,22 @@ def render_protocol_pdf(protocolo, emissao=None):
     from weasyprint import HTML
     organizacao = active_organization()
     version = int(organizacao.logo_atualizada_em.timestamp()) if organizacao.logo_atualizada_em else 0
-    consulta_url = (url_for('validar_emissao', token_publico=emissao.token_publico, _external=True)
-                    if emissao else
-                    url_for('consulta_publica', consulta_token=protocolo.consulta_token, _external=True))
-    qr_buffer = io.BytesIO()
-    qrcode.make(consulta_url).save(qr_buffer, format='PNG')
-    qr_code_url = 'data:image/png;base64,' + base64.b64encode(qr_buffer.getvalue()).decode('ascii')
+    consulta_url = url_for('consulta_publica', consulta_token=protocolo.consulta_token, _external=True)
+    qr_consulta_buffer = io.BytesIO()
+    qrcode.make(consulta_url).save(qr_consulta_buffer, format='PNG')
+    qr_code_url = 'data:image/png;base64,' + base64.b64encode(qr_consulta_buffer.getvalue()).decode('ascii')
+    qr_validacao_url = None
+    if emissao:
+        validacao_url = url_for('validar_emissao', token_publico=emissao.token_publico, _external=True)
+        qr_validacao_buffer = io.BytesIO()
+        qrcode.make(validacao_url).save(qr_validacao_buffer, format='PNG')
+        qr_validacao_url = ('data:image/png;base64,' +
+                            base64.b64encode(qr_validacao_buffer.getvalue()).decode('ascii'))
     rendered_html = render_template(
         'pdf_template.html', protocolo=protocolo, organizacao=organizacao,
         pdf_logo_url=url_for('organization_logo', slug=organizacao.slug,
                              v=version, _external=True), qr_code_url=qr_code_url,
-        emissao=emissao)
+        emissao=emissao, qr_validacao_url=qr_validacao_url)
     return HTML(string=rendered_html, base_url=request.base_url).write_pdf()
 
 @app.route('/protocolo/<int:protocolo_id>/pdf')
@@ -1152,6 +1157,14 @@ def autenticar_emissao_protocolo(protocolo_id):
     emissao.pdf_anexo_id = documento.id
     emissao.pdf_sha256 = digest
     protocolo.emitido_por_usuario_id = current_user.id
+    if protocolo.retifica_protocolo_id:
+        original = tenant_query(Protocolo).filter_by(id=protocolo.retifica_protocolo_id).first_or_404()
+        if original.emissao_eletronica:
+            original.emissao_eletronica.status = 'RETIFICADA'
+            db.session.add(HistoricoProtocolo(
+                tenant_id=current_tenant_id(), protocolo_id=original.id, status=original.status,
+                responsavel=current_user.login, usuario_id=current_user.id,
+                acao='RETIFICADO', observacao=f'Substituído formalmente pela retificação {protocolo.numero}.'))
     db.session.add_all([emissao, HistoricoProtocolo(
         tenant_id=current_tenant_id(), protocolo_id=protocolo.id, status=protocolo.status,
         responsavel=current_user.login, usuario_id=current_user.id,
@@ -1174,6 +1187,49 @@ def validar_emissao(token_publico):
     return render_template('validar_emissao.html', emissao=emissao,
                            organizacao=db.session.get(Organizacao, emissao.tenant_id),
                            arquivo_resultado=arquivo_resultado)
+
+
+@app.route('/protocolo/<int:protocolo_id>/retificar', methods=['GET', 'POST'])
+@permission_required('edit')
+def retificar_protocolo(protocolo_id):
+    original = accessible_protocol_or_404(protocolo_id)
+    if not original.emissao_eletronica:
+        flash('A retificação formal é utilizada para requerimentos já autenticados.', 'warning')
+        return redirect(url_for('editar_protocolo', protocolo_id=original.id))
+    if original.emissao_eletronica.status != 'VALIDA':
+        flash('Somente a versão autenticada vigente pode ser retificada.', 'warning')
+        return redirect(url_for('detalhe_protocolo', protocolo_id=original.id))
+    if request.method == 'GET':
+        return render_template('criar_protocolo.html', title='Retificar protocolo',
+                               legend=f'Retificar Protocolo {original.numero}',
+                               protocolo=original, retificacao_de=original)
+
+    nome = (request.form.get('nome') or '').strip()
+    if not nome:
+        abort(400, description='O nome do requerente é obrigatório.')
+    retificacao = Protocolo(
+        tenant_id=current_tenant_id(), numero=gerar_proximo_numero_protocolo(), nome=nome,
+        matricula=request.form.get('matricula'), endereco=request.form.get('endereco'),
+        municipio=request.form.get('municipio'), bairro=request.form.get('bairro'),
+        cep=request.form.get('cep'), telefone=request.form.get('telefone'), cpf=request.form.get('cpf'),
+        rg=request.form.get('rg'), cargo=request.form.get('cargo'), lotacao=request.form.get('lotacao'),
+        unidade_exercicio=request.form.get('unidade_exercicio'),
+        tipo_requerimento=request.form.get('tipo_requerimento'), requer_ao=request.form.get('requer_ao'),
+        data_solicitacao=parse_iso_date(request.form.get('data_solicitacao'), 'Data da solicitação') or datetime.now().date(),
+        prazo_em=parse_iso_date(request.form.get('prazo_em'), 'Prazo'),
+        observacoes=request.form.get('observacoes'), responsavel=current_user.login,
+        criado_por_id=current_user.id, setor_atual_id=current_user.lotacao_id,
+        modalidade_abertura='presencial_protocolista', retifica_protocolo_id=original.id,
+        status='PROTOCOLO GERADO')
+    db.session.add(retificacao)
+    db.session.flush()
+    db.session.add(HistoricoProtocolo(
+        tenant_id=current_tenant_id(), protocolo_id=retificacao.id, status=retificacao.status,
+        responsavel=current_user.login, usuario_id=current_user.id, acao='RETIFICACAO_CRIADA',
+        observacao=f'Retificação do protocolo {original.numero}; o original permanece preservado até a nova autenticação.'))
+    db.session.commit()
+    flash(f'Retificação {retificacao.numero} criada. Confira e autentique a nova emissão.', 'success')
+    return redirect(url_for('detalhe_protocolo', protocolo_id=retificacao.id))
 
 
 @app.errorhandler(413)
