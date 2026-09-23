@@ -59,7 +59,7 @@ from forms import LoginForm, TenantLoginForm, RegistrationForm, ProtocoloForm, A
 from models import (Organizacao, Usuario, Protocolo, HistoricoProtocolo, Movimentacao,
                     ConsultaPublicaTentativa, LoginTentativa, Anexo, Lotacao,
                     TipoRequerimento, Servidor, ChamadoSuporte, MensagemSuporte,
-                    OrganizacaoCapacidadeEvento, db)
+                    OrganizacaoCapacidadeEvento, EmissaoEletronica, db)
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
@@ -1044,26 +1044,31 @@ def admin_toggle_item_status(item_type, item_id):
 
 # --- Rota de Geração de PDF ---
 
-def render_protocol_pdf(protocolo):
+def render_protocol_pdf(protocolo, emissao=None):
     import base64
     import qrcode
     from weasyprint import HTML
     organizacao = active_organization()
     version = int(organizacao.logo_atualizada_em.timestamp()) if organizacao.logo_atualizada_em else 0
-    consulta_url = url_for('consulta_publica', consulta_token=protocolo.consulta_token, _external=True)
+    consulta_url = (url_for('validar_emissao', token_publico=emissao.token_publico, _external=True)
+                    if emissao else
+                    url_for('consulta_publica', consulta_token=protocolo.consulta_token, _external=True))
     qr_buffer = io.BytesIO()
     qrcode.make(consulta_url).save(qr_buffer, format='PNG')
     qr_code_url = 'data:image/png;base64,' + base64.b64encode(qr_buffer.getvalue()).decode('ascii')
     rendered_html = render_template(
         'pdf_template.html', protocolo=protocolo, organizacao=organizacao,
         pdf_logo_url=url_for('organization_logo', slug=organizacao.slug,
-                             v=version, _external=True), qr_code_url=qr_code_url)
+                             v=version, _external=True), qr_code_url=qr_code_url,
+        emissao=emissao)
     return HTML(string=rendered_html, base_url=request.base_url).write_pdf()
 
 @app.route('/protocolo/<int:protocolo_id>/pdf')
 @login_required
 def gerar_pdf_protocolo(protocolo_id):
     protocolo = accessible_protocol_or_404(protocolo_id)
+    if protocolo.emissao_eletronica:
+        return _response_pdf_autenticado(protocolo.emissao_eletronica)
     pdf_bytes = render_protocol_pdf(protocolo)
 
     # Cria a resposta HTTP com o PDF
@@ -1072,6 +1077,103 @@ def gerar_pdf_protocolo(protocolo_id):
     response.headers['Content-Disposition'] = f'inline; filename=protocolo_{protocolo.numero.replace("/", "-")}.pdf'
 
     return response
+
+
+def _response_pdf_autenticado(emissao):
+    pdf_bytes = read_attachment_bytes(emissao.pdf_anexo)
+    if not hmac.compare_digest(hashlib.sha256(pdf_bytes).hexdigest(), emissao.pdf_sha256):
+        abort(409, description='A integridade do documento autenticado não pôde ser confirmada.')
+    response = make_response(pdf_bytes)
+    response.headers['Content-Type'] = 'application/pdf'
+    response.headers['Content-Disposition'] = f'inline; filename={emissao.pdf_anexo.file_name}'
+    response.headers['Cache-Control'] = 'private, no-store'
+    return response
+
+
+def _public_code():
+    raw = secrets.token_hex(5).upper()
+    return f'{raw[:5]}-{raw[5:]}'
+
+
+@app.post('/protocolo/<int:protocolo_id>/autenticar-emissao')
+@permission_required('create')
+def autenticar_emissao_protocolo(protocolo_id):
+    organizacao = active_organization()
+    if not organizacao.emissao_eletronica_protocolista_enabled:
+        abort(404)
+    if organizacao.nivel_garantia_assinatura != 'interno':
+        abort(409, description='O método de garantia configurado ainda não está disponível.')
+    if current_user.tipo not in {'protocolista', 'admin'}:
+        abort(403)
+    protocolo = tenant_query(Protocolo).filter_by(id=protocolo_id).with_for_update().first_or_404()
+    if protocolo.arquivado_em:
+        abort(409, description='Processos arquivados não podem ser autenticados.')
+    if protocolo.emissao_eletronica:
+        return _response_pdf_autenticado(protocolo.emissao_eletronica)
+    senha = request.form.get('senha') or ''
+    if not senha or not bcrypt.check_password_hash(current_user.senha, senha):
+        flash('Senha inválida. A emissão não foi autenticada.', 'danger')
+        return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
+
+    token = secrets.token_urlsafe(32)
+    codigo = _public_code()
+    while EmissaoEletronica.query.filter(or_(EmissaoEletronica.token_publico == token,
+                                             EmissaoEletronica.codigo_publico == codigo)).first():
+        token, codigo = secrets.token_urlsafe(32), _public_code()
+    declaracao = ('Protocolo emitido e autenticado eletronicamente pelo protocolista '
+                  'mediante confirmação de sua senha individual no Sysprot.')
+    origem = request.headers.get('X-Forwarded-For', request.remote_addr or '').split(',')[0].strip()
+    emissao = EmissaoEletronica(
+        tenant_id=current_tenant_id(), protocolo_id=protocolo.id,
+        emitido_por_id=current_user.id, pdf_anexo_id=0,
+        token_publico=token, codigo_publico=codigo, pdf_sha256='0' * 64,
+        metodo='senha_individual', nivel_garantia='interno', declaracao=declaracao,
+        nome_emitente=current_user.nome_completo or current_user.nome,
+        login_emitente=current_user.login,
+        ip_hash=hmac.new(app.config['SECRET_KEY'].encode(), origem.encode(), hashlib.sha256).hexdigest(),
+        user_agent_hash=hashlib.sha256((request.user_agent.string or '').encode()).hexdigest(),
+        emitido_em=datetime.now().astimezone(), status='VALIDA')
+    # O PDF inclui código/token e os dados congelados da evidência. O hash é calculado uma única vez.
+    pdf_bytes = render_protocol_pdf(protocolo, emissao)
+    digest = hashlib.sha256(pdf_bytes).hexdigest()
+    filename = f'protocolo_{protocolo.numero.replace("/", "-")}_autenticado.pdf'
+    storage_path, backend, stored_hash, stored_data = store_attachment_bytes(
+        pdf_bytes, current_tenant_id(), protocolo.id, 'protocolo-autenticado', 1,
+        filename, 'application/pdf')
+    if not hmac.compare_digest(digest, stored_hash):
+        abort(500, description='Falha ao confirmar a integridade do documento.')
+    documento = Anexo(
+        tenant_id=current_tenant_id(), protocolo_id=protocolo.id, file_name=filename,
+        storage_path=storage_path, storage_backend=backend, file_hash=digest,
+        file_size=len(pdf_bytes), mime_type='application/pdf', file_data=stored_data,
+        documento_chave='protocolo-autenticado', versao=1, enviado_por_id=current_user.id)
+    db.session.add(documento)
+    db.session.flush()
+    emissao.pdf_anexo_id = documento.id
+    emissao.pdf_sha256 = digest
+    protocolo.emitido_por_usuario_id = current_user.id
+    db.session.add_all([emissao, HistoricoProtocolo(
+        tenant_id=current_tenant_id(), protocolo_id=protocolo.id, status=protocolo.status,
+        responsavel=current_user.login, usuario_id=current_user.id,
+        acao='EMISSAO_AUTENTICADA', observacao=f'Emissão autenticada sob o código {codigo}.')])
+    db.session.commit()
+    return _response_pdf_autenticado(emissao)
+
+
+@app.route('/validar-emissao/<string:token_publico>', methods=['GET', 'POST'])
+@csrf.exempt
+def validar_emissao(token_publico):
+    emissao = EmissaoEletronica.query.filter_by(token_publico=token_publico).first_or_404()
+    arquivo_resultado = None
+    if request.method == 'POST' and request.files.get('arquivo'):
+        arquivo = request.files['arquivo']
+        dados = arquivo.read(21 * 1024 * 1024 + 1)
+        if len(dados) > 21 * 1024 * 1024:
+            abort(413)
+        arquivo_resultado = hmac.compare_digest(hashlib.sha256(dados).hexdigest(), emissao.pdf_sha256)
+    return render_template('validar_emissao.html', emissao=emissao,
+                           organizacao=db.session.get(Organizacao, emissao.tenant_id),
+                           arquivo_resultado=arquivo_resultado)
 
 
 @app.errorhandler(413)
@@ -1088,6 +1190,8 @@ def gerar_documento_versionado(protocolo_id):
     if protocolo.arquivado_em:
         flash('Processos arquivados não podem gerar novas versões.', 'warning')
         return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
+    if protocolo.emissao_eletronica:
+        return _response_pdf_autenticado(protocolo.emissao_eletronica)
     pdf_bytes = render_protocol_pdf(protocolo)
     chave = 'documento-protocolo'
     versao = (tenant_query(Anexo).filter_by(protocolo_id=protocolo.id, documento_chave=chave)
@@ -1195,6 +1299,7 @@ def criar_protocolo():
             observacoes=request.form.get('observacoes'),
             responsavel=current_user.login,
             criado_por_id=current_user.id,
+            modalidade_abertura='presencial_protocolista',
             setor_atual_id=current_user.lotacao_id,
             status='PROTOCOLO GERADO' # Status padrão como no sistema antigo
         )
@@ -1246,6 +1351,9 @@ def editar_protocolo(protocolo_id):
     protocolo = accessible_protocol_or_404(protocolo_id)
     if protocolo.arquivado_em:
         flash('Processos arquivados são somente para consulta.', 'warning')
+        return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
+    if protocolo.emissao_eletronica:
+        flash('O requerimento autenticado está congelado. Faça uma retificação para alterar seus dados.', 'warning')
         return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
 
     if request.method == 'POST':
@@ -1317,6 +1425,9 @@ def adicionar_anexo(protocolo_id):
     protocolo = tenant_query(Protocolo).filter_by(id=protocolo_id).with_for_update().first_or_404()
     if protocolo.arquivado_em:
         flash('Processos arquivados não podem receber anexos ou novas versões.', 'warning')
+        return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
+    if protocolo.emissao_eletronica:
+        flash('Os anexos que integram a emissão autenticada estão congelados. Faça uma retificação para complementar o pedido.', 'warning')
         return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
     form = AnexoForm()
     if form.validate_on_submit():
@@ -1835,3 +1946,4 @@ if __name__ == '__main__':
     # The port must be available. Railway provides the PORT env var.
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=True)
+
