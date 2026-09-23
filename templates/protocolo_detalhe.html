@@ -7,20 +7,20 @@
         <p class="text-muted mb-0">{{ protocolo.nome or 'Requerente não informado' }}</p>
     </div>
     <div class="detail-actions action-group">
-            {% if active_organization.emissao_eletronica_protocolista_enabled and not protocolo.emissao_eletronica and current_user.tipo in ['admin', 'protocolista'] and not protocolo.arquivado_em %}
+            {% if active_organization.emissao_eletronica_protocolista_enabled and (not protocolo.emissao_eletronica or protocolo.retificacao_pendente) and current_user.tipo in ['admin', 'protocolista'] and not protocolo.arquivado_em %}
             <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#modalAutenticarEmissao">Autenticar emissão</button>
             {% endif %}
             {% if can('edit') and not protocolo.arquivado_em %}<form method="POST" target="_blank" action="{{ url_for('gerar_documento_versionado', protocolo_id=protocolo.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="btn btn-primary">Gerar e registrar documento</button></form>{% endif %}
-            {% if can('edit') and not protocolo.arquivado_em and protocolo.emissao_eletronica and protocolo.emissao_eletronica.status == 'VALIDA' %}<a href="{{ url_for('retificar_protocolo', protocolo_id=protocolo.id) }}" class="btn btn-outline-secondary">Retificar</a>{% elif can('edit') and not protocolo.arquivado_em and not protocolo.emissao_eletronica %}<a href="{{ url_for('editar_protocolo', protocolo_id=protocolo.id) }}" class="btn btn-outline-secondary">Editar</a>{% endif %}
+            {% if can('edit') and not protocolo.arquivado_em and protocolo.emissao_eletronica and not protocolo.retificacao_pendente %}<a href="{{ url_for('retificar_protocolo', protocolo_id=protocolo.id) }}" class="btn btn-outline-secondary">Retificar</a>{% elif can('edit') and not protocolo.arquivado_em and not protocolo.emissao_eletronica %}<a href="{{ url_for('editar_protocolo', protocolo_id=protocolo.id) }}" class="btn btn-outline-secondary">Editar</a>{% endif %}
     </div>
 </div>
 
-{% if active_organization.emissao_eletronica_protocolista_enabled and not protocolo.emissao_eletronica %}
+{% if active_organization.emissao_eletronica_protocolista_enabled and (not protocolo.emissao_eletronica or protocolo.retificacao_pendente) %}
 <div class="modal fade" id="modalAutenticarEmissao" tabindex="-1" aria-hidden="true"><div class="modal-dialog"><div class="modal-content">
   <form method="POST" target="_blank" action="{{ url_for('autenticar_emissao_protocolo', protocolo_id=protocolo.id) }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="modal-header"><h2 class="modal-title h5">Autenticar emissão</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
-    <div class="modal-body"><p>Esta ação gera o PDF definitivo, registra sua identidade e congela os dados e anexos atuais. Ela autentica a emissão pelo protocolista, não a assinatura do requerente.</p><label class="form-label" for="senha-emissao">Confirme sua senha</label><input class="form-control" id="senha-emissao" name="senha" type="password" required autocomplete="current-password"></div>
+    <div class="modal-body"><p>Esta ação gera {{ 'uma nova versão autenticada' if protocolo.retificacao_pendente else 'o PDF definitivo' }}, registra sua identidade e congela os dados e anexos atuais. Ela autentica a emissão pelo protocolista, não a assinatura do requerente.</p><label class="form-label" for="senha-emissao">Confirme sua senha</label><input class="form-control" id="senha-emissao" name="senha" type="password" required autocomplete="current-password"></div>
     <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-primary">Confirmar e gerar PDF</button></div>
   </form>
 </div></div></div>
@@ -31,10 +31,9 @@
     <div class="protocol-summary-item"><span>Prazo</span><strong>{{ protocolo.prazo_em.strftime('%d/%m/%Y') if protocolo.prazo_em else 'Não definido' }}</strong></div>
     <div class="protocol-summary-item"><span>Localização</span><strong>{{ protocol_location(protocolo) }}</strong></div>
     <div class="protocol-summary-item"><span>Responsável</span><strong>{{ protocolo.responsavel or 'Não definido' }}</strong></div>
-    {% if protocolo.emissao_eletronica %}<div class="protocol-summary-item"><span>Emissão eletrônica</span><strong>{{ protocolo.emissao_eletronica.codigo_publico }} · {{ protocolo.emissao_eletronica.status }}</strong></div>{% endif %}
+    {% if protocolo.emissao_eletronica %}<div class="protocol-summary-item"><span>Emissão eletrônica</span><strong>Versão {{ protocolo.emissao_eletronica.versao }} · {{ protocolo.emissao_eletronica.codigo_publico }} · {{ protocolo.emissao_eletronica.status }}</strong></div>{% endif %}
 </div>
-{% if protocolo.protocolo_original %}<div class="alert alert-info">Este protocolo retifica o <a href="{{ url_for('detalhe_protocolo', protocolo_id=protocolo.protocolo_original.id) }}">protocolo {{ protocolo.protocolo_original.numero }}</a>.</div>{% endif %}
-{% if protocolo.retificacoes %}<div class="alert alert-warning">Este protocolo possui retificação: {% for item in protocolo.retificacoes %}<a href="{{ url_for('detalhe_protocolo', protocolo_id=item.id) }}">{{ item.numero }}</a>{% if not loop.last %}, {% endif %}{% endfor %}.</div>{% endif %}
+{% if protocolo.retificacao_pendente %}<div class="alert alert-warning">Há uma retificação preparada aguardando autenticação. Até lá, a versão anterior continua sendo o documento autenticado vigente.</div>{% endif %}
 
 <nav class="detail-section-nav mb-4" aria-label="Seções do protocolo">
     <a href="#visao-geral">Visão geral</a>
@@ -155,6 +154,7 @@
         <h4>Anexos</h4>
     </div>
     <div class="card-body">
+        {% if protocolo.emissoes_eletronicas %}<div class="mb-4"><h5>Versões autenticadas do requerimento</h5><ul class="list-group">{% for versao in protocolo.emissoes_eletronicas|reverse %}<li class="list-group-item d-flex justify-content-between align-items-center"><span><strong>Versão {{ versao.versao }}</strong> · {{ versao.status }} · código {{ versao.codigo_publico }}<small class="d-block">Autenticada por {{ versao.nome_emitente }} em {{ versao.emitido_em.strftime('%d/%m/%Y %H:%M') }}</small></span><a class="btn btn-sm btn-outline-primary" href="{{ url_for('baixar_anexo', anexo_id=versao.pdf_anexo_id) }}">Download</a></li>{% endfor %}</ul></div><hr>{% endif %}
         <div class="mb-3">
             <h5>Adicionar documento ou nova versão</h5>
             {% if can('edit') and not protocolo.arquivado_em %}
