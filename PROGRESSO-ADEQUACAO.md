@@ -1,62 +1,206 @@
-# Adequação ao Projeto Básico — andamento
+# Plano geral consolidado — Sysprot+
 
-## 04/09/2026 — primeiro conjunto
+## 1. Finalidade e situação atual
 
-Enviado somente à branch development: 3bd7d4a0c3d1fea499e8d5b9f6bd06f75bcebc34.
+Este documento consolida o andamento funcional, técnico, operacional e visual do Sysprot+. Ele substitui o registro cronológico antigo, que já não representava o estado implantado.
 
-- CSRF global, tokens nos formulários manuais e cabeçalho nas requisições de atualização.
-- Observações e resultados de busca renderizados como texto, não HTML.
-- Consulta pública não revela o número no título antes da matrícula; janela expirada reutiliza o registro e matrícula Unicode não causa erro.
-- Relatórios e exportação passam a exigir a permissão reports.
-- Suíte isolada em SQLite temporário, com trava antes de recriar tabelas e fechamento das conexões.
-- 11 testes automatizados passaram.
-- Navegador integrado, servidor local: login, tramitação para Jurídico e recebimento confirmados; não equivale à homologação do Railway.
+**Situação em 22/09/2026:** o sistema possui versão homologada em produção, ambiente principal de desenvolvimento e ambiente visual isolado. O conjunto atual passou por 54 testes automatizados e por testes reais no navegador. Não há pendência funcional ou visual bloqueadora conhecida para a utilização prevista.
 
-## Pendências
+Ambientes oficiais:
 
-## 04/09/2026 — versionamento documental
+- produção: branch `main`, em `https://sysprotocolo.up.railway.app`;
+- desenvolvimento principal: branch `development`;
+- desenvolvimento visual: branch `codex/visual-development`, em `https://projetoprotocolov1-visual-development.up.railway.app`.
 
-Commit development b40061604fb0e59eca464211d0ec4c774a4a8203. Railway confirmou ACTIVE / Deployment successful, implantação 32918a13-6818-4dd3-95e6-15e4ce2e3ead.
+## 2. Atendimento funcional
 
-- Upload permite novo documento ou nova versão; mantém todos os arquivos e downloads anteriores.
-- Registra autor, data e evento no histórico. Serializa uploads por protocolo com bloqueio de linha no PostgreSQL (concorrência real ainda não homologada).
-- Não agrupa indevidamente os arquivos legados que compartilhavam a chave padrão.
-- Desativa exclusão permanente de anexos/protocolos para preservar a trilha. Arquivamento continua disponível.
-- Impede anexação em processo arquivado; rejeita arquivos vazios ou acima de 20 MB.
-- 14 testes passaram. Pelo navegador integrado, uploads reais de dois arquivos confirmaram v1/v2, autor, horário e links separados.
-- Ainda não há homologação autenticada no Railway nem versionamento de PDFs gerados automaticamente.
+### 2.1 Protocolos e integridade do processo — concluído
 
-## Pendências restantes
+- Numeração definida pelo servidor e separada por organização.
+- Criação do protocolo e primeiro evento gravados na mesma transação.
+- Estados oficiais padronizados: `PROTOCOLO GERADO`, `EM ANÁLISE`, `PENDENTE DE DOCUMENTO`, `FINALIZADO`, `CONCLUÍDO`, `EM TRAMITAÇÃO` e `ARQUIVADO`.
+- Cadastro, edição, consulta, pesquisa, paginação e acompanhamento implementados.
+- Histórico registra criação, alterações, tramitação, recebimento, documentos e arquivamento.
+- Edição registra os campos e os valores modificados.
+- Processo arquivado permanece somente para leitura.
+- Arquivamento é bloqueado enquanto houver tramitação pendente.
+- Revisão resumida apresentada antes da confirmação do cadastro.
+- Confirmação exigida para ações sensíveis ou destrutivas.
 
-## 08/09/2026 — integridade do processo e identidade institucional
+### 2.2 Tramitação e responsabilidades — concluído
 
-- Commit 34ff31f834920ef38cb327bc4981f2c69457af86: numeração definida no servidor e serializada por organização no PostgreSQL; criação e histórico atômicos; estados oficiais padronizados; encaminhamento antigo removido da interface; arquivamento bloqueado com recebimento pendente; arquivado somente leitura; edições registram campos e valores modificados; bootstrap normaliza estados legados.
-- Commit 7dd1b86a8e5d84fce0289e76cebb4fa2be63f030: município, órgão/unidade e rodapé configuráveis e isolados por cliente; ambos os modelos de documento usam esses dados; referências fixas à Secretaria da Administração e ao rodapé de outra prefeitura removidas.
-- 22 testes passaram. A geração binária por WeasyPrint não roda neste Windows sem as bibliotecas GTK; o template do PDF foi renderizado em teste. A rota deverá ser homologada no contêiner Linux do Railway.
+- Tramitação realizada entre setores, com envio e recebimento.
+- Remetente pode indicar um usuário do setor destinatário ou deixar o destinatário individual em branco.
+- Sem usuário indicado, a pendência fica disponível para os usuários aptos do setor.
+- Com usuário indicado, somente o destinatário recebe a pendência individual.
+- Localização, responsável e situação do recebimento aparecem no processo.
+- Histórico preserva remetente, destino, destinatário, envio e recebimento.
 
-## 08/09/2026 — integridade do processo
+### 2.3 Prazos, painel, relatórios e exportações — concluído
 
-- Commit 34ff31f834920ef38cb327bc4981f2c69457af86, somente em development.
-- Número passa a ser definido exclusivamente pelo servidor; bloqueio da organização serializa a sequência por cliente no PostgreSQL; protocolo e evento de criação são gravados na mesma transação.
-- Estados canônicos: PROTOCOLO GERADO, EM ANÁLISE, PENDENTE DE DOCUMENTO, FINALIZADO, CONCLUÍDO, EM TRAMITAÇÃO e ARQUIVADO. Bootstrap normaliza registros antigos.
-- Encaminhamento antigo por responsável removido da interface. Tramitação permanece exclusivamente entre setores, com envio e recebimento.
-- Arquivamento exige inexistência de tramitação pendente; processo arquivado não aceita edição nem alteração genérica de estado.
-- Histórico de edição descreve os campos e valores alterados.
-- 21 testes aprovados. A concorrência precisa ser homologada no PostgreSQL do Railway; SQLite não reproduz bloqueio de linha.
+- Campo próprio de prazo utilizado nos filtros e indicadores.
+- Filtros por número, requerente, tipo, status, período e situação do prazo.
+- Painel apresenta novos protocolos, vencidos, próximos do vencimento, finalizados, recebimentos e suporte.
+- Indicadores funcionam como atalhos para as listas correspondentes.
+- Estatísticas por status, tipo e setor atual.
+- Relatórios e exportação Excel protegidos por permissão.
+- Filtros preservados na paginação, nos relatórios e na exportação.
+- Impressão rápida, impressão personalizada e pré-visualização disponíveis.
+- Fechamento dos modais validado pelo “X”, botão, clique externo e tecla Esc.
 
-## 08/09/2026 — relatórios, prazos, estatísticas e usuários
+### 2.4 Documentos e anexos — concluído
 
-- Commit 704fdf4424528864574c82139b5e97752c41bcfd: filtros unificados entre listagem, relatório e Excel; datas validadas; paginação preserva filtros; painel contabiliza prazos vencidos pelo campo prazo_em; estatísticas por setor atual; dashboard compatível com SQLite nos testes.
-- Commit bfff4a940f22629852f3c6be99d0bdbb5e990332: administrador edita nome, e-mail, perfil e setor, desativa/reativa usuários, sem atravessar clientes; protege a própria conta e mantém ao menos um administrador ativo; conta inativa deixa de ser carregada pela sessão.
-- 18 testes passaram. Painel e tela completa de usuários conferidos visualmente no navegador local.
-- Ambos publicados somente em development; implantação e homologação autenticada no Railway ainda precisam ser confirmadas.
+- Documentos PDF usam dados institucionais do cliente.
+- Cabeçalho, rodapé, logo e textos respeitam a configuração da organização.
+- QR Code direciona para a consulta pública protegida.
+- Documentos extensos foram testados em múltiplas páginas.
+- Anexos novos ficam em bucket privado compatível com S3.
+- Caminho de armazenamento inclui o identificador do cliente.
+- Upload aceita arquivos diversos dentro do limite de 20 MB e rejeita arquivo vazio.
+- Nova versão preserva as anteriores, com autor, data, sequência e download individual.
+- Processos arquivados não recebem novos anexos.
+- Exclusão permanente foi evitada para preservar a trilha documental.
 
-- Implantação confirmada no Railway: ACTIVE / Deployment successful, ID 81fe813b-8bf3-49d2-a71d-3cd3cf728198. Falta homologação autenticada; aba do Chrome permanece no login.
-- Numeração concorrente; versionamento dos documentos gerados; histórico de edições; coerência de tramitação/arquivamento.
-- Alertas/visões adicionais de prazos, consistência de status e demais verificações de segurança.
-- Parametrização municipal e revisão visual dos documentos.
-- Backup/restauração, disponibilidade e organização de suporte e capacitação.
-- Teste local revelou incompatibilidade do dashboard com SQLite (cast de data); ainda não alterada. No Railway é PostgreSQL.
-- Janela estreita do navegador integrado mostrou navegação horizontal cortada; revisar responsividade.
+### 2.5 Consulta pública — concluído
 
-Não há declaração de atendimento integral nem de ausência de vulnerabilidades. Produção não foi alterada.
+- Acesso realizado por token não sequencial apresentado no QR Code.
+- Número e demais dados não são revelados antes da confirmação.
+- Consulta exige a matrícula correspondente ao protocolo.
+- Comparação aceita caracteres Unicode e impede consulta com matrícula incorreta.
+- Limitação de tentativas reduz força bruta.
+- Resposta pública expõe somente os dados definidos para acompanhamento.
+- Cabeçalhos de segurança, política de conteúdo e proteção contra enquadramento estão ativos.
+
+### 2.6 Endereço e CEP — concluído
+
+- Consulta externa de CEP preenche logradouro, bairro e município quando disponíveis.
+- Campos permanecem editáveis para correção ou preenchimento manual.
+- Falha ou ausência de dados no serviço externo não impede o cadastro manual.
+- CEP `62940-073` foi utilizado na validação real.
+
+## 3. Multicliente, perfis e segurança
+
+### 3.1 Arquitetura multicliente — concluído
+
+- Organizações usam `tenant_id` próprio.
+- Usuários, protocolos, anexos, históricos, lotações, servidores, tipos e chamados são vinculados à organização.
+- Consultas autenticadas são limitadas ao cliente selecionado.
+- Tentativa de acessar identificador de outro cliente retorna indisponibilidade, sem revelar o registro.
+- Logos, documentos, anexos e configurações são isolados por organização.
+- A suíte automatizada usa organizações distintas para verificar o isolamento.
+- A demonstração visual com uma segunda organização permanece opcional, não sendo bloqueio funcional.
+
+### 3.2 Perfis e hierarquia — concluído
+
+- Administrador geral: gerencia a plataforma, seleciona clientes e cria outros administradores gerais.
+- Administrador do cliente: gerencia sua organização, usuários do mesmo nível ou inferiores, setores, tipos e identidade.
+- Protocolista: cria e acompanha protocolos, sem administrar a organização.
+- Tramitador: participa da tramitação, recebimento e resposta conforme setor e destinatário.
+- Consulta: acompanha os processos permitidos, sem criar, administrar ou tramitar.
+- Contas inativas não autenticam.
+- Administrador do cliente não atravessa organizações.
+- Sistema impede desativar a própria conta ou deixar o cliente sem administrador ativo.
+
+### 3.3 Proteções aplicadas — concluído para o escopo atual
+
+- CSRF em formulários e requisições de alteração.
+- Saída textual tratada para evitar injeção de HTML nas áreas revisadas.
+- Controle de acesso aplicado nas rotas, não apenas na interface.
+- Limitação de tentativas no login e na consulta pública.
+- Tokens, arquivos e consultas não dependem de identificadores sequenciais públicos.
+- Bucket privado; download passa pela aplicação autenticada e autorizada.
+- Não existe declaração de segurança absoluta. Novas funções devem passar por revisão antes da promoção.
+
+## 4. Identidade visual e experiência — concluído
+
+- Logo padrão neutra Sysprot+ para contextos sem cliente definido.
+- Logo de cada organização armazenada fora do código e tratada antes do uso.
+- Imagens grandes são redimensionadas sem extrapolar os contêineres.
+- Login resolve a identidade pelo identificador da organização informado.
+- Cabeçalho, login, documentos e relatórios usam a identidade correta.
+- Sistema visual, cabeçalho, navegação, botões, campos, cartões, tabelas e mensagens padronizados.
+- Painel “Exige sua atenção” implementado.
+- Suporte e configurações reorganizados.
+- Listagens mostram filtros ativos e mantêm as ações essenciais visíveis.
+- Número do protocolo é um identificador visual, sem comportamento de hiperlink.
+- Responsividade validada em desktop, tablet e celular, sem rolagem horizontal indevida nas telas revisadas.
+- Navegação por teclado, foco visível, rótulos e preferência por redução de movimento considerados.
+
+O histórico detalhado está em `PLANO-EVOLUCAO-VISUAL.md`.
+
+## 5. Suporte e capacitação — concluído
+
+- Qualquer usuário autenticado pode abrir e acompanhar os próprios chamados.
+- Chamado registra assunto, descrição, categoria, prioridade, status, responsável e atualização.
+- Administradores gerais podem visualizar a fila global, assumir, responder e atualizar chamados.
+- Usuário acompanha a conversa e as mudanças de situação.
+- Materiais em português foram preparados para administração/desenvolvimento e para treinamento do cliente.
+- A versão voltada ao cliente exclui informações internas do desenvolvedor e apresenta o uso de forma mais didática.
+- Os materiais devem ser atualizados quando novas funções alterarem os fluxos apresentados.
+
+## 6. Backup e recuperação — solução provisória homologada
+
+- Backup PostgreSQL produz `.dump` e checksum SHA-256.
+- Backup do bucket produz `.zip`, manifesto e checksum SHA-256.
+- Credenciais não são gravadas dentro dos arquivos de backup.
+- Restauração foi executada em banco vazio e prefixo temporário do bucket.
+- Foram conferidos PostgreSQL, quantidade de protocolos e históricos, objeto restaurado e SHA-256.
+- Scripts e orientação estão documentados em `OPERACAO-BACKUP.md`.
+- Arquivos locais são mantidos em `C:\Users\usuario\Documents\ChatGPT\New project\Backups Sysprot`.
+
+Situação operacional:
+
+- a rotina local atende provisoriamente enquanto o plano atual do Railway não oferece backup nativo;
+- após o upgrade do Railway, o backup nativo deverá ser ativado e testado;
+- mesmo com backup nativo, recomenda-se manter cópia externa periódica e teste de restauração.
+
+## 7. Testes e homologação
+
+Evidências atuais:
+
+- 54 testes automatizados aprovados;
+- isolamento entre organizações coberto na suíte;
+- login e permissões testados com diferentes perfis;
+- criação, edição, tramitação, recebimento e arquivamento testados;
+- anexos e bucket testados;
+- suporte testado entre usuário e administrador geral;
+- consulta pública e matrícula testadas;
+- PDFs simples e multipágina homologados;
+- desktop, tablet e celular revisados;
+- deploy de produção conferido no navegador.
+
+Avisos existentes de `datetime.utcnow()` são de depreciação futura do Python e não representam falha funcional atual.
+
+## 8. Histórico de promoção
+
+- Bloco funcional desenvolvido inicialmente em `development` e progressivamente implantado no Railway.
+- Reformulação visual trabalhada em `codex/visual-development` com banco e serviços isolados.
+- Promoção visual para `development`: PR nº 87.
+- Promoção de `development` para `main`: PR nº 89.
+- Produção atualizada e validada em 22/09/2026.
+
+## 9. Pendências reais
+
+Não há pendência funcional ou visual bloqueadora conhecida. Permanecem atividades de evolução e operação:
+
+1. ativar e homologar o backup nativo do Railway após o upgrade do plano;
+2. substituir gradualmente `datetime.utcnow()` por datas UTC com fuso explícito;
+3. realizar periodicamente teste de restauração do banco e do bucket;
+4. manter monitoramento de disponibilidade, erros, capacidade do banco e capacidade do bucket;
+5. atualizar manuais e treinamento sempre que houver alteração de fluxo;
+6. realizar nova revisão de segurança e permissões a cada módulo acrescentado;
+7. opcionalmente demonstrar no navegador duas organizações simultâneas, embora o isolamento já esteja automatizado.
+
+## 10. Fluxo obrigatório para os próximos ciclos
+
+1. Registrar o objetivo e os critérios de aceite.
+2. Implementar no ambiente apropriado; mudanças visuais começam em `codex/visual-development`.
+3. Executar a suíte automatizada.
+4. Testar o fluxo real no navegador, incluindo perfis e responsividade afetados.
+5. Registrar limitações ou riscos remanescentes.
+6. Obter homologação do responsável.
+7. Promover para `development` e validar o deploy.
+8. Promover para `main` e validar a produção.
+
+Nenhuma alteração futura deve ser considerada concluída apenas porque o código foi enviado: o resultado implantado precisa ser conferido.
+
