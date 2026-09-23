@@ -1113,7 +1113,8 @@ def autenticar_emissao_protocolo(protocolo_id):
     protocolo = tenant_query(Protocolo).filter_by(id=protocolo_id).with_for_update().first_or_404()
     if protocolo.arquivado_em:
         abort(409, description='Processos arquivados não podem ser autenticados.')
-    if protocolo.emissao_eletronica:
+    emissao_anterior = protocolo.emissao_eletronica
+    if emissao_anterior and not protocolo.retificacao_pendente:
         return _response_pdf_autenticado(protocolo.emissao_eletronica)
     senha = request.form.get('senha') or ''
     if not senha or not bcrypt.check_password_hash(current_user.senha, senha):
@@ -1128,9 +1129,11 @@ def autenticar_emissao_protocolo(protocolo_id):
     declaracao = ('Protocolo emitido e autenticado eletronicamente pelo protocolista '
                   'mediante confirmação de sua senha individual no Sysprot.')
     origem = request.headers.get('X-Forwarded-For', request.remote_addr or '').split(',')[0].strip()
+    nova_versao = (emissao_anterior.versao + 1) if emissao_anterior else 1
     emissao = EmissaoEletronica(
         tenant_id=current_tenant_id(), protocolo_id=protocolo.id,
         emitido_por_id=current_user.id, pdf_anexo_id=0,
+        versao=nova_versao, substitui_emissao_id=emissao_anterior.id if emissao_anterior else None,
         token_publico=token, codigo_publico=codigo, pdf_sha256='0' * 64,
         metodo='senha_individual', nivel_garantia='interno', declaracao=declaracao,
         nome_emitente=current_user.nome_completo or current_user.nome,
@@ -1141,9 +1144,9 @@ def autenticar_emissao_protocolo(protocolo_id):
     # O PDF inclui código/token e os dados congelados da evidência. O hash é calculado uma única vez.
     pdf_bytes = render_protocol_pdf(protocolo, emissao)
     digest = hashlib.sha256(pdf_bytes).hexdigest()
-    filename = f'protocolo_{protocolo.numero.replace("/", "-")}_autenticado.pdf'
+    filename = f'protocolo_{protocolo.numero.replace("/", "-")}_autenticado_v{nova_versao}.pdf'
     storage_path, backend, stored_hash, stored_data = store_attachment_bytes(
-        pdf_bytes, current_tenant_id(), protocolo.id, 'protocolo-autenticado', 1,
+        pdf_bytes, current_tenant_id(), protocolo.id, 'protocolo-autenticado', nova_versao,
         filename, 'application/pdf')
     if not hmac.compare_digest(digest, stored_hash):
         abort(500, description='Falha ao confirmar a integridade do documento.')
@@ -1151,24 +1154,20 @@ def autenticar_emissao_protocolo(protocolo_id):
         tenant_id=current_tenant_id(), protocolo_id=protocolo.id, file_name=filename,
         storage_path=storage_path, storage_backend=backend, file_hash=digest,
         file_size=len(pdf_bytes), mime_type='application/pdf', file_data=stored_data,
-        documento_chave='protocolo-autenticado', versao=1, enviado_por_id=current_user.id)
+        documento_chave='protocolo-autenticado', versao=nova_versao, enviado_por_id=current_user.id)
     db.session.add(documento)
     db.session.flush()
     emissao.pdf_anexo_id = documento.id
     emissao.pdf_sha256 = digest
     protocolo.emitido_por_usuario_id = current_user.id
-    if protocolo.retifica_protocolo_id:
-        original = tenant_query(Protocolo).filter_by(id=protocolo.retifica_protocolo_id).first_or_404()
-        if original.emissao_eletronica:
-            original.emissao_eletronica.status = 'RETIFICADA'
-            db.session.add(HistoricoProtocolo(
-                tenant_id=current_tenant_id(), protocolo_id=original.id, status=original.status,
-                responsavel=current_user.login, usuario_id=current_user.id,
-                acao='RETIFICADO', observacao=f'Substituído formalmente pela retificação {protocolo.numero}.'))
+    protocolo.retificacao_pendente = False
+    if emissao_anterior:
+        emissao_anterior.status = 'RETIFICADA'
     db.session.add_all([emissao, HistoricoProtocolo(
         tenant_id=current_tenant_id(), protocolo_id=protocolo.id, status=protocolo.status,
         responsavel=current_user.login, usuario_id=current_user.id,
-        acao='EMISSAO_AUTENTICADA', observacao=f'Emissão autenticada sob o código {codigo}.')])
+        acao='RETIFICACAO_AUTENTICADA' if emissao_anterior else 'EMISSAO_AUTENTICADA',
+        observacao=f'Versão autenticada v{nova_versao}, código {codigo}.')])
     db.session.commit()
     return _response_pdf_autenticado(emissao)
 
@@ -1196,9 +1195,6 @@ def retificar_protocolo(protocolo_id):
     if not original.emissao_eletronica:
         flash('A retificação formal é utilizada para requerimentos já autenticados.', 'warning')
         return redirect(url_for('editar_protocolo', protocolo_id=original.id))
-    if original.emissao_eletronica.status != 'VALIDA':
-        flash('Somente a versão autenticada vigente pode ser retificada.', 'warning')
-        return redirect(url_for('detalhe_protocolo', protocolo_id=original.id))
     if request.method == 'GET':
         return render_template('criar_protocolo.html', title='Retificar protocolo',
                                legend=f'Retificar Protocolo {original.numero}',
@@ -1207,29 +1203,21 @@ def retificar_protocolo(protocolo_id):
     nome = (request.form.get('nome') or '').strip()
     if not nome:
         abort(400, description='O nome do requerente é obrigatório.')
-    retificacao = Protocolo(
-        tenant_id=current_tenant_id(), numero=gerar_proximo_numero_protocolo(), nome=nome,
-        matricula=request.form.get('matricula'), endereco=request.form.get('endereco'),
-        municipio=request.form.get('municipio'), bairro=request.form.get('bairro'),
-        cep=request.form.get('cep'), telefone=request.form.get('telefone'), cpf=request.form.get('cpf'),
-        rg=request.form.get('rg'), cargo=request.form.get('cargo'), lotacao=request.form.get('lotacao'),
-        unidade_exercicio=request.form.get('unidade_exercicio'),
-        tipo_requerimento=request.form.get('tipo_requerimento'), requer_ao=request.form.get('requer_ao'),
-        data_solicitacao=parse_iso_date(request.form.get('data_solicitacao'), 'Data da solicitação') or datetime.now().date(),
-        prazo_em=parse_iso_date(request.form.get('prazo_em'), 'Prazo'),
-        observacoes=request.form.get('observacoes'), responsavel=current_user.login,
-        criado_por_id=current_user.id, setor_atual_id=current_user.lotacao_id,
-        modalidade_abertura='presencial_protocolista', retifica_protocolo_id=original.id,
-        status='PROTOCOLO GERADO')
-    db.session.add(retificacao)
-    db.session.flush()
+    for campo in ('matricula', 'endereco', 'municipio', 'bairro', 'cep', 'telefone', 'cpf', 'rg',
+                  'cargo', 'lotacao', 'unidade_exercicio', 'tipo_requerimento', 'requer_ao', 'observacoes'):
+        setattr(original, campo, request.form.get(campo))
+    original.nome = nome
+    original.data_solicitacao = (parse_iso_date(request.form.get('data_solicitacao'), 'Data da solicitação')
+                                 or original.data_solicitacao or datetime.now().date())
+    original.prazo_em = parse_iso_date(request.form.get('prazo_em'), 'Prazo')
+    original.retificacao_pendente = True
     db.session.add(HistoricoProtocolo(
-        tenant_id=current_tenant_id(), protocolo_id=retificacao.id, status=retificacao.status,
+        tenant_id=current_tenant_id(), protocolo_id=original.id, status=original.status,
         responsavel=current_user.login, usuario_id=current_user.id, acao='RETIFICACAO_CRIADA',
-        observacao=f'Retificação do protocolo {original.numero}; o original permanece preservado até a nova autenticação.'))
+        observacao='Nova versão preparada; a versão autenticada anterior permanece preservada até a autenticação desta retificação.'))
     db.session.commit()
-    flash(f'Retificação {retificacao.numero} criada. Confira e autentique a nova emissão.', 'success')
-    return redirect(url_for('detalhe_protocolo', protocolo_id=retificacao.id))
+    flash(f'Retificação do protocolo {original.numero} preparada. Confira e autentique a nova versão.', 'success')
+    return redirect(url_for('detalhe_protocolo', protocolo_id=original.id))
 
 
 @app.errorhandler(413)
@@ -1408,7 +1396,7 @@ def editar_protocolo(protocolo_id):
     if protocolo.arquivado_em:
         flash('Processos arquivados são somente para consulta.', 'warning')
         return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
-    if protocolo.emissao_eletronica:
+    if protocolo.emissao_eletronica and not protocolo.retificacao_pendente:
         flash('O requerimento autenticado está congelado. Faça uma retificação para alterar seus dados.', 'warning')
         return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
 
@@ -1482,7 +1470,7 @@ def adicionar_anexo(protocolo_id):
     if protocolo.arquivado_em:
         flash('Processos arquivados não podem receber anexos ou novas versões.', 'warning')
         return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
-    if protocolo.emissao_eletronica:
+    if protocolo.emissao_eletronica and not protocolo.retificacao_pendente:
         flash('Os anexos que integram a emissão autenticada estão congelados. Faça uma retificação para complementar o pedido.', 'warning')
         return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
     form = AnexoForm()
