@@ -3,6 +3,7 @@ import tempfile
 import io
 import sys
 import types
+import hashlib
 from unittest.mock import patch
 from openpyxl import load_workbook
 from PIL import Image
@@ -20,6 +21,7 @@ from models import (Lotacao, Movimentacao, Organizacao, Protocolo, Usuario,
                     ConsultaPublicaTentativa, LoginTentativa, Anexo,
                     HistoricoProtocolo, Servidor, ChamadoSuporte, MensagemSuporte)
 from models import OrganizacaoCapacidadeEvento
+from models import EmissaoEletronica
 
 
 def teardown_module():
@@ -1186,3 +1188,64 @@ def test_administrador_geral_visualiza_assume_e_responde_chamados_de_todos_clien
         Usuario.query.filter_by(tenant_id=1, login='admin').one().is_platform_admin = False
         db.session.delete(chamado)
         db.session.commit()
+
+
+def test_emissao_autenticada_congela_pdf_dados_e_anexos_e_detecta_alteracao():
+    class FakeHTML:
+        def __init__(self, string, base_url):
+            self.string = string
+        def write_pdf(self):
+            return b'%PDF-1.7\noriginal imutavel autenticado'
+
+    class FakeQRCode:
+        def save(self, stream, format):
+            stream.write(b'\x89PNG\r\n\x1a\nqr')
+
+    fake_qrcode = types.SimpleNamespace(make=lambda _url: FakeQRCode())
+    with app.app_context():
+        org = Organizacao.query.filter_by(slug='cliente-a').one()
+        org.emissao_eletronica_protocolista_enabled = True
+        org.nivel_garantia_assinatura = 'interno'
+        protocolo = Protocolo(tenant_id=org.id, numero='ASS-1/2026', nome='Teste autenticado',
+                              matricula='ASS-1', data_solicitacao=date.today(),
+                              modalidade_abertura='presencial_protocolista')
+        db.session.add(protocolo)
+        db.session.commit()
+        protocolo_id = protocolo.id
+
+    client = app.test_client()
+    login(client, 'cliente-a')
+    modules = {'weasyprint': types.SimpleNamespace(HTML=FakeHTML), 'qrcode': fake_qrcode}
+    with patch.dict(sys.modules, modules):
+        response = client.post(f'/protocolo/{protocolo_id}/autenticar-emissao',
+                               data={'senha': 'senha-segura'})
+    assert response.status_code == 200
+    assert response.data == b'%PDF-1.7\noriginal imutavel autenticado'
+
+    with app.app_context():
+        emissao = EmissaoEletronica.query.filter_by(protocolo_id=protocolo_id).one()
+        token = emissao.token_publico
+        assert emissao.pdf_sha256 == hashlib.sha256(response.data).hexdigest()
+        assert emissao.pdf_anexo.file_hash == emissao.pdf_sha256
+        assert emissao.nome_emitente == 'Ana A'
+
+    # A reimpressão recupera exatamente o original, sem regenerar nem substituir o hash.
+    reprint = client.get(f'/protocolo/{protocolo_id}/pdf')
+    assert reprint.data == response.data
+    assert client.post(f'/protocolo/{protocolo_id}/editar', data={'nome': 'Alterado'}).status_code == 302
+    assert client.post(f'/protocolo/{protocolo_id}/anexo/novo', data={}).status_code == 302
+
+    valido = client.post(f'/validar-emissao/{token}', data={
+        'arquivo': (io.BytesIO(response.data), 'original.pdf')},
+        content_type='multipart/form-data').get_data(as_text=True)
+    adulterado = client.post(f'/validar-emissao/{token}', data={
+        'arquivo': (io.BytesIO(response.data + b'alteracao'), 'alterado.pdf')},
+        content_type='multipart/form-data').get_data(as_text=True)
+    assert 'Integridade confirmada' in valido
+    assert 'Integridade não confirmada' in adulterado
+
+    with app.app_context():
+        org = Organizacao.query.filter_by(slug='cliente-a').one()
+        org.emissao_eletronica_protocolista_enabled = False
+        db.session.commit()
+
