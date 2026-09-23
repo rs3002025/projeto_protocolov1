@@ -52,10 +52,34 @@ button:hover {
 .filtros input, .filtros select { padding: 8px; border-radius: 4px; border: 1px solid #ccc; }
 #modeloProtocolo, #modeloRelatorio { display: none; }
 
-.back-link { color: var(--primary-green-dark); font-weight: 700; text-decoration: none; }
-.back-link:hover { text-decoration: underline; }
+.btn {
+    align-items: center;
+    border-radius: 8px;
+    display: inline-flex;
+    font-weight: 700;
+    gap: .4rem;
+    justify-content: center;
+    margin: 0;
+    min-height: 42px;
+    padding: .55rem .9rem;
+    white-space: nowrap;
+}
+.btn-sm { min-height: 34px; padding: .32rem .65rem; }
+.btn-back {
+    color: #40534e;
+    border-color: #b9c6c1;
+    background: #fff;
+    margin-bottom: .85rem;
+}
+.btn-back:hover, .btn-back:focus {
+    color: var(--primary-green-dark);
+    border-color: #7fa194;
+    background: #f2f7f5;
+}
+.action-group { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.action-group form { margin: 0; }
 .detail-page-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
-.detail-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .5rem; }
+.detail-actions { justify-content: flex-end; }
 .protocol-summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; }
 .protocol-summary-item { background: #fff; border: 1px solid var(--border-color, #d9e0dd); border-radius: 10px; padding: .85rem 1rem; min-width: 0; }
 .protocol-summary-item span { display: block; color: #66736e; font-size: .78rem; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
