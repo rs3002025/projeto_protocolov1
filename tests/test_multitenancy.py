@@ -19,6 +19,7 @@ from app import app, bcrypt, db
 from models import (Lotacao, Movimentacao, Organizacao, Protocolo, Usuario,
                     ConsultaPublicaTentativa, LoginTentativa, Anexo,
                     HistoricoProtocolo, Servidor, ChamadoSuporte, MensagemSuporte)
+from models import OrganizacaoCapacidadeEvento
 
 
 def teardown_module():
@@ -63,6 +64,57 @@ def login(client, organizacao):
         'login': 'admin',
         'senha': 'senha-segura',
     }, follow_redirects=True)
+
+
+def test_login_por_cliente_nao_exibe_escolha_de_organizacao():
+    client = app.test_client()
+    pagina = client.get('/entrar/cliente-a')
+    html = pagina.get_data(as_text=True)
+    assert pagina.status_code == 200
+    assert 'Acesso de Cliente A' in html
+    assert 'name="organizacao"' not in html
+
+    response = client.post('/entrar/cliente-a', data={
+        'login': 'admin', 'senha': 'senha-segura',
+    })
+    assert response.status_code == 302
+    assert response.headers['Location'] == '/home'
+
+
+def test_administrador_geral_controla_capacidades_com_auditoria():
+    with app.app_context():
+        admin = Usuario.query.filter_by(tenant_id=1, login='admin').one()
+        admin.is_platform_admin = True
+        db.session.commit()
+
+    client = app.test_client()
+    client.post('/login', data={
+        'organizacao': 'cliente-a', 'login': 'admin', 'senha': 'senha-segura',
+    })
+    response = client.post('/plataforma/cliente/2/capacidades', data={
+        'emissao_eletronica_protocolista_enabled': 'on',
+        'portal_servidor_remoto_enabled': 'on',
+        'nivel_garantia_assinatura': 'forte',
+        'motivo': 'Homologação do recurso contratado',
+    }, follow_redirects=True)
+    assert response.status_code == 200
+    assert 'Capacidades de Cliente B atualizadas e auditadas.' in response.get_data(as_text=True)
+
+    with app.app_context():
+        cliente = Organizacao.query.filter_by(slug='cliente-b').one()
+        assert cliente.emissao_eletronica_protocolista_enabled is True
+        assert cliente.portal_servidor_remoto_enabled is True
+        assert cliente.nivel_garantia_assinatura == 'forte'
+        evento = OrganizacaoCapacidadeEvento.query.filter_by(organizacao_id=cliente.id).one()
+        assert evento.alterado_por_id == 1
+        assert evento.motivo == 'Homologação do recurso contratado'
+
+        OrganizacaoCapacidadeEvento.query.delete()
+        cliente.emissao_eletronica_protocolista_enabled = False
+        cliente.portal_servidor_remoto_enabled = False
+        cliente.nivel_garantia_assinatura = 'interno'
+        Usuario.query.filter_by(tenant_id=1, login='admin').one().is_platform_admin = False
+        db.session.commit()
 
 
 def test_login_nao_redireciona_para_site_externo():

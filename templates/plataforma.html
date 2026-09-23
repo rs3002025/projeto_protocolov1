@@ -15,12 +15,36 @@
         <h2 class="h5">{{ item.organization.nome }}</h2>
         <p class="text-muted mb-2">Identificador: {{ item.organization.slug }}</p>
         <p>{{ item.users }} usuário(s) ativo(s) · {{ item.protocols }} protocolo(s)</p>
+        <div class="mb-3">
+          <span class="badge {{ 'bg-success' if item.organization.emissao_eletronica_protocolista_enabled else 'bg-secondary' }}">Emissão eletrônica {{ 'ativa' if item.organization.emissao_eletronica_protocolista_enabled else 'inativa' }}</span>
+          <span class="badge {{ 'bg-success' if item.organization.portal_servidor_remoto_enabled else 'bg-secondary' }}">Portal remoto {{ 'ativo' if item.organization.portal_servidor_remoto_enabled else 'inativo' }}</span>
+        </div>
         {% if item.organization.ativo %}
         <form method="POST" action="{{ url_for('platform_select_organization', organization_id=item.organization.id) }}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button class="btn {{ 'btn-outline-primary' if item.selected else 'btn-primary' }}" type="submit">
             {{ 'Abrir novamente' if item.selected else 'Administrar cliente' }}
           </button>
+        </form>
+        <hr>
+        <form method="POST" action="{{ url_for('platform_update_capabilities', organization_id=item.organization.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="form-check form-switch mb-2">
+            <input class="form-check-input" type="checkbox" role="switch" name="emissao_eletronica_protocolista_enabled" id="electronic-{{ item.organization.id }}" {{ 'checked' if item.organization.emissao_eletronica_protocolista_enabled else '' }}>
+            <label class="form-check-label" for="electronic-{{ item.organization.id }}">Emissão eletrônica do protocolista</label>
+          </div>
+          <div class="form-check form-switch mb-3">
+            <input class="form-check-input" type="checkbox" role="switch" name="portal_servidor_remoto_enabled" id="remote-{{ item.organization.id }}" {{ 'checked' if item.organization.portal_servidor_remoto_enabled else '' }}>
+            <label class="form-check-label" for="remote-{{ item.organization.id }}">Portal do Servidor</label>
+          </div>
+          <label class="form-label" for="assurance-{{ item.organization.id }}">Nível de garantia</label>
+          <select class="form-select mb-2" id="assurance-{{ item.organization.id }}" name="nivel_garantia_assinatura">
+            <option value="interno" {{ 'selected' if item.organization.nivel_garantia_assinatura == 'interno' else '' }}>Interno auditável</option>
+            <option value="forte" {{ 'selected' if item.organization.nivel_garantia_assinatura == 'forte' else '' }}>Confirmação criptográfica forte</option>
+            <option value="externo" {{ 'selected' if item.organization.nivel_garantia_assinatura == 'externo' else '' }}>Provedor externo</option>
+          </select>
+          <input class="form-control mb-2" type="text" name="motivo" maxlength="500" placeholder="Referência ou motivo da alteração">
+          <button class="btn btn-outline-primary" type="submit">Salvar capacidades</button>
         </form>
         {% else %}<span class="badge bg-secondary">Inativo</span>{% endif %}
       </div>

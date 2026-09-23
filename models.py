@@ -24,6 +24,25 @@ class Organizacao(db.Model):
     municipio = db.Column(db.String(180))
     orgao = db.Column(db.String(180))
     rodape_documento = db.Column(db.Text)
+    emissao_eletronica_protocolista_enabled = db.Column(db.Boolean, nullable=False, default=False)
+    portal_servidor_remoto_enabled = db.Column(db.Boolean, nullable=False, default=False)
+    nivel_garantia_assinatura = db.Column(db.String(20), nullable=False, default='interno')
+
+
+class OrganizacaoCapacidadeEvento(db.Model):
+    """Histórico append-only das capacidades liberadas pelo administrador geral."""
+    __tablename__ = 'organizacao_capacidade_eventos'
+    id = db.Column(ID_TYPE, primary_key=True)
+    organizacao_id = db.Column(db.Integer, db.ForeignKey('organizacoes.id'), nullable=False, index=True)
+    alterado_por_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False, index=True)
+    emissao_eletronica_protocolista_enabled = db.Column(db.Boolean, nullable=False)
+    portal_servidor_remoto_enabled = db.Column(db.Boolean, nullable=False)
+    nivel_garantia_assinatura = db.Column(db.String(20), nullable=False)
+    motivo = db.Column(db.String(500))
+    criado_em = db.Column(db.TIMESTAMP(timezone=True), server_default=db.func.now(), nullable=False)
+
+    organizacao = db.relationship('Organizacao', foreign_keys=[organizacao_id])
+    alterado_por = db.relationship('Usuario', foreign_keys=[alterado_por_id])
 
 class TenantMixin:
     tenant_id = db.Column(db.Integer, db.ForeignKey('organizacoes.id'), nullable=False, index=True)
@@ -215,4 +234,3 @@ class MensagemSuporte(TenantMixin, db.Model):
     criado_em = db.Column(db.TIMESTAMP(timezone=True), server_default=db.func.now(), nullable=False)
 
     autor = db.relationship('Usuario', foreign_keys=[autor_id])
-

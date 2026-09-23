@@ -4,6 +4,11 @@
     <div class="login-box">
         <img id="loginLogo" src="{{ branding_logo_url }}" alt="Logo da organização" class="login-logo">
         <h2 class="login-title">Sistema de Protocolo</h2>
+        {% if login_organization %}
+        <p class="text-muted text-center mb-4">Acesso de {{ login_organization.nome }}</p>
+        {% else %}
+        <p class="text-muted text-center mb-4">Acesso administrativo da plataforma</p>
+        {% endif %}
 
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
@@ -18,10 +23,12 @@
 
         <form method="POST" action="">
             {{ form.hidden_tag() }}
+            {% if form.organizacao is defined %}
             <div class="form-floating mb-3">
                 {{ form.organizacao(class="form-control", id="floatingOrganization", placeholder="Organização") }}
                 {{ form.organizacao.label(for="floatingOrganization") }}
             </div>
+            {% endif %}
             <div class="form-floating mb-3">
                 {{ form.login(class="form-control", id="floatingInput", placeholder="Login") }}
                 {{ form.login.label(for="floatingInput") }}

@@ -27,6 +27,9 @@ SCHEMA_COLUMNS = {
         'municipio': 'VARCHAR(180)',
         'orgao': 'VARCHAR(180)',
         'rodape_documento': 'TEXT',
+        'emissao_eletronica_protocolista_enabled': 'BOOLEAN DEFAULT FALSE NOT NULL',
+        'portal_servidor_remoto_enabled': 'BOOLEAN DEFAULT FALSE NOT NULL',
+        'nivel_garantia_assinatura': "VARCHAR(20) DEFAULT 'interno' NOT NULL",
     },
     'usuarios': {
         'lotacao_id': 'BIGINT',

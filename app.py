@@ -55,10 +55,11 @@ from urllib.parse import urlsplit
 from openpyxl import Workbook
 from sqlalchemy import func, cast, Date, text, or_, false, exists
 from datetime import datetime, timedelta
-from forms import LoginForm, RegistrationForm, ProtocoloForm, AnexoForm, AdminUserCreationForm, PlatformAdminCreationForm, AdminListItemForm, ConsultaPublicaForm, BrandingForm
+from forms import LoginForm, TenantLoginForm, RegistrationForm, ProtocoloForm, AnexoForm, AdminUserCreationForm, PlatformAdminCreationForm, AdminListItemForm, ConsultaPublicaForm, BrandingForm
 from models import (Organizacao, Usuario, Protocolo, HistoricoProtocolo, Movimentacao,
                     ConsultaPublicaTentativa, LoginTentativa, Anexo, Lotacao,
-                    TipoRequerimento, Servidor, ChamadoSuporte, MensagemSuporte, db)
+                    TipoRequerimento, Servidor, ChamadoSuporte, MensagemSuporte,
+                    OrganizacaoCapacidadeEvento, db)
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
@@ -599,8 +600,66 @@ def register():
     return redirect(url_for('login'))
 
 
+@app.route('/entrar/<string:slug>', methods=['GET', 'POST'])
+def tenant_login(slug):
+    """Entrada do backoffice com a organização resolvida antes da autenticação."""
+    if current_user.is_authenticated:
+        return redirect(url_for('home'))
+    organizacao = Organizacao.query.filter_by(slug=slug.strip().lower(), ativo=True).first_or_404()
+    form = TenantLoginForm()
+    if form.validate_on_submit():
+        agora = datetime.utcnow()
+        fingerprint = login_fingerprint(organizacao.slug, form.login.data)
+        tentativa = LoginTentativa.query.filter_by(identificador_hash=fingerprint).with_for_update().first()
+        if tentativa and tentativa.bloqueado_ate and tentativa.bloqueado_ate > agora:
+            flash('Não foi possível autenticar. Aguarde alguns minutos e tente novamente.', 'danger')
+            return render_template(
+                'login.html', title=f'Login — {organizacao.nome}', form=form,
+                login_organization=organizacao,
+                branding_logo_url=url_for('organization_logo', slug=organizacao.slug),
+            ), 429
+        if tentativa and tentativa.janela_iniciada_em < agora - timedelta(minutes=15):
+            tentativa.tentativas = 0
+            tentativa.janela_iniciada_em = agora
+            tentativa.bloqueado_ate = None
+        user = Usuario.query.filter_by(
+            tenant_id=organizacao.id, login=form.login.data, status='ativo'
+        ).first()
+        if user and bcrypt.check_password_hash(user.senha, form.senha.data):
+            if tentativa:
+                db.session.delete(tentativa)
+                db.session.commit()
+            login_user(user, remember=form.remember.data)
+            destination = safe_local_redirect(request.args.get('next'))
+            if user.is_platform_admin:
+                session.pop('active_tenant_id', None)
+                destination = url_for('platform_organizations')
+            flash('Login bem-sucedido!', 'success')
+            return redirect(destination or url_for('home'))
+        if not tentativa:
+            tentativa = LoginTentativa(
+                identificador_hash=fingerprint, tentativas=0, janela_iniciada_em=agora
+            )
+            db.session.add(tentativa)
+        tentativa.tentativas += 1
+        if tentativa.tentativas >= 5:
+            tentativa.bloqueado_ate = agora + timedelta(minutes=30)
+        db.session.commit()
+        flash('Não foi possível autenticar. Verifique os dados informados.', 'danger')
+    return render_template(
+        'login.html', title=f'Login — {organizacao.nome}', form=form,
+        login_organization=organizacao,
+        branding_logo_url=url_for('organization_logo', slug=organizacao.slug),
+    )
+
+
 @app.route("/login", methods=['GET', 'POST'])
 def login():
+    """Entrada legada e exclusiva para localizar contas de administrador geral.
+
+    Usuários dos clientes devem receber o endereço /entrar/<slug>, no qual a
+    organização já está definida e não é solicitada na tela.
+    """
     if current_user.is_authenticated:
         return redirect(url_for('home'))
     form = LoginForm()
@@ -694,6 +753,7 @@ def require_platform_tenant_selection():
     if not current_user.is_authenticated or not current_user.is_platform_admin:
         return None
     allowed = {'platform_organizations', 'platform_select_organization', 'platform_create_admin', 'logout',
+               'platform_update_capabilities',
                'support_list', 'support_create', 'support_detail', 'support_reply',
                'support_assign', 'support_update_status',
                'health', 'static', 'organization_logo'}
@@ -755,6 +815,33 @@ def platform_select_organization(organization_id):
     session.modified = True
     flash(f'Cliente ativo: {organization.nome}.', 'info')
     return redirect(url_for('home'))
+
+
+@app.post('/plataforma/cliente/<int:organization_id>/capacidades')
+@platform_admin_required
+def platform_update_capabilities(organization_id):
+    organization = Organizacao.query.filter_by(id=organization_id).first_or_404()
+    assurance_level = (request.form.get('nivel_garantia_assinatura') or 'interno').strip().lower()
+    if assurance_level not in {'interno', 'forte', 'externo'}:
+        abort(400, description='Nível de garantia inválido.')
+    electronic_enabled = request.form.get('emissao_eletronica_protocolista_enabled') == 'on'
+    remote_enabled = request.form.get('portal_servidor_remoto_enabled') == 'on'
+    reason = (request.form.get('motivo') or '').strip()[:500] or None
+
+    organization.emissao_eletronica_protocolista_enabled = electronic_enabled
+    organization.portal_servidor_remoto_enabled = remote_enabled
+    organization.nivel_garantia_assinatura = assurance_level
+    db.session.add(OrganizacaoCapacidadeEvento(
+        organizacao_id=organization.id,
+        alterado_por_id=current_user.id,
+        emissao_eletronica_protocolista_enabled=electronic_enabled,
+        portal_servidor_remoto_enabled=remote_enabled,
+        nivel_garantia_assinatura=assurance_level,
+        motivo=reason,
+    ))
+    db.session.commit()
+    flash(f'Capacidades de {organization.nome} atualizadas e auditadas.', 'success')
+    return redirect(url_for('platform_organizations'))
 
 @app.route("/relatorios")
 @permission_required('reports')

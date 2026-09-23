@@ -34,6 +34,14 @@ class LoginForm(FlaskForm):
     remember = BooleanField('Lembrar-me')
     submit = SubmitField('Entrar')
 
+
+class TenantLoginForm(FlaskForm):
+    """Login em uma organização já resolvida pela URL, sem escolha de cliente."""
+    login = StringField('Login', validators=[DataRequired()])
+    senha = PasswordField('Senha', validators=[DataRequired()])
+    remember = BooleanField('Lembrar-me')
+    submit = SubmitField('Entrar')
+
 class ConsultaPublicaForm(FlaskForm):
     matricula = StringField('Confirme a matrícula', validators=[
         DataRequired(), Length(min=1, max=80)
@@ -115,4 +123,3 @@ class BrandingForm(FlaskForm):
     ])
     salvar = SubmitField('Salvar logo')
     remover = SubmitField('Restaurar logo padrão')
-
