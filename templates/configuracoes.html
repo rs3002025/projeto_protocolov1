@@ -4,8 +4,13 @@
     <a href="{{ url_for('home') }}" class="btn btn-outline-secondary btn-back">← Voltar ao painel</a>
     <h1 class="mt-2">Configurações do Sistema</h1>
     <p class="text-muted">Página de administração para gerenciar usuários e listas do sistema.</p>
+    <nav class="settings-nav" aria-label="Áreas das configurações">
+      <a href="#identidade" class="btn btn-outline-primary">Identidade visual</a>
+      <a href="#usuarios" class="btn btn-outline-primary">Usuários</a>
+      <a href="#listas" class="btn btn-outline-primary">Tipos e setores</a>
+    </nav>
 
-    <div class="card mt-4">
+    <div class="card mt-4 settings-section" id="identidade">
         <div class="card-header"><h4>Identidade visual da organização</h4></div>
         <div class="card-body">
             <p>A logo cadastrada será usada no login, cabeçalho, documentos e relatórios.</p>
@@ -28,12 +33,13 @@
     </div>
 
     <!-- User Management Section -->
-    <div class="card mt-4">
+    <div class="card mt-4 settings-section" id="usuarios">
         <div class="card-header">
             <h4>Gerenciamento de Usuários</h4>
         </div>
         <div class="card-body">
-            <h5>Criar Novo Usuário</h5>
+            <button class="btn btn-primary mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#createUserPanel" aria-expanded="false">Criar novo usuário</button>
+            <div class="collapse" id="createUserPanel"><h5>Dados do novo usuário</h5>
             <form method="POST" action="{{ url_for('admin_create_user') }}">
                 <input type="hidden" id="csrf-new-user" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="row">
@@ -46,15 +52,16 @@
                     <div class="col-md-6 align-self-end mb-3">{{ user_form.submit(id="novo-usuario-submit", class="btn btn-primary") }}</div>
                 </div>
             </form>
+            </div>
             <hr>
-            <h5>Usuários Existentes</h5>
-            <table class="table table-striped">
+            <div class="d-flex justify-content-between align-items-center mb-3"><h5 class="mb-0">Usuários existentes</h5><div class="settings-search"><label class="visually-hidden" for="settingsUserSearch">Buscar usuário</label><input id="settingsUserSearch" class="form-control" type="search" placeholder="Buscar por nome, login ou e-mail"></div></div>
+            <div class="table-responsive"><table class="table table-striped">
                 <thead>
                     <tr><th>Nome Completo</th><th>Login</th><th>Email</th><th>Tipo</th><th>Status</th><th>Ações</th></tr>
                 </thead>
                 <tbody>
                     {% for user in users %}
-                    <tr>
+                    <tr data-user-search="{{ user.nome_completo }} {{ user.login }} {{ user.email }} {{ role_labels.get(user.tipo, user.tipo) }}">
                         <td><form id="edit-user-{{ user.id }}" method="POST" action="{{ url_for('admin_update_user', user_id=user.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form><label class="visually-hidden" for="edit-user-name-{{ user.id }}">Nome de {{ user.login }}</label><input id="edit-user-name-{{ user.id }}" form="edit-user-{{ user.id }}" class="form-control form-control-sm" name="nome_completo" value="{{ user.nome_completo }}" required></td>
                         <td>{{ user.login }}</td>
                         <td><label class="visually-hidden" for="edit-user-email-{{ user.id }}">E-mail de {{ user.login }}</label><input id="edit-user-email-{{ user.id }}" form="edit-user-{{ user.id }}" class="form-control form-control-sm" name="email" type="email" value="{{ user.email }}" required></td>
@@ -67,13 +74,14 @@
                         </td>
                     </tr>
                     {% endfor %}
+                    <tr id="settingsUserEmpty" hidden><td colspan="6" class="text-center text-muted py-4">Nenhum usuário corresponde à busca.</td></tr>
                 </tbody>
-            </table>
+            </table></div>
         </div>
     </div>
 
     <!-- List Management Section -->
-    <div class="row mt-4">
+    <div class="row mt-4 settings-section" id="listas">
         <div class="col-lg-6">
             <div class="card">
                 <div class="card-header"><h4>Gerenciar Tipos de Requerimento</h4></div>

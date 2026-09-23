@@ -8,6 +8,14 @@
         </div>
     </div>
 
+    {% set active_filters = [] %}
+    {% for key, label in [('numero','Número'),('nome','Requerente'),('status','Status'),('data_inicio','Desde'),('data_fim','Até'),('tipo','Tipo'),('prazo','Prazo')] %}
+      {% if request.args.get(key) %}{% set _ = active_filters.append((label, request.args.get(key))) %}{% endif %}
+    {% endfor %}
+    {% if active_filters %}
+    <div class="active-filters" aria-label="Filtros ativos"><strong>Filtros ativos:</strong>{% for label, value in active_filters %}<span>{{ label }}: {{ value|replace('_', ' ') }}</span>{% endfor %}<a href="{{ url_for(list_endpoint|default('listar_protocolos')) }}">Limpar todos</a></div>
+    {% endif %}
+
     <!-- Search Form -->
     <div class="card mb-4">
         <div class="card-body">
@@ -76,7 +84,7 @@
             <tbody>
                 {% for protocolo in protocolos.items %}
                     <tr>
-                        <td>{{ protocolo.numero }}</td>
+                        <td><a class="fw-bold" href="{{ url_for('detalhe_protocolo', protocolo_id=protocolo.id) }}">{{ protocolo.numero }}</a></td>
                         <td>{{ protocolo.nome }}</td>
                         <td>{{ protocolo.tipo_requerimento }}</td>
                         <td>{{ protocolo.data_solicitacao.strftime('%d/%m/%Y') if protocolo.data_solicitacao else 'Não informada' }}</td>
@@ -84,12 +92,13 @@
                         <td><span class="badge bg-info">{{ protocolo.status }}</span></td>
                         <td>{{ protocol_location(protocolo) }}</td>
                         <td>{{ protocolo.responsavel or 'Não definido' }}</td>
-                        <td>
+                        <td><div class="action-group">
                             <a href="{{ url_for('detalhe_protocolo', protocolo_id=protocolo.id) }}" class="btn btn-sm btn-primary">Detalhes</a>
-                            <button type="button" class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#modalAtualizarStatus" data-protocolo-id="{{ protocolo.id }}">
-                                Atualizar Status
-                            </button>
-                            <button type="button" class="btn btn-sm btn-dark" onclick="previsualizarPDF({{ protocolo.id }})">Documento</button>
+                            <div class="dropdown"><button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">Mais ações</button><ul class="dropdown-menu dropdown-menu-end">
+                              <li><button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#modalAtualizarStatus" data-protocolo-id="{{ protocolo.id }}">Atualizar status</button></li>
+                              <li><button type="button" class="dropdown-item" onclick="previsualizarPDF({{ protocolo.id }})">Visualizar documento</button></li>
+                            </ul></div>
+                        </div>
                         </td>
                     </tr>
                 {% else %}
