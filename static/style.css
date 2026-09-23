@@ -52,6 +52,34 @@ button:hover {
 .filtros input, .filtros select { padding: 8px; border-radius: 4px; border: 1px solid #ccc; }
 #modeloProtocolo, #modeloRelatorio { display: none; }
 
+.back-link { color: var(--primary-green-dark); font-weight: 700; text-decoration: none; }
+.back-link:hover { text-decoration: underline; }
+.detail-page-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
+.detail-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .5rem; }
+.protocol-summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; }
+.protocol-summary-item { background: #fff; border: 1px solid var(--border-color, #d9e0dd); border-radius: 10px; padding: .85rem 1rem; min-width: 0; }
+.protocol-summary-item span { display: block; color: #66736e; font-size: .78rem; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
+.protocol-summary-item strong { display: block; margin-top: .25rem; overflow-wrap: anywhere; }
+.detail-section-nav { display: flex; flex-wrap: wrap; gap: .5rem; padding: .5rem; background: #eef4f1; border-radius: 10px; position: sticky; top: 72px; z-index: 20; }
+.detail-section-nav a { color: #244039; font-weight: 700; padding: .5rem .8rem; border-radius: 7px; text-decoration: none; }
+.detail-section-nav a:hover, .detail-section-nav a:focus { background: #fff; color: var(--primary-green-dark); }
+.protocol-observations { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; }
+.protocol-timeline { border-left: 3px solid #dce8e2; margin-left: .5rem; }
+.protocol-timeline-item { border: 0; border-bottom: 1px solid #e4e9e7; border-radius: 0 !important; margin-left: 1rem; position: relative; }
+.protocol-timeline-item::before { content: ''; position: absolute; width: 11px; height: 11px; border-radius: 50%; background: var(--primary-green, #2e7d32); left: calc(-1rem - 7px); top: 1.15rem; }
+
+@media (max-width: 767.98px) {
+    .detail-page-header { flex-direction: column; }
+    .detail-actions { width: 100%; justify-content: flex-start; }
+    .protocol-summary-grid { grid-template-columns: 1fr 1fr; }
+    .detail-section-nav { top: 60px; overflow-x: auto; flex-wrap: nowrap; }
+    .detail-section-nav a { white-space: nowrap; }
+}
+
+@media (max-width: 479.98px) {
+    .protocol-summary-grid { grid-template-columns: 1fr; }
+}
+
 /* --- ESTILOS DA TELA DE LOGIN --- */
 .login-screen.active { display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 40px 20px; }
 .login-form-container { width: 100%; max-width: 400px; padding: 30px; background-color: #ffffff; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); box-sizing: border-box; }
