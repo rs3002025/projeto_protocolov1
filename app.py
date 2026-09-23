@@ -1188,6 +1188,41 @@ def validar_emissao(token_publico):
                            arquivo_resultado=arquivo_resultado)
 
 
+@app.post('/protocolo/<int:protocolo_id>/cancelar-emissao')
+@permission_required('edit')
+def cancelar_emissao_protocolo(protocolo_id):
+    organizacao = active_organization()
+    if not organizacao.emissao_eletronica_protocolista_enabled:
+        abort(404)
+    if current_user.tipo not in {'protocolista', 'admin'}:
+        abort(403)
+    protocolo = tenant_query(Protocolo).filter_by(id=protocolo_id).with_for_update().first_or_404()
+    emissao = protocolo.emissao_eletronica
+    if not emissao or emissao.status != 'VALIDA':
+        abort(409, description='Não existe uma emissão eletrônica vigente para cancelar.')
+    if protocolo.retificacao_pendente:
+        abort(409, description='Conclua ou descarte a retificação pendente antes do cancelamento.')
+    senha = request.form.get('senha') or ''
+    motivo = (request.form.get('motivo') or '').strip()
+    if not senha or not bcrypt.check_password_hash(current_user.senha, senha):
+        flash('Senha inválida. A emissão não foi cancelada.', 'danger')
+        return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
+    if len(motivo) < 10:
+        flash('Informe uma justificativa para o cancelamento com pelo menos 10 caracteres.', 'danger')
+        return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
+    emissao.status = 'CANCELADA'
+    emissao.cancelado_em = datetime.now().astimezone()
+    emissao.cancelado_por_id = current_user.id
+    emissao.motivo_cancelamento = motivo
+    db.session.add(HistoricoProtocolo(
+        tenant_id=current_tenant_id(), protocolo_id=protocolo.id, status=protocolo.status,
+        responsavel=current_user.login, usuario_id=current_user.id, acao='EMISSAO_CANCELADA',
+        observacao=f'Versão autenticada v{emissao.versao}, código {emissao.codigo_publico}, cancelada. Motivo: {motivo}'))
+    db.session.commit()
+    flash(f'A versão autenticada {emissao.versao} foi cancelada sem apagar o documento ou suas evidências.', 'success')
+    return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
+
+
 @app.route('/protocolo/<int:protocolo_id>/retificar', methods=['GET', 'POST'])
 @permission_required('edit')
 def retificar_protocolo(protocolo_id):
@@ -1195,6 +1230,8 @@ def retificar_protocolo(protocolo_id):
     if not original.emissao_eletronica:
         flash('A retificação formal é utilizada para requerimentos já autenticados.', 'warning')
         return redirect(url_for('editar_protocolo', protocolo_id=original.id))
+    if original.emissao_eletronica.status != 'VALIDA':
+        abort(409, description='Somente uma emissão vigente pode ser retificada.')
     if request.method == 'GET':
         return render_template('criar_protocolo.html', title='Retificar protocolo',
                                legend=f'Retificar Protocolo {original.numero}',
