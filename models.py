@@ -94,6 +94,7 @@ class Protocolo(TenantMixin, db.Model):
     criado_por_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'))
     requerente_servidor_id = db.Column(ID_TYPE, db.ForeignKey('servidores.id'))
     emitido_por_usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'))
+    retifica_protocolo_id = db.Column(db.Integer, db.ForeignKey('protocolos.id'), index=True)
     modalidade_abertura = db.Column(db.String(30), nullable=False, default='presencial_protocolista')
     setor_atual_id = db.Column(ID_TYPE, db.ForeignKey('lotacoes.id'))
     data_envio = db.Column(db.TIMESTAMP, server_default=db.func.current_timestamp())
@@ -110,6 +111,8 @@ class Protocolo(TenantMixin, db.Model):
     criado_por = db.relationship('Usuario', foreign_keys=[criado_por_id])
     emitido_por = db.relationship('Usuario', foreign_keys=[emitido_por_usuario_id])
     requerente_servidor = db.relationship('Servidor', foreign_keys=[requerente_servidor_id])
+    protocolo_original = db.relationship('Protocolo', remote_side=[id], foreign_keys=[retifica_protocolo_id],
+                                         backref=db.backref('retificacoes', lazy=True))
     emissao_eletronica = db.relationship('EmissaoEletronica', back_populates='protocolo',
                                          uselist=False, cascade='all, delete-orphan')
 
