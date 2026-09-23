@@ -2,13 +2,13 @@
 {% block content %}
 <div class="detail-page-header mb-3">
     <div>
-        <a href="{{ url_for('listar_protocolos') }}" class="back-link">← Voltar aos protocolos</a>
-        <h1 class="h3 mt-2 mb-1">Protocolo {{ protocolo.numero }}</h1>
+        <a href="{{ url_for('listar_protocolos') }}" class="btn btn-outline-secondary btn-back" aria-label="Voltar à lista de protocolos">← Voltar aos protocolos</a>
+        <h1 class="h3 mb-1">Protocolo {{ protocolo.numero }}</h1>
         <p class="text-muted mb-0">{{ protocolo.nome or 'Requerente não informado' }}</p>
     </div>
-    <div class="detail-actions">
-            {% if can('edit') and not protocolo.arquivado_em %}<form class="d-inline" method="POST" target="_blank" action="{{ url_for('gerar_documento_versionado', protocolo_id=protocolo.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="btn btn-info">Gerar e registrar documento</button></form>{% endif %}
-            {% if can('edit') and not protocolo.arquivado_em %}<a href="{{ url_for('editar_protocolo', protocolo_id=protocolo.id) }}" class="btn btn-secondary">Editar</a>{% endif %}
+    <div class="detail-actions action-group">
+            {% if can('edit') and not protocolo.arquivado_em %}<form method="POST" target="_blank" action="{{ url_for('gerar_documento_versionado', protocolo_id=protocolo.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="btn btn-primary">Gerar e registrar documento</button></form>{% endif %}
+            {% if can('edit') and not protocolo.arquivado_em %}<a href="{{ url_for('editar_protocolo', protocolo_id=protocolo.id) }}" class="btn btn-outline-secondary">Editar</a>{% endif %}
     </div>
 </div>
 
@@ -106,7 +106,7 @@
         <form class="mt-3" method="POST" action="{{ url_for('arquivar_protocolo', protocolo_id=protocolo.id) }}">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="observacao" value="Arquivamento autorizado pelo usuário.">
-            <button class="btn btn-outline-secondary" type="submit">Arquivar eletronicamente</button>
+            <button class="btn btn-outline-danger" type="submit">Arquivar eletronicamente</button>
         </form>
         {% endif %}
     </div>
@@ -176,7 +176,7 @@
                         <small class="d-block">Documento: {{ anexo.documento_chave if anexo.documento_chave != 'anexo' else 'legado-' ~ anexo.id }}</small>
                     </span>
                     <div>
-                        <a href="{{ url_for('baixar_anexo', anexo_id=anexo.id) }}" class="btn btn-sm btn-success">Download</a>
+                        <a href="{{ url_for('baixar_anexo', anexo_id=anexo.id) }}" class="btn btn-sm btn-outline-primary">Download</a>
                     </div>
                 </li>
             {% else %}

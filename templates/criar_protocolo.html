@@ -112,8 +112,8 @@
         <div class="form-actions">
             {# O texto do botão de submit muda se estamos editando ou criando #}
             <button type="submit" class="btn btn-primary">{{ 'Atualizar Requerimento' if protocolo else 'Enviar Requerimento' }}</button>
-            <button type="button" id="imprimirBtn" class="btn btn-success">Imprimir</button>
-            <a href="{{ url_for('detalhe_protocolo', protocolo_id=protocolo.id) if protocolo else url_for('home') }}" class="btn btn-secondary">{{ 'Voltar aos detalhes' if protocolo else 'Voltar' }}</a>
+            <button type="button" id="imprimirBtn" class="btn btn-outline-primary">Imprimir</button>
+            <a href="{{ url_for('detalhe_protocolo', protocolo_id=protocolo.id) if protocolo else url_for('home') }}" class="btn btn-outline-secondary">{{ 'Voltar aos detalhes' if protocolo else 'Voltar' }}</a>
         </div>
     </form>
 
