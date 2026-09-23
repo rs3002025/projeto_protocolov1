@@ -4,14 +4,16 @@
 <div class="container-fluid">
     {# Define o título da página e a legenda do formulário dinamicamente #}
     {% set legend = 'Editar Protocolo ' + protocolo.numero if protocolo else 'Novo Protocolo' %}
-    <h3 class="page-header">{{ legend }}</h3>
+    <h1 class="page-header mb-1">{{ legend }}</h1>
+    <p class="text-muted mb-4">Preencha os dados do requerente e do pedido. As informações podem ser revisadas antes da impressão.</p>
 
     {# A action do formulário muda se estamos editando ou criando #}
     <form class="formulario" method="POST"
           action="{{ url_for('editar_protocolo', protocolo_id=protocolo.id) if protocolo else url_for('criar_protocolo') }}"
-          id="protocol-form"
-          style="background-color: #fff; padding: 2rem; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+          id="protocol-form">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="form-section-title full-row"><span>1</span><div><strong>Identificação do requerente</strong><small>Localize o servidor pela matrícula ou pelo nome.</small></div></div>
 
         <div class="form-group span-3">
             <label for="numeroProtocolo">Número do Protocolo</label>
@@ -20,15 +22,16 @@
         </div>
         <div class="form-group span-3">
             <label for="matricula">Matrícula</label>
-            <input type="text" id="matricula" name="matricula" class="form-control" value="{{ protocolo.matricula if protocolo else '' }}">
+            <input type="text" id="matricula" name="matricula" class="form-control" value="{{ protocolo.matricula if protocolo else '' }}" autocomplete="off">
         </div>
         <div class="form-group span-5">
             <label for="nome">Nome Completo</label>
-            <input type="text" id="nome" name="nome" class="form-control" value="{{ protocolo.nome if protocolo else '' }}">
+            <input type="text" id="nome" name="nome" class="form-control" value="{{ protocolo.nome if protocolo else '' }}" autocomplete="name">
         </div>
         <div class="form-group span-1" style="justify-content: flex-end; align-items: flex-end;">
-            <button type="button" id="btnBuscarNome" class="btn btn-secondary" style="width: 100%; height: 38px;">Buscar</button>
+            <button type="button" id="btnBuscarNome" class="btn btn-outline-primary w-100">Buscar</button>
         </div>
+        <div class="form-section-title full-row"><span>2</span><div><strong>Contato e endereço</strong><small>O CEP preenche automaticamente os dados disponíveis, que continuam editáveis.</small></div></div>
         <div class="form-group span-6">
             <label for="endereco">Endereço</label>
             <input type="text" id="endereco" name="endereco" class="form-control" value="{{ protocolo.endereco if protocolo else '' }}">
@@ -45,20 +48,21 @@
         </div>
         <div class="form-group span-3">
             <label for="cep">CEP</label>
-            <input type="text" id="cep" name="cep" class="form-control" value="{{ protocolo.cep if protocolo else '' }}">
+            <input type="text" id="cep" name="cep" class="form-control" value="{{ protocolo.cep if protocolo else '' }}" inputmode="numeric" autocomplete="postal-code">
         </div>
         <div class="form-group span-3">
             <label for="telefone">Telefone</label>
-            <input type="text" id="telefone" name="telefone" class="form-control" value="{{ protocolo.telefone if protocolo else '' }}">
+            <input type="text" id="telefone" name="telefone" class="form-control" value="{{ protocolo.telefone if protocolo else '' }}" inputmode="tel" autocomplete="tel">
         </div>
         <div class="form-group span-3">
             <label for="cpf">CPF</label>
-            <input type="text" id="cpf" name="cpf" class="form-control" value="{{ protocolo.cpf if protocolo else '' }}">
+            <input type="text" id="cpf" name="cpf" class="form-control" value="{{ protocolo.cpf if protocolo else '' }}" inputmode="numeric">
         </div>
         <div class="form-group span-3">
             <label for="rg">RG</label>
             <input type="text" id="rg" name="rg" class="form-control" value="{{ protocolo.rg if protocolo else '' }}">
         </div>
+        <div class="form-section-title full-row"><span>3</span><div><strong>Dados funcionais</strong><small>Confirme a lotação, a unidade e o cargo do requerente.</small></div></div>
         <div class="form-group span-3">
             <label for="cargo">Cargo/Função</label>
             <input type="text" id="cargo" name="cargo" class="form-control" value="{{ protocolo.cargo if protocolo else '' }}">
@@ -73,6 +77,7 @@
             <label for="unidade">Unidade de Exercício</label>
             <input type="text" id="unidade" name="unidade_exercicio" class="form-control" value="{{ protocolo.unidade_exercicio if protocolo else '' }}">
         </div>
+        <div class="form-section-title full-row"><span>4</span><div><strong>Dados do requerimento</strong><small>Defina o tipo, o destinatário, as datas e o detalhamento do pedido.</small></div></div>
         <div class="form-group span-6">
             <label for="tipo">Tipo de Requerimento</label>
             <select id="tipo" name="tipo_requerimento" class="form-select">
@@ -107,8 +112,8 @@
         <div class="form-actions">
             {# O texto do botão de submit muda se estamos editando ou criando #}
             <button type="submit" class="btn btn-primary">{{ 'Atualizar Requerimento' if protocolo else 'Enviar Requerimento' }}</button>
-            <button type="button" id="imprimirBtn" class="btn btn-success">Imprimir</button>
-            <a href="{{ url_for('home') }}" class="btn btn-secondary">Voltar</a>
+            <button type="button" id="imprimirBtn" class="btn btn-outline-primary">Imprimir</button>
+            <a href="{{ url_for('detalhe_protocolo', protocolo_id=protocolo.id) if protocolo else url_for('home') }}" class="btn btn-outline-secondary">{{ 'Voltar aos detalhes' if protocolo else 'Voltar' }}</a>
         </div>
     </form>
 
@@ -152,4 +157,3 @@ window.protocoloData = {{ {
 {% endif %}
 </script>
 {% endblock %}
-

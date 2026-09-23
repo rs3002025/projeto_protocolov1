@@ -177,6 +177,24 @@ def test_todas_as_operacoes_de_protocolo_bloqueiam_id_de_outro_cliente():
         assert protocolo_b.arquivado_em is None
 
 
+def test_protocolo_legado_sem_data_continua_consultavel():
+    client = app.test_client()
+    login(client, 'cliente-a')
+    with app.app_context():
+        organizacao = Organizacao.query.filter_by(slug='cliente-a').one()
+        legado = Protocolo(
+            tenant_id=organizacao.id, numero='0999/2024', nome='Registro legado sem data',
+            matricula='LEGADO-SEM-DATA', data_solicitacao=None,
+        )
+        db.session.add(legado)
+        db.session.commit()
+        protocolo_id = legado.id
+    for rota in (f'/protocolo/{protocolo_id}', '/protocolos', '/relatorios'):
+        response = client.get(rota)
+        assert response.status_code == 200
+        assert 'Não informada' in response.get_data(as_text=True)
+        assert 'Não definido' in response.get_data(as_text=True)
+
 def test_apis_de_cadastro_e_bairros_nao_vazam_dados_de_outro_cliente():
     with app.app_context():
         protocolo_a = Protocolo.query.filter_by(nome='Dado exclusivo A').one()
@@ -844,7 +862,9 @@ def test_dados_institucionais_sao_isolados_e_usados_no_pdf():
             assert 'Secretaria da Administração' not in modelo
             assert 'background: #2e7d32' in modelo
             assert 'width: 52px; height: 52px' in modelo
-            assert '@page { size: A4; margin: 8mm 12mm 10mm; }' in modelo
+            assert '@page { size: A4; margin: 10mm 8mm; }' in modelo
+            assert 'class="paragrafo-pdf"' in modelo
+            assert 'class="fechamento-pdf"' in modelo
             assert modelo.index('PROTOCOLO DE REQUERIMENTO') < modelo.index('DADOS DO REQUERENTE')
             assert modelo.index('Praça da Matriz') > modelo.index('Assinatura do Requerente')
     html = client.get(f'/protocolo/{protocolo_id}').get_data(as_text=True)
@@ -1114,4 +1134,3 @@ def test_administrador_geral_visualiza_assume_e_responde_chamados_de_todos_clien
         Usuario.query.filter_by(tenant_id=1, login='admin').one().is_platform_admin = False
         db.session.delete(chamado)
         db.session.commit()
-

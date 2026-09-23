@@ -1,7 +1,8 @@
 {% extends "layout.html" %}
 {% block content %}
 <div class="container-fluid">
-    <h1>Configurações do Sistema</h1>
+    <a href="{{ url_for('home') }}" class="btn btn-outline-secondary btn-back">← Voltar ao painel</a>
+    <h1 class="mt-2">Configurações do Sistema</h1>
     <p class="text-muted">Página de administração para gerenciar usuários e listas do sistema.</p>
 
     <div class="card mt-4">
@@ -12,15 +13,15 @@
                 <img src="{{ branding_logo_url }}" alt="Logo atual de {{ organizacao.nome }}" style="display: block; width: auto; height: auto; max-width: 100%; max-height: 100%; object-fit: contain">
             </div>
             <form method="POST" action="{{ url_for('admin_update_logo') }}" enctype="multipart/form-data">
-                {{ branding_form.hidden_tag() }}
+                <input type="hidden" id="csrf-branding" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="row">
                   <div class="col-md-6 mb-3"><label class="form-label" for="municipio">Município</label><input class="form-control" id="municipio" name="municipio" maxlength="180" value="{{ organizacao.municipio or '' }}" placeholder="Ex.: Tabuleiro do Norte/CE"></div>
                   <div class="col-md-6 mb-3"><label class="form-label" for="orgao">Órgão ou unidade</label><input class="form-control" id="orgao" name="orgao" maxlength="180" value="{{ organizacao.orgao or '' }}" placeholder="Ex.: Gabinete da Prefeita"></div>
                   <div class="col-12 mb-3"><label class="form-label" for="rodape_documento">Texto do rodapé</label><textarea class="form-control" id="rodape_documento" name="rodape_documento" maxlength="1000" rows="2">{{ organizacao.rodape_documento or '' }}</textarea></div>
                 </div>
-                <div class="mb-3">{{ branding_form.logo.label }} {{ branding_form.logo(class="form-control", accept="image/png,image/jpeg,image/webp") }}</div>
-                {{ branding_form.salvar(class="btn btn-primary") }}
-                {{ branding_form.remover(class="btn btn-outline-secondary ms-2") }}
+                <div class="mb-3"><label class="form-label" for="branding-logo">Logo da organização</label>{{ branding_form.logo(id="branding-logo", class="form-control", accept="image/png,image/jpeg,image/webp") }}</div>
+                {{ branding_form.salvar(id="branding-salvar", class="btn btn-primary") }}
+                {{ branding_form.remover(id="branding-remover", class="btn btn-outline-secondary ms-2") }}
                 <div class="form-text">PNG, JPG ou WebP, até 5 MB. A imagem será redimensionada e convertida para PNG.</div>
             </form>
         </div>
@@ -34,15 +35,15 @@
         <div class="card-body">
             <h5>Criar Novo Usuário</h5>
             <form method="POST" action="{{ url_for('admin_create_user') }}">
-                {{ user_form.hidden_tag() }}
+                <input type="hidden" id="csrf-new-user" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="row">
-                    <div class="col-md-6 mb-3">{{ user_form.nome_completo.label }} {{ user_form.nome_completo(class="form-control") }}</div>
-                    <div class="col-md-6 mb-3">{{ user_form.login.label }} {{ user_form.login(class="form-control") }}</div>
-                    <div class="col-md-6 mb-3">{{ user_form.email.label }} {{ user_form.email(class="form-control") }}</div>
-                    <div class="col-md-6 mb-3">{{ user_form.senha.label }} {{ user_form.senha(class="form-control") }}</div>
-                    <div class="col-md-6 mb-3">{{ user_form.tipo.label }} {{ user_form.tipo(class="form-select") }}</div>
-                    <div class="col-md-6 mb-3">{{ user_form.lotacao_id.label }} {{ user_form.lotacao_id(class="form-select") }}</div>
-                    <div class="col-md-6 align-self-end mb-3">{{ user_form.submit(class="btn btn-primary") }}</div>
+                    <div class="col-md-6 mb-3"><label class="form-label" for="novo-usuario-nome">Nome completo</label>{{ user_form.nome_completo(id="novo-usuario-nome", class="form-control") }}</div>
+                    <div class="col-md-6 mb-3"><label class="form-label" for="novo-usuario-login">Login</label>{{ user_form.login(id="novo-usuario-login", class="form-control") }}</div>
+                    <div class="col-md-6 mb-3"><label class="form-label" for="novo-usuario-email">E-mail</label>{{ user_form.email(id="novo-usuario-email", class="form-control") }}</div>
+                    <div class="col-md-6 mb-3"><label class="form-label" for="novo-usuario-senha">Senha</label>{{ user_form.senha(id="novo-usuario-senha", class="form-control") }}</div>
+                    <div class="col-md-6 mb-3"><label class="form-label" for="novo-usuario-tipo">Perfil</label>{{ user_form.tipo(id="novo-usuario-tipo", class="form-select") }}</div>
+                    <div class="col-md-6 mb-3"><label class="form-label" for="novo-usuario-lotacao">Setor</label>{{ user_form.lotacao_id(id="novo-usuario-lotacao", class="form-select") }}</div>
+                    <div class="col-md-6 align-self-end mb-3">{{ user_form.submit(id="novo-usuario-submit", class="btn btn-primary") }}</div>
                 </div>
             </form>
             <hr>
@@ -54,13 +55,13 @@
                 <tbody>
                     {% for user in users %}
                     <tr>
-                        <td><form id="edit-user-{{ user.id }}" method="POST" action="{{ url_for('admin_update_user', user_id=user.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form><input form="edit-user-{{ user.id }}" class="form-control form-control-sm" name="nome_completo" value="{{ user.nome_completo }}" required></td>
+                        <td><form id="edit-user-{{ user.id }}" method="POST" action="{{ url_for('admin_update_user', user_id=user.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form><label class="visually-hidden" for="edit-user-name-{{ user.id }}">Nome de {{ user.login }}</label><input id="edit-user-name-{{ user.id }}" form="edit-user-{{ user.id }}" class="form-control form-control-sm" name="nome_completo" value="{{ user.nome_completo }}" required></td>
                         <td>{{ user.login }}</td>
-                        <td><input form="edit-user-{{ user.id }}" class="form-control form-control-sm" name="email" type="email" value="{{ user.email }}" required></td>
-                        <td><select form="edit-user-{{ user.id }}" class="form-select form-select-sm" name="tipo">{% for role in ['consulta','tramitador','protocolista','admin'] %}<option value="{{ role }}" {% if user.tipo == role %}selected{% endif %}>{{ role_labels[role] }}</option>{% endfor %}{% if user.tipo not in role_labels %}<option value="{{ user.tipo }}" selected>Legado: {{ user.tipo }}</option>{% endif %}</select></td>
+                        <td><label class="visually-hidden" for="edit-user-email-{{ user.id }}">E-mail de {{ user.login }}</label><input id="edit-user-email-{{ user.id }}" form="edit-user-{{ user.id }}" class="form-control form-control-sm" name="email" type="email" value="{{ user.email }}" required></td>
+                        <td><label class="visually-hidden" for="edit-user-role-{{ user.id }}">Perfil de {{ user.login }}</label><select id="edit-user-role-{{ user.id }}" form="edit-user-{{ user.id }}" class="form-select form-select-sm" name="tipo">{% for role in ['consulta','tramitador','protocolista','admin'] %}<option value="{{ role }}" {% if user.tipo == role %}selected{% endif %}>{{ role_labels[role] }}</option>{% endfor %}{% if user.tipo not in role_labels %}<option value="{{ user.tipo }}" selected>Legado: {{ user.tipo }}</option>{% endif %}</select></td>
                         <td><span class="badge {{ 'bg-success' if user.status == 'ativo' else 'bg-danger' }}">{{ user.status }}</span></td>
                         <td>
-                          <select form="edit-user-{{ user.id }}" class="form-select form-select-sm mb-1" name="lotacao_id"><option value="0">Sem setor</option>{% for lotacao in lotacoes if lotacao.ativo %}<option value="{{ lotacao.id }}" {% if user.lotacao_id == lotacao.id %}selected{% endif %}>{{ lotacao.nome }}</option>{% endfor %}</select>
+                          <label class="visually-hidden" for="edit-user-sector-{{ user.id }}">Setor de {{ user.login }}</label><select id="edit-user-sector-{{ user.id }}" form="edit-user-{{ user.id }}" class="form-select form-select-sm mb-1" name="lotacao_id"><option value="0">Sem setor</option>{% for lotacao in lotacoes if lotacao.ativo %}<option value="{{ lotacao.id }}" {% if user.lotacao_id == lotacao.id %}selected{% endif %}>{{ lotacao.nome }}</option>{% endfor %}</select>
                           <button form="edit-user-{{ user.id }}" class="btn btn-sm btn-primary" type="submit">Salvar</button>
                           {% if user.id != current_user.id %}<form method="POST" action="{{ url_for('admin_toggle_user_status', user_id=user.id) }}" class="d-inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm {{ 'btn-warning' if user.status == 'ativo' else 'btn-success' }}" type="submit">{{ 'Desativar' if user.status == 'ativo' else 'Reativar' }}</button></form>{% endif %}
                         </td>
@@ -78,10 +79,10 @@
                 <div class="card-header"><h4>Gerenciar Tipos de Requerimento</h4></div>
                 <div class="card-body">
                     <form method="POST" action="{{ url_for('admin_create_list_item', item_type='tipo') }}">
-                        {{ tipo_form.hidden_tag() }}
+                        <input type="hidden" id="csrf-new-type" name="csrf_token" value="{{ csrf_token() }}">
                         <div class="input-group">
-                            {{ tipo_form.nome(class="form-control", placeholder="Novo tipo") }}
-                            {{ tipo_form.submit(class="btn btn-primary") }}
+                            <label class="visually-hidden" for="novo-tipo">Novo tipo de requerimento</label>{{ tipo_form.nome(id="novo-tipo", class="form-control", placeholder="Novo tipo") }}
+                            {{ tipo_form.submit(id="novo-tipo-submit", class="btn btn-primary") }}
                         </div>
                     </form>
                     <hr>
@@ -106,10 +107,10 @@
                 <div class="card-header"><h4>Gerenciar Lotações</h4></div>
                 <div class="card-body">
                      <form method="POST" action="{{ url_for('admin_create_list_item', item_type='lotacao') }}">
-                        {{ lotacao_form.hidden_tag() }}
+                        <input type="hidden" id="csrf-new-sector" name="csrf_token" value="{{ csrf_token() }}">
                         <div class="input-group">
-                            {{ lotacao_form.nome(class="form-control", placeholder="Nova lotação") }}
-                            {{ lotacao_form.submit(class="btn btn-primary") }}
+                            <label class="visually-hidden" for="nova-lotacao">Nova lotação</label>{{ lotacao_form.nome(id="nova-lotacao", class="form-control", placeholder="Nova lotação") }}
+                            {{ lotacao_form.submit(id="nova-lotacao-submit", class="btn btn-primary") }}
                         </div>
                     </form>
                     <hr>
@@ -132,4 +133,3 @@
     </div>
 </div>
 {% endblock content %}
-

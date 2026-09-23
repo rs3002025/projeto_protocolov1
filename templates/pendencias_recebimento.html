@@ -1,6 +1,6 @@
 {% extends "layout.html" %}
 {% block content %}
-<h3 class="page-header">Pendências de recebimento</h3>
+<h1 class="page-header">Pendências de recebimento</h1>
 <div class="list-group">
   {% for movimento in movimentos %}
   <a class="list-group-item list-group-item-action" href="{{ url_for('detalhe_protocolo', protocolo_id=movimento.protocolo_id) }}">

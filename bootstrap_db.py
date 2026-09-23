@@ -8,8 +8,8 @@ import secrets
 
 from sqlalchemy import inspect, text
 
-from app import app, db
-from models import Organizacao, Protocolo
+from app import app, bcrypt, db
+from models import Organizacao, Protocolo, Usuario
 
 
 TENANT_TABLES = (
@@ -149,9 +149,27 @@ def bootstrap():
         # token durante a atualização antes de o aplicativo iniciar.
         for protocolo in Protocolo.query.filter(Protocolo.consulta_token.is_(None)).all():
             protocolo.consulta_token = secrets.token_urlsafe(32)
+
+        # Ambientes novos podem receber um administrador inicial por variáveis
+        # efêmeras. Em bancos já povoados nenhuma credencial é alterada.
+        admin_password = os.getenv('BOOTSTRAP_ADMIN_PASSWORD', '')
+        admin_login = os.getenv('BOOTSTRAP_ADMIN_LOGIN', 'admin').strip() or 'admin'
+        if admin_password and not Usuario.query.filter_by(
+                tenant_id=organizacao.id, login=admin_login).first():
+            admin_name = os.getenv('BOOTSTRAP_ADMIN_NAME', 'Administrador').strip() or 'Administrador'
+            db.session.add(Usuario(
+                tenant_id=organizacao.id,
+                nome=admin_name.split()[0],
+                nome_completo=admin_name,
+                login=admin_login,
+                email=os.getenv('BOOTSTRAP_ADMIN_EMAIL', 'admin@localhost.invalid'),
+                senha=bcrypt.generate_password_hash(admin_password).decode('utf-8'),
+                tipo='admin',
+                status='ativo',
+                is_platform_admin=True,
+            ))
         db.session.commit()
 
 
 if __name__ == '__main__':
     bootstrap()
-

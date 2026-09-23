@@ -11,6 +11,48 @@ function csrfFetch(url, options = {}) {
 
 document.addEventListener('DOMContentLoaded', function () {
 
+    // Navegação responsiva e acessível.
+    const mainHeader = document.querySelector('.main-header');
+    const mobileToggle = document.querySelector('.mobile-nav-toggle');
+    if (mainHeader && mobileToggle) {
+        const setMenuState = (open) => {
+            mainHeader.classList.toggle('nav-open', open);
+            mobileToggle.setAttribute('aria-expanded', String(open));
+            const label = mobileToggle.querySelector('.visually-hidden');
+            if (label) label.textContent = open ? 'Fechar menu' : 'Abrir menu';
+        };
+        mobileToggle.addEventListener('click', () => setMenuState(!mainHeader.classList.contains('nav-open')));
+        mainHeader.querySelectorAll('.main-nav a').forEach(link => link.addEventListener('click', () => setMenuState(false)));
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape') setMenuState(false);
+        });
+        window.addEventListener('resize', () => {
+            if (window.innerWidth > 768) setMenuState(false);
+        });
+    }
+
+    // Torna tabelas legíveis em telas pequenas sem alterar os dados ou fluxos.
+    document.querySelectorAll('table').forEach(table => {
+        const labels = [...table.querySelectorAll('thead th')].map(th => th.textContent.trim());
+        if (!labels.length) return;
+        table.classList.add('responsive-table');
+        table.querySelectorAll('tbody tr').forEach(row => {
+            [...row.children].forEach((cell, index) => {
+                if (labels[index]) cell.dataset.label = labels[index];
+            });
+        });
+    });
+
+    // Informa visualmente o envio de formulários e evita duplo clique acidental.
+    document.querySelectorAll('form').forEach(form => {
+        form.addEventListener('submit', () => {
+            const submit = form.querySelector('button[type="submit"], input[type="submit"]');
+            if (!submit || submit.dataset.keepEnabled === 'true') return;
+            submit.setAttribute('aria-busy', 'true');
+            submit.classList.add('is-submitting');
+        });
+    });
+
     // A tela de login ainda não possui sessão; a organização digitada define
     // dinamicamente qual identidade visual deve ser apresentada.
     const organizationInput = document.getElementById('floatingOrganization');
@@ -828,8 +870,15 @@ window.previsualizarPDF = async function(id = null, isFromForm = false) {
   clone.querySelector('#doc_tipo').textContent = protocolo.tipo_requerimento || '';
   clone.querySelector('#doc_requerAo').textContent = protocolo.requer_ao || '';
   const complemento = clone.querySelector('#doc_complemento');
-  complemento.textContent = protocolo.observacoes || 'Nenhuma informação adicional.';
-  complemento.style.whiteSpace = 'pre-wrap';
+  const textoComplemento = (protocolo.observacoes || 'Nenhuma informação adicional.').trim();
+  const paragrafos = textoComplemento.split(/\n\s*\n|\n/).filter(Boolean);
+  complemento.innerHTML = '';
+  paragrafos.forEach((texto) => {
+      const paragrafo = document.createElement('p');
+      paragrafo.className = 'paragrafo-pdf';
+      paragrafo.textContent = texto;
+      complemento.appendChild(paragrafo);
+  });
 
   pdfContentDiv.innerHTML = '';
   pdfContentDiv.appendChild(clone.querySelector('.pdf-body'));
@@ -842,11 +891,15 @@ window.gerarPDF = async function() {
   if (!protocoloParaGerar) { alert("Nenhum protocolo para gerar."); return; }
   const element = document.getElementById('pdfContent').querySelector('.doc-container');
   const opt = {
-    margin: [0, 0, 0, 0],
+    margin: [10, 8, 10, 8],
     filename: `Protocolo_${(protocoloParaGerar.numero || 'Novo').replace(/[\/\\]/g, '-')}.pdf`,
     image: { type: 'jpeg', quality: 0.98 },
     html2canvas: { scale: 2, scrollY: 0, useCORS: true },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    pagebreak: {
+      mode: ['avoid-all', 'css', 'legacy'],
+      avoid: ['.paragrafo-pdf', '.fechamento-pdf']
+    }
   };
   try {
     await html2pdf().set(opt).from(element).save();
