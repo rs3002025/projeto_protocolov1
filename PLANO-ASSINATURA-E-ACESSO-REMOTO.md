@@ -218,9 +218,11 @@ O hash do arquivo final será calculado depois da geração. Não se tentará im
 ### Cancelamento
 
 - não apaga o documento;
-- registra responsável, data e motivo;
-- altera a situação na página de conferência;
-- mantém o histórico para auditoria.
+- exige nova confirmação da senha individual e justificativa;
+- registra responsável, data e motivo no histórico e na emissão;
+- cancela somente a versão autenticada vigente;
+- mantém o PDF, o hash e todas as versões disponíveis para auditoria e download;
+- altera a situação na página pública de conferência.
 
 ## 11. Anexos
 
@@ -286,6 +288,7 @@ Correções de integração concluídas no mesmo ambiente:
 - todas as versões autenticadas permanecem armazenadas e disponíveis para download;
 - a versão anterior passa ao estado `RETIFICADA` somente quando a nova versão é autenticada;
 - detalhes, validação pública e histórico identificam a versão e preservam o encadeamento entre elas.
+- foi criado o cancelamento formal da versão vigente, mediante senha e justificativa, sem exclusão do PDF, hash ou evidências.
 
 ### Etapa 1 — Papéis e dados
 
