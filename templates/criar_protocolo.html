@@ -111,11 +111,27 @@
 
         <div class="form-actions">
             {# O texto do botão de submit muda se estamos editando ou criando #}
-            <button type="submit" class="btn btn-primary">{{ 'Atualizar Requerimento' if protocolo else 'Enviar Requerimento' }}</button>
+            <button type="button" id="reviewProtocolButton" class="btn btn-primary">{{ 'Revisar atualização' if protocolo else 'Revisar e cadastrar' }}</button>
             <button type="button" id="imprimirBtn" class="btn btn-outline-primary">Imprimir</button>
             <a href="{{ url_for('detalhe_protocolo', protocolo_id=protocolo.id) if protocolo else url_for('home') }}" class="btn btn-outline-secondary">{{ 'Voltar aos detalhes' if protocolo else 'Voltar' }}</a>
         </div>
     </form>
+
+    <div class="modal fade" id="protocolReviewModal" tabindex="-1" aria-labelledby="protocolReviewTitle" aria-hidden="true">
+      <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <div><h2 class="modal-title h5 mb-1" id="protocolReviewTitle">Confira antes de confirmar</h2><p class="text-muted mb-0">Revise os principais dados do protocolo. Você ainda pode voltar e corrigir.</p></div>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+          </div>
+          <div class="modal-body"><div id="protocolReviewBody" class="protocol-review-grid"></div></div>
+          <div class="modal-footer action-group">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Voltar e corrigir</button>
+            <button type="button" id="confirmProtocolSubmit" class="btn btn-primary">{{ 'Confirmar atualização' if protocolo else 'Confirmar cadastro' }}</button>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- Modal Busca Servidor -->
     <div class="modal fade" id="modalBuscaServidor" tabindex="-1" aria-labelledby="modalBuscaServidorLabel" aria-hidden="true">

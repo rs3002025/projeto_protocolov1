@@ -21,7 +21,7 @@
                 </div>
                 <div class="mb-3"><label class="form-label" for="branding-logo">Logo da organização</label>{{ branding_form.logo(id="branding-logo", class="form-control", accept="image/png,image/jpeg,image/webp") }}</div>
                 {{ branding_form.salvar(id="branding-salvar", class="btn btn-primary") }}
-                {{ branding_form.remover(id="branding-remover", class="btn btn-outline-secondary ms-2") }}
+                {{ branding_form.remover(id="branding-remover", class="btn btn-outline-danger ms-2", data_confirm="Remover a logo personalizada e voltar à identidade padrão?") }}
                 <div class="form-text">PNG, JPG ou WebP, até 5 MB. A imagem será redimensionada e convertida para PNG.</div>
             </form>
         </div>
@@ -63,7 +63,7 @@
                         <td>
                           <label class="visually-hidden" for="edit-user-sector-{{ user.id }}">Setor de {{ user.login }}</label><select id="edit-user-sector-{{ user.id }}" form="edit-user-{{ user.id }}" class="form-select form-select-sm mb-1" name="lotacao_id"><option value="0">Sem setor</option>{% for lotacao in lotacoes if lotacao.ativo %}<option value="{{ lotacao.id }}" {% if user.lotacao_id == lotacao.id %}selected{% endif %}>{{ lotacao.nome }}</option>{% endfor %}</select>
                           <button form="edit-user-{{ user.id }}" class="btn btn-sm btn-primary" type="submit">Salvar</button>
-                          {% if user.id != current_user.id %}<form method="POST" action="{{ url_for('admin_toggle_user_status', user_id=user.id) }}" class="d-inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm {{ 'btn-warning' if user.status == 'ativo' else 'btn-success' }}" type="submit">{{ 'Desativar' if user.status == 'ativo' else 'Reativar' }}</button></form>{% endif %}
+                          {% if user.id != current_user.id %}<form method="POST" action="{{ url_for('admin_toggle_user_status', user_id=user.id) }}" class="d-inline" {% if user.status == 'ativo' %}data-confirm="Desativar o acesso de {{ user.nome_completo }}? O usuário não conseguirá entrar até ser reativado."{% endif %}><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm {{ 'btn-outline-danger' if user.status == 'ativo' else 'btn-outline-primary' }}" type="submit">{{ 'Desativar' if user.status == 'ativo' else 'Reativar' }}</button></form>{% endif %}
                         </td>
                     </tr>
                     {% endfor %}
@@ -90,9 +90,9 @@
                         {% for tipo in tipos %}
                         <li class="list-group-item d-flex justify-content-between align-items-center">
                             {{ tipo.nome }}
-                            <form method="POST" action="{{ url_for('admin_toggle_item_status', item_type='tipo', item_id=tipo.id) }}" class="d-inline">
+                            <form method="POST" action="{{ url_for('admin_toggle_item_status', item_type='tipo', item_id=tipo.id) }}" class="d-inline" {% if tipo.ativo %}data-confirm="Desativar o tipo {{ tipo.nome }}? Ele deixará de aparecer em novos cadastros."{% endif %}>
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" class="btn btn-sm {{ 'btn-warning' if tipo.ativo else 'btn-success' }}">
+                                <button type="submit" class="btn btn-sm {{ 'btn-outline-danger' if tipo.ativo else 'btn-outline-primary' }}">
                                     {{ 'Desativar' if tipo.ativo else 'Reativar' }}
                                 </button>
                             </form>
@@ -118,9 +118,9 @@
                         {% for lotacao in lotacoes %}
                         <li class="list-group-item d-flex justify-content-between align-items-center">
                             {{ lotacao.nome }}
-                             <form method="POST" action="{{ url_for('admin_toggle_item_status', item_type='lotacao', item_id=lotacao.id) }}" class="d-inline">
+                             <form method="POST" action="{{ url_for('admin_toggle_item_status', item_type='lotacao', item_id=lotacao.id) }}" class="d-inline" {% if lotacao.ativo %}data-confirm="Desativar a lotação {{ lotacao.nome }}? Ela deixará de aparecer em novos cadastros e encaminhamentos."{% endif %}>
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" class="btn btn-sm {{ 'btn-warning' if lotacao.ativo else 'btn-success' }}">
+                                <button type="submit" class="btn btn-sm {{ 'btn-outline-danger' if lotacao.ativo else 'btn-outline-primary' }}">
                                     {{ 'Desativar' if lotacao.ativo else 'Reativar' }}
                                 </button>
                             </form>
