@@ -310,6 +310,13 @@ Cada etapa deverá ser registrada abaixo com data, decisão, telas afetadas, tes
 - Atualizado o versionamento dos recursos estáticos para forçar a carga do CSS consolidado após o deploy.
 - Executada novamente a suíte automatizada completa: 54 testes aprovados.
 
+### 22/09/2026 — padronização das ações
+
+- O retorno das telas deixou de parecer um hiperlink e passou a usar botão secundário contornado, mantendo posição e aparência consistentes.
+- Definida hierarquia visual para ações: botão preenchido para a ação principal, contornado para ações secundárias e contorno vermelho para ações destrutivas.
+- Normalizados altura, espaçamento, peso tipográfico e alinhamento de botões e links com aparência de botão.
+- Aplicado o padrão inicialmente nos detalhes do protocolo, edição, configurações e administração da plataforma.
+
 ## 9. Regra de promoção
 
 Nenhuma alteração desta iniciativa será enviada automaticamente para `development` ou `main`. A promoção dependerá de:
