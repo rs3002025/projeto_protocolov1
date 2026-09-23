@@ -45,11 +45,23 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Informa visualmente o envio de formulários e evita duplo clique acidental.
     document.querySelectorAll('form').forEach(form => {
-        form.addEventListener('submit', () => {
+        form.addEventListener('submit', (event) => {
+            const confirmation = event.submitter?.dataset.confirm || form.dataset.confirm;
+            if (confirmation && !window.confirm(confirmation)) {
+                event.preventDefault();
+                return;
+            }
             const submit = form.querySelector('button[type="submit"], input[type="submit"]');
             if (!submit || submit.dataset.keepEnabled === 'true') return;
             submit.setAttribute('aria-busy', 'true');
             submit.classList.add('is-submitting');
+        });
+    });
+
+    document.addEventListener('keydown', event => {
+        if (event.key !== 'Escape') return;
+        document.querySelectorAll('.modal-overlay').forEach(modal => {
+            if (getComputedStyle(modal).display !== 'none') fecharModal(modal.id);
         });
     });
 
@@ -81,6 +93,23 @@ document.addEventListener('DOMContentLoaded', function () {
     // --- Protocol Form Logic ---
     if (document.getElementById('protocol-form')) {
         initializeProtocolForm();
+        initializeProtocolReview();
+    }
+
+    const settingsSearch = document.getElementById('settingsUserSearch');
+    if (settingsSearch) {
+        const userRows = [...document.querySelectorAll('[data-user-search]')];
+        const emptyState = document.getElementById('settingsUserEmpty');
+        settingsSearch.addEventListener('input', () => {
+            const term = settingsSearch.value.trim().toLocaleLowerCase('pt-BR');
+            let visible = 0;
+            userRows.forEach(row => {
+                const matches = !term || row.dataset.userSearch.toLocaleLowerCase('pt-BR').includes(term);
+                row.hidden = !matches;
+                if (matches) visible += 1;
+            });
+            if (emptyState) emptyState.hidden = visible !== 0;
+        });
     }
 
     // --- Modal Logic ---
@@ -127,6 +156,50 @@ document.addEventListener('DOMContentLoaded', function () {
     // This is more robust than attaching listeners directly in some cases.
 });
 
+function initializeProtocolReview() {
+    const form = document.getElementById('protocol-form');
+    const reviewButton = document.getElementById('reviewProtocolButton');
+    const confirmButton = document.getElementById('confirmProtocolSubmit');
+    const reviewModalElement = document.getElementById('protocolReviewModal');
+    const reviewBody = document.getElementById('protocolReviewBody');
+    if (!form || !reviewButton || !confirmButton || !reviewModalElement || !reviewBody) return;
+
+    const fieldValue = (id) => {
+        const field = document.getElementById(id);
+        if (!field) return 'Não informado';
+        if (field.tagName === 'SELECT') return field.selectedOptions[0]?.text?.trim() || 'Não informado';
+        return field.value.trim() || 'Não informado';
+    };
+    const escapeHtml = (value) => String(value).replace(/[&<>'"]/g, character => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+    }[character]));
+
+    reviewButton.addEventListener('click', () => {
+        if (!form.reportValidity()) return;
+        const rows = [
+            ['Protocolo', fieldValue('numeroProtocolo')],
+            ['Requerente', fieldValue('nome')],
+            ['Matrícula', fieldValue('matricula')],
+            ['Tipo', fieldValue('tipo')],
+            ['Destinatário', fieldValue('requerAo')],
+            ['Lotação', fieldValue('lotacao')],
+            ['Prazo', fieldValue('prazoEm')],
+            ['Contato', fieldValue('telefone')],
+            ['Endereço', [fieldValue('endereco'), fieldValue('bairro'), fieldValue('municipio')].join(' — ')],
+            ['Informações complementares', fieldValue('complemento')]
+        ];
+        reviewBody.innerHTML = rows.map(([label, value]) =>
+            `<div class="protocol-review-item"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`
+        ).join('');
+        bootstrap.Modal.getOrCreateInstance(reviewModalElement).show();
+    });
+
+    confirmButton.addEventListener('click', () => {
+        bootstrap.Modal.getInstance(reviewModalElement)?.hide();
+        form.requestSubmit();
+    });
+}
+
 // --- NEW DASHBOARD FUNCTIONS ---
 let tiposChartInstance = null;
 let statusChartInstance = null;
@@ -134,9 +207,15 @@ let evolucaoChartInstance = null;
 
 window.fecharModal = function(modalId) {
     const modalElement = document.getElementById(modalId);
-    if (modalElement) {
+    if (!modalElement) return;
+
+    if (modalElement.classList.contains('modal-overlay')) {
         modalElement.style.display = 'none';
+        modalElement.setAttribute('aria-hidden', 'true');
+        return;
     }
+
+    bootstrap.Modal.getInstance(modalElement)?.hide();
 }
 
 window.popularFiltrosDashboard = function() {
@@ -174,6 +253,10 @@ window.carregarDashboard = async function() {
         document.getElementById('stat-novos').textContent = stats.novosNoPeriodo || 0;
         document.getElementById('stat-pendentes').textContent = stats.pendentesAntigos || 0;
         document.getElementById('stat-finalizados').textContent = stats.totalFinalizados || 0;
+        const attentionOverdue = document.getElementById('attention-overdue');
+        const attentionNext7 = document.getElementById('attention-next7');
+        if (attentionOverdue) attentionOverdue.textContent = stats.pendentesAntigos || 0;
+        if (attentionNext7) attentionNext7.textContent = stats.vencemProximos7 || 0;
         document.getElementById('stat-novos-label').textContent = (document.getElementById('dashDataInicio').value || document.getElementById('dashDataFim').value) ? 'Novos no Período' : 'Novos na Semana';
         const setoresBody = document.getElementById('setoresStats');
         setoresBody.textContent = '';
@@ -283,14 +366,19 @@ window.imprimirDashboard = function() {
 };
 
 window.abrirModalImpressao = function() {
-    document.getElementById('modalImpressaoDashboard').style.display = 'flex';
+    const modal = document.getElementById('modalImpressaoDashboard');
+    modal.style.display = 'flex';
+    modal.setAttribute('aria-hidden', 'false');
+    modal.querySelector('.btn-close')?.focus();
 };
 
 window.gerarImpressaoPersonalizada = async function() {
     const previewContent = document.getElementById('previewContent');
     previewContent.innerHTML = '<h4>Carregando pré-visualização...</h4>';
     fecharModal('modalImpressaoDashboard');
-    document.getElementById('modalPreviewImpressao').style.display = 'flex';
+    const previewModal = document.getElementById('modalPreviewImpressao');
+    previewModal.style.display = 'flex';
+    previewModal.setAttribute('aria-hidden', 'false');
 
     const checkboxes = document.querySelectorAll('#print-options-container input[name="print-item"]:checked');
     const selectors = Array.from(checkboxes).map(cb => cb.value);
@@ -788,16 +876,6 @@ async function searchServidorByName() {
 
 let protocoloParaGerar = null;
 
-window.fecharModal = function(modalId) {
-    const modalElement = document.getElementById(modalId);
-    if (modalElement) {
-        const modalInstance = bootstrap.Modal.getInstance(modalElement);
-        if (modalInstance) {
-            modalInstance.hide();
-        }
-    }
-}
-
 window.previsualizarPDF = async function(id = null, isFromForm = false) {
   let protocolo;
   if (isFromForm) {
@@ -922,3 +1000,4 @@ async function gerarNumeroProtocolo() {
         document.getElementById('numeroProtocolo').value = `0001/${anoAtual}`;
     }
 }
+

@@ -2,7 +2,7 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-start mb-4">
   <div>
-    <a href="{{ url_for('support_list') }}" class="text-decoration-none">← Voltar para o suporte</a>
+    <a href="{{ url_for('support_list') }}" class="btn btn-outline-secondary btn-back">← Voltar para o suporte</a>
     <h1 class="h3 mt-2 mb-1">SUP-{{ '%06d'|format(chamado.id) }} {{ chamado.assunto }}</h1>
     <p class="text-muted mb-0">Aberto em {{ chamado.criado_em.strftime('%d/%m/%Y %H:%M') }} por {{ chamado.aberto_por.nome_completo or chamado.aberto_por.nome }}{% if current_user.is_platform_admin %} · {{ organizacao_chamado.nome }}{% endif %}</p>
   </div>
@@ -73,4 +73,3 @@
   </div>
 </div>
 {% endblock %}
-
