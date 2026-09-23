@@ -95,7 +95,7 @@
                         <td><div class="action-group action-group-visible">
                             <a href="{{ url_for('detalhe_protocolo', protocolo_id=protocolo.id) }}" class="btn btn-sm btn-primary">Detalhes</a>
                             <button type="button" class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#modalAtualizarStatus" data-protocolo-id="{{ protocolo.id }}">Atualizar status</button>
-                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="previsualizarPDF({{ protocolo.id }})">Documento</button>
+                            {% if protocolo.emissao_eletronica %}<a class="btn btn-sm btn-outline-primary" target="_blank" href="{{ url_for('gerar_pdf_protocolo', protocolo_id=protocolo.id) }}">Documento autenticado</a>{% else %}<button type="button" class="btn btn-sm btn-outline-primary" onclick="previsualizarPDF({{ protocolo.id }})">Documento</button>{% endif %}
                         </div>
                         </td>
                     </tr>
@@ -137,3 +137,4 @@
         </ul>
     </nav>
 {% endblock content %}
+
