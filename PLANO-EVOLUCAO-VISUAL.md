@@ -227,7 +227,7 @@ O sistema atende ao fluxo funcional, porém sua interface ainda apresenta caract
 
 ## 7. Critérios de aceite
 
-- Nenhuma regressão nos 53 testes automatizados atualmente aprovados.
+- Nenhuma regressão nos 54 testes automatizados atualmente aprovados.
 - Menu utilizável sem rolagem horizontal indevida em 375 px de largura.
 - Todas as ações essenciais disponíveis por teclado.
 - Campos com rótulos e mensagens de erro compreensíveis.
@@ -279,6 +279,36 @@ Cada etapa deverá ser registrada abaixo com data, decisão, telas afetadas, tes
 - Executar fluxos destrutivos ou que alteram dados com contas de cada perfil em uma massa de testes dedicada.
 - Homologar visualmente PDFs e downloads gerados no contêiner Linux.
 - Substituir gradualmente usos de `datetime.utcnow()` por datas UTC com fuso explícito; atualmente geram avisos, sem falha funcional.
+
+### 22/09/2026 — homologação ponta a ponta e perfis
+
+- Criados exclusivamente no `visual-development` os usuários temporários `tramitador_qa` (SEAD) e `consulta_qa` para testes reais de permissão.
+- Criado o protocolo de homologação `0003/2026` (ID 10), claramente identificado como “HOMOLOGAÇÃO VISUAL QA - NÃO UTILIZAR”.
+- Confirmados cadastro, listagem, detalhe, histórico e preenchimento de endereço pelo CEP no fluxo real do navegador.
+- Enviado ao bucket do ambiente visual o arquivo inofensivo `homologacao-visual-bucket.txt`; o sistema registrou a versão 1 e o download foi concluído com sucesso.
+- O protocolo foi encaminhado à SEAD com destinatário individual `tramitador_qa`. A pendência apareceu somente para o usuário indicado e o recebimento atualizou o status para `EM ANÁLISE`, o responsável para `tramitador_qa` e a localização para SEAD.
+- O perfil de tramitação foi impedido de acessar Configurações e Novo Protocolo, inclusive por URL direta.
+- O perfil somente consulta foi impedido de acessar Configurações e Novo Protocolo e visualizou o protocolo sem controles de edição, tramitação ou envio de anexos.
+- Aberto pelo perfil de consulta o chamado temporário `SUP-000001`; o acompanhamento e o contador de suporte foram confirmados.
+- Detectado que a cópia do banco mantinha a conta `admin` apenas como administradora do cliente. Com autorização expressa, `is_platform_admin` foi alterado para `true` somente no banco do `visual-development`.
+- Após a correção da permissão, a área “Clientes” reconheceu Raimundo Renato Sampaio Amancio como administrador geral, exibiu a organização Prefeitura e permitiu acesso à fila global de suporte.
+- O administrador geral assumiu o `SUP-000001`, alterando-o para `EM ATENDIMENTO`, respondeu como suporte técnico e a resposta foi confirmada visualmente na sessão do solicitante.
+- Produção e o ambiente `development` principal não foram modificados durante esta homologação.
+
+#### Pendências após o teste ponta a ponta
+
+- Repetir o fluxo com uma segunda organização real de teste para demonstrar isolamento multicliente entre dois `tenant_id`; a interface e as consultas estão preparadas, mas o banco visual contém atualmente apenas a organização Prefeitura.
+- Finalizar a inspeção responsiva sistemática em desktop, tablet e 375 px e registrar as evidências visuais restantes.
+
+### 22/09/2026 — fechamento do bloco visual
+
+- Corrigidos no banco exclusivo do `visual-development` o telefone do protocolo `0003/2026` e o e-mail do usuário `tramitador_qa`, eliminando as duplicações produzidas durante a automação.
+- Auditadas em largura móvel as telas de painel, novo protocolo, protocolos, meus protocolos, recebimentos, relatórios, suporte, configurações e detalhe.
+- Confirmada ausência de campos de conteúdo sem rótulo acessível nas rotas operacionais; os únicos controles sinalizados pela varredura foram botões de envio, identificados pelo próprio valor visível.
+- Confirmada a adaptação visual do painel, formulário, detalhe e cartões de listagem no celular.
+- Corrigidos pequenos transbordamentos horizontais causados pelas margens negativas das linhas Bootstrap e pela paginação sem quebra em telas estreitas.
+- Atualizado o versionamento dos recursos estáticos para forçar a carga do CSS consolidado após o deploy.
+- Executada novamente a suíte automatizada completa: 54 testes aprovados.
 
 ## 9. Regra de promoção
 
