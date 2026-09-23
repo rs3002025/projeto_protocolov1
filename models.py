@@ -94,7 +94,7 @@ class Protocolo(TenantMixin, db.Model):
     criado_por_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'))
     requerente_servidor_id = db.Column(ID_TYPE, db.ForeignKey('servidores.id'))
     emitido_por_usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'))
-    retifica_protocolo_id = db.Column(db.Integer, db.ForeignKey('protocolos.id'), index=True)
+    retificacao_pendente = db.Column(db.Boolean, nullable=False, default=False)
     modalidade_abertura = db.Column(db.String(30), nullable=False, default='presencial_protocolista')
     setor_atual_id = db.Column(ID_TYPE, db.ForeignKey('lotacoes.id'))
     data_envio = db.Column(db.TIMESTAMP, server_default=db.func.current_timestamp())
@@ -111,17 +111,25 @@ class Protocolo(TenantMixin, db.Model):
     criado_por = db.relationship('Usuario', foreign_keys=[criado_por_id])
     emitido_por = db.relationship('Usuario', foreign_keys=[emitido_por_usuario_id])
     requerente_servidor = db.relationship('Servidor', foreign_keys=[requerente_servidor_id])
-    protocolo_original = db.relationship('Protocolo', remote_side=[id], foreign_keys=[retifica_protocolo_id],
-                                         backref=db.backref('retificacoes', lazy=True))
-    emissao_eletronica = db.relationship('EmissaoEletronica', back_populates='protocolo',
-                                         uselist=False, cascade='all, delete-orphan')
+    emissoes_eletronicas = db.relationship('EmissaoEletronica', back_populates='protocolo',
+                                           cascade='all, delete-orphan',
+                                           order_by='EmissaoEletronica.versao')
+
+    @property
+    def emissao_eletronica(self):
+        """Versão autenticada mais recente, preservando compatibilidade com as telas."""
+        return self.emissoes_eletronicas[-1] if self.emissoes_eletronicas else None
 
 
 class EmissaoEletronica(TenantMixin, db.Model):
     """Evidência imutável da emissão eletrônica do requerimento/protocolo."""
     __tablename__ = 'emissoes_eletronicas'
     id = db.Column(ID_TYPE, primary_key=True)
-    protocolo_id = db.Column(ID_TYPE, db.ForeignKey('protocolos.id'), nullable=False, unique=True, index=True)
+    __table_args__ = (db.UniqueConstraint('tenant_id', 'protocolo_id', 'versao',
+                                          name='uq_emissao_protocolo_versao'),)
+    protocolo_id = db.Column(ID_TYPE, db.ForeignKey('protocolos.id'), nullable=False, index=True)
+    versao = db.Column(db.Integer, nullable=False, default=1)
+    substitui_emissao_id = db.Column(ID_TYPE, db.ForeignKey('emissoes_eletronicas.id'))
     emitido_por_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False, index=True)
     pdf_anexo_id = db.Column(ID_TYPE, db.ForeignKey('anexos.id'), nullable=False, unique=True)
     token_publico = db.Column(db.String(64), nullable=False, unique=True, index=True)
@@ -140,9 +148,11 @@ class EmissaoEletronica(TenantMixin, db.Model):
     cancelado_por_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'))
     motivo_cancelamento = db.Column(db.Text)
 
-    protocolo = db.relationship('Protocolo', back_populates='emissao_eletronica', foreign_keys=[protocolo_id])
+    protocolo = db.relationship('Protocolo', back_populates='emissoes_eletronicas', foreign_keys=[protocolo_id])
     emitido_por = db.relationship('Usuario', foreign_keys=[emitido_por_id])
     pdf_anexo = db.relationship('Anexo', foreign_keys=[pdf_anexo_id])
+    substitui_emissao = db.relationship('EmissaoEletronica', remote_side=[id],
+                                        foreign_keys=[substitui_emissao_id])
 
 class Anexo(TenantMixin, db.Model):
     __tablename__ = 'anexos'
