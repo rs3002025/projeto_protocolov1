@@ -276,6 +276,14 @@ Pendente:
 - encadeamento dos eventos críticos de auditoria;
 - homologação visual e operacional no Railway.
 
+Correções de integração concluídas no mesmo ambiente:
+
+- o botão “Documento” da listagem abre o original autenticado quando ele existe;
+- o QR Code de acompanhamento foi preservado e a validação recebeu um segundo QR Code;
+- foi criado o fluxo formal de retificação, com novo número, nova autenticação e novo PDF;
+- a versão original permanece armazenada e passa ao estado `RETIFICADA` somente quando a nova versão é autenticada;
+- detalhes e histórico mantêm os vínculos entre original e retificação.
+
 ### Etapa 1 — Papéis e dados
 
 - separar requerente, criador e emissor;
