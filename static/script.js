@@ -58,6 +58,13 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
+    document.addEventListener('keydown', event => {
+        if (event.key !== 'Escape') return;
+        document.querySelectorAll('.modal-overlay').forEach(modal => {
+            if (getComputedStyle(modal).display !== 'none') fecharModal(modal.id);
+        });
+    });
+
     // A tela de login ainda não possui sessão; a organização digitada define
     // dinamicamente qual identidade visual deve ser apresentada.
     const organizationInput = document.getElementById('floatingOrganization');
@@ -200,9 +207,15 @@ let evolucaoChartInstance = null;
 
 window.fecharModal = function(modalId) {
     const modalElement = document.getElementById(modalId);
-    if (modalElement) {
+    if (!modalElement) return;
+
+    if (modalElement.classList.contains('modal-overlay')) {
         modalElement.style.display = 'none';
+        modalElement.setAttribute('aria-hidden', 'true');
+        return;
     }
+
+    bootstrap.Modal.getInstance(modalElement)?.hide();
 }
 
 window.popularFiltrosDashboard = function() {
@@ -353,14 +366,19 @@ window.imprimirDashboard = function() {
 };
 
 window.abrirModalImpressao = function() {
-    document.getElementById('modalImpressaoDashboard').style.display = 'flex';
+    const modal = document.getElementById('modalImpressaoDashboard');
+    modal.style.display = 'flex';
+    modal.setAttribute('aria-hidden', 'false');
+    modal.querySelector('.btn-close')?.focus();
 };
 
 window.gerarImpressaoPersonalizada = async function() {
     const previewContent = document.getElementById('previewContent');
     previewContent.innerHTML = '<h4>Carregando pré-visualização...</h4>';
     fecharModal('modalImpressaoDashboard');
-    document.getElementById('modalPreviewImpressao').style.display = 'flex';
+    const previewModal = document.getElementById('modalPreviewImpressao');
+    previewModal.style.display = 'flex';
+    previewModal.setAttribute('aria-hidden', 'false');
 
     const checkboxes = document.querySelectorAll('#print-options-container input[name="print-item"]:checked');
     const selectors = Array.from(checkboxes).map(cb => cb.value);
@@ -858,16 +876,6 @@ async function searchServidorByName() {
 
 let protocoloParaGerar = null;
 
-window.fecharModal = function(modalId) {
-    const modalElement = document.getElementById(modalId);
-    if (modalElement) {
-        const modalInstance = bootstrap.Modal.getInstance(modalElement);
-        if (modalInstance) {
-            modalInstance.hide();
-        }
-    }
-}
-
 window.previsualizarPDF = async function(id = null, isFromForm = false) {
   let protocolo;
   if (isFromForm) {
@@ -992,3 +1000,4 @@ async function gerarNumeroProtocolo() {
         document.getElementById('numeroProtocolo').value = `0001/${anoAtual}`;
     }
 }
+
