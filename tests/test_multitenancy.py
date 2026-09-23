@@ -1191,9 +1191,12 @@ def test_administrador_geral_visualiza_assume_e_responde_chamados_de_todos_clien
 
 
 def test_emissao_autenticada_congela_pdf_dados_e_anexos_e_detecta_alteracao():
+    htmls = []
+    qr_urls = []
     class FakeHTML:
         def __init__(self, string, base_url):
             self.string = string
+            htmls.append(string)
         def write_pdf(self):
             return b'%PDF-1.7\noriginal imutavel autenticado'
 
@@ -1201,7 +1204,10 @@ def test_emissao_autenticada_congela_pdf_dados_e_anexos_e_detecta_alteracao():
         def save(self, stream, format):
             stream.write(b'\x89PNG\r\n\x1a\nqr')
 
-    fake_qrcode = types.SimpleNamespace(make=lambda _url: FakeQRCode())
+    def fake_make(url):
+        qr_urls.append(url)
+        return FakeQRCode()
+    fake_qrcode = types.SimpleNamespace(make=fake_make)
     with app.app_context():
         org = Organizacao.query.filter_by(slug='cliente-a').one()
         org.emissao_eletronica_protocolista_enabled = True
@@ -1221,6 +1227,9 @@ def test_emissao_autenticada_congela_pdf_dados_e_anexos_e_detecta_alteracao():
                                data={'senha': 'senha-segura'})
     assert response.status_code == 200
     assert response.data == b'%PDF-1.7\noriginal imutavel autenticado'
+    assert len(qr_urls) == 2
+    assert '/consulta/' in qr_urls[0] and '/validar-emissao/' in qr_urls[1]
+    assert 'Acompanhe o andamento' in htmls[0] and 'Valide a autenticidade' in htmls[0]
 
     with app.app_context():
         emissao = EmissaoEletronica.query.filter_by(protocolo_id=protocolo_id).one()
@@ -1232,8 +1241,30 @@ def test_emissao_autenticada_congela_pdf_dados_e_anexos_e_detecta_alteracao():
     # A reimpressão recupera exatamente o original, sem regenerar nem substituir o hash.
     reprint = client.get(f'/protocolo/{protocolo_id}/pdf')
     assert reprint.data == response.data
+    listagem = client.get('/protocolos').get_data(as_text=True)
+    assert 'Documento autenticado' in listagem
+    assert f'/protocolo/{protocolo_id}/pdf' in listagem
     assert client.post(f'/protocolo/{protocolo_id}/editar', data={'nome': 'Alterado'}).status_code == 302
     assert client.post(f'/protocolo/{protocolo_id}/anexo/novo', data={}).status_code == 302
+
+    tela_retificacao = client.get(f'/protocolo/{protocolo_id}/retificar').get_data(as_text=True)
+    assert 'Retificar Protocolo ASS-1/2026' in tela_retificacao
+    criada = client.post(f'/protocolo/{protocolo_id}/retificar', data={
+        'nome': 'Teste autenticado retificado', 'matricula': 'ASS-1',
+        'data_solicitacao': date.today().isoformat(), 'observacoes': 'Correção formal.'})
+    assert criada.status_code == 302
+    with app.app_context():
+        retificacao = Protocolo.query.filter_by(retifica_protocolo_id=protocolo_id).one()
+        retificacao_id = retificacao.id
+        assert retificacao.emissao_eletronica is None
+    qr_urls.clear()
+    with patch.dict(sys.modules, modules):
+        nova_emissao = client.post(f'/protocolo/{retificacao_id}/autenticar-emissao',
+                                   data={'senha': 'senha-segura'})
+    assert nova_emissao.status_code == 200 and len(qr_urls) == 2
+    with app.app_context():
+        assert db.session.get(Protocolo, protocolo_id).emissao_eletronica.status == 'RETIFICADA'
+        assert db.session.get(Protocolo, retificacao_id).emissao_eletronica.status == 'VALIDA'
 
     valido = client.post(f'/validar-emissao/{token}', data={
         'arquivo': (io.BytesIO(response.data), 'original.pdf')},
