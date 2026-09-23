@@ -78,6 +78,10 @@ button:hover {
 }
 .action-group { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
 .action-group form { margin: 0; }
+.protocol-review-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+.protocol-review-item { border: 1px solid var(--border-color, #d9e0dd); border-radius: 9px; padding: .75rem .9rem; min-width: 0; }
+.protocol-review-item span { display: block; color: #66736e; font-size: .75rem; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
+.protocol-review-item strong { display: block; margin-top: .2rem; overflow-wrap: anywhere; white-space: pre-wrap; }
 .detail-page-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
 .detail-actions { justify-content: flex-end; }
 .protocol-summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; }
@@ -102,6 +106,7 @@ button:hover {
 
 @media (max-width: 479.98px) {
     .protocol-summary-grid { grid-template-columns: 1fr; }
+    .protocol-review-grid { grid-template-columns: 1fr; }
 }
 
 /* --- ESTILOS DA TELA DE LOGIN --- */

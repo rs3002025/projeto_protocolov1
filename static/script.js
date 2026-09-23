@@ -45,7 +45,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Informa visualmente o envio de formulários e evita duplo clique acidental.
     document.querySelectorAll('form').forEach(form => {
-        form.addEventListener('submit', () => {
+        form.addEventListener('submit', (event) => {
+            const confirmation = event.submitter?.dataset.confirm || form.dataset.confirm;
+            if (confirmation && !window.confirm(confirmation)) {
+                event.preventDefault();
+                return;
+            }
             const submit = form.querySelector('button[type="submit"], input[type="submit"]');
             if (!submit || submit.dataset.keepEnabled === 'true') return;
             submit.setAttribute('aria-busy', 'true');
@@ -81,6 +86,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // --- Protocol Form Logic ---
     if (document.getElementById('protocol-form')) {
         initializeProtocolForm();
+        initializeProtocolReview();
     }
 
     // --- Modal Logic ---
@@ -126,6 +132,50 @@ document.addEventListener('DOMContentLoaded', function () {
     // Use event delegation for buttons that might be on any page.
     // This is more robust than attaching listeners directly in some cases.
 });
+
+function initializeProtocolReview() {
+    const form = document.getElementById('protocol-form');
+    const reviewButton = document.getElementById('reviewProtocolButton');
+    const confirmButton = document.getElementById('confirmProtocolSubmit');
+    const reviewModalElement = document.getElementById('protocolReviewModal');
+    const reviewBody = document.getElementById('protocolReviewBody');
+    if (!form || !reviewButton || !confirmButton || !reviewModalElement || !reviewBody) return;
+
+    const fieldValue = (id) => {
+        const field = document.getElementById(id);
+        if (!field) return 'Não informado';
+        if (field.tagName === 'SELECT') return field.selectedOptions[0]?.text?.trim() || 'Não informado';
+        return field.value.trim() || 'Não informado';
+    };
+    const escapeHtml = (value) => String(value).replace(/[&<>'"]/g, character => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+    }[character]));
+
+    reviewButton.addEventListener('click', () => {
+        if (!form.reportValidity()) return;
+        const rows = [
+            ['Protocolo', fieldValue('numeroProtocolo')],
+            ['Requerente', fieldValue('nome')],
+            ['Matrícula', fieldValue('matricula')],
+            ['Tipo', fieldValue('tipo')],
+            ['Destinatário', fieldValue('requerAo')],
+            ['Lotação', fieldValue('lotacao')],
+            ['Prazo', fieldValue('prazoEm')],
+            ['Contato', fieldValue('telefone')],
+            ['Endereço', [fieldValue('endereco'), fieldValue('bairro'), fieldValue('municipio')].join(' — ')],
+            ['Informações complementares', fieldValue('complemento')]
+        ];
+        reviewBody.innerHTML = rows.map(([label, value]) =>
+            `<div class="protocol-review-item"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`
+        ).join('');
+        bootstrap.Modal.getOrCreateInstance(reviewModalElement).show();
+    });
+
+    confirmButton.addEventListener('click', () => {
+        bootstrap.Modal.getInstance(reviewModalElement)?.hide();
+        form.requestSubmit();
+    });
+}
 
 // --- NEW DASHBOARD FUNCTIONS ---
 let tiposChartInstance = null;
