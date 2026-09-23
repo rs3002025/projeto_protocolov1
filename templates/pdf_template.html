@@ -46,7 +46,7 @@
             <div class="logo-pdf"><img src="{{ pdf_logo_url }}" alt="Logo da organização"></div>
             <div class="consulta-qr">
                 <img src="{{ qr_code_url }}" alt="QR Code para consulta do andamento">
-                Consulte o andamento<br>e confirme sua matrícula
+                {% if emissao %}Valide a autenticidade<br>pelo código {{ emissao.codigo_publico }}{% else %}Consulte o andamento<br>e confirme sua matrícula{% endif %}
             </div>
         </div>
         <h1 class="titulo-principal-pdf">{{ organizacao.orgao or organizacao.nome }}</h1>
@@ -89,7 +89,14 @@
             <div class="assinaturas-container">
                 <div class="assinaturas-flex">
                     <div class="assinatura-pdf"><div class="linha-assinatura"></div>Assinatura do Requerente</div>
-                    <div class="assinatura-pdf"><div class="linha-assinatura"></div>Responsável pelo Protocolo</div>
+                    {% if emissao %}
+                    <div class="assinatura-pdf" style="border:1px solid #777;padding:8px;text-align:left;font-size:10px">
+                        <strong>Emissão autenticada eletronicamente</strong><br>
+                        {{ emissao.nome_emitente }} (usuário {{ emissao.login_emitente }})<br>
+                        {{ emissao.emitido_em.strftime('%d/%m/%Y %H:%M:%S %z') }} · Código {{ emissao.codigo_publico }}<br>
+                        Documento íntegro verificável pelo QR Code.
+                    </div>
+                    {% else %}<div class="assinatura-pdf"><div class="linha-assinatura"></div>Responsável pelo Protocolo</div>{% endif %}
                 </div>
             </div>
             <div class="recebido-container">
@@ -107,3 +114,4 @@
     </div>
 </body>
 </html>
+
