@@ -43,6 +43,7 @@ SCHEMA_COLUMNS = {
         'consulta_token': 'VARCHAR(64)',
         'requerente_servidor_id': 'BIGINT',
         'emitido_por_usuario_id': 'INTEGER',
+        'retifica_protocolo_id': 'INTEGER',
         'modalidade_abertura': "VARCHAR(30) DEFAULT 'presencial_protocolista' NOT NULL",
     },
     'anexos': {
