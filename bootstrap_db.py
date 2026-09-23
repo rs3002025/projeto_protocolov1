@@ -43,7 +43,7 @@ SCHEMA_COLUMNS = {
         'consulta_token': 'VARCHAR(64)',
         'requerente_servidor_id': 'BIGINT',
         'emitido_por_usuario_id': 'INTEGER',
-        'retifica_protocolo_id': 'INTEGER',
+        'retificacao_pendente': 'BOOLEAN DEFAULT FALSE NOT NULL',
         'modalidade_abertura': "VARCHAR(30) DEFAULT 'presencial_protocolista' NOT NULL",
     },
     'anexos': {
@@ -56,6 +56,10 @@ SCHEMA_COLUMNS = {
     'historico_protocolos': {
         'usuario_id': 'INTEGER',
         'acao': "VARCHAR(80) DEFAULT 'ATUALIZACAO' NOT NULL",
+    },
+    'emissoes_eletronicas': {
+        'versao': 'INTEGER DEFAULT 1 NOT NULL',
+        'substitui_emissao_id': 'BIGINT',
     },
     'movimentacoes': {
         'destinatario_usuario_id': 'INTEGER',
@@ -132,11 +136,15 @@ def bootstrap():
             if 'anexos' in existing_tables:
                 connection.execute(text("UPDATE anexos SET storage_backend = 'database' WHERE storage_backend IS NULL"))
 
+            if 'emissoes_eletronicas' in existing_tables:
+                connection.execute(text('UPDATE emissoes_eletronicas SET versao = 1 WHERE versao IS NULL'))
+
             if db.engine.dialect.name == 'postgresql':
                 if 'anexos' in existing_tables:
                     connection.execute(text('ALTER TABLE anexos ALTER COLUMN file_data DROP NOT NULL'))
                 connection.execute(text('ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_login_key'))
                 connection.execute(text('ALTER TABLE protocolos DROP CONSTRAINT IF EXISTS protocolos_numero_key'))
+                connection.execute(text('ALTER TABLE emissoes_eletronicas DROP CONSTRAINT IF EXISTS emissoes_eletronicas_protocolo_id_key'))
                 for table in TENANT_TABLES:
                     if table in existing_tables:
                         connection.execute(text(f'ALTER TABLE {table} ALTER COLUMN tenant_id SET NOT NULL'))
@@ -148,6 +156,7 @@ def bootstrap():
                     'CREATE UNIQUE INDEX IF NOT EXISTS uq_servidor_tenant_matricula ON servidores (tenant_id, matricula)',
                     'CREATE UNIQUE INDEX IF NOT EXISTS uq_tipo_tenant_nome ON tipos_requerimento (tenant_id, nome)',
                     'CREATE UNIQUE INDEX IF NOT EXISTS uq_protocolo_consulta_token ON protocolos (consulta_token)',
+                    'CREATE UNIQUE INDEX IF NOT EXISTS uq_emissao_protocolo_versao ON emissoes_eletronicas (tenant_id, protocolo_id, versao)',
                 )
                 for statement in statements:
                     connection.execute(text(statement))
