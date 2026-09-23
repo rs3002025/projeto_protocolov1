@@ -340,8 +340,10 @@ O escopo visual planejado foi concluído no ambiente `visual-development` com os
 - central de suporte orientada à lista, abertura de chamado recolhível e indicação de prioridade, responsável e atualização;
 - configurações divididas por áreas, navegação interna, criação de usuário recolhível e pesquisa instantânea de usuários;
 - filtros ativos visíveis nas listagens e hierarquia padronizada entre ação principal e ações secundárias;
+- ações dos protocolos mantidas visíveis individualmente e número preservado como dado textual, após validação visual com o usuário;
 - preservação das confirmações para ações sensíveis e revisão antes do cadastro de protocolo;
 - comportamento responsivo para desktop, tablet e celular, com navegação por teclado e foco visível;
 - validação automatizada das regras de perfis, isolamento entre organizações, anexos, suporte, documentos e identidade visual.
 
 Critério de aceite técnico: suíte completa com 54 testes aprovados. Os avisos restantes são de depreciação gradual do Python e não representam falha funcional deste bloco.
+
