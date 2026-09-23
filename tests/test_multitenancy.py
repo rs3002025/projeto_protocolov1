@@ -1254,17 +1254,23 @@ def test_emissao_autenticada_congela_pdf_dados_e_anexos_e_detecta_alteracao():
         'data_solicitacao': date.today().isoformat(), 'observacoes': 'Correção formal.'})
     assert criada.status_code == 302
     with app.app_context():
-        retificacao = Protocolo.query.filter_by(retifica_protocolo_id=protocolo_id).one()
-        retificacao_id = retificacao.id
-        assert retificacao.emissao_eletronica is None
+        retificacao = db.session.get(Protocolo, protocolo_id)
+        assert retificacao.numero == 'ASS-1/2026'
+        assert retificacao.retificacao_pendente is True
+        assert len(retificacao.emissoes_eletronicas) == 1
     qr_urls.clear()
     with patch.dict(sys.modules, modules):
-        nova_emissao = client.post(f'/protocolo/{retificacao_id}/autenticar-emissao',
+        nova_emissao = client.post(f'/protocolo/{protocolo_id}/autenticar-emissao',
                                    data={'senha': 'senha-segura'})
     assert nova_emissao.status_code == 200 and len(qr_urls) == 2
     with app.app_context():
-        assert db.session.get(Protocolo, protocolo_id).emissao_eletronica.status == 'RETIFICADA'
-        assert db.session.get(Protocolo, retificacao_id).emissao_eletronica.status == 'VALIDA'
+        retificacao = db.session.get(Protocolo, protocolo_id)
+        assert retificacao.numero == 'ASS-1/2026'
+        assert [e.versao for e in retificacao.emissoes_eletronicas] == [1, 2]
+        assert [e.status for e in retificacao.emissoes_eletronicas] == ['RETIFICADA', 'VALIDA']
+        assert retificacao.emissao_eletronica.versao == 2
+    detalhe_versoes = client.get(f'/protocolo/{protocolo_id}').get_data(as_text=True)
+    assert 'Versão 2' in detalhe_versoes and 'Versão 1' in detalhe_versoes
 
     valido = client.post(f'/validar-emissao/{token}', data={
         'arquivo': (io.BytesIO(response.data), 'original.pdf')},
