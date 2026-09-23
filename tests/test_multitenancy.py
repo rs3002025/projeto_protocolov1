@@ -1269,8 +1269,31 @@ def test_emissao_autenticada_congela_pdf_dados_e_anexos_e_detecta_alteracao():
         assert [e.versao for e in retificacao.emissoes_eletronicas] == [1, 2]
         assert [e.status for e in retificacao.emissoes_eletronicas] == ['RETIFICADA', 'VALIDA']
         assert retificacao.emissao_eletronica.versao == 2
+        token_vigente = retificacao.emissao_eletronica.token_publico
     detalhe_versoes = client.get(f'/protocolo/{protocolo_id}').get_data(as_text=True)
     assert 'Versão 2' in detalhe_versoes and 'Versão 1' in detalhe_versoes
+
+    # Cancelamento exige credencial e motivo, preserva o PDF e torna pública a situação.
+    motivo_curto = client.post(f'/protocolo/{protocolo_id}/cancelar-emissao', data={
+        'senha': 'senha-segura', 'motivo': 'erro'}, follow_redirects=True)
+    assert 'pelo menos 10 caracteres' in motivo_curto.get_data(as_text=True)
+    cancelada = client.post(f'/protocolo/{protocolo_id}/cancelar-emissao', data={
+        'senha': 'senha-segura', 'motivo': 'Pedido cancelado formalmente pelo setor responsável.'},
+        follow_redirects=True)
+    assert 'foi cancelada sem apagar' in cancelada.get_data(as_text=True)
+    with app.app_context():
+        retificacao = db.session.get(Protocolo, protocolo_id)
+        assert retificacao.emissao_eletronica.status == 'CANCELADA'
+        assert retificacao.emissao_eletronica.cancelado_por_id is not None
+        assert retificacao.emissao_eletronica.cancelado_em is not None
+        assert len(retificacao.emissoes_eletronicas) == 2
+        assert HistoricoProtocolo.query.filter_by(
+            protocolo_id=protocolo_id, acao='EMISSAO_CANCELADA').count() == 1
+    assert client.get(f'/protocolo/{protocolo_id}/pdf').data == nova_emissao.data
+    consulta_cancelada = client.get(f'/validar-emissao/{token_vigente}').get_data(as_text=True)
+    assert 'esta emissão foi cancelada' in consulta_cancelada
+    assert 'Pedido cancelado formalmente' in consulta_cancelada
+    assert client.get(f'/protocolo/{protocolo_id}/retificar').status_code == 409
 
     valido = client.post(f'/validar-emissao/{token}', data={
         'arquivo': (io.BytesIO(response.data), 'original.pdf')},
