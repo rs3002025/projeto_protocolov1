@@ -89,6 +89,22 @@ document.addEventListener('DOMContentLoaded', function () {
         initializeProtocolReview();
     }
 
+    const settingsSearch = document.getElementById('settingsUserSearch');
+    if (settingsSearch) {
+        const userRows = [...document.querySelectorAll('[data-user-search]')];
+        const emptyState = document.getElementById('settingsUserEmpty');
+        settingsSearch.addEventListener('input', () => {
+            const term = settingsSearch.value.trim().toLocaleLowerCase('pt-BR');
+            let visible = 0;
+            userRows.forEach(row => {
+                const matches = !term || row.dataset.userSearch.toLocaleLowerCase('pt-BR').includes(term);
+                row.hidden = !matches;
+                if (matches) visible += 1;
+            });
+            if (emptyState) emptyState.hidden = visible !== 0;
+        });
+    }
+
     // --- Modal Logic ---
     // This will be expanded to handle all modals.
     // Example for the "Atualizar Status" modal
@@ -224,6 +240,10 @@ window.carregarDashboard = async function() {
         document.getElementById('stat-novos').textContent = stats.novosNoPeriodo || 0;
         document.getElementById('stat-pendentes').textContent = stats.pendentesAntigos || 0;
         document.getElementById('stat-finalizados').textContent = stats.totalFinalizados || 0;
+        const attentionOverdue = document.getElementById('attention-overdue');
+        const attentionNext7 = document.getElementById('attention-next7');
+        if (attentionOverdue) attentionOverdue.textContent = stats.pendentesAntigos || 0;
+        if (attentionNext7) attentionNext7.textContent = stats.vencemProximos7 || 0;
         document.getElementById('stat-novos-label').textContent = (document.getElementById('dashDataInicio').value || document.getElementById('dashDataFim').value) ? 'Novos no Período' : 'Novos na Semana';
         const setoresBody = document.getElementById('setoresStats');
         setoresBody.textContent = '';
