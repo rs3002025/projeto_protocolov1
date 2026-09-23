@@ -84,7 +84,7 @@
             <tbody>
                 {% for protocolo in protocolos.items %}
                     <tr>
-                        <td><a class="fw-bold" href="{{ url_for('detalhe_protocolo', protocolo_id=protocolo.id) }}">{{ protocolo.numero }}</a></td>
+                        <td><span class="protocol-number">{{ protocolo.numero }}</span></td>
                         <td>{{ protocolo.nome }}</td>
                         <td>{{ protocolo.tipo_requerimento }}</td>
                         <td>{{ protocolo.data_solicitacao.strftime('%d/%m/%Y') if protocolo.data_solicitacao else 'Não informada' }}</td>
@@ -92,12 +92,10 @@
                         <td><span class="badge bg-info">{{ protocolo.status }}</span></td>
                         <td>{{ protocol_location(protocolo) }}</td>
                         <td>{{ protocolo.responsavel or 'Não definido' }}</td>
-                        <td><div class="action-group">
+                        <td><div class="action-group action-group-visible">
                             <a href="{{ url_for('detalhe_protocolo', protocolo_id=protocolo.id) }}" class="btn btn-sm btn-primary">Detalhes</a>
-                            <div class="dropdown"><button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">Mais ações</button><ul class="dropdown-menu dropdown-menu-end">
-                              <li><button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#modalAtualizarStatus" data-protocolo-id="{{ protocolo.id }}">Atualizar status</button></li>
-                              <li><button type="button" class="dropdown-item" onclick="previsualizarPDF({{ protocolo.id }})">Visualizar documento</button></li>
-                            </ul></div>
+                            <button type="button" class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#modalAtualizarStatus" data-protocolo-id="{{ protocolo.id }}">Atualizar status</button>
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="previsualizarPDF({{ protocolo.id }})">Documento</button>
                         </div>
                         </td>
                     </tr>
