@@ -5,21 +5,21 @@
     <h1 class="h3 mb-1">Central de suporte</h1>
     <p class="text-muted mb-0">Abra chamados e acompanhe as respostas da equipe técnica.</p>
   </div>
+  <button class="btn btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#novoChamadoPanel" aria-expanded="false" aria-controls="novoChamadoPanel">Abrir novo chamado</button>
 </div>
 
-<div class="row g-4">
-  <div class="col-lg-4">
-    <div class="card h-100">
+<div class="collapse mb-4" id="novoChamadoPanel">
+    <div class="card">
       <div class="card-header"><h2 class="h5 mb-0">Novo chamado</h2></div>
       <div class="card-body">
         <form method="POST" action="{{ url_for('support_create') }}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <div class="mb-3">
+          <div class="mb-3 col-lg-8">
             <label class="form-label" for="assunto">Assunto</label>
             <input class="form-control" id="assunto" name="assunto" minlength="5" maxlength="180" required>
           </div>
-          <div class="row g-2 mb-3">
-            <div class="col-sm-7">
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
               <label class="form-label" for="categoria">Categoria</label>
               <select class="form-select" id="categoria" name="categoria" required>
                 {% for categoria in ['ACESSO', 'PROTOCOLOS', 'DOCUMENTOS', 'RELATÓRIOS', 'CONFIGURAÇÃO', 'OUTRO'] %}
@@ -27,7 +27,7 @@
                 {% endfor %}
               </select>
             </div>
-            <div class="col-sm-5">
+            <div class="col-md-6">
               <label class="form-label" for="prioridade">Prioridade</label>
               <select class="form-select" id="prioridade" name="prioridade" required>
                 {% for prioridade in ['BAIXA', 'NORMAL', 'ALTA', 'CRÍTICA'] %}
@@ -36,17 +36,18 @@
               </select>
             </div>
           </div>
-          <div class="mb-3">
+          <div class="mb-3 col-lg-8">
             <label class="form-label" for="descricao">Descrição</label>
             <textarea class="form-control" id="descricao" name="descricao" rows="6" minlength="10" maxlength="5000" required></textarea>
             <div class="form-text">Descreva o que ocorreu, a tela utilizada e o resultado esperado.</div>
           </div>
-          <button class="btn btn-primary w-100" type="submit">Abrir chamado</button>
+          <button class="btn btn-primary" type="submit">Enviar chamado</button>
+          <button class="btn btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#novoChamadoPanel">Cancelar</button>
         </form>
       </div>
     </div>
   </div>
-  <div class="col-lg-8">
+<div>
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
         <h2 class="h5 mb-0">{% if current_user.is_platform_admin %}Todos os chamados{% else %}Meus chamados{% endif %}</h2>
@@ -60,26 +61,25 @@
       </div>
       <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
-          <thead><tr><th>Número</th>{% if current_user.is_platform_admin %}<th>Cliente</th><th>Solicitante</th>{% endif %}<th>Assunto</th><th>Prioridade</th><th>Status</th><th>Atualizado</th><th></th></tr></thead>
+          <thead><tr><th>Número</th>{% if current_user.is_platform_admin %}<th>Cliente</th><th>Solicitante</th>{% endif %}<th>Assunto</th><th>Prioridade</th><th>Status</th><th>Responsável</th><th>Atualizado</th><th></th></tr></thead>
           <tbody>
           {% for chamado in chamados %}
             <tr>
-              <td>SUP-{{ '%06d'|format(chamado.id) }}</td>
+              <td><a class="fw-bold" href="{{ url_for('support_detail', ticket_id=chamado.id) }}">SUP-{{ '%06d'|format(chamado.id) }}</a></td>
               {% if current_user.is_platform_admin %}<td>{{ chamado.aberto_por.organizacao.nome }}</td><td>{{ chamado.aberto_por.nome_completo or chamado.aberto_por.nome }}</td>{% endif %}
               <td>{{ chamado.assunto }}</td>
-              <td>{{ chamado.prioridade.title() }}</td>
+              <td><span class="badge priority-{{ chamado.prioridade|lower }}">{{ chamado.prioridade.title() }}</span></td>
               <td><span class="badge bg-{% if chamado.status in ['RESOLVIDO', 'FECHADO'] %}success{% elif chamado.status == 'ABERTO' %}warning text-dark{% else %}info text-dark{% endif %}">{{ chamado.status }}</span></td>
-              <td>{{ chamado.atualizado_em.strftime('%d/%m/%Y %H:%M') }}</td>
+              <td>{{ (chamado.atribuido_a.nome_completo or chamado.atribuido_a.nome) if chamado.atribuido_a else 'Não atribuído' }}</td>
+              <td><span class="d-block">{{ chamado.atualizado_em.strftime('%d/%m/%Y') }}</span><small class="text-muted">{{ chamado.atualizado_em.strftime('%H:%M') }}</small></td>
               <td><a class="btn btn-sm btn-outline-primary" href="{{ url_for('support_detail', ticket_id=chamado.id) }}">Acompanhar</a></td>
             </tr>
           {% else %}
-            <tr><td colspan="{% if current_user.is_platform_admin %}8{% else %}6{% endif %}" class="text-center py-4">Nenhum chamado encontrado.</td></tr>
+            <tr><td colspan="{% if current_user.is_platform_admin %}9{% else %}7{% endif %}" class="text-center py-4">Nenhum chamado encontrado.</td></tr>
           {% endfor %}
           </tbody>
         </table>
       </div>
     </div>
-  </div>
 </div>
 {% endblock %}
-

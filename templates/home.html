@@ -17,19 +17,28 @@
         <button class="btn btn-primary align-self-end" onclick="carregarDashboard()">Aplicar filtros</button>
     </div>
     <div class="dashboard-cards">
-        <div class="stat-card" id="card-novos">
+        <a class="stat-card stat-card-link" id="card-novos" href="{{ url_for('listar_protocolos') }}">
             <div class="stat-value" id="stat-novos">0</div>
             <div class="stat-label" id="stat-novos-label">Novos na Semana</div>
-        </div>
-        <div class="stat-card" id="card-pendentes">
+        </a>
+        <a class="stat-card stat-card-link" id="card-pendentes" href="{{ url_for('listar_protocolos', prazo='vencido') }}">
             <div class="stat-value" id="stat-pendentes">0</div>
             <div class="stat-label">Prazos vencidos</div>
-        </div>
-        <div class="stat-card" id="card-finalizados">
+        </a>
+        <a class="stat-card stat-card-link" id="card-finalizados" href="{{ url_for('listar_protocolos', status='FINALIZADO') }}">
             <div class="stat-value" id="stat-finalizados">0</div>
             <div class="stat-label">Finalizados no período</div>
-        </div>
+        </a>
     </div>
+    <section class="attention-panel" aria-labelledby="attention-title">
+      <div class="attention-heading"><div><h2 id="attention-title" class="h5 mb-1">Exige sua atenção</h2><p class="text-muted mb-0">Atalhos para situações que podem precisar de ação.</p></div></div>
+      <div class="attention-grid">
+        <a href="{{ url_for('listar_protocolos', prazo='vencido') }}" class="attention-item is-critical"><strong id="attention-overdue">0</strong><span>Prazos vencidos</span></a>
+        <a href="{{ url_for('listar_protocolos', prazo='proximos_7') }}" class="attention-item"><strong id="attention-next7">0</strong><span>Vencem em até 7 dias</span></a>
+        <a href="{{ url_for('pendencias_recebimento') }}" class="attention-item"><strong>{{ pendencias_recebimento }}</strong><span>Pendentes de recebimento</span></a>
+        <a href="{{ url_for('support_list', status='ABERTO') }}" class="attention-item"><strong>{{ chamados_pendentes }}</strong><span>Chamados em andamento</span></a>
+      </div>
+    </section>
     <div class="dashboard-charts-grid">
       <div class="chart-container">
           <div class="chart-header">

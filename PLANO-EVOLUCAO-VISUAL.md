@@ -317,6 +317,12 @@ Cada etapa deverá ser registrada abaixo com data, decisão, telas afetadas, tes
 - Normalizados altura, espaçamento, peso tipográfico e alinhamento de botões e links com aparência de botão.
 - Aplicado o padrão inicialmente nos detalhes do protocolo, edição, configurações e administração da plataforma.
 
+### 23/09/2026 — revisão e proteção de ações
+
+- Incluída etapa de revisão resumida antes do cadastro ou atualização de protocolo, mantendo a possibilidade de voltar ao formulário sem perder os dados.
+- Ações de arquivamento, remoção de identidade e desativação de usuários, tipos e lotações passaram a exigir confirmação explícita.
+- Ações destrutivas foram alinhadas ao padrão visual de contorno vermelho; reativação permanece como ação secundária segura.
+
 ## 9. Regra de promoção
 
 Nenhuma alteração desta iniciativa será enviada automaticamente para `development` ou `main`. A promoção dependerá de:
@@ -326,3 +332,18 @@ Nenhuma alteração desta iniciativa será enviada automaticamente para `develop
 3. validação visual no navegador;
 4. homologação pelo responsável;
 5. autorização explícita para promover.
+# Conclusão do bloco visual — 22/09/2026
+
+O escopo visual planejado foi concluído no ambiente `visual-development` com os seguintes fechamentos:
+
+- painel com cartões clicáveis e área “Exige sua atenção” para prazos, recebimentos e suporte;
+- central de suporte orientada à lista, abertura de chamado recolhível e indicação de prioridade, responsável e atualização;
+- configurações divididas por áreas, navegação interna, criação de usuário recolhível e pesquisa instantânea de usuários;
+- filtros ativos visíveis nas listagens e hierarquia padronizada entre ação principal e ações secundárias;
+- ações dos protocolos mantidas visíveis individualmente e número preservado como dado textual, após validação visual com o usuário;
+- preservação das confirmações para ações sensíveis e revisão antes do cadastro de protocolo;
+- comportamento responsivo para desktop, tablet e celular, com navegação por teclado e foco visível;
+- validação automatizada das regras de perfis, isolamento entre organizações, anexos, suporte, documentos e identidade visual.
+
+Critério de aceite técnico: suíte completa com 54 testes aprovados. Os avisos restantes são de depreciação gradual do Python e não representam falha funcional deste bloco.
+

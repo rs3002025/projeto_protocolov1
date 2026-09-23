@@ -103,7 +103,7 @@
             </script>
         {% else %}<p class="text-muted mb-0">Processo disponível somente para consulta; ele não está mais sob responsabilidade do seu setor.</p>{% endif %}
         {% if can('archive') %}
-        <form class="mt-3" method="POST" action="{{ url_for('arquivar_protocolo', protocolo_id=protocolo.id) }}">
+        <form class="mt-3" method="POST" action="{{ url_for('arquivar_protocolo', protocolo_id=protocolo.id) }}" data-confirm="Arquivar este protocolo? Ele ficará disponível somente para consulta e não poderá receber novas tramitações ou documentos.">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="observacao" value="Arquivamento autorizado pelo usuário.">
             <button class="btn btn-outline-danger" type="submit">Arquivar eletronicamente</button>
