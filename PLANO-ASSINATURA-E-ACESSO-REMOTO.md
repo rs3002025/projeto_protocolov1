@@ -250,6 +250,32 @@ Poderá haver envio de PDF para comparação do hash. O arquivo será descartado
 
 ## 13. Etapas de implementação
 
+### Progresso em 23/09/2026 — ambiente visual
+
+Concluído neste bloco:
+
+- campos que separam criador, servidor requerente, emissor e modalidade de abertura;
+- emissão eletrônica opcional, liberada por cliente e restrita a administrador/protocolista;
+- confirmação da senha individual do emissor;
+- registro de evidência com identidade congelada, método, data/hora, hashes da origem e do navegador, código e token públicos;
+- geração única do PDF definitivo e armazenamento no mesmo bucket privado dos documentos;
+- SHA-256 integral e imutável do PDF;
+- reimpressão do mesmo arquivo armazenado, sem regeneração ou substituição do hash;
+- congelamento de dados e anexos após a emissão;
+- selo que declara corretamente a autenticação da emissão pelo protocolista;
+- QR Code de validação e página pública com comparação opcional do arquivo;
+- teste automatizado que altera o arquivo e confirma a reprovação de integridade;
+- níveis forte e externo identificados como ainda indisponíveis na interface.
+
+Pendente:
+
+- fluxo formal de retificação e cancelamento;
+- vinculação administrável entre conta e cadastro de servidor;
+- Portal do Servidor e sessão própria;
+- envio remoto em nome próprio;
+- encadeamento dos eventos críticos de auditoria;
+- homologação visual e operacional no Railway.
+
 ### Etapa 1 — Papéis e dados
 
 - separar requerente, criador e emissor;
@@ -496,3 +522,4 @@ Terá endereço separado e não dependerá de seleção de cliente. Após entrar
 9. Adicionar WebAuthn/passkey e política de nível de garantia.
 10. Homologar juridicamente o conjunto de evidências, a auditoria e os documentos gerados.
 11. Executar testes de segurança, isolamento multiempresa, dispositivos móveis e fluxos completos.
+
