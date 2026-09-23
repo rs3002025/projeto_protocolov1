@@ -2,17 +2,18 @@
 
 ## 1. Finalidade
 
-Este documento é a referência permanente para a modernização visual e a melhoria de usabilidade do Sysprot+. O trabalho será realizado inicialmente em ambiente isolado, sem alterar a produção nem o ambiente principal de desenvolvimento.
+Este documento é a referência permanente para a modernização visual e a melhoria de usabilidade do Sysprot+. O primeiro bloco foi desenvolvido e homologado em ambiente isolado e, após aprovação, promovido para desenvolvimento principal e produção.
 
 ## 2. Ambientes e isolamento
 
-- **Produção:** permanece inalterada até aprovação e homologação expressas.
-- **Desenvolvimento principal:** permanece disponível para correções funcionais e não receberá os experimentos visuais.
+- **Produção (`main`):** atualizada com o bloco visual homologado em 22/09/2026.
+- **Desenvolvimento principal (`development`):** sincronizado com o bloco visual homologado.
 - **Branch visual:** `codex/visual-development`.
 - **Ambiente Railway:** `visual-development`, ligado exclusivamente à branch visual.
 - **Identificador do ambiente Railway:** `10a1c7a3-ca28-4612-bbb1-7f9bd36afe53`.
 - **Endereço de homologação visual:** `https://projetoprotocolov1-visual-development.up.railway.app`.
-- Alterações visuais somente serão promovidas para os demais ambientes depois de revisão, testes e autorização.
+- **Produção Railway:** `https://sysprotocolo.up.railway.app`.
+- Novas alterações visuais continuam sendo preparadas e homologadas no ambiente isolado antes de nova promoção.
 
 ## 3. Diagnóstico atual
 
@@ -273,11 +274,11 @@ Cada etapa deverá ser registrada abaixo com data, decisão, telas afetadas, tes
 - Eliminados IDs duplicados e controles sem identificação acessível na tela de Configurações.
 - Deploy dos ajustes confirmado como bem-sucedido no ambiente `visual-development` e auditoria repetida no navegador.
 
-#### Pendências desta homologação
+#### Pendências registradas nesta etapa — situação atual
 
-- Repetir a inspeção visual responsiva em larguras de 375 px, tablet e 1366 px após a estabilização do controle de viewport do navegador.
-- Executar fluxos destrutivos ou que alteram dados com contas de cada perfil em uma massa de testes dedicada.
-- Homologar visualmente PDFs e downloads gerados no contêiner Linux.
+- **Concluído:** inspeção visual responsiva em celular, tablet e desktop, sem transbordamento horizontal nas telas revisadas.
+- **Concluído:** testes de permissões e fluxos reais com administrador geral, administrador do cliente, protocolista, tramitador e consulta.
+- **Concluído:** homologação de PDFs, documentos extensos, QR Code e downloads no ambiente Railway.
 - Substituir gradualmente usos de `datetime.utcnow()` por datas UTC com fuso explícito; atualmente geram avisos, sem falha funcional.
 
 ### 22/09/2026 — homologação ponta a ponta e perfis
@@ -295,10 +296,10 @@ Cada etapa deverá ser registrada abaixo com data, decisão, telas afetadas, tes
 - O administrador geral assumiu o `SUP-000001`, alterando-o para `EM ATENDIMENTO`, respondeu como suporte técnico e a resposta foi confirmada visualmente na sessão do solicitante.
 - Produção e o ambiente `development` principal não foram modificados durante esta homologação.
 
-#### Pendências após o teste ponta a ponta
+#### Pendências registradas após o teste ponta a ponta — situação atual
 
-- Repetir o fluxo com uma segunda organização real de teste para demonstrar isolamento multicliente entre dois `tenant_id`; a interface e as consultas estão preparadas, mas o banco visual contém atualmente apenas a organização Prefeitura.
-- Finalizar a inspeção responsiva sistemática em desktop, tablet e 375 px e registrar as evidências visuais restantes.
+- **Coberto pela suíte automatizada:** isolamento multicliente entre duas organizações para protocolos, identidade, anexos, suporte, documentos e permissões. Uma demonstração visual com segunda organização continua opcional, não sendo pendência funcional.
+- **Concluído:** inspeção responsiva sistemática em desktop, tablet e 390/375 px.
 
 ### 22/09/2026 — fechamento do bloco visual
 
@@ -323,9 +324,9 @@ Cada etapa deverá ser registrada abaixo com data, decisão, telas afetadas, tes
 - Ações de arquivamento, remoção de identidade e desativação de usuários, tipos e lotações passaram a exigir confirmação explícita.
 - Ações destrutivas foram alinhadas ao padrão visual de contorno vermelho; reativação permanece como ação secundária segura.
 
-## 9. Regra de promoção
+## 9. Regra de promoção para os próximos blocos
 
-Nenhuma alteração desta iniciativa será enviada automaticamente para `development` ou `main`. A promoção dependerá de:
+Após a promoção concluída em 22/09/2026, novos blocos voltarão a ser trabalhados primeiro em `codex/visual-development`. Cada nova promoção dependerá de:
 
 1. conclusão da fase correspondente;
 2. testes automatizados aprovados;
@@ -346,4 +347,29 @@ O escopo visual planejado foi concluído no ambiente `visual-development` com os
 - validação automatizada das regras de perfis, isolamento entre organizações, anexos, suporte, documentos e identidade visual.
 
 Critério de aceite técnico: suíte completa com 54 testes aprovados. Os avisos restantes são de depreciação gradual do Python e não representam falha funcional deste bloco.
+
+## 10. Promoção e encerramento — 22/09/2026
+
+- Homologação final realizada no navegador após os ajustes solicitados pelo usuário.
+- O número do protocolo permaneceu como dado textual destacado, sem comportamento de hiperlink.
+- As ações “Detalhes”, “Atualizar status” e “Documento” permaneceram visíveis individualmente, sem agrupamento em “Mais ações”.
+- Corrigido o fechamento dos modais personalizados de impressão e relatório. Foram validados o botão “X”, o botão de cancelamento/fechamento, o clique fora do modal e a tecla Esc.
+- Suíte completa executada novamente: 54 testes aprovados.
+- Promoção para `development` concluída pelo PR nº 87.
+- Promoção de `development` para `main` concluída pelo PR nº 89.
+- Deploy de produção confirmado no Railway e validado em `https://sysprotocolo.up.railway.app`.
+- A versão promovida tornou-se a nova base oficial do sistema. O ambiente `visual-development` permanece disponível para os próximos ciclos de evolução.
+
+## 11. Próximos ciclos
+
+Não há pendência visual bloqueadora conhecida no bloco promovido. Os próximos trabalhos deverão ser registrados como novos ciclos, preservando o fluxo:
+
+1. implementar no ambiente visual isolado;
+2. executar testes automatizados e validação real no navegador;
+3. colher aceite do responsável;
+4. promover para `development`;
+5. validar o deploy de desenvolvimento;
+6. promover para `main` e validar a produção.
+
+Pendência técnica não bloqueadora mantida: substituir gradualmente `datetime.utcnow()` por datas UTC com fuso explícito e eliminar os avisos de depreciação.
 
