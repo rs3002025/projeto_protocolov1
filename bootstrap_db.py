@@ -41,6 +41,9 @@ SCHEMA_COLUMNS = {
         'setor_atual_id': 'BIGINT',
         'arquivado_em': 'TIMESTAMP',
         'consulta_token': 'VARCHAR(64)',
+        'requerente_servidor_id': 'BIGINT',
+        'emitido_por_usuario_id': 'INTEGER',
+        'modalidade_abertura': "VARCHAR(30) DEFAULT 'presencial_protocolista' NOT NULL",
     },
     'anexos': {
         'documento_chave': "VARCHAR(120) DEFAULT 'anexo' NOT NULL",
@@ -176,3 +179,4 @@ def bootstrap():
 
 if __name__ == '__main__':
     bootstrap()
+
