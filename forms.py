@@ -88,12 +88,14 @@ class AdminUserCreationForm(FlaskForm):
     email = StringField('Email', validators=[DataRequired()])
     senha = PasswordField('Senha', validators=[DataRequired(), Length(min=6)])
     tipo = SelectField('Perfil', choices=[
+        ('requerente', 'Servidor — Portal do Servidor'),
         ('consulta', 'Somente consulta'),
         ('tramitador', 'Tramitação e respostas'),
         ('protocolista', 'Protocolista'),
         ('admin', 'Administrador do cliente'),
     ], validators=[DataRequired()])
     lotacao_id = SelectField('Setor/Lotação', coerce=int, choices=[], validators=[Optional()])
+    servidor_id = SelectField('Cadastro funcional vinculado', coerce=int, choices=[], validators=[Optional()])
     submit = SubmitField('Criar Usuário')
 
     def validate_login(self, login):
@@ -123,3 +125,4 @@ class BrandingForm(FlaskForm):
     ])
     salvar = SubmitField('Salvar logo')
     remover = SubmitField('Restaurar logo padrão')
+
