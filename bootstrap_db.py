@@ -15,7 +15,7 @@ from models import Organizacao, Protocolo, Usuario
 TENANT_TABLES = (
     'usuarios', 'protocolos', 'anexos', 'historico_protocolos', 'lotacoes',
     'servidores', 'tipos_requerimento', 'emails_sistema', 'movimentacoes',
-    'chamados_suporte', 'mensagens_suporte',
+    'chamados_suporte', 'mensagens_suporte', 'solicitacoes_complemento',
 )
 
 SCHEMA_COLUMNS = {
@@ -53,6 +53,7 @@ SCHEMA_COLUMNS = {
         'enviado_por_id': 'INTEGER',
         'storage_backend': "VARCHAR(20) DEFAULT 'database' NOT NULL",
         'file_hash': 'VARCHAR(64)',
+        'solicitacao_complemento_id': 'BIGINT',
     },
     'historico_protocolos': {
         'usuario_id': 'INTEGER',
