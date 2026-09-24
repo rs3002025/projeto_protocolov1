@@ -28,6 +28,8 @@
         .assinaturas-container { margin-top: 50px; }
         .assinaturas-flex { display: flex; justify-content: space-between; gap: 20px; }
         .assinatura-pdf { text-align: center; flex: 1; }
+        .selo-eletronico { border: 1px solid #777; padding: 10px 12px; text-align: left; font-size: 10px; line-height: 1.35; }
+        .selo-eletronico-remoto { width: 100%; }
         .rodape-institucional { margin-top: 25px; padding-top: 8px; border-top: 1px solid #bbb; text-align: center; white-space: pre-line; }
         .linha-assinatura { border-top: 1px solid #000; margin-top: 40px; margin-bottom: 5px; }
         .recebido-container { margin-top: 28px; page-break-inside: avoid; display: flex; align-items: flex-end; gap: 34px; }
@@ -89,15 +91,24 @@
         <div class="fechamento-pdf">
             <div class="assinaturas-container">
                 <div class="assinaturas-flex">
-                    {% if protocolo.modalidade_abertura == 'remota_requerente' and emissao %}<div class="assinatura-pdf" style="border:1px solid #777;padding:8px;text-align:left;font-size:10px"><strong>Pedido enviado pelo requerente autenticado</strong><br>{{ emissao.declaracao }}</div>{% else %}<div class="assinatura-pdf"><div class="linha-assinatura"></div>Assinatura do Requerente</div>{% endif %}
+                    {% if protocolo.modalidade_abertura == 'remota_requerente' and emissao %}
+                    <div class="selo-eletronico selo-eletronico-remoto">
+                        <strong>REQUERIMENTO ENVIADO ELETRONICAMENTE</strong><br>
+                        Requerente: {{ protocolo.nome }} · Matrícula: {{ protocolo.matricula }}<br>
+                        Enviado em {{ emissao.emitido_em.strftime('%d/%m/%Y às %H:%M:%S') }} · Versão {{ emissao.versao }} · Código {{ emissao.codigo_publico }}<br>
+                        Autenticidade verificável pelo QR Code.
+                    </div>
+                    {% else %}
+                    <div class="assinatura-pdf"><div class="linha-assinatura"></div>Assinatura do Requerente</div>
                     {% if emissao %}
-                    <div class="assinatura-pdf" style="border:1px solid #777;padding:8px;text-align:left;font-size:10px">
-                        <strong>Emissão autenticada eletronicamente</strong><br>
-                        {{ emissao.nome_emitente }} (usuário {{ emissao.login_emitente }})<br>
-                        {{ emissao.emitido_em.strftime('%d/%m/%Y %H:%M:%S %z') }} · Versão {{ emissao.versao }} · Código {{ emissao.codigo_publico }}<br>
-                        Documento íntegro verificável pelo QR Code.
+                    <div class="assinatura-pdf selo-eletronico">
+                        <strong>PROTOCOLO EMITIDO ELETRONICAMENTE</strong><br>
+                        Responsável: {{ emissao.nome_emitente }} · Usuário: {{ emissao.login_emitente }}<br>
+                        Emitido em {{ emissao.emitido_em.strftime('%d/%m/%Y às %H:%M:%S') }} · Versão {{ emissao.versao }} · Código {{ emissao.codigo_publico }}<br>
+                        Autenticidade verificável pelo QR Code.
                     </div>
                     {% else %}<div class="assinatura-pdf"><div class="linha-assinatura"></div>Responsável pelo Protocolo</div>{% endif %}
+                    {% endif %}
                 </div>
             </div>
             <div class="recebido-container">
