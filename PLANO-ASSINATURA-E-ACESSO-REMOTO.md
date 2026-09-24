@@ -557,3 +557,18 @@ Implementado no ambiente visual:
 - complementos versionados e armazenados separadamente, sem modificar o PDF nem o hash da emissão original;
 - histórico das ações `COMPLEMENTO_SOLICITADO` e `COMPLEMENTO_ENVIADO`.
 
+## Atualização — revisão de linguagem e separação das superfícies
+
+Aplicado no ambiente visual:
+
+- o Portal do Servidor permanece restrito a abrir requerimentos em nome próprio, acompanhar seus protocolos, baixar o requerimento autenticado e atender solicitações de documentos;
+- a Central de Suporte permanece exclusiva do ambiente administrativo do cliente e dos administradores gerais; servidor comum e usuário externo não acessam chamados;
+- termos internos de auditoria, como `ENVIO_REMOTO`, e estados técnicos da emissão, como `VALIDA`, passaram a ser apresentados com descrições compreensíveis;
+- códigos internos de armazenamento de anexos deixaram de ser exibidos nas telas;
+- o PDF autenticado passou a aparecer somente na área de versões autenticadas, sem duplicação na lista comum de documentos;
+- depois da autenticação, a ação principal passou a abrir o requerimento autenticado, e o formulário incompatível de inclusão livre de documento fica bloqueado até eventual retificação;
+- as mensagens de complementação foram reescritas para indicar claramente o que o servidor precisa fazer, sem identificadores técnicos desnecessários;
+- os campos e textos do novo requerimento foram simplificados para linguagem orientada ao usuário;
+- o limite uniforme de anexos é de 5 MB por arquivo, mantendo 30 MB por envio nos fluxos com múltiplos arquivos;
+- a integridade SHA-256 continua disponível onde agrega comprovação, identificada ao usuário como código de integridade.
+
