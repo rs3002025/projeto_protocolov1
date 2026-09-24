@@ -34,6 +34,7 @@ SCHEMA_COLUMNS = {
     'usuarios': {
         'lotacao_id': 'BIGINT',
         'is_platform_admin': 'BOOLEAN DEFAULT FALSE NOT NULL',
+        'servidor_id': 'BIGINT',
     },
     'protocolos': {
         'prazo_em': 'DATE',
@@ -151,6 +152,7 @@ def bootstrap():
 
                 statements = (
                     'CREATE UNIQUE INDEX IF NOT EXISTS uq_usuario_tenant_login ON usuarios (tenant_id, login)',
+                    'CREATE UNIQUE INDEX IF NOT EXISTS uq_usuario_tenant_servidor ON usuarios (tenant_id, servidor_id) WHERE servidor_id IS NOT NULL',
                     'CREATE UNIQUE INDEX IF NOT EXISTS uq_protocolo_tenant_numero ON protocolos (tenant_id, numero)',
                     'CREATE UNIQUE INDEX IF NOT EXISTS uq_lotacao_tenant_nome ON lotacoes (tenant_id, nome)',
                     'CREATE UNIQUE INDEX IF NOT EXISTS uq_servidor_tenant_matricula ON servidores (tenant_id, matricula)',
