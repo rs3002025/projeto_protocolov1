@@ -25,7 +25,7 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'pool_pre_ping': True, 'pool_recycle'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_SECURE'] = os.getenv('COOKIE_SECURE', 'true').lower() == 'true'
-app.config['MAX_CONTENT_LENGTH'] = 21 * 1024 * 1024
+app.config['MAX_CONTENT_LENGTH'] = 30 * 1024 * 1024
 
 # --- Extensions Initialization ---
 db = SQLAlchemy(app)
@@ -60,6 +60,7 @@ from models import (Organizacao, Usuario, Protocolo, HistoricoProtocolo, Movimen
                     ConsultaPublicaTentativa, LoginTentativa, Anexo, Lotacao,
                     TipoRequerimento, Servidor, ChamadoSuporte, MensagemSuporte,
                     OrganizacaoCapacidadeEvento, EmissaoEletronica, db)
+from models import SolicitacaoComplemento
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
@@ -209,6 +210,26 @@ def verified_upload_mime(filename, data):
         except UnicodeDecodeError:
             pass
     return None
+
+def validated_uploads(files):
+    """Lê e valida uma coleção de uploads sem persistir parcialmente o pedido."""
+    validated = []
+    total_size = 0
+    for uploaded in files:
+        if not uploaded or not uploaded.filename:
+            continue
+        filename = secure_filename(uploaded.filename)
+        data = uploaded.read(5 * 1024 * 1024 + 1)
+        if not filename or not data or len(data) > 5 * 1024 * 1024:
+            raise ValueError('Cada anexo deve ter nome válido, conteúdo e no máximo 5 MB.')
+        total_size += len(data)
+        if total_size > 30 * 1024 * 1024:
+            raise ValueError('O conjunto de anexos não pode ultrapassar 30 MB por envio.')
+        mime_type = verified_upload_mime(filename, data)
+        if not mime_type:
+            raise ValueError(f'O arquivo {filename} possui formato ou conteúdo não permitido.')
+        validated.append((filename, data, mime_type))
+    return validated
 
 def normalize_logo_png(source):
     """Valida, redimensiona e remove margens transparentes/brancas da logo."""
@@ -718,7 +739,11 @@ def portal_login(slug):
 @portal_required
 def portal_home():
     protocolos = accessible_protocols_query().order_by(Protocolo.id.desc()).all()
-    return render_template('portal_home.html', protocolos=protocolos, organizacao=active_organization())
+    pendencias = tenant_query(SolicitacaoComplemento).filter(
+        SolicitacaoComplemento.status == 'PENDENTE',
+        SolicitacaoComplemento.protocolo_id.in_([p.id for p in protocolos] or [-1])).count()
+    return render_template('portal_home.html', protocolos=protocolos, pendencias=pendencias,
+                           organizacao=active_organization())
 
 
 @app.route('/portal/novo', methods=['GET', 'POST'])
@@ -734,6 +759,12 @@ def portal_novo_protocolo():
     declaracao_aceita = request.form.get('declaracao') == 'on'
     if not declaracao_aceita or not observacoes or not tenant_query(TipoRequerimento).filter_by(nome=tipo, ativo=True).first():
         flash('Selecione o tipo, descreva o pedido e confirme a declaração de envio.', 'danger')
+        return render_template('portal_novo.html', servidor=servidor, tipos=tipos,
+                               organizacao=active_organization()), 400
+    try:
+        uploads = validated_uploads(request.files.getlist('anexos'))
+    except ValueError as error:
+        flash(str(error), 'danger')
         return render_template('portal_novo.html', servidor=servidor, tipos=tipos,
                                organizacao=active_organization()), 400
     numero = gerar_proximo_numero_protocolo()
@@ -753,6 +784,16 @@ def portal_novo_protocolo():
         tenant_id=current_tenant_id(), protocolo_id=protocolo.id, status=protocolo.status,
         responsavel=current_user.login, usuario_id=current_user.id, acao='ENVIO_REMOTO',
         observacao='Requerimento enviado pelo próprio servidor em conta individual vinculada ao cadastro funcional.'))
+    for index, (filename, data, mime_type) in enumerate(uploads, start=1):
+        chave = f'anexo-inicial-{uuid.uuid4().hex[:12]}'
+        storage_path, backend, digest, stored_data = store_attachment_bytes(
+            data, current_tenant_id(), protocolo.id, chave, 1, filename, mime_type)
+        db.session.add(Anexo(
+            tenant_id=current_tenant_id(), protocolo_id=protocolo.id, file_name=filename,
+            storage_path=storage_path, storage_backend=backend, file_hash=digest,
+            file_size=len(data), mime_type=mime_type, file_data=stored_data,
+            documento_chave=chave, versao=1, enviado_por_id=current_user.id))
+    db.session.flush()
     token, codigo = secrets.token_urlsafe(32), _public_code()
     while EmissaoEletronica.query.filter(or_(EmissaoEletronica.token_publico == token,
                                              EmissaoEletronica.codigo_publico == codigo)).first():
@@ -797,6 +838,43 @@ def portal_novo_protocolo():
 def portal_detalhe(protocolo_id):
     protocolo = accessible_protocol_or_404(protocolo_id)
     return render_template('portal_detalhe.html', protocolo=protocolo, organizacao=active_organization())
+
+
+@app.post('/portal/protocolo/<int:protocolo_id>/complemento/<int:solicitacao_id>')
+@portal_required
+def portal_enviar_complemento(protocolo_id, solicitacao_id):
+    protocolo = accessible_protocol_or_404(protocolo_id)
+    solicitacao = tenant_query(SolicitacaoComplemento).filter_by(
+        id=solicitacao_id, protocolo_id=protocolo.id, status='PENDENTE').first_or_404()
+    try:
+        uploads = validated_uploads(request.files.getlist('anexos'))
+    except ValueError as error:
+        flash(str(error), 'danger')
+        return redirect(url_for('portal_detalhe', protocolo_id=protocolo.id))
+    if not uploads:
+        flash('Selecione ao menos um documento para atender à solicitação.', 'danger')
+        return redirect(url_for('portal_detalhe', protocolo_id=protocolo.id))
+    for filename, data, mime_type in uploads:
+        chave = f'complemento-{solicitacao.id}-{uuid.uuid4().hex[:12]}'
+        path, backend, digest, stored_data = store_attachment_bytes(
+            data, current_tenant_id(), protocolo.id, chave, 1, filename, mime_type)
+        db.session.add(Anexo(
+            tenant_id=current_tenant_id(), protocolo_id=protocolo.id, file_name=filename,
+            storage_path=path, storage_backend=backend, file_hash=digest,
+            file_size=len(data), mime_type=mime_type, file_data=stored_data,
+            documento_chave=chave, versao=1, enviado_por_id=current_user.id,
+            solicitacao_complemento_id=solicitacao.id))
+    solicitacao.status = 'ATENDIDA'
+    solicitacao.atendido_em = datetime.now().astimezone()
+    solicitacao.atendido_por_id = current_user.id
+    db.session.add(HistoricoProtocolo(
+        tenant_id=current_tenant_id(), protocolo_id=protocolo.id, status=protocolo.status,
+        responsavel=current_user.login, usuario_id=current_user.id,
+        acao='COMPLEMENTO_ENVIADO',
+        observacao=f'Solicitação de complemento #{solicitacao.id} atendida com {len(uploads)} arquivo(s).'))
+    db.session.commit()
+    flash('Documentação complementar enviada e registrada sem alterar o requerimento original.', 'success')
+    return redirect(url_for('portal_detalhe', protocolo_id=protocolo.id))
 
 
 @app.post('/portal/sair')
@@ -928,7 +1006,8 @@ def require_platform_tenant_selection():
 def isolate_portal_surface():
     if not current_user.is_authenticated or current_user.tipo != 'requerente':
         return None
-    allowed = {'portal_home', 'portal_novo_protocolo', 'portal_detalhe', 'portal_logout',
+    allowed = {'portal_home', 'portal_novo_protocolo', 'portal_detalhe',
+               'portal_enviar_complemento', 'portal_logout',
                'baixar_anexo', 'gerar_pdf_protocolo', 'organization_logo', 'static',
                'validar_emissao', 'health'}
     if session.get('auth_surface') != 'portal':
@@ -1628,6 +1707,34 @@ def detalhe_protocolo(protocolo_id):
         chave = anexo.documento_chave if anexo.documento_chave != 'anexo' else f'legado-{anexo.id}'
         documentos[chave] = anexo
     return render_template('protocolo_detalhe.html', title=f"Protocolo {protocolo.numero}", protocolo=protocolo, anexo_form=anexo_form, lotacoes=lotacoes, usuarios_destino=usuarios_destino, movimentacao_pendente=pendente, pode_receber=pode_receber, pode_encaminhar=pode_encaminhar, documentos_atuais=list(documentos.values()))
+
+
+@app.post('/protocolo/<int:protocolo_id>/solicitar-complemento')
+@permission_required('edit')
+def solicitar_complemento(protocolo_id):
+    protocolo = accessible_protocol_or_404(protocolo_id)
+    if protocolo.arquivado_em:
+        abort(409, description='Processos arquivados não podem receber solicitações.')
+    if protocolo.modalidade_abertura != 'remota_requerente' or not protocolo.requerente_servidor_id:
+        flash('A complementação pelo portal está disponível para requerimentos enviados remotamente.', 'warning')
+        return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
+    motivo = (request.form.get('motivo') or '').strip()
+    if len(motivo) < 10:
+        flash('Descreva o documento ou informação necessária com pelo menos 10 caracteres.', 'danger')
+        return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
+    solicitacao = SolicitacaoComplemento(
+        tenant_id=current_tenant_id(), protocolo_id=protocolo.id,
+        solicitado_por_id=current_user.id, motivo=motivo, status='PENDENTE')
+    db.session.add(solicitacao)
+    db.session.flush()
+    db.session.add(HistoricoProtocolo(
+        tenant_id=current_tenant_id(), protocolo_id=protocolo.id, status=protocolo.status,
+        responsavel=current_user.login, usuario_id=current_user.id,
+        acao='COMPLEMENTO_SOLICITADO',
+        observacao=f'Solicitação de complemento #{solicitacao.id}: {motivo}'))
+    db.session.commit()
+    flash('Solicitação registrada. O requerente será avisado no Portal do Servidor.', 'success')
+    return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
 
 @app.route("/protocolo/<int:protocolo_id>/editar", methods=['GET', 'POST'])
 @permission_required('edit')
