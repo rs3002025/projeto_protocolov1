@@ -327,6 +327,21 @@ PROTOCOL_STATUSES = ('PROTOCOLO GERADO', 'EM ANÁLISE', 'PENDENTE DE DOCUMENTO',
 SUPPORT_STATUSES = ('ABERTO', 'EM ATENDIMENTO', 'AGUARDANDO USUÁRIO', 'RESOLVIDO', 'FECHADO')
 SUPPORT_CATEGORIES = ('ACESSO', 'PROTOCOLOS', 'DOCUMENTOS', 'RELATÓRIOS', 'CONFIGURAÇÃO', 'OUTRO')
 SUPPORT_PRIORITIES = ('BAIXA', 'NORMAL', 'ALTA', 'CRÍTICA')
+HISTORY_ACTION_LABELS = {
+    'ENVIO_REMOTO': 'Requerimento enviado pelo portal',
+    'COMPLEMENTO_SOLICITADO': 'Documentação complementar solicitada',
+    'COMPLEMENTO_ENVIADO': 'Documentação complementar enviada',
+    'EMISSAO_AUTENTICADA': 'Requerimento autenticado',
+    'EMISSAO_CANCELADA': 'Autenticação cancelada',
+    'RETIFICACAO': 'Retificação registrada',
+    'TRAMITACAO': 'Encaminhamento',
+    'RECEBIMENTO': 'Recebimento',
+    'ARQUIVAMENTO': 'Arquivamento',
+    'ALTERACAO_STATUS': 'Alteração de situação',
+    'ANEXO_ADICIONADO': 'Documento anexado',
+    'NOVA_VERSAO_DOCUMENTO': 'Nova versão de documento',
+}
+EMISSION_STATUS_LABELS = {'VALIDA': 'Válida', 'RETIFICADA': 'Retificada', 'CANCELADA': 'Cancelada'}
 
 def support_tickets_query():
     query = ChamadoSuporte.query
@@ -360,6 +375,9 @@ def permission_context():
         'branding_logo_url': logo_url,
         'pendencias_recebimento': pendencias_recebimento,
         'chamados_pendentes': chamados_pendentes,
+        'history_action_label': lambda action: HISTORY_ACTION_LABELS.get(
+            action, (action or 'Atualização').replace('_', ' ').title()),
+        'emission_status_label': lambda status: EMISSION_STATUS_LABELS.get(status, status.title()),
     }
 
 def permission_required(permission):
@@ -1824,9 +1842,9 @@ def adicionar_anexo(protocolo_id):
     if form.validate_on_submit():
         file = form.anexo.data
         filename = secure_filename(file.filename)
-        file_data = file.read(20 * 1024 * 1024 + 1)
-        if not filename or not file_data or len(file_data) > 20 * 1024 * 1024:
-            flash('Envie um arquivo não vazio, com nome válido e até 20 MB.', 'danger')
+        file_data = file.read(5 * 1024 * 1024 + 1)
+        if not filename or not file_data or len(file_data) > 5 * 1024 * 1024:
+            flash('Envie um arquivo não vazio, com nome válido e até 5 MB.', 'danger')
             return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
         mime_type = verified_upload_mime(filename, file_data)
         if not mime_type:
