@@ -160,7 +160,7 @@
                     <strong>{{ h.data_movimentacao.strftime('%d/%m/%Y %H:%M') }}:</strong>
                         <strong>{{ history_action_label(h.acao) }}</strong> — situação <strong>{{ h.status }}</strong>.
                     Responsável: <strong>{{ h.responsavel }}</strong>.
-                    <p class="mb-0 mt-1 fst-italic">Observação: {{ h.observacao or 'N/A' }}</p>
+                    <p class="mb-0 mt-1 fst-italic">Observação: {{ history_observation_label(h.observacao) }}</p>
                 </li>
             {% else %}
                 <li class="list-group-item">Nenhum histórico encontrado.</li>
@@ -174,7 +174,7 @@
         <h4>Anexos</h4>
     </div>
     <div class="card-body">
-        {% if protocolo.emissoes_eletronicas %}<div class="mb-4"><h5>Versões autenticadas do requerimento</h5><ul class="list-group">{% for versao in protocolo.emissoes_eletronicas|reverse %}<li class="list-group-item d-flex justify-content-between align-items-center"><span><strong>Versão {{ versao.versao }}</strong> · {{ versao.status }} · código {{ versao.codigo_publico }}<small class="d-block">Autenticada por {{ versao.nome_emitente }} em {{ versao.emitido_em.strftime('%d/%m/%Y %H:%M') }}</small>{% if versao.status == 'CANCELADA' %}<small class="d-block text-danger">Cancelada em {{ versao.cancelado_em.strftime('%d/%m/%Y %H:%M') }}. Motivo: {{ versao.motivo_cancelamento }}</small>{% endif %}</span><a class="btn btn-sm btn-outline-primary" href="{{ url_for('baixar_anexo', anexo_id=versao.pdf_anexo_id) }}">Download</a></li>{% endfor %}</ul></div><hr>{% endif %}
+        {% if protocolo.emissoes_eletronicas %}<div class="mb-4"><h5>Versões autenticadas do requerimento</h5><ul class="list-group">{% for versao in protocolo.emissoes_eletronicas|reverse %}<li class="list-group-item d-flex justify-content-between align-items-center"><span><strong>Versão {{ versao.versao }}</strong> · {{ emission_status_label(versao.status) }} · código {{ versao.codigo_publico }}<small class="d-block">Autenticada por {{ versao.nome_emitente }} em {{ versao.emitido_em.strftime('%d/%m/%Y %H:%M') }}</small>{% if versao.status == 'CANCELADA' %}<small class="d-block text-danger">Cancelada em {{ versao.cancelado_em.strftime('%d/%m/%Y %H:%M') }}. Motivo: {{ versao.motivo_cancelamento }}</small>{% endif %}</span><a class="btn btn-sm btn-outline-primary" href="{{ url_for('baixar_anexo', anexo_id=versao.pdf_anexo_id) }}">Download</a></li>{% endfor %}</ul></div><hr>{% endif %}
         <div class="mb-3">
             <h5>Adicionar documento ou nova versão</h5>
             {% if can('edit') and not protocolo.arquivado_em and (not protocolo.emissao_eletronica or protocolo.retificacao_pendente) %}
