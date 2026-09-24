@@ -19,7 +19,7 @@ os.environ['DATABASE_URL'] = 'sqlite:///' + str(Path(_test_directory.name) / 'te
 from app import app, bcrypt, db
 from models import (Lotacao, Movimentacao, Organizacao, Protocolo, Usuario,
                     ConsultaPublicaTentativa, LoginTentativa, Anexo,
-                    HistoricoProtocolo, Servidor, ChamadoSuporte, MensagemSuporte)
+                    HistoricoProtocolo, Servidor, TipoRequerimento, ChamadoSuporte, MensagemSuporte)
 from models import OrganizacaoCapacidadeEvento
 from models import EmissaoEletronica
 
@@ -1307,5 +1307,73 @@ def test_emissao_autenticada_congela_pdf_dados_e_anexos_e_detecta_alteracao():
     with app.app_context():
         org = Organizacao.query.filter_by(slug='cliente-a').one()
         org.emissao_eletronica_protocolista_enabled = False
+        db.session.commit()
+
+
+def test_portal_servidor_isola_login_e_abertura_em_nome_proprio():
+    with app.app_context():
+        org = Organizacao.query.filter_by(slug='cliente-a').one()
+        org.portal_servidor_remoto_enabled = True
+        servidor = Servidor(tenant_id=org.id, matricula='PORTAL-1', nome='Servidor Portal',
+                            cargo='Analista', lotacao='Protocolo', unidade_de_exercicio='Sede')
+        tipo = TipoRequerimento(tenant_id=org.id, nome='Requerimento remoto', ativo=True)
+        db.session.add_all([servidor, tipo])
+        db.session.flush()
+        senha = bcrypt.generate_password_hash('senha-portal').decode('utf-8')
+        usuario = Usuario(tenant_id=org.id, nome='Servidor', nome_completo='Servidor Portal',
+                          login='servidor.portal', senha=senha, tipo='requerente',
+                          servidor_id=servidor.id, status='ativo')
+        db.session.add(usuario)
+        db.session.commit()
+        servidor_id = servidor.id
+
+    client = app.test_client()
+    # A credencial do requerente não pode entrar pela superfície administrativa.
+    backoffice = client.post('/entrar/cliente-a', data={
+        'login': 'servidor.portal', 'senha': 'senha-portal'})
+    assert backoffice.status_code == 200
+    portal = client.post('/portal/cliente-a/entrar', data={
+        'login': 'servidor.portal', 'senha': 'senha-portal'})
+    assert portal.status_code == 302 and portal.headers['Location'] == '/portal'
+    home = client.get('/portal').get_data(as_text=True)
+    assert 'Olá, Servidor Portal' in home and 'Novo requerimento' in home
+
+    class PortalHTML:
+        def __init__(self, string, base_url):
+            self.string = string
+        def write_pdf(self):
+            return b'%PDF-1.7\nenvio remoto autenticado'
+    class PortalQR:
+        def save(self, stream, format):
+            stream.write(b'\x89PNG\r\n\x1a\nqr')
+    with patch.dict(sys.modules, {
+            'weasyprint': types.SimpleNamespace(HTML=PortalHTML),
+            'qrcode': types.SimpleNamespace(make=lambda _url: PortalQR())}):
+        criado = client.post('/portal/novo', data={
+            'tipo_requerimento': 'Requerimento remoto', 'requer_ao': 'Setor responsável',
+            'observacoes': 'Solicito análise do pedido enviado de casa.', 'declaracao': 'on'})
+    assert criado.status_code == 302
+    with app.app_context():
+        protocolo = Protocolo.query.filter_by(requerente_servidor_id=servidor_id).one()
+        assert protocolo.nome == 'Servidor Portal'
+        assert protocolo.matricula == 'PORTAL-1'
+        assert protocolo.modalidade_abertura == 'remota_requerente'
+        assert protocolo.emissao_eletronica.metodo == 'conta_individual'
+        assert protocolo.emissao_eletronica.pdf_sha256 == hashlib.sha256(
+            b'%PDF-1.7\nenvio remoto autenticado').hexdigest()
+        protocolo_id = protocolo.id
+    detalhe = client.get(f'/portal/protocolo/{protocolo_id}').get_data(as_text=True)
+    assert 'Solicito análise do pedido enviado de casa.' in detalhe
+    # Rotas do backoffice não ficam disponíveis na sessão do portal.
+    assert client.get('/configuracoes').status_code == 302
+    assert client.get('/portal/protocolo/1').status_code == 404
+
+    client.post('/portal/sair')
+    with app.app_context():
+        Protocolo.query.filter_by(requerente_servidor_id=servidor_id).delete()
+        Usuario.query.filter_by(login='servidor.portal').delete()
+        Servidor.query.filter_by(id=servidor_id).delete()
+        TipoRequerimento.query.filter_by(nome='Requerimento remoto').delete()
+        Organizacao.query.filter_by(slug='cliente-a').one().portal_servidor_remoto_enabled = False
         db.session.commit()
 
