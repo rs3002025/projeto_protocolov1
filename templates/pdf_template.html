@@ -89,7 +89,7 @@
         <div class="fechamento-pdf">
             <div class="assinaturas-container">
                 <div class="assinaturas-flex">
-                    <div class="assinatura-pdf"><div class="linha-assinatura"></div>Assinatura do Requerente</div>
+                    {% if protocolo.modalidade_abertura == 'remota_requerente' and emissao %}<div class="assinatura-pdf" style="border:1px solid #777;padding:8px;text-align:left;font-size:10px"><strong>Pedido enviado pelo requerente autenticado</strong><br>{{ emissao.declaracao }}</div>{% else %}<div class="assinatura-pdf"><div class="linha-assinatura"></div>Assinatura do Requerente</div>{% endif %}
                     {% if emissao %}
                     <div class="assinatura-pdf" style="border:1px solid #777;padding:8px;text-align:left;font-size:10px">
                         <strong>Emissão autenticada eletronicamente</strong><br>
