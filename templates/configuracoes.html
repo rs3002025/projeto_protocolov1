@@ -49,6 +49,7 @@
                     <div class="col-md-6 mb-3"><label class="form-label" for="novo-usuario-senha">Senha</label>{{ user_form.senha(id="novo-usuario-senha", class="form-control") }}</div>
                     <div class="col-md-6 mb-3"><label class="form-label" for="novo-usuario-tipo">Perfil</label>{{ user_form.tipo(id="novo-usuario-tipo", class="form-select") }}</div>
                     <div class="col-md-6 mb-3"><label class="form-label" for="novo-usuario-lotacao">Setor</label>{{ user_form.lotacao_id(id="novo-usuario-lotacao", class="form-select") }}</div>
+                    <div class="col-md-6 mb-3"><label class="form-label" for="novo-usuario-servidor">Cadastro funcional</label>{{ user_form.servidor_id(id="novo-usuario-servidor", class="form-select") }}<div class="form-text">Obrigatório para o perfil Portal do Servidor.</div></div>
                     <div class="col-md-6 align-self-end mb-3">{{ user_form.submit(id="novo-usuario-submit", class="btn btn-primary") }}</div>
                 </div>
             </form>
@@ -65,10 +66,11 @@
                         <td><form id="edit-user-{{ user.id }}" method="POST" action="{{ url_for('admin_update_user', user_id=user.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form><label class="visually-hidden" for="edit-user-name-{{ user.id }}">Nome de {{ user.login }}</label><input id="edit-user-name-{{ user.id }}" form="edit-user-{{ user.id }}" class="form-control form-control-sm" name="nome_completo" value="{{ user.nome_completo }}" required></td>
                         <td>{{ user.login }}</td>
                         <td><label class="visually-hidden" for="edit-user-email-{{ user.id }}">E-mail de {{ user.login }}</label><input id="edit-user-email-{{ user.id }}" form="edit-user-{{ user.id }}" class="form-control form-control-sm" name="email" type="email" value="{{ user.email }}" required></td>
-                        <td><label class="visually-hidden" for="edit-user-role-{{ user.id }}">Perfil de {{ user.login }}</label><select id="edit-user-role-{{ user.id }}" form="edit-user-{{ user.id }}" class="form-select form-select-sm" name="tipo">{% for role in ['consulta','tramitador','protocolista','admin'] %}<option value="{{ role }}" {% if user.tipo == role %}selected{% endif %}>{{ role_labels[role] }}</option>{% endfor %}{% if user.tipo not in role_labels %}<option value="{{ user.tipo }}" selected>Legado: {{ user.tipo }}</option>{% endif %}</select></td>
+                        <td><label class="visually-hidden" for="edit-user-role-{{ user.id }}">Perfil de {{ user.login }}</label><select id="edit-user-role-{{ user.id }}" form="edit-user-{{ user.id }}" class="form-select form-select-sm" name="tipo">{% for role in ['requerente','consulta','tramitador','protocolista','admin'] %}<option value="{{ role }}" {% if user.tipo == role %}selected{% endif %}>{{ role_labels[role] }}</option>{% endfor %}{% if user.tipo not in role_labels %}<option value="{{ user.tipo }}" selected>Legado: {{ user.tipo }}</option>{% endif %}</select></td>
                         <td><span class="badge {{ 'bg-success' if user.status == 'ativo' else 'bg-danger' }}">{{ user.status }}</span></td>
                         <td>
                           <label class="visually-hidden" for="edit-user-sector-{{ user.id }}">Setor de {{ user.login }}</label><select id="edit-user-sector-{{ user.id }}" form="edit-user-{{ user.id }}" class="form-select form-select-sm mb-1" name="lotacao_id"><option value="0">Sem setor</option>{% for lotacao in lotacoes if lotacao.ativo %}<option value="{{ lotacao.id }}" {% if user.lotacao_id == lotacao.id %}selected{% endif %}>{{ lotacao.nome }}</option>{% endfor %}</select>
+                          <label class="visually-hidden" for="edit-user-server-{{ user.id }}">Cadastro funcional de {{ user.login }}</label><select id="edit-user-server-{{ user.id }}" form="edit-user-{{ user.id }}" class="form-select form-select-sm mb-1" name="servidor_id"><option value="0">Sem vínculo funcional</option>{% for servidor in servidores %}<option value="{{ servidor.id }}" {% if user.servidor_id == servidor.id %}selected{% endif %}>{{ servidor.nome }} — {{ servidor.matricula }}</option>{% endfor %}</select>
                           <button form="edit-user-{{ user.id }}" class="btn btn-sm btn-primary" type="submit">Salvar</button>
                           {% if user.id != current_user.id %}<form method="POST" action="{{ url_for('admin_toggle_user_status', user_id=user.id) }}" class="d-inline" {% if user.status == 'ativo' %}data-confirm="Desativar o acesso de {{ user.nome_completo }}? O usuário não conseguirá entrar até ser reativado."{% endif %}><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm {{ 'btn-outline-danger' if user.status == 'ativo' else 'btn-outline-primary' }}" type="submit">{{ 'Desativar' if user.status == 'ativo' else 'Reativar' }}</button></form>{% endif %}
                         </td>
@@ -141,3 +143,4 @@
     </div>
 </div>
 {% endblock content %}
+
