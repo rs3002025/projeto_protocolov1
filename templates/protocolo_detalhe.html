@@ -48,6 +48,13 @@
 {% if protocolo.retificacao_pendente %}<div class="alert alert-warning">Há uma retificação preparada aguardando autenticação. Até lá, a versão anterior continua sendo o documento autenticado vigente.</div>{% endif %}
 {% if protocolo.emissao_eletronica and protocolo.emissao_eletronica.status == 'CANCELADA' %}<div class="alert alert-danger"><strong>Emissão cancelada.</strong> A versão autenticada permanece preservada para auditoria e download. Motivo: {{ protocolo.emissao_eletronica.motivo_cancelamento }}</div>{% endif %}
 
+{% if protocolo.modalidade_abertura == 'remota_requerente' %}
+<div class="card mb-4"><div class="card-header"><h2 class="h5 mb-0">Complementação pelo requerente</h2></div><div class="card-body">
+  {% for solicitacao in protocolo.solicitacoes_complemento|reverse %}<div class="alert alert-{{ 'warning' if solicitacao.status == 'PENDENTE' else 'success' }}"><strong>#{{ solicitacao.id }} · {{ solicitacao.status }}</strong> — {{ solicitacao.motivo }}<small class="d-block">Solicitada por {{ solicitacao.solicitado_por.nome }} em {{ solicitacao.criado_em.strftime('%d/%m/%Y %H:%M') }}{% if solicitacao.atendido_em %}; atendida em {{ solicitacao.atendido_em.strftime('%d/%m/%Y %H:%M') }} com {{ solicitacao.anexos|length }} arquivo(s){% endif %}.</small></div>{% endfor %}
+  {% if can('edit') and not protocolo.arquivado_em %}<form method="POST" action="{{ url_for('solicitar_complemento', protocolo_id=protocolo.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label class="form-label" for="motivo-complemento">Solicitar documento ou informação complementar</label><textarea class="form-control mb-2" id="motivo-complemento" name="motivo" minlength="10" required placeholder="Descreva objetivamente o que o requerente deve enviar."></textarea><button class="btn btn-primary" type="submit">Enviar solicitação ao portal</button></form>{% endif %}
+</div></div>
+{% endif %}
+
 <nav class="detail-section-nav mb-4" aria-label="Seções do protocolo">
     <a href="#visao-geral">Visão geral</a>
     {% if can('route') and not protocolo.arquivado_em %}<a href="#tramitacao">Tramitação</a>{% endif %}
