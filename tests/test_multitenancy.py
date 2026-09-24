@@ -1390,6 +1390,8 @@ def test_portal_servidor_isola_login_e_abertura_em_nome_proprio():
     assert 'O requerente será avisado' in detalhe_interno
     assert 'Requerimento enviado pelo portal' in detalhe_interno
     assert 'ENVIO_REMOTO' not in detalhe_interno
+    assert 'Pedido enviado pelo próprio servidor por meio do Portal do Servidor.' in detalhe_interno
+    assert 'conta individual vinculada ao cadastro funcional' not in detalhe_interno
     assert 'Abrir requerimento autenticado' in detalhe_interno
     assert 'protocolo-autenticado' not in detalhe_interno
     assert 'Até 20 MB' not in detalhe_interno
