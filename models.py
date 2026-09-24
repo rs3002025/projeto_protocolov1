@@ -119,6 +119,9 @@ class Protocolo(TenantMixin, db.Model):
     emissoes_eletronicas = db.relationship('EmissaoEletronica', back_populates='protocolo',
                                            cascade='all, delete-orphan',
                                            order_by='EmissaoEletronica.versao')
+    solicitacoes_complemento = db.relationship(
+        'SolicitacaoComplemento', back_populates='protocolo', cascade='all, delete-orphan',
+        order_by='SolicitacaoComplemento.criado_em')
 
     @property
     def emissao_eletronica(self):
@@ -173,8 +176,28 @@ class Anexo(TenantMixin, db.Model):
     documento_chave = db.Column(db.String(120), nullable=False, default='anexo')
     versao = db.Column(db.Integer, nullable=False, default=1)
     enviado_por_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'))
+    solicitacao_complemento_id = db.Column(
+        ID_TYPE, db.ForeignKey('solicitacoes_complemento.id'), index=True)
     enviado_por = db.relationship('Usuario', foreign_keys=[enviado_por_id])
     created_at = db.Column(db.TIMESTAMP(timezone=True), server_default=db.func.now())
+
+
+class SolicitacaoComplemento(TenantMixin, db.Model):
+    """Pedido auditável para juntar documentos sem alterar o requerimento autenticado."""
+    __tablename__ = 'solicitacoes_complemento'
+    id = db.Column(ID_TYPE, primary_key=True)
+    protocolo_id = db.Column(ID_TYPE, db.ForeignKey('protocolos.id'), nullable=False, index=True)
+    solicitado_por_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)
+    motivo = db.Column(db.Text, nullable=False)
+    status = db.Column(db.String(20), nullable=False, default='PENDENTE', index=True)
+    criado_em = db.Column(db.TIMESTAMP(timezone=True), server_default=db.func.now(), nullable=False)
+    atendido_em = db.Column(db.TIMESTAMP(timezone=True))
+    atendido_por_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'))
+
+    protocolo = db.relationship('Protocolo', back_populates='solicitacoes_complemento')
+    solicitado_por = db.relationship('Usuario', foreign_keys=[solicitado_por_id])
+    atendido_por = db.relationship('Usuario', foreign_keys=[atendido_por_id])
+    anexos = db.relationship('Anexo', backref='solicitacao_complemento', lazy=True)
 
 class HistoricoProtocolo(TenantMixin, db.Model):
     __tablename__ = 'historico_protocolos'
