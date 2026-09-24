@@ -10,7 +10,7 @@
             {% if active_organization.emissao_eletronica_protocolista_enabled and (not protocolo.emissao_eletronica or protocolo.retificacao_pendente) and current_user.tipo in ['admin', 'protocolista'] and not protocolo.arquivado_em %}
             <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#modalAutenticarEmissao">Autenticar emissão</button>
             {% endif %}
-            {% if can('edit') and not protocolo.arquivado_em %}<form method="POST" target="_blank" action="{{ url_for('gerar_documento_versionado', protocolo_id=protocolo.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="btn btn-primary">Gerar e registrar documento</button></form>{% endif %}
+            {% if protocolo.emissao_eletronica %}<a class="btn btn-primary" target="_blank" href="{{ url_for('gerar_pdf_protocolo', protocolo_id=protocolo.id) }}">Abrir requerimento autenticado</a>{% elif can('edit') and not protocolo.arquivado_em %}<form method="POST" target="_blank" action="{{ url_for('gerar_documento_versionado', protocolo_id=protocolo.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="btn btn-primary">Gerar documento</button></form>{% endif %}
             {% if can('edit') and not protocolo.arquivado_em and protocolo.emissao_eletronica and protocolo.emissao_eletronica.status == 'VALIDA' and not protocolo.retificacao_pendente %}<a href="{{ url_for('retificar_protocolo', protocolo_id=protocolo.id) }}" class="btn btn-outline-secondary">Retificar</a>{% elif can('edit') and not protocolo.arquivado_em and not protocolo.emissao_eletronica %}<a href="{{ url_for('editar_protocolo', protocolo_id=protocolo.id) }}" class="btn btn-outline-secondary">Editar</a>{% endif %}
             {% if active_organization.emissao_eletronica_protocolista_enabled and protocolo.emissao_eletronica and protocolo.emissao_eletronica.status == 'VALIDA' and not protocolo.retificacao_pendente and current_user.tipo in ['admin', 'protocolista'] %}<button class="btn btn-outline-danger" type="button" data-bs-toggle="modal" data-bs-target="#modalCancelarEmissao">Cancelar emissão</button>{% endif %}
     </div>
@@ -43,7 +43,7 @@
     <div class="protocol-summary-item"><span>Prazo</span><strong>{{ protocolo.prazo_em.strftime('%d/%m/%Y') if protocolo.prazo_em else 'Não definido' }}</strong></div>
     <div class="protocol-summary-item"><span>Localização</span><strong>{{ protocol_location(protocolo) }}</strong></div>
     <div class="protocol-summary-item"><span>Responsável</span><strong>{{ protocolo.responsavel or 'Não definido' }}</strong></div>
-    {% if protocolo.emissao_eletronica %}<div class="protocol-summary-item"><span>Emissão eletrônica</span><strong>Versão {{ protocolo.emissao_eletronica.versao }} · {{ protocolo.emissao_eletronica.codigo_publico }} · {{ protocolo.emissao_eletronica.status }}</strong></div>{% endif %}
+    {% if protocolo.emissao_eletronica %}<div class="protocol-summary-item"><span>Emissão eletrônica</span><strong>Versão {{ protocolo.emissao_eletronica.versao }} · {{ protocolo.emissao_eletronica.codigo_publico }} · {{ emission_status_label(protocolo.emissao_eletronica.status) }}</strong></div>{% endif %}
 </div>
 {% if protocolo.retificacao_pendente %}<div class="alert alert-warning">Há uma retificação preparada aguardando autenticação. Até lá, a versão anterior continua sendo o documento autenticado vigente.</div>{% endif %}
 {% if protocolo.emissao_eletronica and protocolo.emissao_eletronica.status == 'CANCELADA' %}<div class="alert alert-danger"><strong>Emissão cancelada.</strong> A versão autenticada permanece preservada para auditoria e download. Motivo: {{ protocolo.emissao_eletronica.motivo_cancelamento }}</div>{% endif %}
@@ -158,7 +158,7 @@
             {% for h in protocolo.historico|sort(attribute='data_movimentacao', reverse=True) %}
                 <li class="list-group-item protocol-timeline-item">
                     <strong>{{ h.data_movimentacao.strftime('%d/%m/%Y %H:%M') }}:</strong>
-                        <strong>{{ h.acao or 'ATUALIZAÇÃO' }}</strong> — status <strong>{{ h.status }}</strong>.
+                        <strong>{{ history_action_label(h.acao) }}</strong> — situação <strong>{{ h.status }}</strong>.
                     Responsável: <strong>{{ h.responsavel }}</strong>.
                     <p class="mb-0 mt-1 fst-italic">Observação: {{ h.observacao or 'N/A' }}</p>
                 </li>
@@ -177,7 +177,7 @@
         {% if protocolo.emissoes_eletronicas %}<div class="mb-4"><h5>Versões autenticadas do requerimento</h5><ul class="list-group">{% for versao in protocolo.emissoes_eletronicas|reverse %}<li class="list-group-item d-flex justify-content-between align-items-center"><span><strong>Versão {{ versao.versao }}</strong> · {{ versao.status }} · código {{ versao.codigo_publico }}<small class="d-block">Autenticada por {{ versao.nome_emitente }} em {{ versao.emitido_em.strftime('%d/%m/%Y %H:%M') }}</small>{% if versao.status == 'CANCELADA' %}<small class="d-block text-danger">Cancelada em {{ versao.cancelado_em.strftime('%d/%m/%Y %H:%M') }}. Motivo: {{ versao.motivo_cancelamento }}</small>{% endif %}</span><a class="btn btn-sm btn-outline-primary" href="{{ url_for('baixar_anexo', anexo_id=versao.pdf_anexo_id) }}">Download</a></li>{% endfor %}</ul></div><hr>{% endif %}
         <div class="mb-3">
             <h5>Adicionar documento ou nova versão</h5>
-            {% if can('edit') and not protocolo.arquivado_em %}
+            {% if can('edit') and not protocolo.arquivado_em and (not protocolo.emissao_eletronica or protocolo.retificacao_pendente) %}
             <form action="{{ url_for('adicionar_anexo', protocolo_id=protocolo.id) }}" method="POST" enctype="multipart/form-data">
                 {{ anexo_form.hidden_tag() }}
                 <label for="documento_id" class="form-label">Documento</label>
@@ -187,7 +187,7 @@
                     <option value="{{ documento.id }}">Nova versão de {{ documento.file_name }} (atual: v{{ documento.versao }})</option>
                     {% endfor %}
                 </select>
-                <p class="form-text">Até 20 MB por arquivo. Uma nova versão não apaga a anterior.</p>
+                <p class="form-text">Até 5 MB por arquivo. Uma nova versão não apaga a anterior.</p>
                 <label for="anexo" class="form-label">Arquivo</label>
                 <div class="input-group">
                     {{ anexo_form.anexo(class="form-control") }}
@@ -200,17 +200,17 @@
                 {% endif %}
             </form>
             {% else %}
-            <p>Documentos disponíveis somente para consulta.</p>
+            <p>Os documentos desta versão autenticada estão preservados e disponíveis somente para consulta. Use a complementação solicitada ao requerente ou inicie uma retificação formal quando necessário.</p>
             {% endif %}
         </div>
         <hr>
         <h5>Anexos Existentes</h5>
         <ul class="list-group">
-            {% for anexo in protocolo.anexos %}
+            {% for anexo in protocolo.anexos if anexo.documento_chave != 'protocolo-autenticado' %}
                 <li class="list-group-item d-flex justify-content-between align-items-center">
                     <span>{{ anexo.file_name }} — <strong>v{{ anexo.versao }}</strong> ({{ (anexo.file_size / 1024)|round(2) }} KB)
                         <small class="d-block">Enviado por {{ anexo.enviado_por.nome if anexo.enviado_por else 'não registrado (legado)' }} em {{ anexo.created_at.strftime('%d/%m/%Y %H:%M') if anexo.created_at else 'data não registrada' }}.</small>
-                        <small class="d-block">Documento: {{ anexo.documento_chave if anexo.documento_chave != 'anexo' else 'legado-' ~ anexo.id }}</small>
+                        {% if anexo.solicitacao_complemento_id %}<small class="d-block">Documento enviado para atender solicitação de complementação.</small>{% endif %}
                     </span>
                     <div>
                         <a href="{{ url_for('baixar_anexo', anexo_id=anexo.id) }}" class="btn btn-sm btn-outline-primary">Download</a>
