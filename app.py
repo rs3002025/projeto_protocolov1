@@ -82,6 +82,10 @@ def tenant_get_or_404(model, object_id):
 def accessible_protocols_query():
     """Limita o tramitador aos processos dos quais seu setor ou ele participa."""
     query = tenant_query(Protocolo)
+    if current_user.tipo == 'requerente':
+        if not current_user.servidor_id:
+            return query.filter(false())
+        return query.filter(Protocolo.requerente_servidor_id == current_user.servidor_id)
     if current_user.tipo != 'tramitador':
         return query
     if not current_user.lotacao_id:
@@ -288,12 +292,15 @@ ROLE_PERMISSIONS = {
     # Atua somente no fluxo: recebe, encaminha e responde processos do seu setor/usuário.
     'tramitador': {'view', 'route'},
     'consulta': {'view'},
+    # Acesso exclusivo ao Portal do Servidor; não concede acesso ao backoffice.
+    'requerente': set(),
 }
 ROLE_LABELS = {
     'admin': 'Administrador do cliente',
     'protocolista': 'Protocolista',
     'tramitador': 'Tramitação e respostas',
     'consulta': 'Somente consulta',
+    'requerente': 'Servidor — Portal do Servidor',
 }
 PROTOCOL_STATUSES = ('PROTOCOLO GERADO', 'EM ANÁLISE', 'PENDENTE DE DOCUMENTO', 'FINALIZADO', 'CONCLUÍDO', 'EM TRAMITAÇÃO', 'ARQUIVADO')
 SUPPORT_STATUSES = ('ABERTO', 'EM ATENDIMENTO', 'AGUARDANDO USUÁRIO', 'RESOLVIDO', 'FECHADO')
@@ -625,11 +632,12 @@ def tenant_login(slug):
         user = Usuario.query.filter_by(
             tenant_id=organizacao.id, login=form.login.data, status='ativo'
         ).first()
-        if user and bcrypt.check_password_hash(user.senha, form.senha.data):
+        if user and user.tipo != 'requerente' and bcrypt.check_password_hash(user.senha, form.senha.data):
             if tentativa:
                 db.session.delete(tentativa)
                 db.session.commit()
             login_user(user, remember=form.remember.data)
+            session['auth_surface'] = 'backoffice'
             destination = safe_local_redirect(request.args.get('next'))
             if user.is_platform_admin:
                 session.pop('active_tenant_id', None)
@@ -651,6 +659,154 @@ def tenant_login(slug):
         login_organization=organizacao,
         branding_logo_url=url_for('organization_logo', slug=organizacao.slug),
     )
+
+
+def portal_required(view):
+    @wraps(view)
+    @login_required
+    def wrapped(*args, **kwargs):
+        organizacao = active_organization()
+        if (current_user.tipo != 'requerente' or not current_user.servidor_id or
+                not organizacao.portal_servidor_remoto_enabled or session.get('auth_surface') != 'portal'):
+            abort(403)
+        return view(*args, **kwargs)
+    return wrapped
+
+
+@app.route('/portal/<string:slug>/entrar', methods=['GET', 'POST'])
+def portal_login(slug):
+    organizacao = Organizacao.query.filter_by(slug=slug.strip().lower(), ativo=True).first_or_404()
+    if not organizacao.portal_servidor_remoto_enabled:
+        abort(404)
+    if current_user.is_authenticated:
+        return redirect(url_for('portal_home') if current_user.tipo == 'requerente' else url_for('home'))
+    form = TenantLoginForm()
+    if form.validate_on_submit():
+        agora = datetime.utcnow()
+        fingerprint = login_fingerprint(f'portal:{organizacao.slug}', form.login.data)
+        tentativa = LoginTentativa.query.filter_by(identificador_hash=fingerprint).with_for_update().first()
+        if tentativa and tentativa.bloqueado_ate and tentativa.bloqueado_ate > agora:
+            flash('Não foi possível autenticar. Aguarde alguns minutos e tente novamente.', 'danger')
+            return render_template('portal_login.html', form=form, organizacao=organizacao), 429
+        if tentativa and tentativa.janela_iniciada_em < agora - timedelta(minutes=15):
+            tentativa.tentativas = 0
+            tentativa.janela_iniciada_em = agora
+            tentativa.bloqueado_ate = None
+        user = Usuario.query.filter_by(tenant_id=organizacao.id, login=form.login.data,
+                                       tipo='requerente', status='ativo').first()
+        if user and user.servidor_id and bcrypt.check_password_hash(user.senha, form.senha.data):
+            if tentativa:
+                db.session.delete(tentativa)
+                db.session.commit()
+            login_user(user, remember=form.remember.data)
+            session['auth_surface'] = 'portal'
+            flash('Acesso realizado com segurança.', 'success')
+            return redirect(url_for('portal_home'))
+        if not tentativa:
+            tentativa = LoginTentativa(identificador_hash=fingerprint, tentativas=0,
+                                        janela_iniciada_em=agora)
+            db.session.add(tentativa)
+        tentativa.tentativas += 1
+        if tentativa.tentativas >= 5:
+            tentativa.bloqueado_ate = agora + timedelta(minutes=30)
+        db.session.commit()
+        flash('Não foi possível autenticar. Verifique os dados informados.', 'danger')
+    return render_template('portal_login.html', form=form, organizacao=organizacao)
+
+
+@app.get('/portal')
+@portal_required
+def portal_home():
+    protocolos = accessible_protocols_query().order_by(Protocolo.id.desc()).all()
+    return render_template('portal_home.html', protocolos=protocolos, organizacao=active_organization())
+
+
+@app.route('/portal/novo', methods=['GET', 'POST'])
+@portal_required
+def portal_novo_protocolo():
+    servidor = current_user.servidor
+    tipos = tenant_query(TipoRequerimento).filter_by(ativo=True).order_by(TipoRequerimento.nome).all()
+    if request.method == 'GET':
+        return render_template('portal_novo.html', servidor=servidor, tipos=tipos,
+                               organizacao=active_organization())
+    tipo = (request.form.get('tipo_requerimento') or '').strip()
+    observacoes = (request.form.get('observacoes') or '').strip()
+    declaracao_aceita = request.form.get('declaracao') == 'on'
+    if not declaracao_aceita or not observacoes or not tenant_query(TipoRequerimento).filter_by(nome=tipo, ativo=True).first():
+        flash('Selecione o tipo, descreva o pedido e confirme a declaração de envio.', 'danger')
+        return render_template('portal_novo.html', servidor=servidor, tipos=tipos,
+                               organizacao=active_organization()), 400
+    numero = gerar_proximo_numero_protocolo()
+    setor = tenant_query(Lotacao).filter_by(nome=servidor.lotacao, ativo=True).first() if servidor.lotacao else None
+    protocolo = Protocolo(
+        tenant_id=current_tenant_id(), numero=numero, nome=servidor.nome,
+        matricula=servidor.matricula, cargo=servidor.cargo, lotacao=servidor.lotacao,
+        unidade_exercicio=servidor.unidade_de_exercicio, tipo_requerimento=tipo,
+        requer_ao=(request.form.get('requer_ao') or '').strip() or None,
+        observacoes=observacoes, data_solicitacao=datetime.now().date(),
+        responsavel=current_user.login, criado_por_id=current_user.id,
+        requerente_servidor_id=servidor.id, modalidade_abertura='remota_requerente',
+        setor_atual_id=setor.id if setor else None, status='PROTOCOLO GERADO')
+    db.session.add(protocolo)
+    db.session.flush()
+    db.session.add(HistoricoProtocolo(
+        tenant_id=current_tenant_id(), protocolo_id=protocolo.id, status=protocolo.status,
+        responsavel=current_user.login, usuario_id=current_user.id, acao='ENVIO_REMOTO',
+        observacao='Requerimento enviado pelo próprio servidor em conta individual vinculada ao cadastro funcional.'))
+    token, codigo = secrets.token_urlsafe(32), _public_code()
+    while EmissaoEletronica.query.filter(or_(EmissaoEletronica.token_publico == token,
+                                             EmissaoEletronica.codigo_publico == codigo)).first():
+        token, codigo = secrets.token_urlsafe(32), _public_code()
+    origem = request.headers.get('X-Forwarded-For', request.remote_addr or '').split(',')[0].strip()
+    emissao = EmissaoEletronica(
+        tenant_id=current_tenant_id(), protocolo_id=protocolo.id,
+        emitido_por_id=current_user.id, pdf_anexo_id=0, versao=1,
+        token_publico=token, codigo_publico=codigo, pdf_sha256='0' * 64,
+        metodo='conta_individual', nivel_garantia='interno',
+        declaracao='Requerimento enviado eletronicamente pelo próprio requerente autenticado em conta individual vinculada ao cadastro funcional.',
+        nome_emitente=servidor.nome, login_emitente=current_user.login,
+        ip_hash=hmac.new(app.config['SECRET_KEY'].encode(), origem.encode(), hashlib.sha256).hexdigest(),
+        user_agent_hash=hashlib.sha256((request.user_agent.string or '').encode()).hexdigest(),
+        emitido_em=datetime.now().astimezone(), status='VALIDA')
+    pdf_bytes = render_protocol_pdf(protocolo, emissao)
+    digest = hashlib.sha256(pdf_bytes).hexdigest()
+    filename = f'protocolo_{numero.replace("/", "-")}_envio_remoto_v1.pdf'
+    storage_path, backend, stored_hash, stored_data = store_attachment_bytes(
+        pdf_bytes, current_tenant_id(), protocolo.id, 'protocolo-autenticado', 1,
+        filename, 'application/pdf')
+    if not hmac.compare_digest(digest, stored_hash):
+        db.session.rollback()
+        abort(500, description='Falha ao confirmar a integridade do requerimento enviado.')
+    documento = Anexo(
+        tenant_id=current_tenant_id(), protocolo_id=protocolo.id, file_name=filename,
+        storage_path=storage_path, storage_backend=backend, file_hash=digest,
+        file_size=len(pdf_bytes), mime_type='application/pdf', file_data=stored_data,
+        documento_chave='protocolo-autenticado', versao=1, enviado_por_id=current_user.id)
+    db.session.add(documento)
+    db.session.flush()
+    emissao.pdf_anexo_id = documento.id
+    emissao.pdf_sha256 = digest
+    db.session.add(emissao)
+    db.session.commit()
+    flash(f'Requerimento enviado. Protocolo {numero} gerado com sucesso.', 'success')
+    return redirect(url_for('portal_detalhe', protocolo_id=protocolo.id))
+
+
+@app.get('/portal/protocolo/<int:protocolo_id>')
+@portal_required
+def portal_detalhe(protocolo_id):
+    protocolo = accessible_protocol_or_404(protocolo_id)
+    return render_template('portal_detalhe.html', protocolo=protocolo, organizacao=active_organization())
+
+
+@app.post('/portal/sair')
+@portal_required
+def portal_logout():
+    slug = active_organization().slug
+    session.pop('auth_surface', None)
+    logout_user()
+    flash('Você saiu do Portal do Servidor.', 'info')
+    return redirect(url_for('portal_login', slug=slug))
 
 
 @app.route("/login", methods=['GET', 'POST'])
@@ -680,11 +836,12 @@ def login():
             login=form.login.data,
             status='ativo'
         ).first()
-        if user and bcrypt.check_password_hash(user.senha, form.senha.data):
+        if user and user.tipo != 'requerente' and bcrypt.check_password_hash(user.senha, form.senha.data):
             if tentativa:
                 db.session.delete(tentativa)
                 db.session.commit()
             login_user(user, remember=form.remember.data)
+            session['auth_surface'] = 'backoffice'
             next_page = request.args.get('next')
             flash('Login bem-sucedido!', 'success')
             destination = safe_local_redirect(next_page)
@@ -709,6 +866,7 @@ def login():
 @login_required
 def logout():
     session.pop('active_tenant_id', None)
+    session.pop('auth_surface', None)
     logout_user()
     flash('Você saiu da sua conta.', 'info')
     return redirect(url_for('login'))
@@ -763,6 +921,22 @@ def require_platform_tenant_selection():
     if not selected or not Organizacao.query.filter_by(id=selected, ativo=True).first():
         session.pop('active_tenant_id', None)
         return redirect(url_for('platform_organizations'))
+    return None
+
+
+@app.before_request
+def isolate_portal_surface():
+    if not current_user.is_authenticated or current_user.tipo != 'requerente':
+        return None
+    allowed = {'portal_home', 'portal_novo_protocolo', 'portal_detalhe', 'portal_logout',
+               'baixar_anexo', 'gerar_pdf_protocolo', 'organization_logo', 'static',
+               'validar_emissao', 'health'}
+    if session.get('auth_surface') != 'portal':
+        session.pop('auth_surface', None)
+        logout_user()
+        abort(403)
+    if request.endpoint not in allowed:
+        return redirect(url_for('portal_home'))
     return None
 
 @app.get('/plataforma')
@@ -871,13 +1045,16 @@ def configuracoes():
 
     lotacoes = tenant_query(Lotacao).all()
     user_form.lotacao_id.choices = [(0, 'Sem setor definido')] + [(item.id, item.nome) for item in lotacoes if item.ativo]
+    servidores = tenant_query(Servidor).order_by(Servidor.nome, Servidor.matricula).all()
+    user_form.servidor_id.choices = [(0, 'Sem vínculo funcional')] + [
+        (item.id, f'{item.nome} — matrícula {item.matricula}') for item in servidores]
     users = tenant_query(Usuario).filter_by(is_platform_admin=False).all()
     tipos = tenant_query(TipoRequerimento).all()
 
     return render_template('configuracoes.html', title="Configurações",
                            users=users, lotacoes=lotacoes, tipos=tipos,
                            user_form=user_form, lotacao_form=lotacao_form, tipo_form=tipo_form,
-                           branding_form=branding_form, organizacao=active_organization())
+                            branding_form=branding_form, organizacao=active_organization(), servidores=servidores)
 
 @app.post('/admin/identidade/logo')
 @login_required
@@ -935,7 +1112,19 @@ def admin_create_user():
     form = AdminUserCreationForm()
     lotacoes = tenant_query(Lotacao).filter_by(ativo=True).order_by(Lotacao.nome).all()
     form.lotacao_id.choices = [(0, 'Sem setor definido')] + [(item.id, item.nome) for item in lotacoes]
+    servidores = tenant_query(Servidor).order_by(Servidor.nome, Servidor.matricula).all()
+    form.servidor_id.choices = [(0, 'Sem vínculo funcional')] + [
+        (item.id, f'{item.nome} — matrícula {item.matricula}') for item in servidores]
     if form.validate_on_submit():
+        servidor_id = form.servidor_id.data or None
+        if form.tipo.data == 'requerente' and not servidor_id:
+            flash('O usuário do Portal do Servidor deve estar vinculado a um cadastro funcional.', 'danger')
+            return redirect(url_for('configuracoes'))
+        if servidor_id and not tenant_query(Servidor).filter_by(id=servidor_id).first():
+            abort(400, description='Cadastro funcional inválido.')
+        if servidor_id and tenant_query(Usuario).filter_by(servidor_id=servidor_id).first():
+            flash('Este cadastro funcional já está vinculado a outra conta.', 'danger')
+            return redirect(url_for('configuracoes'))
         hashed_password = bcrypt.generate_password_hash(form.senha.data).decode('utf-8')
         user = Usuario(
             tenant_id=current_tenant_id(),
@@ -947,6 +1136,7 @@ def admin_create_user():
             tipo=form.tipo.data,
             status='ativo',
             lotacao_id=form.lotacao_id.data or None,
+            servidor_id=servidor_id,
         )
         db.session.add(user)
         db.session.commit()
@@ -966,11 +1156,23 @@ def admin_update_user(user_id):
     email = (request.form.get('email') or '').strip()
     tipo = (request.form.get('tipo') or '').strip()
     lotacao_raw = (request.form.get('lotacao_id') or '0').strip()
-    if not nome or not email or tipo not in ROLE_PERMISSIONS or not lotacao_raw.isdecimal():
+    servidor_raw = (request.form.get('servidor_id') or '0').strip()
+    if not nome or not email or tipo not in ROLE_PERMISSIONS or not lotacao_raw.isdecimal() or not servidor_raw.isdecimal():
         abort(400, description='Dados de usuário inválidos.')
     lotacao_id = int(lotacao_raw) or None
+    servidor_id = int(servidor_raw) or None
     if lotacao_id and not tenant_query(Lotacao).filter_by(id=lotacao_id, ativo=True).first():
         abort(400, description='Setor inválido ou inativo.')
+    if servidor_id and not tenant_query(Servidor).filter_by(id=servidor_id).first():
+        abort(400, description='Cadastro funcional inválido.')
+    vinculo_existente = (tenant_query(Usuario).filter_by(servidor_id=servidor_id).first()
+                         if servidor_id else None)
+    if vinculo_existente and vinculo_existente.id != user.id:
+        flash('Este cadastro funcional já está vinculado a outra conta.', 'danger')
+        return redirect(url_for('configuracoes'))
+    if tipo == 'requerente' and not servidor_id:
+        flash('O usuário do Portal do Servidor deve estar vinculado a um cadastro funcional.', 'danger')
+        return redirect(url_for('configuracoes'))
     if user.id == current_user.id and tipo != 'admin':
         flash('O administrador conectado não pode remover o próprio perfil administrativo.', 'warning')
         return redirect(url_for('configuracoes'))
@@ -979,6 +1181,7 @@ def admin_update_user(user_id):
     user.email = email
     user.tipo = tipo
     user.lotacao_id = lotacao_id
+    user.servidor_id = servidor_id
     db.session.commit()
     flash(f'Usuário {user.login} atualizado.', 'success')
     return redirect(url_for('configuracoes'))
