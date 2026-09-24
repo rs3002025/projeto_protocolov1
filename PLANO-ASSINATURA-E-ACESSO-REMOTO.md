@@ -289,6 +289,11 @@ Correções de integração concluídas no mesmo ambiente:
 - a versão anterior passa ao estado `RETIFICADA` somente quando a nova versão é autenticada;
 - detalhes, validação pública e histórico identificam a versão e preservam o encadeamento entre elas.
 - foi criado o cancelamento formal da versão vigente, mediante senha e justificativa, sem exclusão do PDF, hash ou evidências.
+- foi criada a primeira versão operacional do Portal do Servidor, com login separado por cliente e sessão isolada do backoffice;
+- contas do perfil requerente exigem vínculo exclusivo com cadastro funcional do mesmo cliente;
+- o servidor abre requerimento somente em nome próprio, com dados funcionais preenchidos pelo vínculo e sem possibilidade de escolher outro requerente;
+- o envio remoto gera número, histórico e PDF autenticado automaticamente, com hash, código público e QR Code de validação;
+- o portal limita a listagem, os detalhes, o PDF e os downloads aos protocolos do servidor autenticado.
 
 ### Etapa 1 — Papéis e dados
 
