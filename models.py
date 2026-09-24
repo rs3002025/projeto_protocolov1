@@ -49,7 +49,10 @@ class TenantMixin:
 
 class Usuario(TenantMixin, db.Model, UserMixin):
     __tablename__ = 'usuarios'
-    __table_args__ = (db.UniqueConstraint('tenant_id', 'login', name='uq_usuario_tenant_login'),)
+    __table_args__ = (
+        db.UniqueConstraint('tenant_id', 'login', name='uq_usuario_tenant_login'),
+        db.UniqueConstraint('tenant_id', 'servidor_id', name='uq_usuario_tenant_servidor'),
+    )
     id = db.Column(db.Integer, primary_key=True)
     nome_completo = db.Column(db.Text)
     cpf = db.Column(db.String)
@@ -61,7 +64,9 @@ class Usuario(TenantMixin, db.Model, UserMixin):
     is_platform_admin = db.Column(db.Boolean, nullable=False, default=False)
     email = db.Column(db.Text)
     lotacao_id = db.Column(ID_TYPE, db.ForeignKey('lotacoes.id'))
+    servidor_id = db.Column(ID_TYPE, db.ForeignKey('servidores.id'))
     organizacao = db.relationship('Organizacao')
+    servidor = db.relationship('Servidor', foreign_keys=[servidor_id])
 
     @property
     def is_active(self):
