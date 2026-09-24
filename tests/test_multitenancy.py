@@ -1386,12 +1386,22 @@ def test_portal_servidor_isola_login_e_abertura_em_nome_proprio():
     login(client, 'cliente-a')
     solicitada = client.post(f'/protocolo/{protocolo_id}/solicitar-complemento', data={
         'motivo': 'Envie o comprovante funcional atualizado.'}, follow_redirects=True)
-    assert 'O requerente será avisado' in solicitada.get_data(as_text=True)
+    detalhe_interno = solicitada.get_data(as_text=True)
+    assert 'O requerente será avisado' in detalhe_interno
+    assert 'Requerimento enviado pelo portal' in detalhe_interno
+    assert 'ENVIO_REMOTO' not in detalhe_interno
+    assert 'Abrir requerimento autenticado' in detalhe_interno
+    assert 'protocolo-autenticado' not in detalhe_interno
+    assert 'Até 20 MB' not in detalhe_interno
     client.post('/logout')
     client.post('/portal/cliente-a/entrar', data={
         'login': 'servidor.portal', 'senha': 'senha-portal'})
     portal_pendente = client.get('/portal').get_data(as_text=True)
-    assert 'solicitação(ões) de complemento pendente(s)' in portal_pendente
+    assert 'Há uma solicitação de documentos pendente.' in portal_pendente
+    # Suporte é uma função administrativa e não integra o portal do servidor.
+    resposta_suporte = client.get('/suporte')
+    assert resposta_suporte.status_code == 302
+    assert resposta_suporte.headers['Location'].endswith('/portal')
     with app.app_context():
         solicitacao = SolicitacaoComplemento.query.filter_by(
             protocolo_id=protocolo_id, status='PENDENTE').one()
