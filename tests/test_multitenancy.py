@@ -1378,6 +1378,10 @@ def test_portal_servidor_isola_login_e_abertura_em_nome_proprio():
         pdf_hash_original = protocolo.emissao_eletronica.pdf_sha256
     detalhe = client.get(f'/portal/protocolo/{protocolo_id}').get_data(as_text=True)
     assert 'Solicito análise do pedido enviado de casa.' in detalhe
+    assert 'Requerimento enviado pelo portal' in detalhe
+    assert 'Pedido enviado pelo próprio servidor por meio do Portal do Servidor.' in detalhe
+    assert 'conta individual vinculada ao cadastro funcional' not in detalhe
+    assert 'Ver código de integridade' in detalhe
     # Rotas do backoffice não ficam disponíveis na sessão do portal.
     assert client.get('/configuracoes').status_code == 302
     assert client.get('/portal/protocolo/1').status_code == 404
