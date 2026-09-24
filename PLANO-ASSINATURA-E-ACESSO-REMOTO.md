@@ -541,4 +541,19 @@ Terá endereço separado e não dependerá de seleção de cliente. Após entrar
 9. Adicionar WebAuthn/passkey e política de nível de garantia.
 10. Homologar juridicamente o conjunto de evidências, a auditoria e os documentos gerados.
 11. Executar testes de segurança, isolamento multiempresa, dispositivos móveis e fluxos completos.
+# Atualização — anexos e complementação controlada
+
+Implementado no ambiente visual:
+
+- anexos opcionais no envio remoto, validados antes da criação do protocolo;
+- limite de 5 MB por arquivo e 30 MB por envio;
+- formatos permitidos verificados pela extensão e assinatura do conteúdo;
+- armazenamento pelo mesmo backend S3/bucket já usado pelo sistema, com fallback em banco apenas quando o bucket não estiver configurado;
+- nome, tamanho e SHA-256 dos anexos iniciais incorporados ao PDF autenticado;
+- congelamento do requerimento e de seus anexos iniciais após a emissão;
+- solicitação auditável de complementação pelo backoffice;
+- aviso de pendência no Portal do Servidor;
+- envio de complementos exclusivamente para a solicitação e para o protocolo do próprio requerente;
+- complementos versionados e armazenados separadamente, sem modificar o PDF nem o hash da emissão original;
+- histórico das ações `COMPLEMENTO_SOLICITADO` e `COMPLEMENTO_ENVIADO`.
 
