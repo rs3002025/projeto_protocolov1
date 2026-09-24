@@ -22,6 +22,7 @@ from models import (Lotacao, Movimentacao, Organizacao, Protocolo, Usuario,
                     HistoricoProtocolo, Servidor, TipoRequerimento, ChamadoSuporte, MensagemSuporte)
 from models import OrganizacaoCapacidadeEvento
 from models import EmissaoEletronica
+from models import SolicitacaoComplemento
 
 
 def teardown_module():
@@ -175,7 +176,7 @@ def test_cabecalhos_protegem_dados_e_transporte():
     assert "object-src 'none'" in response.headers['Content-Security-Policy']
     assert "connect-src 'self' https://viacep.com.br" in response.headers['Content-Security-Policy']
     assert response.headers['Permissions-Policy'] == 'camera=(), microphone=(), geolocation=()'
-    assert app.config['MAX_CONTENT_LENGTH'] == 21 * 1024 * 1024
+    assert app.config['MAX_CONTENT_LENGTH'] == 30 * 1024 * 1024
 
 
 def test_listagem_nao_vaza_dados_entre_clientes():
@@ -1353,12 +1354,16 @@ def test_portal_servidor_isola_login_e_abertura_em_nome_proprio():
             'qrcode': types.SimpleNamespace(make=lambda _url: PortalQR())}):
         criado = client.post('/portal/novo', data={
             'tipo_requerimento': 'Requerimento remoto', 'requer_ao': 'Setor responsável',
-            'observacoes': 'Solicito análise do pedido enviado de casa.', 'declaracao': 'on'})
+            'observacoes': 'Solicito análise do pedido enviado de casa.', 'declaracao': 'on',
+            'anexos': (io.BytesIO(b'%PDF-1.7\nanexo inicial'), 'comprovante.pdf')},
+            content_type='multipart/form-data')
     assert criado.status_code == 302
     assert 'REQUERIMENTO ENVIADO ELETRONICAMENTE' in portal_html[0]
     assert 'Requerente: Servidor Portal' in portal_html[0]
     assert 'conta individual vinculada ao cadastro funcional' not in portal_html[0]
     assert portal_html[0].count('Autenticidade verificável pelo QR Code.') == 1
+    assert 'DOCUMENTOS ANEXADOS AO ENVIO' in portal_html[0]
+    assert 'comprovante.pdf' in portal_html[0]
     with app.app_context():
         protocolo = Protocolo.query.filter_by(requerente_servidor_id=servidor_id).one()
         assert protocolo.nome == 'Servidor Portal'
@@ -1367,12 +1372,42 @@ def test_portal_servidor_isola_login_e_abertura_em_nome_proprio():
         assert protocolo.emissao_eletronica.metodo == 'conta_individual'
         assert protocolo.emissao_eletronica.pdf_sha256 == hashlib.sha256(
             b'%PDF-1.7\nenvio remoto autenticado').hexdigest()
+        assert Anexo.query.filter_by(protocolo_id=protocolo.id,
+                                     file_name='comprovante.pdf').one().file_hash
         protocolo_id = protocolo.id
+        pdf_hash_original = protocolo.emissao_eletronica.pdf_sha256
     detalhe = client.get(f'/portal/protocolo/{protocolo_id}').get_data(as_text=True)
     assert 'Solicito análise do pedido enviado de casa.' in detalhe
     # Rotas do backoffice não ficam disponíveis na sessão do portal.
     assert client.get('/configuracoes').status_code == 302
     assert client.get('/portal/protocolo/1').status_code == 404
+
+    client.post('/portal/sair')
+    login(client, 'cliente-a')
+    solicitada = client.post(f'/protocolo/{protocolo_id}/solicitar-complemento', data={
+        'motivo': 'Envie o comprovante funcional atualizado.'}, follow_redirects=True)
+    assert 'O requerente será avisado' in solicitada.get_data(as_text=True)
+    client.post('/logout')
+    client.post('/portal/cliente-a/entrar', data={
+        'login': 'servidor.portal', 'senha': 'senha-portal'})
+    portal_pendente = client.get('/portal').get_data(as_text=True)
+    assert 'solicitação(ões) de complemento pendente(s)' in portal_pendente
+    with app.app_context():
+        solicitacao = SolicitacaoComplemento.query.filter_by(
+            protocolo_id=protocolo_id, status='PENDENTE').one()
+        solicitacao_id = solicitacao.id
+    atendida = client.post(
+        f'/portal/protocolo/{protocolo_id}/complemento/{solicitacao_id}',
+        data={'anexos': (io.BytesIO(b'%PDF-1.7\ncomplemento'), 'complemento.pdf')},
+        content_type='multipart/form-data', follow_redirects=True)
+    assert 'Documentação complementar enviada' in atendida.get_data(as_text=True)
+    with app.app_context():
+        protocolo = db.session.get(Protocolo, protocolo_id)
+        solicitacao = db.session.get(SolicitacaoComplemento, solicitacao_id)
+        assert solicitacao.status == 'ATENDIDA' and len(solicitacao.anexos) == 1
+        assert protocolo.emissao_eletronica.pdf_sha256 == pdf_hash_original
+        assert HistoricoProtocolo.query.filter_by(
+            protocolo_id=protocolo_id, acao='COMPLEMENTO_ENVIADO').count() == 1
 
     client.post('/portal/sair')
     with app.app_context():
