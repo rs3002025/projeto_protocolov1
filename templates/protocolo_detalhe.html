@@ -85,9 +85,11 @@
         </div>
         <hr>
         <h6>Endereço</h6>
-        <p>{{ protocolo.endereco or 'Não informado' }}<br>
-           {{ protocolo.bairro or '' }}, {{ protocolo.municipio or '' }} - CEP: {{ protocolo.cep or '' }}
+        {% if protocolo.endereco or protocolo.bairro or protocolo.municipio or protocolo.cep %}
+        <p>{{ protocolo.endereco or 'Endereço não informado' }}{% if protocolo.bairro or protocolo.municipio or protocolo.cep %}<br>{% endif %}
+           {% if protocolo.bairro %}{{ protocolo.bairro }}{% endif %}{% if protocolo.bairro and protocolo.municipio %}, {% endif %}{{ protocolo.municipio or '' }}{% if protocolo.cep %} — CEP: {{ protocolo.cep }}{% endif %}
         </p>
+        {% else %}<p>Não informado.</p>{% endif %}
         <hr>
         <h6>Observações</h6>
         <p class="protocol-observations">{{ protocolo.observacoes or 'Nenhuma observação.' }}</p>
@@ -176,8 +178,8 @@
     <div class="card-body">
         {% if protocolo.emissoes_eletronicas %}<div class="mb-4"><h5>Versões autenticadas do requerimento</h5><ul class="list-group">{% for versao in protocolo.emissoes_eletronicas|reverse %}<li class="list-group-item d-flex justify-content-between align-items-center"><span><strong>Versão {{ versao.versao }}</strong> · {{ emission_status_label(versao.status) }} · código {{ versao.codigo_publico }}<small class="d-block">Autenticada por {{ versao.nome_emitente }} em {{ versao.emitido_em.strftime('%d/%m/%Y %H:%M') }}</small>{% if versao.status == 'CANCELADA' %}<small class="d-block text-danger">Cancelada em {{ versao.cancelado_em.strftime('%d/%m/%Y %H:%M') }}. Motivo: {{ versao.motivo_cancelamento }}</small>{% endif %}</span><a class="btn btn-sm btn-outline-primary" href="{{ url_for('baixar_anexo', anexo_id=versao.pdf_anexo_id) }}">Download</a></li>{% endfor %}</ul></div><hr>{% endif %}
         <div class="mb-3">
-            <h5>Adicionar documento ou nova versão</h5>
             {% if can('edit') and not protocolo.arquivado_em and (not protocolo.emissao_eletronica or protocolo.retificacao_pendente) %}
+            <h5>Adicionar documento ou nova versão</h5>
             <form action="{{ url_for('adicionar_anexo', protocolo_id=protocolo.id) }}" method="POST" enctype="multipart/form-data">
                 {{ anexo_form.hidden_tag() }}
                 <label for="documento_id" class="form-label">Documento</label>
@@ -200,11 +202,12 @@
                 {% endif %}
             </form>
             {% else %}
+            <h5>Preservação dos documentos</h5>
             <p>Os documentos desta versão autenticada estão preservados e disponíveis somente para consulta. Use a complementação solicitada ao requerente ou inicie uma retificação formal quando necessário.</p>
             {% endif %}
         </div>
         <hr>
-        <h5>Anexos Existentes</h5>
+        <h5>Outros documentos</h5>
         <ul class="list-group">
             {% for anexo in protocolo.anexos if anexo.documento_chave != 'protocolo-autenticado' %}
                 <li class="list-group-item d-flex justify-content-between align-items-center">
@@ -217,7 +220,7 @@
                     </div>
                 </li>
             {% else %}
-                <li class="list-group-item">Nenhum anexo encontrado para este protocolo.</li>
+                <li class="list-group-item">Nenhum outro documento anexado.</li>
             {% endfor %}
         </ul>
     </div>
