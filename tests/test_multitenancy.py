@@ -1338,9 +1338,11 @@ def test_portal_servidor_isola_login_e_abertura_em_nome_proprio():
     home = client.get('/portal').get_data(as_text=True)
     assert 'Olá, Servidor Portal' in home and 'Novo requerimento' in home
 
+    portal_html = []
     class PortalHTML:
         def __init__(self, string, base_url):
             self.string = string
+            portal_html.append(string)
         def write_pdf(self):
             return b'%PDF-1.7\nenvio remoto autenticado'
     class PortalQR:
@@ -1353,6 +1355,10 @@ def test_portal_servidor_isola_login_e_abertura_em_nome_proprio():
             'tipo_requerimento': 'Requerimento remoto', 'requer_ao': 'Setor responsável',
             'observacoes': 'Solicito análise do pedido enviado de casa.', 'declaracao': 'on'})
     assert criado.status_code == 302
+    assert 'REQUERIMENTO ENVIADO ELETRONICAMENTE' in portal_html[0]
+    assert 'Requerente: Servidor Portal' in portal_html[0]
+    assert 'conta individual vinculada ao cadastro funcional' not in portal_html[0]
+    assert portal_html[0].count('Autenticidade verificável pelo QR Code.') == 1
     with app.app_context():
         protocolo = Protocolo.query.filter_by(requerente_servidor_id=servidor_id).one()
         assert protocolo.nome == 'Servidor Portal'
