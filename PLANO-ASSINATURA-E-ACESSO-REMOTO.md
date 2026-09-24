@@ -271,14 +271,16 @@ Concluído neste bloco:
 - teste automatizado que altera o arquivo e confirma a reprovação de integridade;
 - níveis forte e externo identificados como ainda indisponíveis na interface.
 
-Pendente:
+Pendências atuais após a homologação do Portal do Servidor:
 
-- fluxo formal de retificação e cancelamento;
-- vinculação administrável entre conta e cadastro de servidor;
-- Portal do Servidor e sessão própria;
-- envio remoto em nome próprio;
-- encadeamento dos eventos críticos de auditoria;
-- homologação visual e operacional no Railway.
+- implementar recuperação e ativação segura de acesso do servidor;
+- oferecer gerenciamento e encerramento de sessões ativas;
+- implementar o nível de garantia forte com segundo fator e, preferencialmente, WebAuthn/passkey;
+- integrar provedores externos somente quando contratado pelo cliente;
+- concluir o encadeamento criptográfico dos eventos críticos de auditoria e sua exportação verificável;
+- testar responsividade e os fluxos completos em celular real;
+- atualizar o manual e os slides de treinamento com o Portal do Servidor, emissão autenticada, complementação, retificação e cancelamento;
+- promover o bloco homologado do ambiente visual para `development` e, após aprovação, para `main`/produção.
 
 Correções de integração concluídas no mesmo ambiente:
 
