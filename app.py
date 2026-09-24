@@ -343,6 +343,11 @@ HISTORY_ACTION_LABELS = {
 }
 EMISSION_STATUS_LABELS = {'VALIDA': 'Válida', 'RETIFICADA': 'Retificada', 'CANCELADA': 'Cancelada'}
 
+def history_observation_label(observation):
+    if observation == 'Requerimento enviado pelo próprio servidor em conta individual vinculada ao cadastro funcional.':
+        return 'Pedido enviado pelo próprio servidor por meio do Portal do Servidor.'
+    return observation or 'Sem observação.'
+
 def support_tickets_query():
     query = ChamadoSuporte.query
     if current_user.is_platform_admin:
@@ -378,6 +383,7 @@ def permission_context():
         'history_action_label': lambda action: HISTORY_ACTION_LABELS.get(
             action, (action or 'Atualização').replace('_', ' ').title()),
         'emission_status_label': lambda status: EMISSION_STATUS_LABELS.get(status, status.title()),
+        'history_observation_label': history_observation_label,
     }
 
 def permission_required(permission):
