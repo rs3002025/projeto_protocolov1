@@ -23,6 +23,11 @@ from models import (Lotacao, Movimentacao, Organizacao, Protocolo, Usuario,
 from models import OrganizacaoCapacidadeEvento
 from models import EmissaoEletronica
 from models import SolicitacaoComplemento
+from models import PortalSessao, PortalRecuperacao
+from models import AuditoriaEvento
+from app import verify_audit_chain
+import re
+from urllib.parse import urlsplit
 
 
 def teardown_module():
@@ -30,6 +35,36 @@ def teardown_module():
         db.session.remove()
         db.engine.dispose()
     _test_directory.cleanup()
+
+
+def test_auditoria_detecta_alteracao_e_separa_clientes():
+    with app.app_context():
+        organization = Organizacao(nome='Teste Auditoria', slug='teste-auditoria')
+        db.session.add(organization)
+        db.session.flush()
+        tenant_id = organization.id
+        db.session.add(HistoricoProtocolo(
+            tenant_id=tenant_id, acao='TESTE', status='EM ANÁLISE',
+            responsavel='auditor', observacao='Registro original'))
+        db.session.commit()
+        valid, records, broken_at = verify_audit_chain(tenant_id)
+        assert valid and broken_at is None and len(records) == 1
+        assert AuditoriaEvento.query.filter_by(tenant_id=1, acao='TESTE').count() == 0
+        original = records[0].payload
+        records[0].payload = original.replace('Registro original', 'Registro adulterado')
+        db.session.commit()
+        assert verify_audit_chain(tenant_id)[0] is False
+        records[0].payload = original
+        db.session.commit()
+        assert verify_audit_chain(tenant_id)[0] is True
+        history = HistoricoProtocolo.query.filter_by(tenant_id=tenant_id).one()
+        history.observacao = 'Histórico adulterado'
+        db.session.commit()
+        assert verify_audit_chain(tenant_id)[0] is False
+        HistoricoProtocolo.query.filter_by(tenant_id=tenant_id).delete()
+        AuditoriaEvento.query.filter_by(tenant_id=tenant_id).delete()
+        db.session.delete(organization)
+        db.session.commit()
 
 
 def setup_module():
@@ -1425,8 +1460,38 @@ def test_portal_servidor_isola_login_e_abertura_em_nome_proprio():
         assert HistoricoProtocolo.query.filter_by(
             protocolo_id=protocolo_id, acao='COMPLEMENTO_ENVIADO').count() == 1
 
-    client.post('/portal/sair')
+    sessions_page = client.get('/portal/sessoes').get_data(as_text=True)
+    assert 'Este acesso' in sessions_page
     with app.app_context():
+        portal_user = Usuario.query.filter_by(login='servidor.portal').one()
+        user_id = portal_user.id
+    admin_client = app.test_client()
+    login(admin_client, 'cliente-a')
+    recovery = admin_client.post(f'/admin/usuarios/{user_id}/recuperar-portal')
+    assert recovery.status_code == 200
+    match = re.search(r'id="recovery-link" value="([^"]+)"', recovery.get_data(as_text=True))
+    assert match
+    reset_path = urlsplit(match.group(1)).path
+    reset_client = app.test_client()
+    assert reset_client.post(reset_path, data={
+        'senha': 'nova-senha-segura-123', 'confirmar_senha': 'nova-senha-segura-123',
+    }).status_code == 302
+    assert reset_client.post(reset_path, data={
+        'senha': 'outra-senha-segura', 'confirmar_senha': 'outra-senha-segura',
+    }).status_code == 410
+    assert client.get('/portal').status_code == 302
+    assert client.post('/portal/cliente-a/entrar', data={
+        'login': 'servidor.portal', 'senha': 'nova-senha-segura-123',
+    }).status_code == 302
+    with app.app_context():
+        session_id = PortalSessao.query.filter_by(usuario_id=user_id,
+                                                   encerrada_em=None).one().id
+    assert client.post(f'/portal/sessoes/{session_id}/encerrar').status_code == 302
+    assert client.get('/portal').status_code == 302
+
+    with app.app_context():
+        PortalSessao.query.filter_by(usuario_id=user_id).delete()
+        PortalRecuperacao.query.filter_by(usuario_id=user_id).delete()
         Protocolo.query.filter_by(requerente_servidor_id=servidor_id).delete()
         Usuario.query.filter_by(login='servidor.portal').delete()
         Servidor.query.filter_by(id=servidor_id).delete()
