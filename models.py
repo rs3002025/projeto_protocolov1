@@ -72,6 +72,29 @@ class Usuario(TenantMixin, db.Model, UserMixin):
     def is_active(self):
         return self.status == 'ativo' and self.organizacao is not None and self.organizacao.ativo
 
+
+class PortalSessao(TenantMixin, db.Model):
+    __tablename__ = 'portal_sessoes'
+    id = db.Column(ID_TYPE, primary_key=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False, index=True)
+    identificador_hash = db.Column(db.String(64), nullable=False, unique=True, index=True)
+    dispositivo = db.Column(db.String(180), nullable=False)
+    criada_em = db.Column(db.TIMESTAMP(timezone=True), server_default=db.func.now(), nullable=False)
+    ultimo_acesso_em = db.Column(db.TIMESTAMP(timezone=True), server_default=db.func.now(), nullable=False)
+    expira_em = db.Column(db.TIMESTAMP(timezone=True), nullable=False)
+    encerrada_em = db.Column(db.TIMESTAMP(timezone=True))
+
+
+class PortalRecuperacao(TenantMixin, db.Model):
+    __tablename__ = 'portal_recuperacoes'
+    id = db.Column(ID_TYPE, primary_key=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False, index=True)
+    token_hash = db.Column(db.String(64), nullable=False, unique=True, index=True)
+    gerado_por_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)
+    criado_em = db.Column(db.TIMESTAMP(timezone=True), server_default=db.func.now(), nullable=False)
+    expira_em = db.Column(db.TIMESTAMP(timezone=True), nullable=False)
+    utilizado_em = db.Column(db.TIMESTAMP(timezone=True))
+
 class Protocolo(TenantMixin, db.Model):
     __tablename__ = 'protocolos'
     __table_args__ = (db.UniqueConstraint('tenant_id', 'numero', name='uq_protocolo_tenant_numero'),)
@@ -209,6 +232,21 @@ class HistoricoProtocolo(TenantMixin, db.Model):
     acao = db.Column(db.String(80), nullable=False, default='ATUALIZACAO')
     observacao = db.Column(db.Text)
     data_movimentacao = db.Column(db.TIMESTAMP, server_default=db.func.current_timestamp())
+    evento_uuid = db.Column(db.String(36), unique=True, index=True)
+
+
+class AuditoriaEvento(TenantMixin, db.Model):
+    __tablename__ = 'auditoria_eventos'
+    __table_args__ = (db.UniqueConstraint('tenant_id', 'sequencia', name='uq_auditoria_tenant_sequencia'),)
+    id = db.Column(ID_TYPE, primary_key=True)
+    sequencia = db.Column(db.BigInteger, nullable=False)
+    protocolo_id = db.Column(db.Integer, index=True)
+    usuario_id = db.Column(db.Integer)
+    acao = db.Column(db.String(80), nullable=False)
+    payload = db.Column(db.Text, nullable=False)
+    hash_anterior = db.Column(db.String(64), nullable=False)
+    hash_atual = db.Column(db.String(64), nullable=False)
+    criado_em = db.Column(db.TIMESTAMP(timezone=True), server_default=db.func.now(), nullable=False)
 
 class Movimentacao(TenantMixin, db.Model):
     __tablename__ = 'movimentacoes'
