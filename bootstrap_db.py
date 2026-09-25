@@ -58,6 +58,7 @@ SCHEMA_COLUMNS = {
     'historico_protocolos': {
         'usuario_id': 'INTEGER',
         'acao': "VARCHAR(80) DEFAULT 'ATUALIZACAO' NOT NULL",
+        'evento_uuid': 'VARCHAR(36)',
     },
     'emissoes_eletronicas': {
         'versao': 'INTEGER DEFAULT 1 NOT NULL',
