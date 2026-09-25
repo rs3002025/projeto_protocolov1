@@ -589,7 +589,7 @@ Limites desta entrega:
 - o nível forte com segundo fator/WebAuthn ainda não está disponível e deve permanecer desabilitado;
 - a cadeia local detecta alterações no banco enquanto o próprio registro da cadeia for preservado, mas não substitui uma cópia externa independente nem cobre eventos anteriores à implantação;
 - a visualização do login publicado foi conferida no navegador; os fluxos autenticados no Railway e o uso em celular físico ainda precisam de homologação;
-- os manuais e slides existentes ainda precisam de atualização e revisão visual; esta etapa não deve ser marcada como concluída;
+- os slides da equipe do cliente foram atualizados em uma cópia de 30 páginas, preservando a versão anterior; as quatro páginas novas passaram por inspeção visual. A cópia atualizada do manual foi gerada, mas ainda não passou pela revisão visual exigida para entrega porque o conversor de documentos não está disponível neste ambiente;
 - não promover este bloco a `development` ou produção até concluir a homologação operacional e o segundo fator, se o cliente escolher nível forte;
 - o backup nativo do Railway depende da mudança do plano contratual e deve ser configurado e testado quando estiver disponível;
 - integrações externas de identidade e eventual homologação jurídica dependem de escolhas e validação externas, não de implementação automática pelo sistema.
