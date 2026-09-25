@@ -1317,6 +1317,8 @@ def platform_update_capabilities(organization_id):
     assurance_level = (request.form.get('nivel_garantia_assinatura') or 'interno').strip().lower()
     if assurance_level not in {'interno', 'forte', 'externo'}:
         abort(400, description='Nível de garantia inválido.')
+    if assurance_level != 'interno':
+        abort(409, description='Este nível de garantia ainda não está disponível.')
     electronic_enabled = request.form.get('emissao_eletronica_protocolista_enabled') == 'on'
     remote_enabled = request.form.get('portal_servidor_remoto_enabled') == 'on'
     reason = (request.form.get('motivo') or '').strip()[:500] or None
