@@ -61,6 +61,12 @@ from models import (Organizacao, Usuario, Protocolo, HistoricoProtocolo, Movimen
                     TipoRequerimento, Servidor, ChamadoSuporte, MensagemSuporte,
                     OrganizacaoCapacidadeEvento, EmissaoEletronica, db)
 from models import SolicitacaoComplemento
+from models import PortalSessao, PortalRecuperacao
+from models import AuditoriaEvento
+from datetime import timezone
+from sqlalchemy import event, select
+from sqlalchemy.orm import Session
+import json
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
@@ -718,6 +724,99 @@ def portal_required(view):
     return wrapped
 
 
+def _portal_token_hash(token):
+    return hmac.new(app.config['SECRET_KEY'].encode(), token.encode(), hashlib.sha256).hexdigest()
+
+
+def _portal_now():
+    return datetime.now(timezone.utc)
+
+
+def _audit_digest(previous, payload):
+    return hashlib.sha256((previous + '\n' + payload).encode('utf-8')).hexdigest()
+
+
+@event.listens_for(Session, 'before_flush')
+def append_protocol_audit(db_session, flush_context, instances):
+    """Encadeia os novos eventos de protocolo sob bloqueio da organização."""
+    pending = [item for item in db_session.new if isinstance(item, HistoricoProtocolo)]
+    for tenant_id in sorted({item.tenant_id for item in pending}):
+        db_session.execute(select(Organizacao.id).where(
+            Organizacao.id == tenant_id).with_for_update()).first()
+        last = db_session.query(AuditoriaEvento).filter_by(tenant_id=tenant_id).order_by(
+            AuditoriaEvento.sequencia.desc()).first()
+        previous = last.hash_atual if last else '0' * 64
+        sequence = last.sequencia if last else 0
+        for item in (entry for entry in pending if entry.tenant_id == tenant_id):
+            sequence += 1
+            item.evento_uuid = str(uuid.uuid4())
+            payload = json.dumps({
+                'versao': 1, 'tenant_id': tenant_id, 'sequencia': sequence,
+                'evento_uuid': item.evento_uuid,
+                'protocolo_id': item.protocolo_id, 'usuario_id': item.usuario_id,
+                'acao': item.acao, 'status': item.status,
+                'responsavel': item.responsavel, 'observacao': item.observacao,
+            }, sort_keys=True, ensure_ascii=False, separators=(',', ':'))
+            current = _audit_digest(previous, payload)
+            db_session.add(AuditoriaEvento(
+                tenant_id=tenant_id, sequencia=sequence,
+                protocolo_id=item.protocolo_id, usuario_id=item.usuario_id,
+                acao=item.acao, payload=payload,
+                hash_anterior=previous, hash_atual=current))
+            previous = current
+
+
+def verify_audit_chain(tenant_id):
+    records = AuditoriaEvento.query.filter_by(tenant_id=tenant_id).order_by(
+        AuditoriaEvento.sequencia).all()
+    previous = '0' * 64
+    uuids = [json.loads(item.payload).get('evento_uuid') for item in records]
+    histories = {item.evento_uuid: item for item in HistoricoProtocolo.query.filter(
+        HistoricoProtocolo.tenant_id == tenant_id,
+        HistoricoProtocolo.evento_uuid.in_(uuids)).all()}
+    for expected, item in enumerate(records, start=1):
+        if (item.sequencia != expected or item.hash_anterior != previous or
+                not hmac.compare_digest(item.hash_atual, _audit_digest(previous, item.payload))):
+            return False, records, expected
+        payload = json.loads(item.payload)
+        history = histories.get(payload.get('evento_uuid'))
+        if not history or any(payload.get(field) != getattr(history, field) for field in (
+                'tenant_id', 'protocolo_id', 'usuario_id', 'acao', 'status',
+                'responsavel', 'observacao')):
+            return False, records, expected
+        previous = item.hash_atual
+    return True, records, None
+
+
+def _portal_session():
+    token = session.get('portal_session_token')
+    if not token or not current_user.is_authenticated:
+        return None
+    return PortalSessao.query.filter_by(
+        tenant_id=current_user.tenant_id, usuario_id=current_user.id,
+        identificador_hash=_portal_token_hash(token), encerrada_em=None).first()
+
+
+@app.before_request
+def validate_portal_session():
+    if not current_user.is_authenticated or current_user.tipo != 'requerente':
+        return None
+    record = _portal_session()
+    now = _portal_now()
+    expires = record.expira_em.replace(tzinfo=timezone.utc) if record and record.expira_em.tzinfo is None else (record.expira_em if record else None)
+    if session.get('auth_surface') != 'portal' or not record or expires <= now:
+        slug = current_user.organizacao.slug if current_user.organizacao else 'prefeitura'
+        session.pop('portal_session_token', None)
+        session.pop('auth_surface', None)
+        logout_user()
+        return redirect(url_for('portal_login', slug=slug))
+    last_access = record.ultimo_acesso_em.replace(tzinfo=timezone.utc) if record.ultimo_acesso_em.tzinfo is None else record.ultimo_acesso_em
+    if request.endpoint != 'static' and now - last_access >= timedelta(minutes=5):
+        record.ultimo_acesso_em = now
+        db.session.commit()
+    return None
+
+
 @app.route('/portal/<string:slug>/entrar', methods=['GET', 'POST'])
 def portal_login(slug):
     organizacao = Organizacao.query.filter_by(slug=slug.strip().lower(), ativo=True).first_or_404()
@@ -743,8 +842,16 @@ def portal_login(slug):
             if tentativa:
                 db.session.delete(tentativa)
                 db.session.commit()
-            login_user(user, remember=form.remember.data)
+            login_user(user, remember=False)
             session['auth_surface'] = 'portal'
+            token = secrets.token_urlsafe(32)
+            session['portal_session_token'] = token
+            db.session.add(PortalSessao(
+                tenant_id=organizacao.id, usuario_id=user.id,
+                identificador_hash=_portal_token_hash(token),
+                dispositivo=(request.user_agent.string or 'Navegador não identificado')[:180],
+                expira_em=_portal_now() + timedelta(hours=12)))
+            db.session.commit()
             flash('Acesso realizado com segurança.', 'success')
             return redirect(url_for('portal_home'))
         if not tentativa:
@@ -759,6 +866,57 @@ def portal_login(slug):
     return render_template('portal_login.html', form=form, organizacao=organizacao)
 
 
+@app.post('/admin/usuarios/<int:user_id>/recuperar-portal')
+@permission_required('manage')
+def admin_portal_recovery(user_id):
+    user = tenant_get_or_404(Usuario, user_id)
+    if user.tipo != 'requerente' or user.status != 'ativo' or not user.servidor_id:
+        abort(400, description='A conta não está habilitada para o Portal do Servidor.')
+    now = _portal_now()
+    PortalRecuperacao.query.filter_by(tenant_id=current_tenant_id(), usuario_id=user.id,
+                                      utilizado_em=None).update({'utilizado_em': now})
+    token = secrets.token_urlsafe(32)
+    db.session.add(PortalRecuperacao(
+        tenant_id=current_tenant_id(), usuario_id=user.id,
+        token_hash=_portal_token_hash(token), gerado_por_id=current_user.id,
+        expira_em=now + timedelta(minutes=30)))
+    db.session.commit()
+    link = url_for('portal_recuperar', slug=active_organization().slug, token=token, _external=True)
+    return render_template('portal_recuperacao_link.html', user=user, link=link)
+
+
+@app.route('/portal/<string:slug>/recuperar/<string:token>', methods=['GET', 'POST'])
+def portal_recuperar(slug, token):
+    organizacao = Organizacao.query.filter_by(slug=slug.strip().lower(), ativo=True,
+                                               portal_servidor_remoto_enabled=True).first_or_404()
+    record = PortalRecuperacao.query.filter_by(
+        tenant_id=organizacao.id, token_hash=_portal_token_hash(token),
+        utilizado_em=None).first()
+    expiry = record.expira_em.replace(tzinfo=timezone.utc) if record and record.expira_em.tzinfo is None else (record.expira_em if record else None)
+    if not record or expiry <= _portal_now():
+        return render_template('portal_recuperar.html', organizacao=organizacao,
+                               expired=True), 410
+    if request.method == 'POST':
+        password = request.form.get('senha') or ''
+        confirmation = request.form.get('confirmar_senha') or ''
+        if len(password) < 12 or password != confirmation:
+            flash('Informe uma senha de pelo menos 12 caracteres e repita-a corretamente.', 'danger')
+        else:
+            user = Usuario.query.filter_by(id=record.usuario_id, tenant_id=organizacao.id,
+                                           tipo='requerente', status='ativo').first_or_404()
+            user.senha = bcrypt.generate_password_hash(password).decode('utf-8')
+            record.utilizado_em = _portal_now()
+            PortalSessao.query.filter_by(tenant_id=organizacao.id, usuario_id=user.id,
+                                         encerrada_em=None).update({'encerrada_em': _portal_now()})
+            db.session.commit()
+            session.pop('portal_session_token', None)
+            session.pop('auth_surface', None)
+            logout_user()
+            flash('Senha definida. Entre com a nova senha.', 'success')
+            return redirect(url_for('portal_login', slug=organizacao.slug))
+    return render_template('portal_recuperar.html', organizacao=organizacao, expired=False)
+
+
 @app.get('/portal')
 @portal_required
 def portal_home():
@@ -768,6 +926,38 @@ def portal_home():
         SolicitacaoComplemento.protocolo_id.in_([p.id for p in protocolos] or [-1])).count()
     return render_template('portal_home.html', protocolos=protocolos, pendencias=pendencias,
                            organizacao=active_organization())
+
+
+@app.get('/portal/sessoes')
+@portal_required
+def portal_sessoes():
+    records = PortalSessao.query.filter_by(
+        tenant_id=current_tenant_id(), usuario_id=current_user.id,
+        encerrada_em=None).order_by(PortalSessao.criada_em.desc()).all()
+    current = _portal_session()
+    return render_template('portal_sessoes.html', organizacao=active_organization(),
+                           records=records, current_id=current.id if current else None,
+                           now=_portal_now())
+
+
+@app.post('/portal/sessoes/<int:session_id>/encerrar')
+@portal_required
+def portal_encerrar_sessao(session_id):
+    record = PortalSessao.query.filter_by(
+        id=session_id, tenant_id=current_tenant_id(), usuario_id=current_user.id,
+        encerrada_em=None).first_or_404()
+    current = _portal_session()
+    current_session = current is not None and current.id == record.id
+    record.encerrada_em = _portal_now()
+    db.session.commit()
+    if current_session:
+        slug = active_organization().slug
+        session.pop('portal_session_token', None)
+        session.pop('auth_surface', None)
+        logout_user()
+        return redirect(url_for('portal_login', slug=slug))
+    flash('Acesso encerrado.', 'success')
+    return redirect(url_for('portal_sessoes'))
 
 
 @app.route('/portal/novo', methods=['GET', 'POST'])
@@ -905,6 +1095,11 @@ def portal_enviar_complemento(protocolo_id, solicitacao_id):
 @portal_required
 def portal_logout():
     slug = active_organization().slug
+    record = _portal_session()
+    if record:
+        record.encerrada_em = _portal_now()
+        db.session.commit()
+    session.pop('portal_session_token', None)
     session.pop('auth_surface', None)
     logout_user()
     flash('Você saiu do Portal do Servidor.', 'info')
@@ -999,6 +1194,26 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+
+@app.get('/admin/auditoria')
+@login_required
+@admin_required
+def admin_auditoria():
+    valid, records, broken_at = verify_audit_chain(current_tenant_id())
+    if request.args.get('exportar') == '1':
+        body = json.dumps({
+            'organizacao_id': current_tenant_id(), 'integra': valid,
+            'primeira_falha': broken_at, 'eventos': [{
+                'sequencia': item.sequencia, 'payload': json.loads(item.payload),
+                'hash_anterior': item.hash_anterior, 'hash_atual': item.hash_atual,
+            } for item in records],
+        }, ensure_ascii=False, indent=2)
+        response = Response(body, mimetype='application/json')
+        response.headers['Content-Disposition'] = 'attachment; filename="auditoria-sysprot.json"'
+        return response
+    return render_template('auditoria.html', valid=valid, broken_at=broken_at,
+                           records=records, title='Auditoria de protocolos')
+
 def platform_admin_required(f):
     @wraps(f)
     @login_required
@@ -1032,6 +1247,7 @@ def isolate_portal_surface():
         return None
     allowed = {'portal_home', 'portal_novo_protocolo', 'portal_detalhe',
                'portal_enviar_complemento', 'portal_logout',
+               'portal_sessoes', 'portal_encerrar_sessao',
                'baixar_anexo', 'gerar_pdf_protocolo', 'organization_logo', 'static',
                'validar_emissao', 'health'}
     if session.get('auth_surface') != 'portal':
