@@ -8,6 +8,7 @@
       <a href="#identidade" class="btn btn-outline-primary">Identidade visual</a>
       <a href="#usuarios" class="btn btn-outline-primary">Usuários</a>
       <a href="#listas" class="btn btn-outline-primary">Tipos e setores</a>
+      <a href="{{ url_for('admin_auditoria') }}" class="btn btn-outline-primary">Auditoria</a>
     </nav>
 
     <div class="card mt-4 settings-section" id="identidade">
@@ -73,6 +74,7 @@
                           <label class="visually-hidden" for="edit-user-server-{{ user.id }}">Cadastro funcional de {{ user.login }}</label><select id="edit-user-server-{{ user.id }}" form="edit-user-{{ user.id }}" class="form-select form-select-sm mb-1" name="servidor_id"><option value="0">Sem vínculo funcional</option>{% for servidor in servidores %}<option value="{{ servidor.id }}" {% if user.servidor_id == servidor.id %}selected{% endif %}>{{ servidor.nome }} — {{ servidor.matricula }}</option>{% endfor %}</select>
                           <button form="edit-user-{{ user.id }}" class="btn btn-sm btn-primary" type="submit">Salvar</button>
                           {% if user.id != current_user.id %}<form method="POST" action="{{ url_for('admin_toggle_user_status', user_id=user.id) }}" class="d-inline" {% if user.status == 'ativo' %}data-confirm="Desativar o acesso de {{ user.nome_completo }}? O usuário não conseguirá entrar até ser reativado."{% endif %}><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm {{ 'btn-outline-danger' if user.status == 'ativo' else 'btn-outline-primary' }}" type="submit">{{ 'Desativar' if user.status == 'ativo' else 'Reativar' }}</button></form>{% endif %}
+                          {% if user.tipo == 'requerente' and user.status == 'ativo' %}<form method="POST" action="{{ url_for('admin_portal_recovery', user_id=user.id) }}" class="d-inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm btn-outline-secondary" type="submit">Gerar link de acesso</button></form>{% endif %}
                         </td>
                     </tr>
                     {% endfor %}
