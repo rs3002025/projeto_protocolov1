@@ -67,6 +67,29 @@ def test_auditoria_detecta_alteracao_e_separa_clientes():
         db.session.commit()
 
 
+def test_nivel_de_garantia_indisponivel_nao_pode_ser_ativado_por_post_direto():
+    with app.app_context():
+        admin = Usuario.query.filter_by(tenant_id=1, login='admin').one()
+        admin.is_platform_admin = True
+        db.session.commit()
+    client = app.test_client()
+    login(client, 'cliente-a')
+    with app.app_context():
+        organization = Organizacao.query.filter_by(slug='cliente-a').one()
+        organization_id = organization.id
+        previous = organization.nivel_garantia_assinatura
+    for level in ('forte', 'externo'):
+        response = client.post(f'/plataforma/cliente/{organization_id}/capacidades', data={
+            'nivel_garantia_assinatura': level,
+        })
+        assert response.status_code == 409
+        with app.app_context():
+            assert db.session.get(Organizacao, organization_id).nivel_garantia_assinatura == previous
+    with app.app_context():
+        Usuario.query.filter_by(tenant_id=1, login='admin').one().is_platform_admin = False
+        db.session.commit()
+
+
 def setup_module():
     app.config.update(TESTING=True, WTF_CSRF_ENABLED=False)
     with app.app_context():
@@ -132,7 +155,7 @@ def test_administrador_geral_controla_capacidades_com_auditoria():
     response = client.post('/plataforma/cliente/2/capacidades', data={
         'emissao_eletronica_protocolista_enabled': 'on',
         'portal_servidor_remoto_enabled': 'on',
-        'nivel_garantia_assinatura': 'forte',
+        'nivel_garantia_assinatura': 'interno',
         'motivo': 'Homologação do recurso contratado',
     }, follow_redirects=True)
     assert response.status_code == 200
@@ -142,7 +165,7 @@ def test_administrador_geral_controla_capacidades_com_auditoria():
         cliente = Organizacao.query.filter_by(slug='cliente-b').one()
         assert cliente.emissao_eletronica_protocolista_enabled is True
         assert cliente.portal_servidor_remoto_enabled is True
-        assert cliente.nivel_garantia_assinatura == 'forte'
+        assert cliente.nivel_garantia_assinatura == 'interno'
         evento = OrganizacaoCapacidadeEvento.query.filter_by(organizacao_id=cliente.id).one()
         assert evento.alterado_por_id == 1
         assert evento.motivo == 'Homologação do recurso contratado'
