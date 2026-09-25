@@ -594,3 +594,10 @@ Limites desta entrega:
 - o backup nativo do Railway depende da mudança do plano contratual e deve ser configurado e testado quando estiver disponível;
 - integrações externas de identidade e eventual homologação jurídica dependem de escolhas e validação externas, não de implementação automática pelo sistema.
 
+## Atualização — verificação do nível forte em 25 de setembro de 2026
+
+- A rota de configuração agora rejeita `forte` e `externo` com HTTP 409 enquanto os métodos não estiverem implementados. A restrição não depende apenas do campo desabilitado na interface.
+- A suíte local passou com 60 testes, incluindo a tentativa de ativação direta de níveis indisponíveis.
+- A implementação de WebAuthn/passkey não foi liberada. O pacote oficial e suas dependências não puderam ser instalados pela rede deste ambiente, e o download pelo navegador foi bloqueado. Não se deve substituir a confirmação criptográfica prevista no nível forte por TOTP isolado nem afirmar equivalência jurídica.
+- A página pública de entrada do Portal do Servidor foi conferida no ambiente visual. A homologação autenticada no Railway aguarda sessões de teste de administrador e servidor; não foram usados dados de acesso reais sem disponibilização pelo usuário.
+
