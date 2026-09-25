@@ -1,0 +1,12 @@
+{% extends 'layout.html' %}
+{% block content %}
+<main class="container py-4">
+  <h1 class="h3">Link de acesso do servidor</h1>
+  <p>Copie o endereço abaixo e entregue diretamente a {{ user.nome_completo }} após conferir sua identidade. O link pode ser usado uma vez e expira em 30 minutos.</p>
+  <label class="form-label" for="recovery-link">Endereço temporário</label>
+  <input class="form-control" id="recovery-link" value="{{ link }}" readonly>
+  <p class="form-text">O endereço não ficará disponível novamente. Se expirar, gere outro link no cadastro do usuário.</p>
+  <a class="btn btn-outline-primary" href="{{ url_for('configuracoes') }}">Voltar aos usuários</a>
+</main>
+{% endblock content %}
+
