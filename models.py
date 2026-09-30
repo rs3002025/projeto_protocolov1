@@ -63,6 +63,15 @@ class Usuario(TenantMixin, db.Model, UserMixin):
     tipo = db.Column(db.Text, nullable=False)
     is_platform_admin = db.Column(db.Boolean, nullable=False, default=False)
     email = db.Column(db.Text)
+    telefone = db.Column(db.String(30))
+    endereco = db.Column(db.Text)
+    deve_trocar_senha = db.Column(db.Boolean, nullable=False, default=False)
+    pin_hash = db.Column(db.Text)
+    pin_erros = db.Column(db.Integer, nullable=False, default=0)
+    pin_bloqueado_ate = db.Column(db.TIMESTAMP(timezone=True))
+    pin_redefinicao_hash = db.Column(db.String(64))
+    pin_redefinicao_expira_em = db.Column(db.TIMESTAMP(timezone=True))
+    pin_redefinicao_erros = db.Column(db.Integer, nullable=False, default=0)
     lotacao_id = db.Column(ID_TYPE, db.ForeignKey('lotacoes.id'))
     servidor_id = db.Column(ID_TYPE, db.ForeignKey('servidores.id'))
     organizacao = db.relationship('Organizacao')
@@ -301,9 +310,26 @@ class Servidor(TenantMixin, db.Model):
     id = db.Column(ID_TYPE, primary_key=True)
     matricula = db.Column(db.Text, nullable=False)
     nome = db.Column(db.Text)
+    cpf = db.Column(db.String(11))
+    nascimento = db.Column(db.Date)
+    nome_mae = db.Column(db.Text)
     lotacao = db.Column(db.Text)
     cargo = db.Column(db.Text)
     unidade_de_exercicio = db.Column(db.Text)
+
+
+class PortalCadastro(TenantMixin, db.Model):
+    __tablename__ = 'portal_cadastros'
+    id = db.Column(ID_TYPE, primary_key=True)
+    servidor_id = db.Column(ID_TYPE, db.ForeignKey('servidores.id'), nullable=False, index=True)
+    email = db.Column(db.String(180), nullable=False)
+    telefone = db.Column(db.String(30), nullable=False)
+    endereco = db.Column(db.Text, nullable=False)
+    senha_hash = db.Column(db.Text, nullable=False)
+    codigo_hash = db.Column(db.String(64), nullable=False)
+    tentativas = db.Column(db.Integer, nullable=False, default=0)
+    expira_em = db.Column(db.TIMESTAMP(timezone=True), nullable=False)
+    confirmado_em = db.Column(db.TIMESTAMP(timezone=True))
 
 class TipoRequerimento(TenantMixin, db.Model):
     __tablename__ = 'tipos_requerimento'
@@ -349,4 +375,3 @@ class MensagemSuporte(TenantMixin, db.Model):
     criado_em = db.Column(db.TIMESTAMP(timezone=True), server_default=db.func.now(), nullable=False)
 
     autor = db.relationship('Usuario', foreign_keys=[autor_id])
-

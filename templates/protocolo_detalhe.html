@@ -21,7 +21,7 @@
   <form method="POST" target="_blank" action="{{ url_for('autenticar_emissao_protocolo', protocolo_id=protocolo.id) }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="modal-header"><h2 class="modal-title h5">Autenticar emissão</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
-    <div class="modal-body"><p>Esta ação gera {{ 'uma nova versão autenticada' if protocolo.retificacao_pendente else 'o PDF definitivo' }}, registra sua identidade e congela os dados e anexos atuais. Ela autentica a emissão pelo protocolista, não a assinatura do requerente.</p><label class="form-label" for="senha-emissao">Confirme sua senha</label><input class="form-control" id="senha-emissao" name="senha" type="password" required autocomplete="current-password"></div>
+    <div class="modal-body"><p>Esta ação gera {{ 'uma nova versão autenticada' if protocolo.retificacao_pendente else 'o PDF definitivo' }}, registra sua identidade e congela os dados e anexos atuais. Ela autentica a emissão pelo protocolista, não a assinatura do requerente.</p>{% if current_user.pin_hash %}<label class="form-label" for="pin-emissao">PIN pessoal de emissão</label><input class="form-control" id="pin-emissao" name="pin" type="password" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required autocomplete="off">{% else %}<p>Antes da primeira emissão, <a href="{{ url_for('configurar_pin') }}">configure seu PIN pessoal</a>.</p>{% endif %}</div>
     <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-primary">Confirmar e gerar PDF</button></div>
   </form>
 </div></div></div>
@@ -228,4 +228,3 @@
 
 
 {% endblock content %}
-

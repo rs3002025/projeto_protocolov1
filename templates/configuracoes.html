@@ -39,6 +39,12 @@
             <h4>Gerenciamento de Usuários</h4>
         </div>
         <div class="card-body">
+            <form method="POST" action="{{ url_for('admin_importar_servidores') }}" enctype="multipart/form-data" class="mb-3">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <label class="form-label" for="importar-servidores">Importar servidores para autocadastro</label>
+                <div class="input-group"><input class="form-control" id="importar-servidores" name="arquivo" type="file" accept=".xlsx" required><button class="btn btn-outline-primary" type="submit">Importar planilha</button></div>
+                <div class="form-text">Colunas: matricula, nome, cpf, data_nascimento e nome_mae. Matrículas que já possuem conta não serão alteradas.</div>
+            </form>
             <button class="btn btn-primary mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#createUserPanel" aria-expanded="false">Criar novo usuário</button>
             <div class="collapse" id="createUserPanel"><h5>Dados do novo usuário</h5>
             <form method="POST" action="{{ url_for('admin_create_user') }}">
@@ -145,4 +151,3 @@
     </div>
 </div>
 {% endblock content %}
-

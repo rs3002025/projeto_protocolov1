@@ -5,7 +5,7 @@ import sys
 import types
 import hashlib
 from unittest.mock import patch
-from openpyxl import load_workbook
+from openpyxl import load_workbook, Workbook
 from PIL import Image
 from flask import render_template
 from pathlib import Path
@@ -67,27 +67,102 @@ def test_auditoria_detecta_alteracao_e_separa_clientes():
         db.session.commit()
 
 
-def test_nivel_de_garantia_indisponivel_nao_pode_ser_ativado_por_post_direto():
+def test_nivel_de_garantia_enviado_por_post_nao_altera_configuracao():
     with app.app_context():
         admin = Usuario.query.filter_by(tenant_id=1, login='admin').one()
         admin.is_platform_admin = True
         db.session.commit()
-    client = app.test_client()
-    login(client, 'cliente-a')
-    with app.app_context():
         organization = Organizacao.query.filter_by(slug='cliente-a').one()
         organization_id = organization.id
         previous = organization.nivel_garantia_assinatura
+    client = app.test_client()
+    login(client, 'cliente-a')
     for level in ('forte', 'externo'):
         response = client.post(f'/plataforma/cliente/{organization_id}/capacidades', data={
             'nivel_garantia_assinatura': level,
         })
-        assert response.status_code == 409
+        assert response.status_code == 302
         with app.app_context():
             assert db.session.get(Organizacao, organization_id).nivel_garantia_assinatura == previous
     with app.app_context():
         Usuario.query.filter_by(tenant_id=1, login='admin').one().is_platform_admin = False
         db.session.commit()
+
+
+def test_importacao_e_autocadastro_do_requerente_exigem_codigo_de_email():
+    with app.app_context():
+        org = Organizacao.query.filter_by(slug='cliente-a').one()
+        org.portal_servidor_remoto_enabled = True
+        Usuario.query.filter_by(tenant_id=org.id, login='admin').one().is_platform_admin = False
+        db.session.commit()
+    client = app.test_client()
+    login(client, 'cliente-a')
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.append(['matricula', 'nome', 'cpf', 'data_nascimento', 'nome_mae'])
+    sheet.append(['REG-1', 'Servidor Exemplo', '01234567890', datetime(1985, 5, 10), 'Maria Exemplo'])
+    data = io.BytesIO()
+    workbook.save(data)
+    data.seek(0)
+    result = client.post('/admin/servidores/importar', data={
+        'arquivo': (data, 'servidores.xlsx')}, content_type='multipart/form-data', follow_redirects=True)
+    assert result.status_code == 200
+    with app.app_context():
+        org = Organizacao.query.filter_by(slug='cliente-a').one()
+        servidor = Servidor.query.filter_by(tenant_id=org.id, matricula='REG-1').one()
+        assert servidor.cpf == '01234567890'
+        assert not Usuario.query.filter_by(tenant_id=org.id, servidor_id=servidor.id).first()
+    client.post('/logout')
+    payload = {
+        'matricula': 'REG-1', 'nome': 'Servidor Exemplo', 'cpf': '01234567890',
+        'primeiro_nome_mae': 'Maria', 'ano_nascimento': '1985',
+        'telefone': '88999999999', 'endereco': 'Rua Teste, 1',
+        'email': 'servidor@example.test', 'senha': 'uma senha longa de teste',
+    }
+    invalid = client.post('/portal/cliente-a/cadastre-se', data={**payload, 'ano_nascimento': '1986'})
+    assert invalid.status_code == 400
+    with patch('app._send_account_email') as send_email:
+        response = client.post('/portal/cliente-a/cadastre-se', data=payload)
+        assert response.status_code == 302
+        assert send_email.call_count == 1
+        code = re.search(r'\b\d{6}\b', send_email.call_args.args[2]).group()
+    assert client.post('/portal/cliente-a/confirmar-cadastro', data={'codigo': '000000'}).status_code == 400
+    assert client.post('/portal/cliente-a/confirmar-cadastro', data={'codigo': code}).status_code == 302
+    with app.app_context():
+        user = Usuario.query.filter_by(login='REG-1').one()
+        assert user.tipo == 'requerente' and user.email == payload['email']
+    assert client.post('/portal/cliente-a/entrar', data={
+        'login': 'REG-1', 'senha': payload['senha']}).status_code == 302
+    with app.app_context():
+        user = Usuario.query.filter_by(tenant_id=org.id, login='REG-1').one()
+        PortalSessao.query.filter_by(usuario_id=user.id).delete()
+        db.session.delete(user)
+        db.session.delete(servidor)
+        org.portal_servidor_remoto_enabled = False
+        db.session.commit()
+
+
+def test_usuario_administrativo_troca_senha_inicial_e_configura_pin():
+    with app.app_context():
+        org = Organizacao.query.filter_by(slug='cliente-a').one()
+        db.session.add(Usuario(tenant_id=org.id, nome='Novo', nome_completo='Novo Protocolista',
+                               login='novo-protocolista', email='novo@example.test',
+                               senha=bcrypt.generate_password_hash('senha provisoria de teste').decode('utf-8'),
+                               tipo='protocolista', deve_trocar_senha=True))
+        db.session.commit()
+    client = app.test_client()
+    client.post('/login', data={'organizacao': 'cliente-a', 'login': 'novo-protocolista',
+                                'senha': 'senha provisoria de teste'})
+    assert '/minha-conta/trocar-senha' in client.get('/home').headers['Location']
+    assert client.post('/minha-conta/trocar-senha', data={
+        'senha_atual': 'senha provisoria de teste', 'senha_nova': 'outra senha longa de teste',
+        'confirmar_senha': 'outra senha longa de teste'}).status_code == 302
+    assert client.post('/minha-conta/pin', data={
+        'senha': 'outra senha longa de teste', 'pin': '806241'}).status_code == 302
+    with app.app_context():
+        user = Usuario.query.filter_by(login='novo-protocolista').one()
+        assert not user.deve_trocar_senha
+        assert bcrypt.check_password_hash(user.pin_hash, '806241')
 
 
 def setup_module():
@@ -155,11 +230,12 @@ def test_administrador_geral_controla_capacidades_com_auditoria():
     response = client.post('/plataforma/cliente/2/capacidades', data={
         'emissao_eletronica_protocolista_enabled': 'on',
         'portal_servidor_remoto_enabled': 'on',
-        'nivel_garantia_assinatura': 'interno',
         'motivo': 'Homologação do recurso contratado',
     }, follow_redirects=True)
     assert response.status_code == 200
     assert 'Capacidades de Cliente B atualizadas e auditadas.' in response.get_data(as_text=True)
+    assert 'Nível de garantia' not in response.get_data(as_text=True)
+    assert 'Provedor externo' not in response.get_data(as_text=True)
 
     with app.app_context():
         cliente = Organizacao.query.filter_by(slug='cliente-b').one()
@@ -1270,7 +1346,8 @@ def test_emissao_autenticada_congela_pdf_dados_e_anexos_e_detecta_alteracao():
     with app.app_context():
         org = Organizacao.query.filter_by(slug='cliente-a').one()
         org.emissao_eletronica_protocolista_enabled = True
-        org.nivel_garantia_assinatura = 'interno'
+        user = Usuario.query.filter_by(tenant_id=org.id, login='admin').one()
+        user.pin_hash = bcrypt.generate_password_hash('123456').decode('utf-8')
         protocolo = Protocolo(tenant_id=org.id, numero='ASS-1/2026', nome='Teste autenticado',
                               matricula='ASS-1', data_solicitacao=date.today(),
                               modalidade_abertura='presencial_protocolista')
@@ -1283,7 +1360,7 @@ def test_emissao_autenticada_congela_pdf_dados_e_anexos_e_detecta_alteracao():
     modules = {'weasyprint': types.SimpleNamespace(HTML=FakeHTML), 'qrcode': fake_qrcode}
     with patch.dict(sys.modules, modules):
         response = client.post(f'/protocolo/{protocolo_id}/autenticar-emissao',
-                               data={'senha': 'senha-segura'})
+                               data={'pin': '123456'})
     assert response.status_code == 200
     assert response.data == b'%PDF-1.7\noriginal imutavel autenticado'
     assert len(qr_urls) == 2
@@ -1320,7 +1397,7 @@ def test_emissao_autenticada_congela_pdf_dados_e_anexos_e_detecta_alteracao():
     qr_urls.clear()
     with patch.dict(sys.modules, modules):
         nova_emissao = client.post(f'/protocolo/{protocolo_id}/autenticar-emissao',
-                                   data={'senha': 'senha-segura'})
+                                   data={'pin': '123456'})
     assert nova_emissao.status_code == 200 and len(qr_urls) == 2
     with app.app_context():
         retificacao = db.session.get(Protocolo, protocolo_id)
@@ -1521,4 +1598,3 @@ def test_portal_servidor_isola_login_e_abertura_em_nome_proprio():
         TipoRequerimento.query.filter_by(nome='Requerimento remoto').delete()
         Organizacao.query.filter_by(slug='cliente-a').one().portal_servidor_remoto_enabled = False
         db.session.commit()
-

@@ -9,7 +9,7 @@ class RegistrationForm(FlaskForm):
     """Formulário de Registro de Usuário"""
     nome_completo = StringField('Nome Completo', validators=[DataRequired(), Length(min=2, max=150)])
     login = StringField('Login de Acesso', validators=[DataRequired(), Length(min=4, max=25)])
-    senha = PasswordField('Senha', validators=[DataRequired(), Length(min=6)])
+    senha = PasswordField('Senha', validators=[DataRequired(), Length(min=12)])
     confirmar_senha = PasswordField('Confirmar Senha', validators=[DataRequired(), EqualTo('senha', message='As senhas devem ser iguais.')])
     # O campo 'tipo' (admin, user) pode ser definido administrativamente, não no registro público
     submit = SubmitField('Registrar')
@@ -86,7 +86,7 @@ class AdminUserCreationForm(FlaskForm):
     nome_completo = StringField('Nome Completo', validators=[DataRequired()])
     login = StringField('Login', validators=[DataRequired()])
     email = StringField('Email', validators=[DataRequired()])
-    senha = PasswordField('Senha', validators=[DataRequired(), Length(min=6)])
+    senha = PasswordField('Senha', validators=[DataRequired(), Length(min=12)])
     tipo = SelectField('Perfil', choices=[
         ('requerente', 'Servidor — Portal do Servidor'),
         ('consulta', 'Somente consulta'),
@@ -110,7 +110,7 @@ class PlatformAdminCreationForm(FlaskForm):
     nome_completo = StringField('Nome Completo', validators=[DataRequired(), Length(min=2, max=150)])
     login = StringField('Login', validators=[DataRequired(), Length(min=4, max=25)])
     email = StringField('Email', validators=[DataRequired(), Length(max=180)])
-    senha = PasswordField('Senha inicial', validators=[DataRequired(), Length(min=8)])
+    senha = PasswordField('Senha inicial', validators=[DataRequired(), Length(min=12)])
     organizacao_id = SelectField('Organização de acesso', coerce=int, choices=[], validators=[DataRequired()])
     submit = SubmitField('Criar administrador geral')
 
@@ -125,4 +125,3 @@ class BrandingForm(FlaskForm):
     ])
     salvar = SubmitField('Salvar logo')
     remover = SubmitField('Restaurar logo padrão')
-

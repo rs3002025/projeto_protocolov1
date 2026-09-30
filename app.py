@@ -52,7 +52,12 @@ import secrets
 import uuid
 from functools import wraps
 from urllib.parse import urlsplit
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
+import re
+import smtplib
+import unicodedata
+import zipfile
+from email.message import EmailMessage
 from sqlalchemy import func, cast, Date, text, or_, false, exists
 from datetime import datetime, timedelta
 from forms import LoginForm, TenantLoginForm, RegistrationForm, ProtocoloForm, AnexoForm, AdminUserCreationForm, PlatformAdminCreationForm, AdminListItemForm, ConsultaPublicaForm, BrandingForm
@@ -61,7 +66,7 @@ from models import (Organizacao, Usuario, Protocolo, HistoricoProtocolo, Movimen
                     TipoRequerimento, Servidor, ChamadoSuporte, MensagemSuporte,
                     OrganizacaoCapacidadeEvento, EmissaoEletronica, db)
 from models import SolicitacaoComplemento
-from models import PortalSessao, PortalRecuperacao
+from models import PortalSessao, PortalRecuperacao, PortalCadastro
 from models import AuditoriaEvento
 from datetime import timezone
 from sqlalchemy import event, select
@@ -866,6 +871,162 @@ def portal_login(slug):
     return render_template('portal_login.html', form=form, organizacao=organizacao)
 
 
+def _send_account_email(destination, subject, body):
+    host = os.getenv('SMTP_HOST', '').strip()
+    sender = os.getenv('SMTP_FROM', '').strip()
+    if not host or not sender:
+        raise RuntimeError('O envio de e-mail ainda não foi configurado.')
+    message = EmailMessage()
+    message['From'] = sender
+    message['To'] = destination
+    message['Subject'] = subject
+    message.set_content(body)
+    port = int(os.getenv('SMTP_PORT', '587'))
+    with smtplib.SMTP(host, port, timeout=15) as server:
+        server.starttls()
+        username = os.getenv('SMTP_USER', '').strip()
+        if username:
+            server.login(username, os.getenv('SMTP_PASSWORD', ''))
+        server.send_message(message)
+
+
+def _identity_text(value):
+    normalized = unicodedata.normalize('NFKD', (value or '').strip().casefold())
+    return ' '.join(''.join(c for c in normalized if not unicodedata.combining(c)).split())
+
+
+def _strong_password(value):
+    return 12 <= len(value) <= 128 and value.strip() == value and value.casefold() not in {
+        '123456789012', 'admin12345678', 'password123456', 'senha12345678'}
+
+
+def _email_code_hash(record_id, code):
+    return hmac.new(app.config['SECRET_KEY'].encode(), f'{record_id}:{code}'.encode(), hashlib.sha256).hexdigest()
+
+
+def _as_aware(value):
+    return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value
+
+
+def _confirmar_pin_usuario(user, pin):
+    now = _portal_now()
+    if user.pin_bloqueado_ate and _as_aware(user.pin_bloqueado_ate) > now:
+        return False
+    if not user.pin_hash or not re.fullmatch(r'\d{6}', pin or '') or not bcrypt.check_password_hash(user.pin_hash, pin):
+        user.pin_erros = (user.pin_erros or 0) + 1
+        if user.pin_erros >= 5:
+            user.pin_bloqueado_ate = now + timedelta(minutes=30)
+            user.pin_erros = 0
+        db.session.commit()
+        return False
+    user.pin_erros = 0
+    user.pin_bloqueado_ate = None
+    db.session.flush()
+    return True
+
+
+@app.route('/portal/<string:slug>/cadastre-se', methods=['GET', 'POST'])
+def portal_cadastro(slug):
+    organizacao = Organizacao.query.filter_by(slug=slug.strip().lower(), ativo=True,
+                                               portal_servidor_remoto_enabled=True).first_or_404()
+    if current_user.is_authenticated:
+        return redirect(url_for('portal_home') if current_user.tipo == 'requerente' else url_for('home'))
+    if request.method == 'POST':
+        matricula = (request.form.get('matricula') or '').strip()[:80]
+        nome = _identity_text(request.form.get('nome'))
+        cpf = re.sub(r'\D', '', request.form.get('cpf') or '')
+        primeiro_nome_mae = _identity_text(request.form.get('primeiro_nome_mae')).split(' ')[0]
+        ano = (request.form.get('ano_nascimento') or '').strip()
+        email = (request.form.get('email') or '').strip().lower()
+        telefone = (request.form.get('telefone') or '').strip()[:30]
+        endereco = (request.form.get('endereco') or '').strip()[:500]
+        senha = request.form.get('senha') or ''
+        fingerprint = login_fingerprint(f'cadastro:{organizacao.slug}', matricula)
+        now = datetime.utcnow()
+        tentativa = LoginTentativa.query.filter_by(identificador_hash=fingerprint).with_for_update().first()
+        if tentativa and tentativa.bloqueado_ate and tentativa.bloqueado_ate > now:
+            flash('Não foi possível concluir o cadastro agora. Tente novamente mais tarde.', 'danger')
+            return render_template('portal_cadastro.html', organizacao=organizacao), 429
+        if tentativa and tentativa.janela_iniciada_em < now - timedelta(minutes=15):
+            tentativa.tentativas = 0
+            tentativa.janela_iniciada_em = now
+            tentativa.bloqueado_ate = None
+        servidor = Servidor.query.filter_by(tenant_id=organizacao.id, matricula=matricula).first()
+        valid = bool(servidor and servidor.cpf and servidor.nascimento and servidor.nome_mae
+                     and _identity_text(servidor.nome) == nome and servidor.cpf == cpf
+                     and _identity_text(servidor.nome_mae).split(' ')[0] == primeiro_nome_mae
+                     and str(servidor.nascimento.year) == ano
+                     and not Usuario.query.filter_by(tenant_id=organizacao.id, servidor_id=servidor.id).first())
+        if not valid or not _strong_password(senha) or not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', email) or not telefone or not endereco:
+            if not tentativa:
+                tentativa = LoginTentativa(identificador_hash=fingerprint, tentativas=0, janela_iniciada_em=now)
+                db.session.add(tentativa)
+            tentativa.tentativas += 1
+            if tentativa.tentativas >= 5:
+                tentativa.bloqueado_ate = now + timedelta(minutes=30)
+            db.session.commit()
+            flash('Não foi possível validar o cadastro. Confira os dados e tente novamente.', 'danger')
+            return render_template('portal_cadastro.html', organizacao=organizacao), 400
+        if tentativa:
+            db.session.delete(tentativa)
+        PortalCadastro.query.filter_by(tenant_id=organizacao.id, servidor_id=servidor.id,
+                                      confirmado_em=None).delete()
+        pending = PortalCadastro(tenant_id=organizacao.id, servidor_id=servidor.id,
+                                 email=email, telefone=telefone, endereco=endereco,
+                                 senha_hash=bcrypt.generate_password_hash(senha).decode('utf-8'),
+                                 codigo_hash='0' * 64, expira_em=_portal_now() + timedelta(minutes=15))
+        db.session.add(pending)
+        db.session.flush()
+        code = f'{secrets.randbelow(1000000):06d}'
+        pending.codigo_hash = _email_code_hash(pending.id, code)
+        try:
+            _send_account_email(email, 'Confirme seu cadastro no Sysprot',
+                                f'Seu código de confirmação é {code}. Ele expira em 15 minutos.')
+        except (RuntimeError, OSError, smtplib.SMTPException):
+            db.session.rollback()
+            flash('Não foi possível enviar o código agora. Tente novamente mais tarde.', 'danger')
+            return render_template('portal_cadastro.html', organizacao=organizacao), 503
+        db.session.commit()
+        session['portal_cadastro_id'] = pending.id
+        return redirect(url_for('portal_confirmar_cadastro', slug=organizacao.slug))
+    return render_template('portal_cadastro.html', organizacao=organizacao)
+
+
+@app.route('/portal/<string:slug>/confirmar-cadastro', methods=['GET', 'POST'])
+def portal_confirmar_cadastro(slug):
+    organizacao = Organizacao.query.filter_by(slug=slug.strip().lower(), ativo=True,
+                                               portal_servidor_remoto_enabled=True).first_or_404()
+    pending = PortalCadastro.query.filter_by(id=session.get('portal_cadastro_id'),
+                                             tenant_id=organizacao.id, confirmado_em=None).first()
+    expiry = pending.expira_em.replace(tzinfo=timezone.utc) if pending and pending.expira_em.tzinfo is None else (pending.expira_em if pending else None)
+    if not pending or expiry <= _portal_now() or pending.tentativas >= 5:
+        session.pop('portal_cadastro_id', None)
+        flash('O código expirou ou o limite de tentativas foi atingido. Inicie um novo cadastro.', 'warning')
+        return redirect(url_for('portal_cadastro', slug=organizacao.slug))
+    if request.method == 'POST':
+        code = (request.form.get('codigo') or '').strip()
+        pending.tentativas += 1
+        if not re.fullmatch(r'\d{6}', code) or not hmac.compare_digest(pending.codigo_hash, _email_code_hash(pending.id, code)):
+            db.session.commit()
+            flash('Código inválido.', 'danger')
+            return render_template('portal_confirmar_cadastro.html', organizacao=organizacao), 400
+        servidor = db.session.get(Servidor, pending.servidor_id)
+        if Usuario.query.filter_by(tenant_id=organizacao.id, servidor_id=servidor.id).first():
+            abort(409, description='Esta matrícula já possui conta.')
+        user = Usuario(tenant_id=organizacao.id, servidor_id=servidor.id,
+                       nome=servidor.nome.split()[0], nome_completo=servidor.nome,
+                       cpf=servidor.cpf, login=servidor.matricula, senha=pending.senha_hash,
+                       tipo='requerente', status='ativo', email=pending.email,
+                       telefone=pending.telefone, endereco=pending.endereco)
+        db.session.add(user)
+        pending.confirmado_em = _portal_now()
+        db.session.commit()
+        session.pop('portal_cadastro_id', None)
+        flash('Cadastro confirmado. Entre com sua matrícula e senha.', 'success')
+        return redirect(url_for('portal_login', slug=organizacao.slug))
+    return render_template('portal_confirmar_cadastro.html', organizacao=organizacao)
+
+
 @app.post('/admin/usuarios/<int:user_id>/recuperar-portal')
 @permission_required('manage')
 def admin_portal_recovery(user_id):
@@ -1228,6 +1389,7 @@ def require_platform_tenant_selection():
     if not current_user.is_authenticated or not current_user.is_platform_admin:
         return None
     allowed = {'platform_organizations', 'platform_select_organization', 'platform_create_admin', 'logout',
+               'trocar_senha_inicial', 'configurar_pin', 'solicitar_redefinicao_pin',
                'platform_update_capabilities',
                'support_list', 'support_create', 'support_detail', 'support_reply',
                'support_assign', 'support_update_status',
@@ -1257,6 +1419,97 @@ def isolate_portal_surface():
     if request.endpoint not in allowed:
         return redirect(url_for('portal_home'))
     return None
+
+
+@app.before_request
+def exigir_troca_senha_inicial():
+    if (current_user.is_authenticated and current_user.tipo != 'requerente'
+            and current_user.deve_trocar_senha
+            and request.endpoint not in {'trocar_senha_inicial', 'logout', 'static', 'organization_logo'}):
+        return redirect(url_for('trocar_senha_inicial'))
+    return None
+
+
+@app.route('/minha-conta/trocar-senha', methods=['GET', 'POST'])
+@login_required
+def trocar_senha_inicial():
+    if current_user.tipo == 'requerente':
+        abort(403)
+    if request.method == 'POST':
+        atual = request.form.get('senha_atual') or ''
+        nova = request.form.get('senha_nova') or ''
+        if (not bcrypt.check_password_hash(current_user.senha, atual)
+                or not _strong_password(nova) or nova != request.form.get('confirmar_senha')
+                or bcrypt.check_password_hash(current_user.senha, nova)):
+            flash('Confira a senha atual e escolha uma nova senha com pelo menos 12 caracteres.', 'danger')
+        else:
+            current_user.senha = bcrypt.generate_password_hash(nova).decode('utf-8')
+            current_user.deve_trocar_senha = False
+            db.session.commit()
+            flash('Senha alterada. Agora configure seu PIN pessoal de emissão.', 'success')
+            return redirect(url_for('configurar_pin'))
+    return render_template('trocar_senha_inicial.html')
+
+
+@app.route('/minha-conta/pin', methods=['GET', 'POST'])
+@login_required
+def configurar_pin():
+    if current_user.tipo not in {'admin', 'protocolista'}:
+        abort(403)
+    if request.method == 'POST':
+        pin = (request.form.get('pin') or '').strip()
+        password = request.form.get('senha') or ''
+        code = (request.form.get('codigo') or '').strip()
+        initial = not current_user.pin_hash
+        if not re.fullmatch(r'\d{6}', pin):
+            flash('O PIN deve conter exatamente seis números.', 'danger')
+        elif initial and not bcrypt.check_password_hash(current_user.senha, password):
+            flash('Senha incorreta.', 'danger')
+        elif not initial and (current_user.pin_redefinicao_erros >= 5 or
+                              not current_user.pin_redefinicao_hash or
+                              not current_user.pin_redefinicao_expira_em or
+                              _portal_now() > _as_aware(current_user.pin_redefinicao_expira_em) or
+                              not hmac.compare_digest(current_user.pin_redefinicao_hash,
+                                                      _email_code_hash(current_user.id, code))):
+            current_user.pin_redefinicao_erros += 1
+            db.session.commit()
+            flash('Código de redefinição inválido ou expirado.', 'danger')
+        else:
+            current_user.pin_hash = bcrypt.generate_password_hash(pin).decode('utf-8')
+            current_user.pin_erros = 0
+            current_user.pin_bloqueado_ate = None
+            current_user.pin_redefinicao_hash = None
+            current_user.pin_redefinicao_expira_em = None
+            current_user.pin_redefinicao_erros = 0
+            db.session.commit()
+            flash('PIN pessoal configurado.', 'success')
+            return redirect(url_for('home'))
+    return render_template('configurar_pin.html')
+
+
+@app.post('/minha-conta/pin/redefinir')
+@login_required
+def solicitar_redefinicao_pin():
+    if current_user.tipo not in {'admin', 'protocolista'} or not current_user.email:
+        abort(403)
+    if (current_user.pin_redefinicao_expira_em and
+            _as_aware(current_user.pin_redefinicao_expira_em) > _portal_now()):
+        flash('Já existe um código válido. Aguarde sua expiração antes de pedir outro.', 'warning')
+        return redirect(url_for('configurar_pin'))
+    code = f'{secrets.randbelow(1000000):06d}'
+    current_user.pin_redefinicao_hash = _email_code_hash(current_user.id, code)
+    current_user.pin_redefinicao_expira_em = _portal_now() + timedelta(minutes=15)
+    current_user.pin_redefinicao_erros = 0
+    try:
+        _send_account_email(current_user.email, 'Redefinição do PIN do Sysprot',
+                            f'Seu código para redefinir o PIN é {code}. Ele expira em 15 minutos.')
+    except (RuntimeError, OSError, smtplib.SMTPException):
+        db.session.rollback()
+        flash('Não foi possível enviar o código agora.', 'danger')
+        return redirect(url_for('configurar_pin'))
+    db.session.commit()
+    flash('Enviamos um código temporário para o e-mail cadastrado.', 'success')
+    return redirect(url_for('configurar_pin'))
 
 @app.get('/plataforma')
 @platform_admin_required
@@ -1294,7 +1547,7 @@ def platform_create_admin():
         nome_completo=form.nome_completo.data.strip(), login=form.login.data.strip(),
         email=form.email.data.strip(),
         senha=bcrypt.generate_password_hash(form.senha.data).decode('utf-8'),
-        tipo='admin', is_platform_admin=True, status='ativo')
+        tipo='admin', is_platform_admin=True, status='ativo', deve_trocar_senha=True)
     db.session.add(user)
     db.session.commit()
     flash('Administrador geral criado com sucesso.', 'success')
@@ -1314,24 +1567,18 @@ def platform_select_organization(organization_id):
 @platform_admin_required
 def platform_update_capabilities(organization_id):
     organization = Organizacao.query.filter_by(id=organization_id).first_or_404()
-    assurance_level = (request.form.get('nivel_garantia_assinatura') or 'interno').strip().lower()
-    if assurance_level not in {'interno', 'forte', 'externo'}:
-        abort(400, description='Nível de garantia inválido.')
-    if assurance_level != 'interno':
-        abort(409, description='Este nível de garantia ainda não está disponível.')
     electronic_enabled = request.form.get('emissao_eletronica_protocolista_enabled') == 'on'
     remote_enabled = request.form.get('portal_servidor_remoto_enabled') == 'on'
     reason = (request.form.get('motivo') or '').strip()[:500] or None
 
     organization.emissao_eletronica_protocolista_enabled = electronic_enabled
     organization.portal_servidor_remoto_enabled = remote_enabled
-    organization.nivel_garantia_assinatura = assurance_level
     db.session.add(OrganizacaoCapacidadeEvento(
         organizacao_id=organization.id,
         alterado_por_id=current_user.id,
         emissao_eletronica_protocolista_enabled=electronic_enabled,
         portal_servidor_remoto_enabled=remote_enabled,
-        nivel_garantia_assinatura=assurance_level,
+        nivel_garantia_assinatura='interno',
         motivo=reason,
     ))
     db.session.commit()
@@ -1456,6 +1703,7 @@ def admin_create_user():
             nome=form.nome_completo.data.split(' ')[0],
             tipo=form.tipo.data,
             status='ativo',
+            deve_trocar_senha=form.tipo.data != 'requerente',
             lotacao_id=form.lotacao_id.data or None,
             servidor_id=servidor_id,
         )
@@ -1464,6 +1712,67 @@ def admin_create_user():
         flash('Usuário criado com sucesso!', 'success')
     else:
         flash('Erro ao criar usuário. Verifique os dados.', 'danger')
+    return redirect(url_for('configuracoes'))
+
+
+@app.post('/admin/servidores/importar')
+@login_required
+@admin_required
+def admin_importar_servidores():
+    upload = request.files.get('arquivo')
+    if not upload or not upload.filename.lower().endswith('.xlsx'):
+        flash('Selecione uma planilha .xlsx.', 'danger')
+        return redirect(url_for('configuracoes'))
+    data = upload.read(2 * 1024 * 1024 + 1)
+    if len(data) > 2 * 1024 * 1024:
+        flash('A planilha deve ter até 2 MB.', 'danger')
+        return redirect(url_for('configuracoes'))
+    try:
+        workbook = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
+        rows = workbook.active.iter_rows(values_only=True)
+        header = [str(value or '').strip().lower() for value in next(rows)]
+        required = ('matricula', 'nome', 'cpf', 'data_nascimento', 'nome_mae')
+        if any(column not in header for column in required):
+            raise ValueError('Colunas obrigatórias: matricula, nome, cpf, data_nascimento, nome_mae.')
+        positions = {column: header.index(column) for column in required}
+        parsed = []
+        seen = set()
+        for number, values in enumerate(rows, start=2):
+            if number > 10001:
+                raise ValueError('Limite de 10.000 servidores por arquivo.')
+            if not any(value is not None for value in values):
+                continue
+            matricula_raw = values[positions['matricula']]
+            matricula = (str(int(matricula_raw)) if isinstance(matricula_raw, (int, float))
+                         and float(matricula_raw).is_integer() else str(matricula_raw or '').strip())
+            nome = str(values[positions['nome']] or '').strip()
+            cpf_raw = values[positions['cpf']]
+            cpf = (str(int(cpf_raw)).zfill(11) if isinstance(cpf_raw, (int, float))
+                   and float(cpf_raw).is_integer() else re.sub(r'\D', '', str(cpf_raw or '')))
+            mae = str(values[positions['nome_mae']] or '').strip()
+            raw_date = values[positions['data_nascimento']]
+            nascimento = raw_date.date() if isinstance(raw_date, datetime) else (
+                datetime.strptime(raw_date, '%d/%m/%Y').date() if isinstance(raw_date, str) else raw_date)
+            if not matricula or not nome or len(cpf) != 11 or not mae or not nascimento or matricula in seen:
+                raise ValueError(f'Dados inválidos ou matrícula repetida na linha {number}.')
+            seen.add(matricula)
+            parsed.append((matricula, nome, cpf, nascimento, mae))
+        tenant = current_tenant_id()
+        existing = {record.matricula: record for record in tenant_query(Servidor).filter(
+            Servidor.matricula.in_(seen)).all()}
+        for matricula, nome, cpf, nascimento, mae in parsed:
+            record = existing.get(matricula)
+            if record and tenant_query(Usuario).filter_by(servidor_id=record.id).first():
+                continue
+            if not record:
+                record = Servidor(tenant_id=tenant, matricula=matricula)
+                db.session.add(record)
+            record.nome, record.cpf, record.nascimento, record.nome_mae = nome, cpf, nascimento, mae
+        db.session.commit()
+        flash(f'Planilha processada: {len(parsed)} matrícula(s). Contas já vinculadas foram preservadas.', 'success')
+    except (ValueError, StopIteration, OSError, TypeError, IndexError, zipfile.BadZipFile) as error:
+        db.session.rollback()
+        flash(f'Importação não concluída: {error}', 'danger')
     return redirect(url_for('configuracoes'))
 
 @app.post('/admin/usuarios/<int:user_id>/editar')
@@ -1630,8 +1939,6 @@ def autenticar_emissao_protocolo(protocolo_id):
     organizacao = active_organization()
     if not organizacao.emissao_eletronica_protocolista_enabled:
         abort(404)
-    if organizacao.nivel_garantia_assinatura != 'interno':
-        abort(409, description='O método de garantia configurado ainda não está disponível.')
     if current_user.tipo not in {'protocolista', 'admin'}:
         abort(403)
     protocolo = tenant_query(Protocolo).filter_by(id=protocolo_id).with_for_update().first_or_404()
@@ -1640,9 +1947,11 @@ def autenticar_emissao_protocolo(protocolo_id):
     emissao_anterior = protocolo.emissao_eletronica
     if emissao_anterior and not protocolo.retificacao_pendente:
         return _response_pdf_autenticado(protocolo.emissao_eletronica)
-    senha = request.form.get('senha') or ''
-    if not senha or not bcrypt.check_password_hash(current_user.senha, senha):
-        flash('Senha inválida. A emissão não foi autenticada.', 'danger')
+    if not current_user.pin_hash:
+        flash('Configure seu PIN pessoal antes de autenticar a emissão.', 'warning')
+        return redirect(url_for('configurar_pin'))
+    if not _confirmar_pin_usuario(current_user, request.form.get('pin') or ''):
+        flash('PIN inválido ou temporariamente bloqueado. A emissão não foi autenticada.', 'danger')
         return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
 
     token = secrets.token_urlsafe(32)
@@ -1651,7 +1960,7 @@ def autenticar_emissao_protocolo(protocolo_id):
                                              EmissaoEletronica.codigo_publico == codigo)).first():
         token, codigo = secrets.token_urlsafe(32), _public_code()
     declaracao = ('Protocolo emitido e autenticado eletronicamente pelo protocolista '
-                  'mediante confirmação de sua senha individual no Sysprot.')
+                  'mediante confirmação de seu PIN pessoal no Sysprot.')
     origem = request.headers.get('X-Forwarded-For', request.remote_addr or '').split(',')[0].strip()
     nova_versao = (emissao_anterior.versao + 1) if emissao_anterior else 1
     emissao = EmissaoEletronica(
@@ -1659,7 +1968,7 @@ def autenticar_emissao_protocolo(protocolo_id):
         emitido_por_id=current_user.id, pdf_anexo_id=0,
         versao=nova_versao, substitui_emissao_id=emissao_anterior.id if emissao_anterior else None,
         token_publico=token, codigo_publico=codigo, pdf_sha256='0' * 64,
-        metodo='senha_individual', nivel_garantia='interno', declaracao=declaracao,
+        metodo='pin_pessoal', nivel_garantia='interno', declaracao=declaracao,
         nome_emitente=current_user.nome_completo or current_user.nome,
         login_emitente=current_user.login,
         ip_hash=hmac.new(app.config['SECRET_KEY'].encode(), origem.encode(), hashlib.sha256).hexdigest(),
@@ -2579,4 +2888,3 @@ if __name__ == '__main__':
     # The port must be available. Railway provides the PORT env var.
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=True)
-

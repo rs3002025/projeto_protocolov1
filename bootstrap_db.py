@@ -35,6 +35,20 @@ SCHEMA_COLUMNS = {
         'lotacao_id': 'BIGINT',
         'is_platform_admin': 'BOOLEAN DEFAULT FALSE NOT NULL',
         'servidor_id': 'BIGINT',
+        'telefone': 'VARCHAR(30)',
+        'endereco': 'TEXT',
+        'deve_trocar_senha': 'BOOLEAN DEFAULT FALSE NOT NULL',
+        'pin_hash': 'TEXT',
+        'pin_erros': 'INTEGER DEFAULT 0 NOT NULL',
+        'pin_bloqueado_ate': 'TIMESTAMP',
+        'pin_redefinicao_hash': 'VARCHAR(64)',
+        'pin_redefinicao_expira_em': 'TIMESTAMP',
+        'pin_redefinicao_erros': 'INTEGER DEFAULT 0 NOT NULL',
+    },
+    'servidores': {
+        'cpf': 'VARCHAR(11)',
+        'nascimento': 'DATE',
+        'nome_mae': 'TEXT',
     },
     'protocolos': {
         'prazo_em': 'DATE',
@@ -187,10 +201,10 @@ def bootstrap():
                 tipo='admin',
                 status='ativo',
                 is_platform_admin=True,
+                deve_trocar_senha=True,
             ))
         db.session.commit()
 
 
 if __name__ == '__main__':
     bootstrap()
-
