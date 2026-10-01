@@ -15,7 +15,7 @@ from models import Organizacao, Protocolo, Usuario
 TENANT_TABLES = (
     'usuarios', 'protocolos', 'anexos', 'historico_protocolos', 'lotacoes',
     'servidores', 'tipos_requerimento', 'emails_sistema', 'movimentacoes',
-    'chamados_suporte', 'mensagens_suporte',
+    'chamados_suporte', 'mensagens_suporte', 'solicitacoes_complemento',
 )
 
 SCHEMA_COLUMNS = {
@@ -27,10 +27,28 @@ SCHEMA_COLUMNS = {
         'municipio': 'VARCHAR(180)',
         'orgao': 'VARCHAR(180)',
         'rodape_documento': 'TEXT',
+        'emissao_eletronica_protocolista_enabled': 'BOOLEAN DEFAULT FALSE NOT NULL',
+        'portal_servidor_remoto_enabled': 'BOOLEAN DEFAULT FALSE NOT NULL',
+        'nivel_garantia_assinatura': "VARCHAR(20) DEFAULT 'interno' NOT NULL",
     },
     'usuarios': {
         'lotacao_id': 'BIGINT',
         'is_platform_admin': 'BOOLEAN DEFAULT FALSE NOT NULL',
+        'servidor_id': 'BIGINT',
+        'telefone': 'VARCHAR(30)',
+        'endereco': 'TEXT',
+        'deve_trocar_senha': 'BOOLEAN DEFAULT FALSE NOT NULL',
+        'pin_hash': 'TEXT',
+        'pin_erros': 'INTEGER DEFAULT 0 NOT NULL',
+        'pin_bloqueado_ate': 'TIMESTAMP',
+        'pin_redefinicao_hash': 'VARCHAR(64)',
+        'pin_redefinicao_expira_em': 'TIMESTAMP',
+        'pin_redefinicao_erros': 'INTEGER DEFAULT 0 NOT NULL',
+    },
+    'servidores': {
+        'cpf': 'VARCHAR(11)',
+        'nascimento': 'DATE',
+        'nome_mae': 'TEXT',
     },
     'protocolos': {
         'prazo_em': 'DATE',
@@ -38,6 +56,10 @@ SCHEMA_COLUMNS = {
         'setor_atual_id': 'BIGINT',
         'arquivado_em': 'TIMESTAMP',
         'consulta_token': 'VARCHAR(64)',
+        'requerente_servidor_id': 'BIGINT',
+        'emitido_por_usuario_id': 'INTEGER',
+        'retificacao_pendente': 'BOOLEAN DEFAULT FALSE NOT NULL',
+        'modalidade_abertura': "VARCHAR(30) DEFAULT 'presencial_protocolista' NOT NULL",
     },
     'anexos': {
         'documento_chave': "VARCHAR(120) DEFAULT 'anexo' NOT NULL",
@@ -45,10 +67,16 @@ SCHEMA_COLUMNS = {
         'enviado_por_id': 'INTEGER',
         'storage_backend': "VARCHAR(20) DEFAULT 'database' NOT NULL",
         'file_hash': 'VARCHAR(64)',
+        'solicitacao_complemento_id': 'BIGINT',
     },
     'historico_protocolos': {
         'usuario_id': 'INTEGER',
         'acao': "VARCHAR(80) DEFAULT 'ATUALIZACAO' NOT NULL",
+        'evento_uuid': 'VARCHAR(36)',
+    },
+    'emissoes_eletronicas': {
+        'versao': 'INTEGER DEFAULT 1 NOT NULL',
+        'substitui_emissao_id': 'BIGINT',
     },
     'movimentacoes': {
         'destinatario_usuario_id': 'INTEGER',
@@ -125,22 +153,28 @@ def bootstrap():
             if 'anexos' in existing_tables:
                 connection.execute(text("UPDATE anexos SET storage_backend = 'database' WHERE storage_backend IS NULL"))
 
+            if 'emissoes_eletronicas' in existing_tables:
+                connection.execute(text('UPDATE emissoes_eletronicas SET versao = 1 WHERE versao IS NULL'))
+
             if db.engine.dialect.name == 'postgresql':
                 if 'anexos' in existing_tables:
                     connection.execute(text('ALTER TABLE anexos ALTER COLUMN file_data DROP NOT NULL'))
                 connection.execute(text('ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_login_key'))
                 connection.execute(text('ALTER TABLE protocolos DROP CONSTRAINT IF EXISTS protocolos_numero_key'))
+                connection.execute(text('ALTER TABLE emissoes_eletronicas DROP CONSTRAINT IF EXISTS emissoes_eletronicas_protocolo_id_key'))
                 for table in TENANT_TABLES:
                     if table in existing_tables:
                         connection.execute(text(f'ALTER TABLE {table} ALTER COLUMN tenant_id SET NOT NULL'))
 
                 statements = (
                     'CREATE UNIQUE INDEX IF NOT EXISTS uq_usuario_tenant_login ON usuarios (tenant_id, login)',
+                    'CREATE UNIQUE INDEX IF NOT EXISTS uq_usuario_tenant_servidor ON usuarios (tenant_id, servidor_id) WHERE servidor_id IS NOT NULL',
                     'CREATE UNIQUE INDEX IF NOT EXISTS uq_protocolo_tenant_numero ON protocolos (tenant_id, numero)',
                     'CREATE UNIQUE INDEX IF NOT EXISTS uq_lotacao_tenant_nome ON lotacoes (tenant_id, nome)',
                     'CREATE UNIQUE INDEX IF NOT EXISTS uq_servidor_tenant_matricula ON servidores (tenant_id, matricula)',
                     'CREATE UNIQUE INDEX IF NOT EXISTS uq_tipo_tenant_nome ON tipos_requerimento (tenant_id, nome)',
                     'CREATE UNIQUE INDEX IF NOT EXISTS uq_protocolo_consulta_token ON protocolos (consulta_token)',
+                    'CREATE UNIQUE INDEX IF NOT EXISTS uq_emissao_protocolo_versao ON emissoes_eletronicas (tenant_id, protocolo_id, versao)',
                 )
                 for statement in statements:
                     connection.execute(text(statement))
@@ -167,6 +201,7 @@ def bootstrap():
                 tipo='admin',
                 status='ativo',
                 is_platform_admin=True,
+                deve_trocar_senha=True,
             ))
         db.session.commit()
 

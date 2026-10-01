@@ -24,13 +24,35 @@ class Organizacao(db.Model):
     municipio = db.Column(db.String(180))
     orgao = db.Column(db.String(180))
     rodape_documento = db.Column(db.Text)
+    emissao_eletronica_protocolista_enabled = db.Column(db.Boolean, nullable=False, default=False)
+    portal_servidor_remoto_enabled = db.Column(db.Boolean, nullable=False, default=False)
+    nivel_garantia_assinatura = db.Column(db.String(20), nullable=False, default='interno')
+
+
+class OrganizacaoCapacidadeEvento(db.Model):
+    """Histórico append-only das capacidades liberadas pelo administrador geral."""
+    __tablename__ = 'organizacao_capacidade_eventos'
+    id = db.Column(ID_TYPE, primary_key=True)
+    organizacao_id = db.Column(db.Integer, db.ForeignKey('organizacoes.id'), nullable=False, index=True)
+    alterado_por_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False, index=True)
+    emissao_eletronica_protocolista_enabled = db.Column(db.Boolean, nullable=False)
+    portal_servidor_remoto_enabled = db.Column(db.Boolean, nullable=False)
+    nivel_garantia_assinatura = db.Column(db.String(20), nullable=False)
+    motivo = db.Column(db.String(500))
+    criado_em = db.Column(db.TIMESTAMP(timezone=True), server_default=db.func.now(), nullable=False)
+
+    organizacao = db.relationship('Organizacao', foreign_keys=[organizacao_id])
+    alterado_por = db.relationship('Usuario', foreign_keys=[alterado_por_id])
 
 class TenantMixin:
     tenant_id = db.Column(db.Integer, db.ForeignKey('organizacoes.id'), nullable=False, index=True)
 
 class Usuario(TenantMixin, db.Model, UserMixin):
     __tablename__ = 'usuarios'
-    __table_args__ = (db.UniqueConstraint('tenant_id', 'login', name='uq_usuario_tenant_login'),)
+    __table_args__ = (
+        db.UniqueConstraint('tenant_id', 'login', name='uq_usuario_tenant_login'),
+        db.UniqueConstraint('tenant_id', 'servidor_id', name='uq_usuario_tenant_servidor'),
+    )
     id = db.Column(db.Integer, primary_key=True)
     nome_completo = db.Column(db.Text)
     cpf = db.Column(db.String)
@@ -41,12 +63,46 @@ class Usuario(TenantMixin, db.Model, UserMixin):
     tipo = db.Column(db.Text, nullable=False)
     is_platform_admin = db.Column(db.Boolean, nullable=False, default=False)
     email = db.Column(db.Text)
+    telefone = db.Column(db.String(30))
+    endereco = db.Column(db.Text)
+    deve_trocar_senha = db.Column(db.Boolean, nullable=False, default=False)
+    pin_hash = db.Column(db.Text)
+    pin_erros = db.Column(db.Integer, nullable=False, default=0)
+    pin_bloqueado_ate = db.Column(db.TIMESTAMP(timezone=True))
+    pin_redefinicao_hash = db.Column(db.String(64))
+    pin_redefinicao_expira_em = db.Column(db.TIMESTAMP(timezone=True))
+    pin_redefinicao_erros = db.Column(db.Integer, nullable=False, default=0)
     lotacao_id = db.Column(ID_TYPE, db.ForeignKey('lotacoes.id'))
+    servidor_id = db.Column(ID_TYPE, db.ForeignKey('servidores.id'))
     organizacao = db.relationship('Organizacao')
+    servidor = db.relationship('Servidor', foreign_keys=[servidor_id])
 
     @property
     def is_active(self):
         return self.status == 'ativo' and self.organizacao is not None and self.organizacao.ativo
+
+
+class PortalSessao(TenantMixin, db.Model):
+    __tablename__ = 'portal_sessoes'
+    id = db.Column(ID_TYPE, primary_key=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False, index=True)
+    identificador_hash = db.Column(db.String(64), nullable=False, unique=True, index=True)
+    dispositivo = db.Column(db.String(180), nullable=False)
+    criada_em = db.Column(db.TIMESTAMP(timezone=True), server_default=db.func.now(), nullable=False)
+    ultimo_acesso_em = db.Column(db.TIMESTAMP(timezone=True), server_default=db.func.now(), nullable=False)
+    expira_em = db.Column(db.TIMESTAMP(timezone=True), nullable=False)
+    encerrada_em = db.Column(db.TIMESTAMP(timezone=True))
+
+
+class PortalRecuperacao(TenantMixin, db.Model):
+    __tablename__ = 'portal_recuperacoes'
+    id = db.Column(ID_TYPE, primary_key=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False, index=True)
+    token_hash = db.Column(db.String(64), nullable=False, unique=True, index=True)
+    gerado_por_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)
+    criado_em = db.Column(db.TIMESTAMP(timezone=True), server_default=db.func.now(), nullable=False)
+    expira_em = db.Column(db.TIMESTAMP(timezone=True), nullable=False)
+    utilizado_em = db.Column(db.TIMESTAMP(timezone=True))
 
 class Protocolo(TenantMixin, db.Model):
     __tablename__ = 'protocolos'
@@ -73,6 +129,10 @@ class Protocolo(TenantMixin, db.Model):
     observacoes = db.Column(db.Text)
     responsavel = db.Column(db.String)
     criado_por_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'))
+    requerente_servidor_id = db.Column(ID_TYPE, db.ForeignKey('servidores.id'))
+    emitido_por_usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'))
+    retificacao_pendente = db.Column(db.Boolean, nullable=False, default=False)
+    modalidade_abertura = db.Column(db.String(30), nullable=False, default='presencial_protocolista')
     setor_atual_id = db.Column(ID_TYPE, db.ForeignKey('lotacoes.id'))
     data_envio = db.Column(db.TIMESTAMP, server_default=db.func.current_timestamp())
     status = db.Column(db.String, default='Aberto')
@@ -85,6 +145,54 @@ class Protocolo(TenantMixin, db.Model):
     historico = db.relationship('HistoricoProtocolo', backref='protocolo', lazy=True, cascade="all, delete-orphan")
     movimentacoes = db.relationship('Movimentacao', backref='protocolo', lazy=True, cascade="all, delete-orphan")
     setor_atual = db.relationship('Lotacao', foreign_keys=[setor_atual_id])
+    criado_por = db.relationship('Usuario', foreign_keys=[criado_por_id])
+    emitido_por = db.relationship('Usuario', foreign_keys=[emitido_por_usuario_id])
+    requerente_servidor = db.relationship('Servidor', foreign_keys=[requerente_servidor_id])
+    emissoes_eletronicas = db.relationship('EmissaoEletronica', back_populates='protocolo',
+                                           cascade='all, delete-orphan',
+                                           order_by='EmissaoEletronica.versao')
+    solicitacoes_complemento = db.relationship(
+        'SolicitacaoComplemento', back_populates='protocolo', cascade='all, delete-orphan',
+        order_by='SolicitacaoComplemento.criado_em')
+
+    @property
+    def emissao_eletronica(self):
+        """Versão autenticada mais recente, preservando compatibilidade com as telas."""
+        return self.emissoes_eletronicas[-1] if self.emissoes_eletronicas else None
+
+
+class EmissaoEletronica(TenantMixin, db.Model):
+    """Evidência imutável da emissão eletrônica do requerimento/protocolo."""
+    __tablename__ = 'emissoes_eletronicas'
+    id = db.Column(ID_TYPE, primary_key=True)
+    __table_args__ = (db.UniqueConstraint('tenant_id', 'protocolo_id', 'versao',
+                                          name='uq_emissao_protocolo_versao'),)
+    protocolo_id = db.Column(ID_TYPE, db.ForeignKey('protocolos.id'), nullable=False, index=True)
+    versao = db.Column(db.Integer, nullable=False, default=1)
+    substitui_emissao_id = db.Column(ID_TYPE, db.ForeignKey('emissoes_eletronicas.id'))
+    emitido_por_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False, index=True)
+    pdf_anexo_id = db.Column(ID_TYPE, db.ForeignKey('anexos.id'), nullable=False, unique=True)
+    token_publico = db.Column(db.String(64), nullable=False, unique=True, index=True)
+    codigo_publico = db.Column(db.String(20), nullable=False, unique=True, index=True)
+    pdf_sha256 = db.Column(db.String(64), nullable=False)
+    metodo = db.Column(db.String(40), nullable=False, default='senha_individual')
+    nivel_garantia = db.Column(db.String(20), nullable=False, default='interno')
+    declaracao = db.Column(db.Text, nullable=False)
+    nome_emitente = db.Column(db.String(180), nullable=False)
+    login_emitente = db.Column(db.String(80), nullable=False)
+    ip_hash = db.Column(db.String(64), nullable=False)
+    user_agent_hash = db.Column(db.String(64), nullable=False)
+    emitido_em = db.Column(db.TIMESTAMP(timezone=True), server_default=db.func.now(), nullable=False)
+    status = db.Column(db.String(20), nullable=False, default='VALIDA')
+    cancelado_em = db.Column(db.TIMESTAMP(timezone=True))
+    cancelado_por_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'))
+    motivo_cancelamento = db.Column(db.Text)
+
+    protocolo = db.relationship('Protocolo', back_populates='emissoes_eletronicas', foreign_keys=[protocolo_id])
+    emitido_por = db.relationship('Usuario', foreign_keys=[emitido_por_id])
+    pdf_anexo = db.relationship('Anexo', foreign_keys=[pdf_anexo_id])
+    substitui_emissao = db.relationship('EmissaoEletronica', remote_side=[id],
+                                        foreign_keys=[substitui_emissao_id])
 
 class Anexo(TenantMixin, db.Model):
     __tablename__ = 'anexos'
@@ -100,8 +208,28 @@ class Anexo(TenantMixin, db.Model):
     documento_chave = db.Column(db.String(120), nullable=False, default='anexo')
     versao = db.Column(db.Integer, nullable=False, default=1)
     enviado_por_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'))
+    solicitacao_complemento_id = db.Column(
+        ID_TYPE, db.ForeignKey('solicitacoes_complemento.id'), index=True)
     enviado_por = db.relationship('Usuario', foreign_keys=[enviado_por_id])
     created_at = db.Column(db.TIMESTAMP(timezone=True), server_default=db.func.now())
+
+
+class SolicitacaoComplemento(TenantMixin, db.Model):
+    """Pedido auditável para juntar documentos sem alterar o requerimento autenticado."""
+    __tablename__ = 'solicitacoes_complemento'
+    id = db.Column(ID_TYPE, primary_key=True)
+    protocolo_id = db.Column(ID_TYPE, db.ForeignKey('protocolos.id'), nullable=False, index=True)
+    solicitado_por_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)
+    motivo = db.Column(db.Text, nullable=False)
+    status = db.Column(db.String(20), nullable=False, default='PENDENTE', index=True)
+    criado_em = db.Column(db.TIMESTAMP(timezone=True), server_default=db.func.now(), nullable=False)
+    atendido_em = db.Column(db.TIMESTAMP(timezone=True))
+    atendido_por_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'))
+
+    protocolo = db.relationship('Protocolo', back_populates='solicitacoes_complemento')
+    solicitado_por = db.relationship('Usuario', foreign_keys=[solicitado_por_id])
+    atendido_por = db.relationship('Usuario', foreign_keys=[atendido_por_id])
+    anexos = db.relationship('Anexo', backref='solicitacao_complemento', lazy=True)
 
 class HistoricoProtocolo(TenantMixin, db.Model):
     __tablename__ = 'historico_protocolos'
@@ -113,6 +241,21 @@ class HistoricoProtocolo(TenantMixin, db.Model):
     acao = db.Column(db.String(80), nullable=False, default='ATUALIZACAO')
     observacao = db.Column(db.Text)
     data_movimentacao = db.Column(db.TIMESTAMP, server_default=db.func.current_timestamp())
+    evento_uuid = db.Column(db.String(36), unique=True, index=True)
+
+
+class AuditoriaEvento(TenantMixin, db.Model):
+    __tablename__ = 'auditoria_eventos'
+    __table_args__ = (db.UniqueConstraint('tenant_id', 'sequencia', name='uq_auditoria_tenant_sequencia'),)
+    id = db.Column(ID_TYPE, primary_key=True)
+    sequencia = db.Column(db.BigInteger, nullable=False)
+    protocolo_id = db.Column(db.Integer, index=True)
+    usuario_id = db.Column(db.Integer)
+    acao = db.Column(db.String(80), nullable=False)
+    payload = db.Column(db.Text, nullable=False)
+    hash_anterior = db.Column(db.String(64), nullable=False)
+    hash_atual = db.Column(db.String(64), nullable=False)
+    criado_em = db.Column(db.TIMESTAMP(timezone=True), server_default=db.func.now(), nullable=False)
 
 class Movimentacao(TenantMixin, db.Model):
     __tablename__ = 'movimentacoes'
@@ -167,9 +310,26 @@ class Servidor(TenantMixin, db.Model):
     id = db.Column(ID_TYPE, primary_key=True)
     matricula = db.Column(db.Text, nullable=False)
     nome = db.Column(db.Text)
+    cpf = db.Column(db.String(11))
+    nascimento = db.Column(db.Date)
+    nome_mae = db.Column(db.Text)
     lotacao = db.Column(db.Text)
     cargo = db.Column(db.Text)
     unidade_de_exercicio = db.Column(db.Text)
+
+
+class PortalCadastro(TenantMixin, db.Model):
+    __tablename__ = 'portal_cadastros'
+    id = db.Column(ID_TYPE, primary_key=True)
+    servidor_id = db.Column(ID_TYPE, db.ForeignKey('servidores.id'), nullable=False, index=True)
+    email = db.Column(db.String(180), nullable=False)
+    telefone = db.Column(db.String(30), nullable=False)
+    endereco = db.Column(db.Text, nullable=False)
+    senha_hash = db.Column(db.Text, nullable=False)
+    codigo_hash = db.Column(db.String(64), nullable=False)
+    tentativas = db.Column(db.Integer, nullable=False, default=0)
+    expira_em = db.Column(db.TIMESTAMP(timezone=True), nullable=False)
+    confirmado_em = db.Column(db.TIMESTAMP(timezone=True))
 
 class TipoRequerimento(TenantMixin, db.Model):
     __tablename__ = 'tipos_requerimento'
@@ -215,4 +375,3 @@ class MensagemSuporte(TenantMixin, db.Model):
     criado_em = db.Column(db.TIMESTAMP(timezone=True), server_default=db.func.now(), nullable=False)
 
     autor = db.relationship('Usuario', foreign_keys=[autor_id])
-

@@ -3,13 +3,13 @@
 {% block content %}
 <div class="container-fluid">
     {# Define o título da página e a legenda do formulário dinamicamente #}
-    {% set legend = 'Editar Protocolo ' + protocolo.numero if protocolo else 'Novo Protocolo' %}
+    {% set legend = ('Retificar Protocolo ' + retificacao_de.numero) if retificacao_de is defined and retificacao_de else ('Editar Protocolo ' + protocolo.numero if protocolo else 'Novo Protocolo') %}
     <h1 class="page-header mb-1">{{ legend }}</h1>
     <p class="text-muted mb-4">Preencha os dados do requerente e do pedido. As informações podem ser revisadas antes da impressão.</p>
 
     {# A action do formulário muda se estamos editando ou criando #}
     <form class="formulario" method="POST"
-          action="{{ url_for('editar_protocolo', protocolo_id=protocolo.id) if protocolo else url_for('criar_protocolo') }}"
+          action="{{ url_for('retificar_protocolo', protocolo_id=retificacao_de.id) if retificacao_de is defined and retificacao_de else (url_for('editar_protocolo', protocolo_id=protocolo.id) if protocolo else url_for('criar_protocolo')) }}"
           id="protocol-form">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
@@ -111,7 +111,7 @@
 
         <div class="form-actions">
             {# O texto do botão de submit muda se estamos editando ou criando #}
-            <button type="button" id="reviewProtocolButton" class="btn btn-primary">{{ 'Revisar atualização' if protocolo else 'Revisar e cadastrar' }}</button>
+            <button type="button" id="reviewProtocolButton" class="btn btn-primary">{{ 'Revisar retificação' if retificacao_de is defined and retificacao_de else ('Revisar atualização' if protocolo else 'Revisar e cadastrar') }}</button>
             <button type="button" id="imprimirBtn" class="btn btn-outline-primary">Imprimir</button>
             <a href="{{ url_for('detalhe_protocolo', protocolo_id=protocolo.id) if protocolo else url_for('home') }}" class="btn btn-outline-secondary">{{ 'Voltar aos detalhes' if protocolo else 'Voltar' }}</a>
         </div>
@@ -127,7 +127,7 @@
           <div class="modal-body"><div id="protocolReviewBody" class="protocol-review-grid"></div></div>
           <div class="modal-footer action-group">
             <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Voltar e corrigir</button>
-            <button type="button" id="confirmProtocolSubmit" class="btn btn-primary">{{ 'Confirmar atualização' if protocolo else 'Confirmar cadastro' }}</button>
+            <button type="button" id="confirmProtocolSubmit" class="btn btn-primary">{{ 'Criar retificação' if retificacao_de is defined and retificacao_de else ('Confirmar atualização' if protocolo else 'Confirmar cadastro') }}</button>
           </div>
         </div>
       </div>
@@ -173,3 +173,4 @@ window.protocoloData = {{ {
 {% endif %}
 </script>
 {% endblock %}
+
