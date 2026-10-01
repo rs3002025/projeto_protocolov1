@@ -41,7 +41,7 @@ login_manager.login_message_category = 'info'
 login_manager.login_message = 'Faça login para acessar esta página.'
 
 # --- Imports for Routes and Models ---
-from flask import render_template, url_for, flash, redirect, request, abort, session
+from flask import render_template, url_for, flash, redirect, request, abort, session, g
 from flask_login import login_user, current_user, logout_user, login_required
 from flask import send_file, Response, jsonify, make_response
 from werkzeug.utils import secure_filename
@@ -61,7 +61,7 @@ from email.message import EmailMessage
 from sqlalchemy import func, cast, Date, text, or_, false, exists
 from datetime import datetime, timedelta
 from forms import LoginForm, TenantLoginForm, RegistrationForm, ProtocoloForm, AnexoForm, AdminUserCreationForm, PlatformAdminCreationForm, AdminListItemForm, ConsultaPublicaForm, BrandingForm
-from models import (Organizacao, Usuario, Protocolo, HistoricoProtocolo, Movimentacao,
+from models import (Organizacao, OrganizacaoSubdominioAlias, Usuario, Protocolo, HistoricoProtocolo, Movimentacao,
                     ConsultaPublicaTentativa, LoginTentativa, Anexo, Lotacao,
                     TipoRequerimento, Servidor, ChamadoSuporte, MensagemSuporte,
                     OrganizacaoCapacidadeEvento, EmissaoEletronica, db)
@@ -75,6 +75,157 @@ import json
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
+
+_RESERVED_SUBDOMAINS = {'app', 'www', 'admin', 'api', 'mail', 'smtp', 'static',
+                        'suporte', 'dev', 'development', 'visual-development'}
+_TENANT_URL_ENDPOINTS = {
+    'tenant_login': '/entrar',
+    'portal_login': '/portal/entrar',
+    'portal_cadastro': '/portal/cadastre-se',
+    'portal_confirmar_cadastro': '/portal/confirmar-cadastro',
+}
+
+
+def _tenant_base_domain():
+    """Ativação explícita: não gerar links novos antes de configurar o DNS."""
+    if os.getenv('TENANT_SUBDOMAINS_ENABLED', '').lower() != 'true':
+        return ''
+    return os.getenv('TENANT_BASE_DOMAIN', '').strip().lower().strip('.')
+
+
+def _tenant_host_label():
+    base = _tenant_base_domain()
+    hostname = request.host.partition(':')[0].lower().rstrip('.')
+    if not base or not hostname.endswith('.' + base):
+        return None
+    label = hostname[:-(len(base) + 1)]
+    if label in _RESERVED_SUBDOMAINS:
+        return None
+    if not re.fullmatch(r'[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?', label):
+        abort(404)
+    return label
+
+
+def host_organization():
+    if not hasattr(g, 'host_organization'):
+        label = _tenant_host_label()
+        if label:
+            alias = OrganizacaoSubdominioAlias.query.filter_by(subdominio=label).first()
+            g.host_organization = (Organizacao.query.filter_by(subdominio=label, ativo=True).first()
+                                   or Organizacao.query.filter_by(slug=label, ativo=True).first()
+                                   or (alias.organizacao if alias and alias.organizacao.ativo else None))
+        else:
+            g.host_organization = None
+        if label and not g.host_organization:
+            abort(404)
+    return g.host_organization
+
+
+def tenant_entry_url(endpoint, organization, *, token=None, external=False):
+    """Retorna o endereço curto do cliente, preservando URLs legadas quando desativado."""
+    base = _tenant_base_domain()
+    if base:
+        label = organization.subdominio or organization.slug
+        path = (_TENANT_URL_ENDPOINTS.get(endpoint) or
+                ('/portal/recuperar/' + token if endpoint == 'portal_recuperar' and token else None))
+        if path:
+            current = host_organization()
+            if current and current.id == organization.id and not external:
+                return path
+            return f'https://{label}.{base}{path}'
+    kwargs = {'slug': organization.slug, '_external': external}
+    if token:
+        kwargs['token'] = token
+    return url_for(endpoint, **kwargs)
+
+
+def public_url(endpoint, **values):
+    """QR e recursos de PDF usam o domínio central, não o Host da requisição."""
+    base = _tenant_base_domain()
+    if base:
+        return f'https://app.{base}' + url_for(endpoint, **values)
+    return url_for(endpoint, _external=True, **values)
+
+
+@app.before_request
+def enforce_tenant_host():
+    organization = host_organization()
+    if not organization:
+        return None
+    slug = (request.view_args or {}).get('slug')
+    if slug and slug != organization.slug:
+        abort(404)
+    if current_user.is_authenticated and (
+            current_user.is_platform_admin or current_user.tenant_id != organization.id):
+        abort(403)
+    if not current_user.is_authenticated and request.endpoint == 'home' and request.path == '/':
+        return redirect(url_for('tenant_gateway'))
+    if request.endpoint == 'login':
+        return redirect(url_for('tenant_login_host'))
+    return None
+
+
+@login_manager.unauthorized_handler
+def unauthorized():
+    organization = host_organization()
+    if organization:
+        if request.path.startswith('/portal'):
+            return redirect(tenant_entry_url('portal_login', organization))
+        return redirect(tenant_entry_url('tenant_login', organization))
+    return redirect(url_for('login'))
+
+
+@app.get('/acesso')
+def tenant_gateway():
+    organization = host_organization()
+    if not organization:
+        abort(404)
+    return render_template('tenant_gateway.html', organizacao=organization)
+
+
+@app.route('/entrar', methods=['GET', 'POST'])
+def tenant_login_host():
+    organization = host_organization()
+    if not organization:
+        abort(404)
+    return tenant_login(organization.slug)
+
+
+@app.route('/portal/entrar', methods=['GET', 'POST'])
+def portal_login_host():
+    organization = host_organization()
+    if not organization:
+        abort(404)
+    return portal_login(organization.slug)
+
+
+@app.route('/portal/cadastre-se', methods=['GET', 'POST'])
+def portal_cadastro_host():
+    organization = host_organization()
+    if not organization:
+        abort(404)
+    return portal_cadastro(organization.slug)
+
+
+@app.route('/portal/confirmar-cadastro', methods=['GET', 'POST'])
+def portal_confirmar_cadastro_host():
+    organization = host_organization()
+    if not organization:
+        abort(404)
+    return portal_confirmar_cadastro(organization.slug)
+
+
+@app.route('/portal/recuperar/<string:token>', methods=['GET', 'POST'])
+def portal_recuperar_host(token):
+    organization = host_organization()
+    if not organization:
+        abort(404)
+    return portal_recuperar(organization.slug, token)
+
+
+@app.context_processor
+def tenant_template_urls():
+    return {'tenant_entry_url': tenant_entry_url, 'tenant_base_domain': _tenant_base_domain()}
 
 def current_tenant_id():
     if current_user.is_authenticated and current_user.is_platform_admin:
@@ -688,7 +839,9 @@ def tenant_login(slug):
         user = Usuario.query.filter_by(
             tenant_id=organizacao.id, login=form.login.data, status='ativo'
         ).first()
-        if user and user.tipo != 'requerente' and bcrypt.check_password_hash(user.senha, form.senha.data):
+        if (user and user.tipo != 'requerente'
+                and not (user.is_platform_admin and host_organization())
+                and bcrypt.check_password_hash(user.senha, form.senha.data)):
             if tentativa:
                 db.session.delete(tentativa)
                 db.session.commit()
@@ -810,11 +963,11 @@ def validate_portal_session():
     now = _portal_now()
     expires = record.expira_em.replace(tzinfo=timezone.utc) if record and record.expira_em.tzinfo is None else (record.expira_em if record else None)
     if session.get('auth_surface') != 'portal' or not record or expires <= now:
-        slug = current_user.organizacao.slug if current_user.organizacao else 'prefeitura'
+        organization = current_user.organizacao
         session.pop('portal_session_token', None)
         session.pop('auth_surface', None)
         logout_user()
-        return redirect(url_for('portal_login', slug=slug))
+        return redirect(tenant_entry_url('portal_login', organization))
     last_access = record.ultimo_acesso_em.replace(tzinfo=timezone.utc) if record.ultimo_acesso_em.tzinfo is None else record.ultimo_acesso_em
     if request.endpoint != 'static' and now - last_access >= timedelta(minutes=5):
         record.ultimo_acesso_em = now
@@ -988,7 +1141,7 @@ def portal_cadastro(slug):
             return render_template('portal_cadastro.html', organizacao=organizacao), 503
         db.session.commit()
         session['portal_cadastro_id'] = pending.id
-        return redirect(url_for('portal_confirmar_cadastro', slug=organizacao.slug))
+        return redirect(tenant_entry_url('portal_confirmar_cadastro', organizacao))
     return render_template('portal_cadastro.html', organizacao=organizacao)
 
 
@@ -1002,7 +1155,7 @@ def portal_confirmar_cadastro(slug):
     if not pending or expiry <= _portal_now() or pending.tentativas >= 5:
         session.pop('portal_cadastro_id', None)
         flash('O código expirou ou o limite de tentativas foi atingido. Inicie um novo cadastro.', 'warning')
-        return redirect(url_for('portal_cadastro', slug=organizacao.slug))
+        return redirect(tenant_entry_url('portal_cadastro', organizacao))
     if request.method == 'POST':
         code = (request.form.get('codigo') or '').strip()
         pending.tentativas += 1
@@ -1023,7 +1176,7 @@ def portal_confirmar_cadastro(slug):
         db.session.commit()
         session.pop('portal_cadastro_id', None)
         flash('Cadastro confirmado. Entre com sua matrícula e senha.', 'success')
-        return redirect(url_for('portal_login', slug=organizacao.slug))
+        return redirect(tenant_entry_url('portal_login', organizacao))
     return render_template('portal_confirmar_cadastro.html', organizacao=organizacao)
 
 
@@ -1042,7 +1195,7 @@ def admin_portal_recovery(user_id):
         token_hash=_portal_token_hash(token), gerado_por_id=current_user.id,
         expira_em=now + timedelta(minutes=30)))
     db.session.commit()
-    link = url_for('portal_recuperar', slug=active_organization().slug, token=token, _external=True)
+    link = tenant_entry_url('portal_recuperar', active_organization(), token=token, external=True)
     return render_template('portal_recuperacao_link.html', user=user, link=link)
 
 
@@ -1074,7 +1227,7 @@ def portal_recuperar(slug, token):
             session.pop('auth_surface', None)
             logout_user()
             flash('Senha definida. Entre com a nova senha.', 'success')
-            return redirect(url_for('portal_login', slug=organizacao.slug))
+            return redirect(tenant_entry_url('portal_login', organizacao))
     return render_template('portal_recuperar.html', organizacao=organizacao, expired=False)
 
 
@@ -1112,11 +1265,11 @@ def portal_encerrar_sessao(session_id):
     record.encerrada_em = _portal_now()
     db.session.commit()
     if current_session:
-        slug = active_organization().slug
+        organization = active_organization()
         session.pop('portal_session_token', None)
         session.pop('auth_surface', None)
         logout_user()
-        return redirect(url_for('portal_login', slug=slug))
+        return redirect(tenant_entry_url('portal_login', organization))
     flash('Acesso encerrado.', 'success')
     return redirect(url_for('portal_sessoes'))
 
@@ -1255,7 +1408,7 @@ def portal_enviar_complemento(protocolo_id, solicitacao_id):
 @app.post('/portal/sair')
 @portal_required
 def portal_logout():
-    slug = active_organization().slug
+    organization = active_organization()
     record = _portal_session()
     if record:
         record.encerrada_em = _portal_now()
@@ -1264,7 +1417,7 @@ def portal_logout():
     session.pop('auth_surface', None)
     logout_user()
     flash('Você saiu do Portal do Servidor.', 'info')
-    return redirect(url_for('portal_login', slug=slug))
+    return redirect(tenant_entry_url('portal_login', organization))
 
 
 @app.route("/login", methods=['GET', 'POST'])
@@ -1388,7 +1541,8 @@ def platform_admin_required(f):
 def require_platform_tenant_selection():
     if not current_user.is_authenticated or not current_user.is_platform_admin:
         return None
-    allowed = {'platform_organizations', 'platform_select_organization', 'platform_create_admin', 'logout',
+    allowed = {'platform_organizations', 'platform_select_organization', 'platform_create_admin',
+               'platform_set_subdomain', 'logout',
                'trocar_senha_inicial', 'configurar_pin', 'solicitar_redefinicao_pin',
                'platform_update_capabilities',
                'support_list', 'support_create', 'support_detail', 'support_reply',
@@ -1561,6 +1715,35 @@ def platform_select_organization(organization_id):
     session.modified = True
     flash(f'Cliente ativo: {organization.nome}.', 'info')
     return redirect(url_for('home'))
+
+
+@app.post('/plataforma/cliente/<int:organization_id>/subdominio')
+@platform_admin_required
+def platform_set_subdomain(organization_id):
+    organization = Organizacao.query.filter_by(id=organization_id).first_or_404()
+    label = (request.form.get('subdominio') or '').strip().lower()
+    if label and (not re.fullmatch(r'[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?', label)
+                  or label in _RESERVED_SUBDOMAINS):
+        flash('Subdomínio inválido ou reservado.', 'danger')
+        return redirect(url_for('platform_organizations'))
+    if label and Organizacao.query.filter(
+            Organizacao.id != organization.id,
+            or_(Organizacao.subdominio == label, Organizacao.slug == label)).first():
+        flash('Esse subdomínio já identifica outro cliente.', 'danger')
+        return redirect(url_for('platform_organizations'))
+    alias = OrganizacaoSubdominioAlias.query.filter_by(subdominio=label).first() if label else None
+    if alias and alias.organizacao_id != organization.id:
+        flash('Esse endereço anterior pertence a outro cliente.', 'danger')
+        return redirect(url_for('platform_organizations'))
+    if alias:
+        db.session.delete(alias)
+    if organization.subdominio and organization.subdominio != label:
+        db.session.add(OrganizacaoSubdominioAlias(
+            organizacao_id=organization.id, subdominio=organization.subdominio))
+    organization.subdominio = label or None
+    db.session.commit()
+    flash('Endereço do cliente atualizado.', 'success')
+    return redirect(url_for('platform_organizations'))
 
 
 @app.post('/plataforma/cliente/<int:organization_id>/capacidades')
@@ -1883,21 +2066,21 @@ def render_protocol_pdf(protocolo, emissao=None):
     from weasyprint import HTML
     organizacao = active_organization()
     version = int(organizacao.logo_atualizada_em.timestamp()) if organizacao.logo_atualizada_em else 0
-    consulta_url = url_for('consulta_publica', consulta_token=protocolo.consulta_token, _external=True)
+    consulta_url = public_url('consulta_publica', consulta_token=protocolo.consulta_token)
     qr_consulta_buffer = io.BytesIO()
     qrcode.make(consulta_url).save(qr_consulta_buffer, format='PNG')
     qr_code_url = 'data:image/png;base64,' + base64.b64encode(qr_consulta_buffer.getvalue()).decode('ascii')
     qr_validacao_url = None
     if emissao:
-        validacao_url = url_for('validar_emissao', token_publico=emissao.token_publico, _external=True)
+        validacao_url = public_url('validar_emissao', token_publico=emissao.token_publico)
         qr_validacao_buffer = io.BytesIO()
         qrcode.make(validacao_url).save(qr_validacao_buffer, format='PNG')
         qr_validacao_url = ('data:image/png;base64,' +
                             base64.b64encode(qr_validacao_buffer.getvalue()).decode('ascii'))
     rendered_html = render_template(
         'pdf_template.html', protocolo=protocolo, organizacao=organizacao,
-        pdf_logo_url=url_for('organization_logo', slug=organizacao.slug,
-                             v=version, _external=True), qr_code_url=qr_code_url,
+        pdf_logo_url=public_url('organization_logo', slug=organizacao.slug,
+                                v=version), qr_code_url=qr_code_url,
         emissao=emissao, qr_validacao_url=qr_validacao_url)
     return HTML(string=rendered_html, base_url=request.base_url).write_pdf()
 
@@ -2888,3 +3071,4 @@ if __name__ == '__main__':
     # The port must be available. Railway provides the PORT env var.
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=True)
+

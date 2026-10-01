@@ -22,3 +22,30 @@ ADMIN_PASSWORD='senha-temporaria-segura' python manage.py create-organization \
 ```
 
 O campo **Organização** da tela de login recebe o `slug`.
+# Acesso por subdomínio
+
+Em produção, `app.muniprot.com.br` continua sendo o domínio central da
+plataforma e das consultas/validações públicas. Cada cliente pode receber
+`<subdominio>.muniprot.com.br`. O administrador geral define o subdomínio em
+**Administração da plataforma**; se o campo ficar em branco, utiliza-se o
+identificador interno (`slug`). O usuário não precisa escolher o cliente na
+tela de login. O Portal do Servidor usa `/portal/entrar`, e a equipe usa
+`/entrar`. A raiz do subdomínio mostra as duas opções disponíveis.
+
+Os endereços antigos com o slug no caminho continuam aceitos. Ao trocar um
+subdomínio, o anterior fica registrado como alias da mesma organização para
+não invalidar links já distribuídos. A sessão é host-only (não configure
+`SESSION_COOKIE_DOMAIN` com o domínio pai), e cada requisição compara o host,
+o slug da rota e o `tenant_id` do usuário. O subdomínio identifica o cliente,
+mas não substitui a autorização em cada consulta.
+
+Para ativar: adicionar `*.muniprot.com.br` ao serviço web de **produção** no
+Railway; criar todos os registros DNS de verificação, CNAME e certificado que
+o Railway apresentar; aguardar o HTTPS ficar válido; então definir
+`TENANT_SUBDOMAINS_ENABLED=true` e
+`TENANT_BASE_DOMAIN=muniprot.com.br` no serviço de produção. Não apontar o
+wildcard para os ambientes de teste. Validar os hosts `app`, cliente válido,
+cliente inexistente, alias antigo e troca de host após o login. Os QR codes
+de consulta e validação continuam no domínio central.
+
+

@@ -21,11 +21,12 @@ from models import (Lotacao, Movimentacao, Organizacao, Protocolo, Usuario,
                     ConsultaPublicaTentativa, LoginTentativa, Anexo,
                     HistoricoProtocolo, Servidor, TipoRequerimento, ChamadoSuporte, MensagemSuporte)
 from models import OrganizacaoCapacidadeEvento
+from models import OrganizacaoSubdominioAlias
 from models import EmissaoEletronica
 from models import SolicitacaoComplemento
 from models import PortalSessao, PortalRecuperacao
 from models import AuditoriaEvento
-from app import verify_audit_chain
+from app import verify_audit_chain, public_url, tenant_entry_url
 import re
 from urllib.parse import urlsplit
 
@@ -200,6 +201,57 @@ def login(client, organizacao):
         'login': 'admin',
         'senha': 'senha-segura',
     }, follow_redirects=True)
+
+
+def test_subdominio_identifica_cliente_sem_codigo_no_login(monkeypatch):
+    monkeypatch.setenv('TENANT_SUBDOMAINS_ENABLED', 'true')
+    monkeypatch.setenv('TENANT_BASE_DOMAIN', 'muniprot.com.br')
+    with app.app_context():
+        organization = Organizacao.query.filter_by(slug='cliente-a').one()
+        previous = organization.subdominio
+        portal_previous = organization.portal_servidor_remoto_enabled
+        organization.subdominio = 'moradanova'
+        organization.portal_servidor_remoto_enabled = True
+        db.session.add(OrganizacaoSubdominioAlias(
+            organizacao_id=organization.id, subdominio='morada-antiga'))
+        db.session.commit()
+    try:
+        client = app.test_client()
+        host = 'https://moradanova.muniprot.com.br'
+        gateway = client.get('/', base_url=host, follow_redirects=True)
+        assert gateway.status_code == 200
+        assert 'Cliente A' in gateway.get_data(as_text=True)
+        login_page = client.get('/entrar', base_url=host)
+        assert login_page.status_code == 200
+        assert 'name="organizacao"' not in login_page.get_data(as_text=True)
+        assert client.get('/portal/entrar', base_url=host).status_code == 200
+        assert client.get('/portal/cadastre-se', base_url=host).status_code == 200
+        assert client.get('/portal/cliente-b/entrar', base_url=host).status_code == 404
+        assert client.get('/entrar/cliente-b', base_url=host).status_code == 404
+        assert client.get('/entrar', base_url='https://morada-antiga.muniprot.com.br').status_code == 200
+        assert client.get('/entrar', base_url='https://desconhecido.muniprot.com.br').status_code == 404
+        assert client.get('/entrar', base_url='https://app.muniprot.com.br').status_code == 404
+        with app.test_request_context('/entrar', base_url=host):
+            organization = Organizacao.query.filter_by(slug='cliente-a').one()
+            assert tenant_entry_url('tenant_login', organization) == '/entrar'
+            assert tenant_entry_url('portal_login', organization, external=True) == (
+                'https://moradanova.muniprot.com.br/portal/entrar')
+            assert public_url('consulta_publica', consulta_token='teste') == (
+                'https://app.muniprot.com.br/consulta/teste')
+        signed_in = client.post('/entrar', base_url=host, data={
+            'login': 'admin', 'senha': 'senha-segura'})
+        assert signed_in.status_code == 302
+        assert client.get('/protocolos', base_url=host).status_code == 200
+        other_host = client.get('/protocolos', base_url='https://cliente-b.muniprot.com.br')
+        assert other_host.status_code == 302
+        assert other_host.headers['Location'] == '/entrar'
+    finally:
+        with app.app_context():
+            OrganizacaoSubdominioAlias.query.filter_by(subdominio='morada-antiga').delete()
+            organization = Organizacao.query.filter_by(slug='cliente-a').one()
+            organization.subdominio = previous
+            organization.portal_servidor_remoto_enabled = portal_previous
+            db.session.commit()
 
 
 def test_login_por_cliente_nao_exibe_escolha_de_organizacao():
@@ -1598,3 +1650,4 @@ def test_portal_servidor_isola_login_e_abertura_em_nome_proprio():
         TipoRequerimento.query.filter_by(nome='Requerimento remoto').delete()
         Organizacao.query.filter_by(slug='cliente-a').one().portal_servidor_remoto_enabled = False
         db.session.commit()
+
