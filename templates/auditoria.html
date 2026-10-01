@@ -1,0 +1,12 @@
+{% extends 'layout.html' %}
+{% block content %}
+<div class="container py-4">
+  <a class="btn btn-outline-secondary btn-back" href="{{ url_for('configuracoes') }}">← Configurações</a>
+  <h1 class="h3 mt-3">Integridade da auditoria</h1>
+  {% if valid %}<p class="alert alert-success">A sequência dos {{ records|length }} eventos registrados está íntegra.</p>
+  {% else %}<p class="alert alert-danger">A sequência apresenta inconsistência no evento {{ broken_at }}. Preserve os registros e investigue a alteração.</p>{% endif %}
+  <p class="text-muted">A verificação inclui os eventos criados após a implantação desta função e confere os respectivos registros de histórico. Registros anteriores continuam no histórico do protocolo. A cadeia local não substitui uma cópia externa independente da auditoria.</p>
+  <a class="btn btn-outline-primary" href="{{ url_for('admin_auditoria', exportar=1) }}">Exportar eventos e hashes</a>
+</div>
+{% endblock content %}
+

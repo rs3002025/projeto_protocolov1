@@ -11,6 +11,7 @@
         .pdf-header { display: flex; justify-content: space-between; align-items: center; min-height: 70px; border-bottom: 2px solid #ddd; padding-bottom: 5px; margin-bottom: 6px; }
         .logo-pdf { width: 300px; height: 70px; display: flex; align-items: center; justify-content: flex-start; }
         .logo-pdf img { display: block; width: auto; height: auto; max-width: 100%; max-height: 68px; object-fit: contain; }
+        .qr-group { display:flex; gap:8px; align-items:flex-start; }
         .consulta-qr { width: 78px; text-align: center; font-size: 7px; line-height: 1.05; color: #444; }
         .consulta-qr img { display: block; width: 52px; height: 52px; margin: 0 auto 1px; }
         .titulo-principal-pdf { text-align: center; margin: 2px 0; font-size: 20px; }
@@ -27,6 +28,8 @@
         .assinaturas-container { margin-top: 50px; }
         .assinaturas-flex { display: flex; justify-content: space-between; gap: 20px; }
         .assinatura-pdf { text-align: center; flex: 1; }
+        .selo-eletronico { border: 1px solid #777; padding: 10px 12px; text-align: left; font-size: 10px; line-height: 1.35; }
+        .selo-eletronico-remoto { width: 100%; }
         .rodape-institucional { margin-top: 25px; padding-top: 8px; border-top: 1px solid #bbb; text-align: center; white-space: pre-line; }
         .linha-assinatura { border-top: 1px solid #000; margin-top: 40px; margin-bottom: 5px; }
         .recebido-container { margin-top: 28px; page-break-inside: avoid; display: flex; align-items: flex-end; gap: 34px; }
@@ -44,14 +47,14 @@
     <div class="doc-container">
         <div class="pdf-header">
             <div class="logo-pdf"><img src="{{ pdf_logo_url }}" alt="Logo da organização"></div>
-            <div class="consulta-qr">
-                <img src="{{ qr_code_url }}" alt="QR Code para consulta do andamento">
-                Consulte o andamento<br>e confirme sua matrícula
+            <div class="qr-group">
+              <div class="consulta-qr"><img src="{{ qr_code_url }}" alt="QR Code para consulta do andamento">Acompanhe o andamento<br>com sua matrícula</div>
+              {% if emissao %}<div class="consulta-qr"><img src="{{ qr_validacao_url }}" alt="QR Code para validar a autenticidade">Valide a autenticidade<br>{{ emissao.codigo_publico }}</div>{% endif %}
             </div>
         </div>
         <h1 class="titulo-principal-pdf">{{ organizacao.orgao or organizacao.nome }}</h1>
         {% if organizacao.municipio %}<p style="text-align:center">{{ organizacao.municipio }}</p>{% endif %}
-        <div class="titulo-central-pdf"><span>PROTOCOLO DE REQUERIMENTO</span></div>
+        <div class="titulo-central-pdf"><span>{% if emissao and emissao.versao > 1 %}RETIFICAÇÃO — VERSÃO {{ emissao.versao }}{% else %}PROTOCOLO DE REQUERIMENTO{% endif %}</span></div>
         <div class="info-pdf">
             <div class="campo-destaque-pdf"><strong>Número:</strong> {{ protocolo.numero }}</div>
             <div class="campo-destaque-pdf"><strong>Data:</strong> {{ protocolo.data_solicitacao.strftime('%d/%m/%Y') if protocolo.data_solicitacao else '' }}</div>
@@ -85,11 +88,29 @@
                 <p class="paragrafo-pdf">Nenhuma observação.</p>
             {% endif %}
         </div>
+        {% set anexos_integrantes = protocolo.anexos|rejectattr('documento_chave', 'equalto', 'protocolo-autenticado')|rejectattr('solicitacao_complemento_id')|list %}
+        {% if anexos_integrantes %}<div class="section-title-pdf">DOCUMENTOS ANEXADOS AO ENVIO</div><div style="font-size:9px; margin-top:8px">{% for anexo in anexos_integrantes %}<div style="margin-bottom:5px"><strong>{{ anexo.file_name }}</strong> — {{ (anexo.file_size / 1024)|round(1) }} KB<br>SHA-256: <span style="font-family:monospace; overflow-wrap:anywhere">{{ anexo.file_hash }}</span></div>{% endfor %}</div>{% endif %}
         <div class="fechamento-pdf">
             <div class="assinaturas-container">
                 <div class="assinaturas-flex">
+                    {% if protocolo.modalidade_abertura == 'remota_requerente' and emissao %}
+                    <div class="selo-eletronico selo-eletronico-remoto">
+                        <strong>REQUERIMENTO ENVIADO ELETRONICAMENTE</strong><br>
+                        Requerente: {{ protocolo.nome }} · Matrícula: {{ protocolo.matricula }}<br>
+                        Enviado em {{ emissao.emitido_em.strftime('%d/%m/%Y às %H:%M:%S') }} · Versão {{ emissao.versao }} · Código {{ emissao.codigo_publico }}<br>
+                        Autenticidade verificável pelo QR Code.
+                    </div>
+                    {% else %}
                     <div class="assinatura-pdf"><div class="linha-assinatura"></div>Assinatura do Requerente</div>
-                    <div class="assinatura-pdf"><div class="linha-assinatura"></div>Responsável pelo Protocolo</div>
+                    {% if emissao %}
+                    <div class="assinatura-pdf selo-eletronico">
+                        <strong>PROTOCOLO EMITIDO ELETRONICAMENTE</strong><br>
+                        Responsável: {{ emissao.nome_emitente }} · Usuário: {{ emissao.login_emitente }}<br>
+                        Emitido em {{ emissao.emitido_em.strftime('%d/%m/%Y às %H:%M:%S') }} · Versão {{ emissao.versao }} · Código {{ emissao.codigo_publico }}<br>
+                        Autenticidade verificável pelo QR Code.
+                    </div>
+                    {% else %}<div class="assinatura-pdf"><div class="linha-assinatura"></div>Responsável pelo Protocolo</div>{% endif %}
+                    {% endif %}
                 </div>
             </div>
             <div class="recebido-container">
@@ -107,3 +128,4 @@
     </div>
 </body>
 </html>
+

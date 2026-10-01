@@ -25,7 +25,7 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'pool_pre_ping': True, 'pool_recycle'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_SECURE'] = os.getenv('COOKIE_SECURE', 'true').lower() == 'true'
-app.config['MAX_CONTENT_LENGTH'] = 21 * 1024 * 1024
+app.config['MAX_CONTENT_LENGTH'] = 30 * 1024 * 1024
 
 # --- Extensions Initialization ---
 db = SQLAlchemy(app)
@@ -52,13 +52,26 @@ import secrets
 import uuid
 from functools import wraps
 from urllib.parse import urlsplit
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
+import re
+import smtplib
+import unicodedata
+import zipfile
+from email.message import EmailMessage
 from sqlalchemy import func, cast, Date, text, or_, false, exists
 from datetime import datetime, timedelta
-from forms import LoginForm, RegistrationForm, ProtocoloForm, AnexoForm, AdminUserCreationForm, PlatformAdminCreationForm, AdminListItemForm, ConsultaPublicaForm, BrandingForm
+from forms import LoginForm, TenantLoginForm, RegistrationForm, ProtocoloForm, AnexoForm, AdminUserCreationForm, PlatformAdminCreationForm, AdminListItemForm, ConsultaPublicaForm, BrandingForm
 from models import (Organizacao, Usuario, Protocolo, HistoricoProtocolo, Movimentacao,
                     ConsultaPublicaTentativa, LoginTentativa, Anexo, Lotacao,
-                    TipoRequerimento, Servidor, ChamadoSuporte, MensagemSuporte, db)
+                    TipoRequerimento, Servidor, ChamadoSuporte, MensagemSuporte,
+                    OrganizacaoCapacidadeEvento, EmissaoEletronica, db)
+from models import SolicitacaoComplemento
+from models import PortalSessao, PortalRecuperacao, PortalCadastro
+from models import AuditoriaEvento
+from datetime import timezone
+from sqlalchemy import event, select
+from sqlalchemy.orm import Session
+import json
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
@@ -81,6 +94,10 @@ def tenant_get_or_404(model, object_id):
 def accessible_protocols_query():
     """Limita o tramitador aos processos dos quais seu setor ou ele participa."""
     query = tenant_query(Protocolo)
+    if current_user.tipo == 'requerente':
+        if not current_user.servidor_id:
+            return query.filter(false())
+        return query.filter(Protocolo.requerente_servidor_id == current_user.servidor_id)
     if current_user.tipo != 'tramitador':
         return query
     if not current_user.lotacao_id:
@@ -205,6 +222,26 @@ def verified_upload_mime(filename, data):
             pass
     return None
 
+def validated_uploads(files):
+    """Lê e valida uma coleção de uploads sem persistir parcialmente o pedido."""
+    validated = []
+    total_size = 0
+    for uploaded in files:
+        if not uploaded or not uploaded.filename:
+            continue
+        filename = secure_filename(uploaded.filename)
+        data = uploaded.read(5 * 1024 * 1024 + 1)
+        if not filename or not data or len(data) > 5 * 1024 * 1024:
+            raise ValueError('Cada anexo deve ter nome válido, conteúdo e no máximo 5 MB.')
+        total_size += len(data)
+        if total_size > 30 * 1024 * 1024:
+            raise ValueError('O conjunto de anexos não pode ultrapassar 30 MB por envio.')
+        mime_type = verified_upload_mime(filename, data)
+        if not mime_type:
+            raise ValueError(f'O arquivo {filename} possui formato ou conteúdo não permitido.')
+        validated.append((filename, data, mime_type))
+    return validated
+
 def normalize_logo_png(source):
     """Valida, redimensiona e remove margens transparentes/brancas da logo."""
     from PIL import Image, ImageChops, ImageOps
@@ -287,17 +324,40 @@ ROLE_PERMISSIONS = {
     # Atua somente no fluxo: recebe, encaminha e responde processos do seu setor/usuário.
     'tramitador': {'view', 'route'},
     'consulta': {'view'},
+    # Acesso exclusivo ao Portal do Servidor; não concede acesso ao backoffice.
+    'requerente': set(),
 }
 ROLE_LABELS = {
     'admin': 'Administrador do cliente',
     'protocolista': 'Protocolista',
     'tramitador': 'Tramitação e respostas',
     'consulta': 'Somente consulta',
+    'requerente': 'Servidor — Portal do Servidor',
 }
 PROTOCOL_STATUSES = ('PROTOCOLO GERADO', 'EM ANÁLISE', 'PENDENTE DE DOCUMENTO', 'FINALIZADO', 'CONCLUÍDO', 'EM TRAMITAÇÃO', 'ARQUIVADO')
 SUPPORT_STATUSES = ('ABERTO', 'EM ATENDIMENTO', 'AGUARDANDO USUÁRIO', 'RESOLVIDO', 'FECHADO')
 SUPPORT_CATEGORIES = ('ACESSO', 'PROTOCOLOS', 'DOCUMENTOS', 'RELATÓRIOS', 'CONFIGURAÇÃO', 'OUTRO')
 SUPPORT_PRIORITIES = ('BAIXA', 'NORMAL', 'ALTA', 'CRÍTICA')
+HISTORY_ACTION_LABELS = {
+    'ENVIO_REMOTO': 'Requerimento enviado pelo portal',
+    'COMPLEMENTO_SOLICITADO': 'Documentação complementar solicitada',
+    'COMPLEMENTO_ENVIADO': 'Documentação complementar enviada',
+    'EMISSAO_AUTENTICADA': 'Requerimento autenticado',
+    'EMISSAO_CANCELADA': 'Autenticação cancelada',
+    'RETIFICACAO': 'Retificação registrada',
+    'TRAMITACAO': 'Encaminhamento',
+    'RECEBIMENTO': 'Recebimento',
+    'ARQUIVAMENTO': 'Arquivamento',
+    'ALTERACAO_STATUS': 'Alteração de situação',
+    'ANEXO_ADICIONADO': 'Documento anexado',
+    'NOVA_VERSAO_DOCUMENTO': 'Nova versão de documento',
+}
+EMISSION_STATUS_LABELS = {'VALIDA': 'Válida', 'RETIFICADA': 'Retificada', 'CANCELADA': 'Cancelada'}
+
+def history_observation_label(observation):
+    if observation == 'Requerimento enviado pelo próprio servidor em conta individual vinculada ao cadastro funcional.':
+        return 'Pedido enviado pelo próprio servidor por meio do Portal do Servidor.'
+    return observation or 'Sem observação.'
 
 def support_tickets_query():
     query = ChamadoSuporte.query
@@ -331,6 +391,10 @@ def permission_context():
         'branding_logo_url': logo_url,
         'pendencias_recebimento': pendencias_recebimento,
         'chamados_pendentes': chamados_pendentes,
+        'history_action_label': lambda action: HISTORY_ACTION_LABELS.get(
+            action, (action or 'Atualização').replace('_', ' ').title()),
+        'emission_status_label': lambda status: EMISSION_STATUS_LABELS.get(status, status.title()),
+        'history_observation_label': history_observation_label,
     }
 
 def permission_required(permission):
@@ -599,8 +663,617 @@ def register():
     return redirect(url_for('login'))
 
 
+@app.route('/entrar/<string:slug>', methods=['GET', 'POST'])
+def tenant_login(slug):
+    """Entrada do backoffice com a organização resolvida antes da autenticação."""
+    if current_user.is_authenticated:
+        return redirect(url_for('home'))
+    organizacao = Organizacao.query.filter_by(slug=slug.strip().lower(), ativo=True).first_or_404()
+    form = TenantLoginForm()
+    if form.validate_on_submit():
+        agora = datetime.utcnow()
+        fingerprint = login_fingerprint(organizacao.slug, form.login.data)
+        tentativa = LoginTentativa.query.filter_by(identificador_hash=fingerprint).with_for_update().first()
+        if tentativa and tentativa.bloqueado_ate and tentativa.bloqueado_ate > agora:
+            flash('Não foi possível autenticar. Aguarde alguns minutos e tente novamente.', 'danger')
+            return render_template(
+                'login.html', title=f'Login — {organizacao.nome}', form=form,
+                login_organization=organizacao,
+                branding_logo_url=url_for('organization_logo', slug=organizacao.slug),
+            ), 429
+        if tentativa and tentativa.janela_iniciada_em < agora - timedelta(minutes=15):
+            tentativa.tentativas = 0
+            tentativa.janela_iniciada_em = agora
+            tentativa.bloqueado_ate = None
+        user = Usuario.query.filter_by(
+            tenant_id=organizacao.id, login=form.login.data, status='ativo'
+        ).first()
+        if user and user.tipo != 'requerente' and bcrypt.check_password_hash(user.senha, form.senha.data):
+            if tentativa:
+                db.session.delete(tentativa)
+                db.session.commit()
+            login_user(user, remember=form.remember.data)
+            session['auth_surface'] = 'backoffice'
+            destination = safe_local_redirect(request.args.get('next'))
+            if user.is_platform_admin:
+                session.pop('active_tenant_id', None)
+                destination = url_for('platform_organizations')
+            flash('Login bem-sucedido!', 'success')
+            return redirect(destination or url_for('home'))
+        if not tentativa:
+            tentativa = LoginTentativa(
+                identificador_hash=fingerprint, tentativas=0, janela_iniciada_em=agora
+            )
+            db.session.add(tentativa)
+        tentativa.tentativas += 1
+        if tentativa.tentativas >= 5:
+            tentativa.bloqueado_ate = agora + timedelta(minutes=30)
+        db.session.commit()
+        flash('Não foi possível autenticar. Verifique os dados informados.', 'danger')
+    return render_template(
+        'login.html', title=f'Login — {organizacao.nome}', form=form,
+        login_organization=organizacao,
+        branding_logo_url=url_for('organization_logo', slug=organizacao.slug),
+    )
+
+
+def portal_required(view):
+    @wraps(view)
+    @login_required
+    def wrapped(*args, **kwargs):
+        organizacao = active_organization()
+        if (current_user.tipo != 'requerente' or not current_user.servidor_id or
+                not organizacao.portal_servidor_remoto_enabled or session.get('auth_surface') != 'portal'):
+            abort(403)
+        return view(*args, **kwargs)
+    return wrapped
+
+
+def _portal_token_hash(token):
+    return hmac.new(app.config['SECRET_KEY'].encode(), token.encode(), hashlib.sha256).hexdigest()
+
+
+def _portal_now():
+    return datetime.now(timezone.utc)
+
+
+def _audit_digest(previous, payload):
+    return hashlib.sha256((previous + '\n' + payload).encode('utf-8')).hexdigest()
+
+
+@event.listens_for(Session, 'before_flush')
+def append_protocol_audit(db_session, flush_context, instances):
+    """Encadeia os novos eventos de protocolo sob bloqueio da organização."""
+    pending = [item for item in db_session.new if isinstance(item, HistoricoProtocolo)]
+    for tenant_id in sorted({item.tenant_id for item in pending}):
+        db_session.execute(select(Organizacao.id).where(
+            Organizacao.id == tenant_id).with_for_update()).first()
+        last = db_session.query(AuditoriaEvento).filter_by(tenant_id=tenant_id).order_by(
+            AuditoriaEvento.sequencia.desc()).first()
+        previous = last.hash_atual if last else '0' * 64
+        sequence = last.sequencia if last else 0
+        for item in (entry for entry in pending if entry.tenant_id == tenant_id):
+            sequence += 1
+            item.evento_uuid = str(uuid.uuid4())
+            payload = json.dumps({
+                'versao': 1, 'tenant_id': tenant_id, 'sequencia': sequence,
+                'evento_uuid': item.evento_uuid,
+                'protocolo_id': item.protocolo_id, 'usuario_id': item.usuario_id,
+                'acao': item.acao, 'status': item.status,
+                'responsavel': item.responsavel, 'observacao': item.observacao,
+            }, sort_keys=True, ensure_ascii=False, separators=(',', ':'))
+            current = _audit_digest(previous, payload)
+            db_session.add(AuditoriaEvento(
+                tenant_id=tenant_id, sequencia=sequence,
+                protocolo_id=item.protocolo_id, usuario_id=item.usuario_id,
+                acao=item.acao, payload=payload,
+                hash_anterior=previous, hash_atual=current))
+            previous = current
+
+
+def verify_audit_chain(tenant_id):
+    records = AuditoriaEvento.query.filter_by(tenant_id=tenant_id).order_by(
+        AuditoriaEvento.sequencia).all()
+    previous = '0' * 64
+    uuids = [json.loads(item.payload).get('evento_uuid') for item in records]
+    histories = {item.evento_uuid: item for item in HistoricoProtocolo.query.filter(
+        HistoricoProtocolo.tenant_id == tenant_id,
+        HistoricoProtocolo.evento_uuid.in_(uuids)).all()}
+    for expected, item in enumerate(records, start=1):
+        if (item.sequencia != expected or item.hash_anterior != previous or
+                not hmac.compare_digest(item.hash_atual, _audit_digest(previous, item.payload))):
+            return False, records, expected
+        payload = json.loads(item.payload)
+        history = histories.get(payload.get('evento_uuid'))
+        if not history or any(payload.get(field) != getattr(history, field) for field in (
+                'tenant_id', 'protocolo_id', 'usuario_id', 'acao', 'status',
+                'responsavel', 'observacao')):
+            return False, records, expected
+        previous = item.hash_atual
+    return True, records, None
+
+
+def _portal_session():
+    token = session.get('portal_session_token')
+    if not token or not current_user.is_authenticated:
+        return None
+    return PortalSessao.query.filter_by(
+        tenant_id=current_user.tenant_id, usuario_id=current_user.id,
+        identificador_hash=_portal_token_hash(token), encerrada_em=None).first()
+
+
+@app.before_request
+def validate_portal_session():
+    if not current_user.is_authenticated or current_user.tipo != 'requerente':
+        return None
+    record = _portal_session()
+    now = _portal_now()
+    expires = record.expira_em.replace(tzinfo=timezone.utc) if record and record.expira_em.tzinfo is None else (record.expira_em if record else None)
+    if session.get('auth_surface') != 'portal' or not record or expires <= now:
+        slug = current_user.organizacao.slug if current_user.organizacao else 'prefeitura'
+        session.pop('portal_session_token', None)
+        session.pop('auth_surface', None)
+        logout_user()
+        return redirect(url_for('portal_login', slug=slug))
+    last_access = record.ultimo_acesso_em.replace(tzinfo=timezone.utc) if record.ultimo_acesso_em.tzinfo is None else record.ultimo_acesso_em
+    if request.endpoint != 'static' and now - last_access >= timedelta(minutes=5):
+        record.ultimo_acesso_em = now
+        db.session.commit()
+    return None
+
+
+@app.route('/portal/<string:slug>/entrar', methods=['GET', 'POST'])
+def portal_login(slug):
+    organizacao = Organizacao.query.filter_by(slug=slug.strip().lower(), ativo=True).first_or_404()
+    if not organizacao.portal_servidor_remoto_enabled:
+        abort(404)
+    if current_user.is_authenticated:
+        return redirect(url_for('portal_home') if current_user.tipo == 'requerente' else url_for('home'))
+    form = TenantLoginForm()
+    if form.validate_on_submit():
+        agora = datetime.utcnow()
+        fingerprint = login_fingerprint(f'portal:{organizacao.slug}', form.login.data)
+        tentativa = LoginTentativa.query.filter_by(identificador_hash=fingerprint).with_for_update().first()
+        if tentativa and tentativa.bloqueado_ate and tentativa.bloqueado_ate > agora:
+            flash('Não foi possível autenticar. Aguarde alguns minutos e tente novamente.', 'danger')
+            return render_template('portal_login.html', form=form, organizacao=organizacao), 429
+        if tentativa and tentativa.janela_iniciada_em < agora - timedelta(minutes=15):
+            tentativa.tentativas = 0
+            tentativa.janela_iniciada_em = agora
+            tentativa.bloqueado_ate = None
+        user = Usuario.query.filter_by(tenant_id=organizacao.id, login=form.login.data,
+                                       tipo='requerente', status='ativo').first()
+        if user and user.servidor_id and bcrypt.check_password_hash(user.senha, form.senha.data):
+            if tentativa:
+                db.session.delete(tentativa)
+                db.session.commit()
+            login_user(user, remember=False)
+            session['auth_surface'] = 'portal'
+            token = secrets.token_urlsafe(32)
+            session['portal_session_token'] = token
+            db.session.add(PortalSessao(
+                tenant_id=organizacao.id, usuario_id=user.id,
+                identificador_hash=_portal_token_hash(token),
+                dispositivo=(request.user_agent.string or 'Navegador não identificado')[:180],
+                expira_em=_portal_now() + timedelta(hours=12)))
+            db.session.commit()
+            flash('Acesso realizado com segurança.', 'success')
+            return redirect(url_for('portal_home'))
+        if not tentativa:
+            tentativa = LoginTentativa(identificador_hash=fingerprint, tentativas=0,
+                                        janela_iniciada_em=agora)
+            db.session.add(tentativa)
+        tentativa.tentativas += 1
+        if tentativa.tentativas >= 5:
+            tentativa.bloqueado_ate = agora + timedelta(minutes=30)
+        db.session.commit()
+        flash('Não foi possível autenticar. Verifique os dados informados.', 'danger')
+    return render_template('portal_login.html', form=form, organizacao=organizacao)
+
+
+def _send_account_email(destination, subject, body):
+    host = os.getenv('SMTP_HOST', '').strip()
+    sender = os.getenv('SMTP_FROM', '').strip()
+    if not host or not sender:
+        raise RuntimeError('O envio de e-mail ainda não foi configurado.')
+    message = EmailMessage()
+    message['From'] = sender
+    message['To'] = destination
+    message['Subject'] = subject
+    message.set_content(body)
+    port = int(os.getenv('SMTP_PORT', '587'))
+    with smtplib.SMTP(host, port, timeout=15) as server:
+        server.starttls()
+        username = os.getenv('SMTP_USER', '').strip()
+        if username:
+            server.login(username, os.getenv('SMTP_PASSWORD', ''))
+        server.send_message(message)
+
+
+def _identity_text(value):
+    normalized = unicodedata.normalize('NFKD', (value or '').strip().casefold())
+    return ' '.join(''.join(c for c in normalized if not unicodedata.combining(c)).split())
+
+
+def _strong_password(value):
+    return 12 <= len(value) <= 128 and value.strip() == value and value.casefold() not in {
+        '123456789012', 'admin12345678', 'password123456', 'senha12345678'}
+
+
+def _email_code_hash(record_id, code):
+    return hmac.new(app.config['SECRET_KEY'].encode(), f'{record_id}:{code}'.encode(), hashlib.sha256).hexdigest()
+
+
+def _as_aware(value):
+    return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value
+
+
+def _confirmar_pin_usuario(user, pin):
+    now = _portal_now()
+    if user.pin_bloqueado_ate and _as_aware(user.pin_bloqueado_ate) > now:
+        return False
+    if not user.pin_hash or not re.fullmatch(r'\d{6}', pin or '') or not bcrypt.check_password_hash(user.pin_hash, pin):
+        user.pin_erros = (user.pin_erros or 0) + 1
+        if user.pin_erros >= 5:
+            user.pin_bloqueado_ate = now + timedelta(minutes=30)
+            user.pin_erros = 0
+        db.session.commit()
+        return False
+    user.pin_erros = 0
+    user.pin_bloqueado_ate = None
+    db.session.flush()
+    return True
+
+
+@app.route('/portal/<string:slug>/cadastre-se', methods=['GET', 'POST'])
+def portal_cadastro(slug):
+    organizacao = Organizacao.query.filter_by(slug=slug.strip().lower(), ativo=True,
+                                               portal_servidor_remoto_enabled=True).first_or_404()
+    if current_user.is_authenticated:
+        return redirect(url_for('portal_home') if current_user.tipo == 'requerente' else url_for('home'))
+    if request.method == 'POST':
+        matricula = (request.form.get('matricula') or '').strip()[:80]
+        nome = _identity_text(request.form.get('nome'))
+        cpf = re.sub(r'\D', '', request.form.get('cpf') or '')
+        primeiro_nome_mae = _identity_text(request.form.get('primeiro_nome_mae')).split(' ')[0]
+        ano = (request.form.get('ano_nascimento') or '').strip()
+        email = (request.form.get('email') or '').strip().lower()
+        telefone = (request.form.get('telefone') or '').strip()[:30]
+        endereco = (request.form.get('endereco') or '').strip()[:500]
+        senha = request.form.get('senha') or ''
+        fingerprint = login_fingerprint(f'cadastro:{organizacao.slug}', matricula)
+        now = datetime.utcnow()
+        tentativa = LoginTentativa.query.filter_by(identificador_hash=fingerprint).with_for_update().first()
+        if tentativa and tentativa.bloqueado_ate and tentativa.bloqueado_ate > now:
+            flash('Não foi possível concluir o cadastro agora. Tente novamente mais tarde.', 'danger')
+            return render_template('portal_cadastro.html', organizacao=organizacao), 429
+        if tentativa and tentativa.janela_iniciada_em < now - timedelta(minutes=15):
+            tentativa.tentativas = 0
+            tentativa.janela_iniciada_em = now
+            tentativa.bloqueado_ate = None
+        servidor = Servidor.query.filter_by(tenant_id=organizacao.id, matricula=matricula).first()
+        valid = bool(servidor and servidor.cpf and servidor.nascimento and servidor.nome_mae
+                     and _identity_text(servidor.nome) == nome and servidor.cpf == cpf
+                     and _identity_text(servidor.nome_mae).split(' ')[0] == primeiro_nome_mae
+                     and str(servidor.nascimento.year) == ano
+                     and not Usuario.query.filter_by(tenant_id=organizacao.id, servidor_id=servidor.id).first())
+        if not valid or not _strong_password(senha) or not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', email) or not telefone or not endereco:
+            if not tentativa:
+                tentativa = LoginTentativa(identificador_hash=fingerprint, tentativas=0, janela_iniciada_em=now)
+                db.session.add(tentativa)
+            tentativa.tentativas += 1
+            if tentativa.tentativas >= 5:
+                tentativa.bloqueado_ate = now + timedelta(minutes=30)
+            db.session.commit()
+            flash('Não foi possível validar o cadastro. Confira os dados e tente novamente.', 'danger')
+            return render_template('portal_cadastro.html', organizacao=organizacao), 400
+        if tentativa:
+            db.session.delete(tentativa)
+        PortalCadastro.query.filter_by(tenant_id=organizacao.id, servidor_id=servidor.id,
+                                      confirmado_em=None).delete()
+        pending = PortalCadastro(tenant_id=organizacao.id, servidor_id=servidor.id,
+                                 email=email, telefone=telefone, endereco=endereco,
+                                 senha_hash=bcrypt.generate_password_hash(senha).decode('utf-8'),
+                                 codigo_hash='0' * 64, expira_em=_portal_now() + timedelta(minutes=15))
+        db.session.add(pending)
+        db.session.flush()
+        code = f'{secrets.randbelow(1000000):06d}'
+        pending.codigo_hash = _email_code_hash(pending.id, code)
+        try:
+            _send_account_email(email, 'Confirme seu cadastro no Sysprot',
+                                f'Seu código de confirmação é {code}. Ele expira em 15 minutos.')
+        except (RuntimeError, OSError, smtplib.SMTPException):
+            db.session.rollback()
+            flash('Não foi possível enviar o código agora. Tente novamente mais tarde.', 'danger')
+            return render_template('portal_cadastro.html', organizacao=organizacao), 503
+        db.session.commit()
+        session['portal_cadastro_id'] = pending.id
+        return redirect(url_for('portal_confirmar_cadastro', slug=organizacao.slug))
+    return render_template('portal_cadastro.html', organizacao=organizacao)
+
+
+@app.route('/portal/<string:slug>/confirmar-cadastro', methods=['GET', 'POST'])
+def portal_confirmar_cadastro(slug):
+    organizacao = Organizacao.query.filter_by(slug=slug.strip().lower(), ativo=True,
+                                               portal_servidor_remoto_enabled=True).first_or_404()
+    pending = PortalCadastro.query.filter_by(id=session.get('portal_cadastro_id'),
+                                             tenant_id=organizacao.id, confirmado_em=None).first()
+    expiry = pending.expira_em.replace(tzinfo=timezone.utc) if pending and pending.expira_em.tzinfo is None else (pending.expira_em if pending else None)
+    if not pending or expiry <= _portal_now() or pending.tentativas >= 5:
+        session.pop('portal_cadastro_id', None)
+        flash('O código expirou ou o limite de tentativas foi atingido. Inicie um novo cadastro.', 'warning')
+        return redirect(url_for('portal_cadastro', slug=organizacao.slug))
+    if request.method == 'POST':
+        code = (request.form.get('codigo') or '').strip()
+        pending.tentativas += 1
+        if not re.fullmatch(r'\d{6}', code) or not hmac.compare_digest(pending.codigo_hash, _email_code_hash(pending.id, code)):
+            db.session.commit()
+            flash('Código inválido.', 'danger')
+            return render_template('portal_confirmar_cadastro.html', organizacao=organizacao), 400
+        servidor = db.session.get(Servidor, pending.servidor_id)
+        if Usuario.query.filter_by(tenant_id=organizacao.id, servidor_id=servidor.id).first():
+            abort(409, description='Esta matrícula já possui conta.')
+        user = Usuario(tenant_id=organizacao.id, servidor_id=servidor.id,
+                       nome=servidor.nome.split()[0], nome_completo=servidor.nome,
+                       cpf=servidor.cpf, login=servidor.matricula, senha=pending.senha_hash,
+                       tipo='requerente', status='ativo', email=pending.email,
+                       telefone=pending.telefone, endereco=pending.endereco)
+        db.session.add(user)
+        pending.confirmado_em = _portal_now()
+        db.session.commit()
+        session.pop('portal_cadastro_id', None)
+        flash('Cadastro confirmado. Entre com sua matrícula e senha.', 'success')
+        return redirect(url_for('portal_login', slug=organizacao.slug))
+    return render_template('portal_confirmar_cadastro.html', organizacao=organizacao)
+
+
+@app.post('/admin/usuarios/<int:user_id>/recuperar-portal')
+@permission_required('manage')
+def admin_portal_recovery(user_id):
+    user = tenant_get_or_404(Usuario, user_id)
+    if user.tipo != 'requerente' or user.status != 'ativo' or not user.servidor_id:
+        abort(400, description='A conta não está habilitada para o Portal do Servidor.')
+    now = _portal_now()
+    PortalRecuperacao.query.filter_by(tenant_id=current_tenant_id(), usuario_id=user.id,
+                                      utilizado_em=None).update({'utilizado_em': now})
+    token = secrets.token_urlsafe(32)
+    db.session.add(PortalRecuperacao(
+        tenant_id=current_tenant_id(), usuario_id=user.id,
+        token_hash=_portal_token_hash(token), gerado_por_id=current_user.id,
+        expira_em=now + timedelta(minutes=30)))
+    db.session.commit()
+    link = url_for('portal_recuperar', slug=active_organization().slug, token=token, _external=True)
+    return render_template('portal_recuperacao_link.html', user=user, link=link)
+
+
+@app.route('/portal/<string:slug>/recuperar/<string:token>', methods=['GET', 'POST'])
+def portal_recuperar(slug, token):
+    organizacao = Organizacao.query.filter_by(slug=slug.strip().lower(), ativo=True,
+                                               portal_servidor_remoto_enabled=True).first_or_404()
+    record = PortalRecuperacao.query.filter_by(
+        tenant_id=organizacao.id, token_hash=_portal_token_hash(token),
+        utilizado_em=None).first()
+    expiry = record.expira_em.replace(tzinfo=timezone.utc) if record and record.expira_em.tzinfo is None else (record.expira_em if record else None)
+    if not record or expiry <= _portal_now():
+        return render_template('portal_recuperar.html', organizacao=organizacao,
+                               expired=True), 410
+    if request.method == 'POST':
+        password = request.form.get('senha') or ''
+        confirmation = request.form.get('confirmar_senha') or ''
+        if len(password) < 12 or password != confirmation:
+            flash('Informe uma senha de pelo menos 12 caracteres e repita-a corretamente.', 'danger')
+        else:
+            user = Usuario.query.filter_by(id=record.usuario_id, tenant_id=organizacao.id,
+                                           tipo='requerente', status='ativo').first_or_404()
+            user.senha = bcrypt.generate_password_hash(password).decode('utf-8')
+            record.utilizado_em = _portal_now()
+            PortalSessao.query.filter_by(tenant_id=organizacao.id, usuario_id=user.id,
+                                         encerrada_em=None).update({'encerrada_em': _portal_now()})
+            db.session.commit()
+            session.pop('portal_session_token', None)
+            session.pop('auth_surface', None)
+            logout_user()
+            flash('Senha definida. Entre com a nova senha.', 'success')
+            return redirect(url_for('portal_login', slug=organizacao.slug))
+    return render_template('portal_recuperar.html', organizacao=organizacao, expired=False)
+
+
+@app.get('/portal')
+@portal_required
+def portal_home():
+    protocolos = accessible_protocols_query().order_by(Protocolo.id.desc()).all()
+    pendencias = tenant_query(SolicitacaoComplemento).filter(
+        SolicitacaoComplemento.status == 'PENDENTE',
+        SolicitacaoComplemento.protocolo_id.in_([p.id for p in protocolos] or [-1])).count()
+    return render_template('portal_home.html', protocolos=protocolos, pendencias=pendencias,
+                           organizacao=active_organization())
+
+
+@app.get('/portal/sessoes')
+@portal_required
+def portal_sessoes():
+    records = PortalSessao.query.filter_by(
+        tenant_id=current_tenant_id(), usuario_id=current_user.id,
+        encerrada_em=None).order_by(PortalSessao.criada_em.desc()).all()
+    current = _portal_session()
+    return render_template('portal_sessoes.html', organizacao=active_organization(),
+                           records=records, current_id=current.id if current else None,
+                           now=_portal_now())
+
+
+@app.post('/portal/sessoes/<int:session_id>/encerrar')
+@portal_required
+def portal_encerrar_sessao(session_id):
+    record = PortalSessao.query.filter_by(
+        id=session_id, tenant_id=current_tenant_id(), usuario_id=current_user.id,
+        encerrada_em=None).first_or_404()
+    current = _portal_session()
+    current_session = current is not None and current.id == record.id
+    record.encerrada_em = _portal_now()
+    db.session.commit()
+    if current_session:
+        slug = active_organization().slug
+        session.pop('portal_session_token', None)
+        session.pop('auth_surface', None)
+        logout_user()
+        return redirect(url_for('portal_login', slug=slug))
+    flash('Acesso encerrado.', 'success')
+    return redirect(url_for('portal_sessoes'))
+
+
+@app.route('/portal/novo', methods=['GET', 'POST'])
+@portal_required
+def portal_novo_protocolo():
+    servidor = current_user.servidor
+    tipos = tenant_query(TipoRequerimento).filter_by(ativo=True).order_by(TipoRequerimento.nome).all()
+    if request.method == 'GET':
+        return render_template('portal_novo.html', servidor=servidor, tipos=tipos,
+                               organizacao=active_organization())
+    tipo = (request.form.get('tipo_requerimento') or '').strip()
+    observacoes = (request.form.get('observacoes') or '').strip()
+    declaracao_aceita = request.form.get('declaracao') == 'on'
+    if not declaracao_aceita or not observacoes or not tenant_query(TipoRequerimento).filter_by(nome=tipo, ativo=True).first():
+        flash('Selecione o tipo, descreva o pedido e confirme a declaração de envio.', 'danger')
+        return render_template('portal_novo.html', servidor=servidor, tipos=tipos,
+                               organizacao=active_organization()), 400
+    try:
+        uploads = validated_uploads(request.files.getlist('anexos'))
+    except ValueError as error:
+        flash(str(error), 'danger')
+        return render_template('portal_novo.html', servidor=servidor, tipos=tipos,
+                               organizacao=active_organization()), 400
+    numero = gerar_proximo_numero_protocolo()
+    setor = tenant_query(Lotacao).filter_by(nome=servidor.lotacao, ativo=True).first() if servidor.lotacao else None
+    protocolo = Protocolo(
+        tenant_id=current_tenant_id(), numero=numero, nome=servidor.nome,
+        matricula=servidor.matricula, cargo=servidor.cargo, lotacao=servidor.lotacao,
+        unidade_exercicio=servidor.unidade_de_exercicio, tipo_requerimento=tipo,
+        requer_ao=(request.form.get('requer_ao') or '').strip() or None,
+        observacoes=observacoes, data_solicitacao=datetime.now().date(),
+        responsavel=current_user.login, criado_por_id=current_user.id,
+        requerente_servidor_id=servidor.id, modalidade_abertura='remota_requerente',
+        setor_atual_id=setor.id if setor else None, status='PROTOCOLO GERADO')
+    db.session.add(protocolo)
+    db.session.flush()
+    db.session.add(HistoricoProtocolo(
+        tenant_id=current_tenant_id(), protocolo_id=protocolo.id, status=protocolo.status,
+        responsavel=current_user.login, usuario_id=current_user.id, acao='ENVIO_REMOTO',
+        observacao='Requerimento enviado pelo próprio servidor em conta individual vinculada ao cadastro funcional.'))
+    for index, (filename, data, mime_type) in enumerate(uploads, start=1):
+        chave = f'anexo-inicial-{uuid.uuid4().hex[:12]}'
+        storage_path, backend, digest, stored_data = store_attachment_bytes(
+            data, current_tenant_id(), protocolo.id, chave, 1, filename, mime_type)
+        db.session.add(Anexo(
+            tenant_id=current_tenant_id(), protocolo_id=protocolo.id, file_name=filename,
+            storage_path=storage_path, storage_backend=backend, file_hash=digest,
+            file_size=len(data), mime_type=mime_type, file_data=stored_data,
+            documento_chave=chave, versao=1, enviado_por_id=current_user.id))
+    db.session.flush()
+    token, codigo = secrets.token_urlsafe(32), _public_code()
+    while EmissaoEletronica.query.filter(or_(EmissaoEletronica.token_publico == token,
+                                             EmissaoEletronica.codigo_publico == codigo)).first():
+        token, codigo = secrets.token_urlsafe(32), _public_code()
+    origem = request.headers.get('X-Forwarded-For', request.remote_addr or '').split(',')[0].strip()
+    emissao = EmissaoEletronica(
+        tenant_id=current_tenant_id(), protocolo_id=protocolo.id,
+        emitido_por_id=current_user.id, pdf_anexo_id=0, versao=1,
+        token_publico=token, codigo_publico=codigo, pdf_sha256='0' * 64,
+        metodo='conta_individual', nivel_garantia='interno',
+        declaracao='Requerimento enviado eletronicamente pelo próprio requerente autenticado em conta individual vinculada ao cadastro funcional.',
+        nome_emitente=servidor.nome, login_emitente=current_user.login,
+        ip_hash=hmac.new(app.config['SECRET_KEY'].encode(), origem.encode(), hashlib.sha256).hexdigest(),
+        user_agent_hash=hashlib.sha256((request.user_agent.string or '').encode()).hexdigest(),
+        emitido_em=datetime.now().astimezone(), status='VALIDA')
+    pdf_bytes = render_protocol_pdf(protocolo, emissao)
+    digest = hashlib.sha256(pdf_bytes).hexdigest()
+    filename = f'protocolo_{numero.replace("/", "-")}_envio_remoto_v1.pdf'
+    storage_path, backend, stored_hash, stored_data = store_attachment_bytes(
+        pdf_bytes, current_tenant_id(), protocolo.id, 'protocolo-autenticado', 1,
+        filename, 'application/pdf')
+    if not hmac.compare_digest(digest, stored_hash):
+        db.session.rollback()
+        abort(500, description='Falha ao confirmar a integridade do requerimento enviado.')
+    documento = Anexo(
+        tenant_id=current_tenant_id(), protocolo_id=protocolo.id, file_name=filename,
+        storage_path=storage_path, storage_backend=backend, file_hash=digest,
+        file_size=len(pdf_bytes), mime_type='application/pdf', file_data=stored_data,
+        documento_chave='protocolo-autenticado', versao=1, enviado_por_id=current_user.id)
+    db.session.add(documento)
+    db.session.flush()
+    emissao.pdf_anexo_id = documento.id
+    emissao.pdf_sha256 = digest
+    db.session.add(emissao)
+    db.session.commit()
+    flash(f'Requerimento enviado. Protocolo {numero} gerado com sucesso.', 'success')
+    return redirect(url_for('portal_detalhe', protocolo_id=protocolo.id))
+
+
+@app.get('/portal/protocolo/<int:protocolo_id>')
+@portal_required
+def portal_detalhe(protocolo_id):
+    protocolo = accessible_protocol_or_404(protocolo_id)
+    return render_template('portal_detalhe.html', protocolo=protocolo, organizacao=active_organization())
+
+
+@app.post('/portal/protocolo/<int:protocolo_id>/complemento/<int:solicitacao_id>')
+@portal_required
+def portal_enviar_complemento(protocolo_id, solicitacao_id):
+    protocolo = accessible_protocol_or_404(protocolo_id)
+    solicitacao = tenant_query(SolicitacaoComplemento).filter_by(
+        id=solicitacao_id, protocolo_id=protocolo.id, status='PENDENTE').first_or_404()
+    try:
+        uploads = validated_uploads(request.files.getlist('anexos'))
+    except ValueError as error:
+        flash(str(error), 'danger')
+        return redirect(url_for('portal_detalhe', protocolo_id=protocolo.id))
+    if not uploads:
+        flash('Selecione ao menos um documento para atender à solicitação.', 'danger')
+        return redirect(url_for('portal_detalhe', protocolo_id=protocolo.id))
+    for filename, data, mime_type in uploads:
+        chave = f'complemento-{solicitacao.id}-{uuid.uuid4().hex[:12]}'
+        path, backend, digest, stored_data = store_attachment_bytes(
+            data, current_tenant_id(), protocolo.id, chave, 1, filename, mime_type)
+        db.session.add(Anexo(
+            tenant_id=current_tenant_id(), protocolo_id=protocolo.id, file_name=filename,
+            storage_path=path, storage_backend=backend, file_hash=digest,
+            file_size=len(data), mime_type=mime_type, file_data=stored_data,
+            documento_chave=chave, versao=1, enviado_por_id=current_user.id,
+            solicitacao_complemento_id=solicitacao.id))
+    solicitacao.status = 'ATENDIDA'
+    solicitacao.atendido_em = datetime.now().astimezone()
+    solicitacao.atendido_por_id = current_user.id
+    db.session.add(HistoricoProtocolo(
+        tenant_id=current_tenant_id(), protocolo_id=protocolo.id, status=protocolo.status,
+        responsavel=current_user.login, usuario_id=current_user.id,
+        acao='COMPLEMENTO_ENVIADO',
+        observacao=f'Solicitação de complemento #{solicitacao.id} atendida com {len(uploads)} arquivo(s).'))
+    db.session.commit()
+    flash('Documentação complementar enviada e registrada sem alterar o requerimento original.', 'success')
+    return redirect(url_for('portal_detalhe', protocolo_id=protocolo.id))
+
+
+@app.post('/portal/sair')
+@portal_required
+def portal_logout():
+    slug = active_organization().slug
+    record = _portal_session()
+    if record:
+        record.encerrada_em = _portal_now()
+        db.session.commit()
+    session.pop('portal_session_token', None)
+    session.pop('auth_surface', None)
+    logout_user()
+    flash('Você saiu do Portal do Servidor.', 'info')
+    return redirect(url_for('portal_login', slug=slug))
+
+
 @app.route("/login", methods=['GET', 'POST'])
 def login():
+    """Entrada legada e exclusiva para localizar contas de administrador geral.
+
+    Usuários dos clientes devem receber o endereço /entrar/<slug>, no qual a
+    organização já está definida e não é solicitada na tela.
+    """
     if current_user.is_authenticated:
         return redirect(url_for('home'))
     form = LoginForm()
@@ -621,11 +1294,12 @@ def login():
             login=form.login.data,
             status='ativo'
         ).first()
-        if user and bcrypt.check_password_hash(user.senha, form.senha.data):
+        if user and user.tipo != 'requerente' and bcrypt.check_password_hash(user.senha, form.senha.data):
             if tentativa:
                 db.session.delete(tentativa)
                 db.session.commit()
             login_user(user, remember=form.remember.data)
+            session['auth_surface'] = 'backoffice'
             next_page = request.args.get('next')
             flash('Login bem-sucedido!', 'success')
             destination = safe_local_redirect(next_page)
@@ -650,6 +1324,7 @@ def login():
 @login_required
 def logout():
     session.pop('active_tenant_id', None)
+    session.pop('auth_surface', None)
     logout_user()
     flash('Você saiu da sua conta.', 'info')
     return redirect(url_for('login'))
@@ -680,6 +1355,26 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+
+@app.get('/admin/auditoria')
+@login_required
+@admin_required
+def admin_auditoria():
+    valid, records, broken_at = verify_audit_chain(current_tenant_id())
+    if request.args.get('exportar') == '1':
+        body = json.dumps({
+            'organizacao_id': current_tenant_id(), 'integra': valid,
+            'primeira_falha': broken_at, 'eventos': [{
+                'sequencia': item.sequencia, 'payload': json.loads(item.payload),
+                'hash_anterior': item.hash_anterior, 'hash_atual': item.hash_atual,
+            } for item in records],
+        }, ensure_ascii=False, indent=2)
+        response = Response(body, mimetype='application/json')
+        response.headers['Content-Disposition'] = 'attachment; filename="auditoria-sysprot.json"'
+        return response
+    return render_template('auditoria.html', valid=valid, broken_at=broken_at,
+                           records=records, title='Auditoria de protocolos')
+
 def platform_admin_required(f):
     @wraps(f)
     @login_required
@@ -694,6 +1389,8 @@ def require_platform_tenant_selection():
     if not current_user.is_authenticated or not current_user.is_platform_admin:
         return None
     allowed = {'platform_organizations', 'platform_select_organization', 'platform_create_admin', 'logout',
+               'trocar_senha_inicial', 'configurar_pin', 'solicitar_redefinicao_pin',
+               'platform_update_capabilities',
                'support_list', 'support_create', 'support_detail', 'support_reply',
                'support_assign', 'support_update_status',
                'health', 'static', 'organization_logo'}
@@ -704,6 +1401,115 @@ def require_platform_tenant_selection():
         session.pop('active_tenant_id', None)
         return redirect(url_for('platform_organizations'))
     return None
+
+
+@app.before_request
+def isolate_portal_surface():
+    if not current_user.is_authenticated or current_user.tipo != 'requerente':
+        return None
+    allowed = {'portal_home', 'portal_novo_protocolo', 'portal_detalhe',
+               'portal_enviar_complemento', 'portal_logout',
+               'portal_sessoes', 'portal_encerrar_sessao',
+               'baixar_anexo', 'gerar_pdf_protocolo', 'organization_logo', 'static',
+               'validar_emissao', 'health'}
+    if session.get('auth_surface') != 'portal':
+        session.pop('auth_surface', None)
+        logout_user()
+        abort(403)
+    if request.endpoint not in allowed:
+        return redirect(url_for('portal_home'))
+    return None
+
+
+@app.before_request
+def exigir_troca_senha_inicial():
+    if (current_user.is_authenticated and current_user.tipo != 'requerente'
+            and current_user.deve_trocar_senha
+            and request.endpoint not in {'trocar_senha_inicial', 'logout', 'static', 'organization_logo'}):
+        return redirect(url_for('trocar_senha_inicial'))
+    return None
+
+
+@app.route('/minha-conta/trocar-senha', methods=['GET', 'POST'])
+@login_required
+def trocar_senha_inicial():
+    if current_user.tipo == 'requerente':
+        abort(403)
+    if request.method == 'POST':
+        atual = request.form.get('senha_atual') or ''
+        nova = request.form.get('senha_nova') or ''
+        if (not bcrypt.check_password_hash(current_user.senha, atual)
+                or not _strong_password(nova) or nova != request.form.get('confirmar_senha')
+                or bcrypt.check_password_hash(current_user.senha, nova)):
+            flash('Confira a senha atual e escolha uma nova senha com pelo menos 12 caracteres.', 'danger')
+        else:
+            current_user.senha = bcrypt.generate_password_hash(nova).decode('utf-8')
+            current_user.deve_trocar_senha = False
+            db.session.commit()
+            flash('Senha alterada. Agora configure seu PIN pessoal de emissão.', 'success')
+            return redirect(url_for('configurar_pin'))
+    return render_template('trocar_senha_inicial.html')
+
+
+@app.route('/minha-conta/pin', methods=['GET', 'POST'])
+@login_required
+def configurar_pin():
+    if current_user.tipo not in {'admin', 'protocolista'}:
+        abort(403)
+    if request.method == 'POST':
+        pin = (request.form.get('pin') or '').strip()
+        password = request.form.get('senha') or ''
+        code = (request.form.get('codigo') or '').strip()
+        initial = not current_user.pin_hash
+        if not re.fullmatch(r'\d{6}', pin):
+            flash('O PIN deve conter exatamente seis números.', 'danger')
+        elif initial and not bcrypt.check_password_hash(current_user.senha, password):
+            flash('Senha incorreta.', 'danger')
+        elif not initial and (current_user.pin_redefinicao_erros >= 5 or
+                              not current_user.pin_redefinicao_hash or
+                              not current_user.pin_redefinicao_expira_em or
+                              _portal_now() > _as_aware(current_user.pin_redefinicao_expira_em) or
+                              not hmac.compare_digest(current_user.pin_redefinicao_hash,
+                                                      _email_code_hash(current_user.id, code))):
+            current_user.pin_redefinicao_erros += 1
+            db.session.commit()
+            flash('Código de redefinição inválido ou expirado.', 'danger')
+        else:
+            current_user.pin_hash = bcrypt.generate_password_hash(pin).decode('utf-8')
+            current_user.pin_erros = 0
+            current_user.pin_bloqueado_ate = None
+            current_user.pin_redefinicao_hash = None
+            current_user.pin_redefinicao_expira_em = None
+            current_user.pin_redefinicao_erros = 0
+            db.session.commit()
+            flash('PIN pessoal configurado.', 'success')
+            return redirect(url_for('home'))
+    return render_template('configurar_pin.html')
+
+
+@app.post('/minha-conta/pin/redefinir')
+@login_required
+def solicitar_redefinicao_pin():
+    if current_user.tipo not in {'admin', 'protocolista'} or not current_user.email:
+        abort(403)
+    if (current_user.pin_redefinicao_expira_em and
+            _as_aware(current_user.pin_redefinicao_expira_em) > _portal_now()):
+        flash('Já existe um código válido. Aguarde sua expiração antes de pedir outro.', 'warning')
+        return redirect(url_for('configurar_pin'))
+    code = f'{secrets.randbelow(1000000):06d}'
+    current_user.pin_redefinicao_hash = _email_code_hash(current_user.id, code)
+    current_user.pin_redefinicao_expira_em = _portal_now() + timedelta(minutes=15)
+    current_user.pin_redefinicao_erros = 0
+    try:
+        _send_account_email(current_user.email, 'Redefinição do PIN do Sysprot',
+                            f'Seu código para redefinir o PIN é {code}. Ele expira em 15 minutos.')
+    except (RuntimeError, OSError, smtplib.SMTPException):
+        db.session.rollback()
+        flash('Não foi possível enviar o código agora.', 'danger')
+        return redirect(url_for('configurar_pin'))
+    db.session.commit()
+    flash('Enviamos um código temporário para o e-mail cadastrado.', 'success')
+    return redirect(url_for('configurar_pin'))
 
 @app.get('/plataforma')
 @platform_admin_required
@@ -741,7 +1547,7 @@ def platform_create_admin():
         nome_completo=form.nome_completo.data.strip(), login=form.login.data.strip(),
         email=form.email.data.strip(),
         senha=bcrypt.generate_password_hash(form.senha.data).decode('utf-8'),
-        tipo='admin', is_platform_admin=True, status='ativo')
+        tipo='admin', is_platform_admin=True, status='ativo', deve_trocar_senha=True)
     db.session.add(user)
     db.session.commit()
     flash('Administrador geral criado com sucesso.', 'success')
@@ -755,6 +1561,29 @@ def platform_select_organization(organization_id):
     session.modified = True
     flash(f'Cliente ativo: {organization.nome}.', 'info')
     return redirect(url_for('home'))
+
+
+@app.post('/plataforma/cliente/<int:organization_id>/capacidades')
+@platform_admin_required
+def platform_update_capabilities(organization_id):
+    organization = Organizacao.query.filter_by(id=organization_id).first_or_404()
+    electronic_enabled = request.form.get('emissao_eletronica_protocolista_enabled') == 'on'
+    remote_enabled = request.form.get('portal_servidor_remoto_enabled') == 'on'
+    reason = (request.form.get('motivo') or '').strip()[:500] or None
+
+    organization.emissao_eletronica_protocolista_enabled = electronic_enabled
+    organization.portal_servidor_remoto_enabled = remote_enabled
+    db.session.add(OrganizacaoCapacidadeEvento(
+        organizacao_id=organization.id,
+        alterado_por_id=current_user.id,
+        emissao_eletronica_protocolista_enabled=electronic_enabled,
+        portal_servidor_remoto_enabled=remote_enabled,
+        nivel_garantia_assinatura='interno',
+        motivo=reason,
+    ))
+    db.session.commit()
+    flash(f'Capacidades de {organization.nome} atualizadas e auditadas.', 'success')
+    return redirect(url_for('platform_organizations'))
 
 @app.route("/relatorios")
 @permission_required('reports')
@@ -784,13 +1613,16 @@ def configuracoes():
 
     lotacoes = tenant_query(Lotacao).all()
     user_form.lotacao_id.choices = [(0, 'Sem setor definido')] + [(item.id, item.nome) for item in lotacoes if item.ativo]
+    servidores = tenant_query(Servidor).order_by(Servidor.nome, Servidor.matricula).all()
+    user_form.servidor_id.choices = [(0, 'Sem vínculo funcional')] + [
+        (item.id, f'{item.nome} — matrícula {item.matricula}') for item in servidores]
     users = tenant_query(Usuario).filter_by(is_platform_admin=False).all()
     tipos = tenant_query(TipoRequerimento).all()
 
     return render_template('configuracoes.html', title="Configurações",
                            users=users, lotacoes=lotacoes, tipos=tipos,
                            user_form=user_form, lotacao_form=lotacao_form, tipo_form=tipo_form,
-                           branding_form=branding_form, organizacao=active_organization())
+                            branding_form=branding_form, organizacao=active_organization(), servidores=servidores)
 
 @app.post('/admin/identidade/logo')
 @login_required
@@ -848,7 +1680,19 @@ def admin_create_user():
     form = AdminUserCreationForm()
     lotacoes = tenant_query(Lotacao).filter_by(ativo=True).order_by(Lotacao.nome).all()
     form.lotacao_id.choices = [(0, 'Sem setor definido')] + [(item.id, item.nome) for item in lotacoes]
+    servidores = tenant_query(Servidor).order_by(Servidor.nome, Servidor.matricula).all()
+    form.servidor_id.choices = [(0, 'Sem vínculo funcional')] + [
+        (item.id, f'{item.nome} — matrícula {item.matricula}') for item in servidores]
     if form.validate_on_submit():
+        servidor_id = form.servidor_id.data or None
+        if form.tipo.data == 'requerente' and not servidor_id:
+            flash('O usuário do Portal do Servidor deve estar vinculado a um cadastro funcional.', 'danger')
+            return redirect(url_for('configuracoes'))
+        if servidor_id and not tenant_query(Servidor).filter_by(id=servidor_id).first():
+            abort(400, description='Cadastro funcional inválido.')
+        if servidor_id and tenant_query(Usuario).filter_by(servidor_id=servidor_id).first():
+            flash('Este cadastro funcional já está vinculado a outra conta.', 'danger')
+            return redirect(url_for('configuracoes'))
         hashed_password = bcrypt.generate_password_hash(form.senha.data).decode('utf-8')
         user = Usuario(
             tenant_id=current_tenant_id(),
@@ -859,13 +1703,76 @@ def admin_create_user():
             nome=form.nome_completo.data.split(' ')[0],
             tipo=form.tipo.data,
             status='ativo',
+            deve_trocar_senha=form.tipo.data != 'requerente',
             lotacao_id=form.lotacao_id.data or None,
+            servidor_id=servidor_id,
         )
         db.session.add(user)
         db.session.commit()
         flash('Usuário criado com sucesso!', 'success')
     else:
         flash('Erro ao criar usuário. Verifique os dados.', 'danger')
+    return redirect(url_for('configuracoes'))
+
+
+@app.post('/admin/servidores/importar')
+@login_required
+@admin_required
+def admin_importar_servidores():
+    upload = request.files.get('arquivo')
+    if not upload or not upload.filename.lower().endswith('.xlsx'):
+        flash('Selecione uma planilha .xlsx.', 'danger')
+        return redirect(url_for('configuracoes'))
+    data = upload.read(2 * 1024 * 1024 + 1)
+    if len(data) > 2 * 1024 * 1024:
+        flash('A planilha deve ter até 2 MB.', 'danger')
+        return redirect(url_for('configuracoes'))
+    try:
+        workbook = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
+        rows = workbook.active.iter_rows(values_only=True)
+        header = [str(value or '').strip().lower() for value in next(rows)]
+        required = ('matricula', 'nome', 'cpf', 'data_nascimento', 'nome_mae')
+        if any(column not in header for column in required):
+            raise ValueError('Colunas obrigatórias: matricula, nome, cpf, data_nascimento, nome_mae.')
+        positions = {column: header.index(column) for column in required}
+        parsed = []
+        seen = set()
+        for number, values in enumerate(rows, start=2):
+            if number > 10001:
+                raise ValueError('Limite de 10.000 servidores por arquivo.')
+            if not any(value is not None for value in values):
+                continue
+            matricula_raw = values[positions['matricula']]
+            matricula = (str(int(matricula_raw)) if isinstance(matricula_raw, (int, float))
+                         and float(matricula_raw).is_integer() else str(matricula_raw or '').strip())
+            nome = str(values[positions['nome']] or '').strip()
+            cpf_raw = values[positions['cpf']]
+            cpf = (str(int(cpf_raw)).zfill(11) if isinstance(cpf_raw, (int, float))
+                   and float(cpf_raw).is_integer() else re.sub(r'\D', '', str(cpf_raw or '')))
+            mae = str(values[positions['nome_mae']] or '').strip()
+            raw_date = values[positions['data_nascimento']]
+            nascimento = raw_date.date() if isinstance(raw_date, datetime) else (
+                datetime.strptime(raw_date, '%d/%m/%Y').date() if isinstance(raw_date, str) else raw_date)
+            if not matricula or not nome or len(cpf) != 11 or not mae or not nascimento or matricula in seen:
+                raise ValueError(f'Dados inválidos ou matrícula repetida na linha {number}.')
+            seen.add(matricula)
+            parsed.append((matricula, nome, cpf, nascimento, mae))
+        tenant = current_tenant_id()
+        existing = {record.matricula: record for record in tenant_query(Servidor).filter(
+            Servidor.matricula.in_(seen)).all()}
+        for matricula, nome, cpf, nascimento, mae in parsed:
+            record = existing.get(matricula)
+            if record and tenant_query(Usuario).filter_by(servidor_id=record.id).first():
+                continue
+            if not record:
+                record = Servidor(tenant_id=tenant, matricula=matricula)
+                db.session.add(record)
+            record.nome, record.cpf, record.nascimento, record.nome_mae = nome, cpf, nascimento, mae
+        db.session.commit()
+        flash(f'Planilha processada: {len(parsed)} matrícula(s). Contas já vinculadas foram preservadas.', 'success')
+    except (ValueError, StopIteration, OSError, TypeError, IndexError, zipfile.BadZipFile) as error:
+        db.session.rollback()
+        flash(f'Importação não concluída: {error}', 'danger')
     return redirect(url_for('configuracoes'))
 
 @app.post('/admin/usuarios/<int:user_id>/editar')
@@ -879,11 +1786,23 @@ def admin_update_user(user_id):
     email = (request.form.get('email') or '').strip()
     tipo = (request.form.get('tipo') or '').strip()
     lotacao_raw = (request.form.get('lotacao_id') or '0').strip()
-    if not nome or not email or tipo not in ROLE_PERMISSIONS or not lotacao_raw.isdecimal():
+    servidor_raw = (request.form.get('servidor_id') or '0').strip()
+    if not nome or not email or tipo not in ROLE_PERMISSIONS or not lotacao_raw.isdecimal() or not servidor_raw.isdecimal():
         abort(400, description='Dados de usuário inválidos.')
     lotacao_id = int(lotacao_raw) or None
+    servidor_id = int(servidor_raw) or None
     if lotacao_id and not tenant_query(Lotacao).filter_by(id=lotacao_id, ativo=True).first():
         abort(400, description='Setor inválido ou inativo.')
+    if servidor_id and not tenant_query(Servidor).filter_by(id=servidor_id).first():
+        abort(400, description='Cadastro funcional inválido.')
+    vinculo_existente = (tenant_query(Usuario).filter_by(servidor_id=servidor_id).first()
+                         if servidor_id else None)
+    if vinculo_existente and vinculo_existente.id != user.id:
+        flash('Este cadastro funcional já está vinculado a outra conta.', 'danger')
+        return redirect(url_for('configuracoes'))
+    if tipo == 'requerente' and not servidor_id:
+        flash('O usuário do Portal do Servidor deve estar vinculado a um cadastro funcional.', 'danger')
+        return redirect(url_for('configuracoes'))
     if user.id == current_user.id and tipo != 'admin':
         flash('O administrador conectado não pode remover o próprio perfil administrativo.', 'warning')
         return redirect(url_for('configuracoes'))
@@ -892,6 +1811,7 @@ def admin_update_user(user_id):
     user.email = email
     user.tipo = tipo
     user.lotacao_id = lotacao_id
+    user.servidor_id = servidor_id
     db.session.commit()
     flash(f'Usuário {user.login} atualizado.', 'success')
     return redirect(url_for('configuracoes'))
@@ -957,26 +1877,36 @@ def admin_toggle_item_status(item_type, item_id):
 
 # --- Rota de Geração de PDF ---
 
-def render_protocol_pdf(protocolo):
+def render_protocol_pdf(protocolo, emissao=None):
     import base64
     import qrcode
     from weasyprint import HTML
     organizacao = active_organization()
     version = int(organizacao.logo_atualizada_em.timestamp()) if organizacao.logo_atualizada_em else 0
     consulta_url = url_for('consulta_publica', consulta_token=protocolo.consulta_token, _external=True)
-    qr_buffer = io.BytesIO()
-    qrcode.make(consulta_url).save(qr_buffer, format='PNG')
-    qr_code_url = 'data:image/png;base64,' + base64.b64encode(qr_buffer.getvalue()).decode('ascii')
+    qr_consulta_buffer = io.BytesIO()
+    qrcode.make(consulta_url).save(qr_consulta_buffer, format='PNG')
+    qr_code_url = 'data:image/png;base64,' + base64.b64encode(qr_consulta_buffer.getvalue()).decode('ascii')
+    qr_validacao_url = None
+    if emissao:
+        validacao_url = url_for('validar_emissao', token_publico=emissao.token_publico, _external=True)
+        qr_validacao_buffer = io.BytesIO()
+        qrcode.make(validacao_url).save(qr_validacao_buffer, format='PNG')
+        qr_validacao_url = ('data:image/png;base64,' +
+                            base64.b64encode(qr_validacao_buffer.getvalue()).decode('ascii'))
     rendered_html = render_template(
         'pdf_template.html', protocolo=protocolo, organizacao=organizacao,
         pdf_logo_url=url_for('organization_logo', slug=organizacao.slug,
-                             v=version, _external=True), qr_code_url=qr_code_url)
+                             v=version, _external=True), qr_code_url=qr_code_url,
+        emissao=emissao, qr_validacao_url=qr_validacao_url)
     return HTML(string=rendered_html, base_url=request.base_url).write_pdf()
 
 @app.route('/protocolo/<int:protocolo_id>/pdf')
 @login_required
 def gerar_pdf_protocolo(protocolo_id):
     protocolo = accessible_protocol_or_404(protocolo_id)
+    if protocolo.emissao_eletronica:
+        return _response_pdf_autenticado(protocolo.emissao_eletronica)
     pdf_bytes = render_protocol_pdf(protocolo)
 
     # Cria a resposta HTTP com o PDF
@@ -985,6 +1915,179 @@ def gerar_pdf_protocolo(protocolo_id):
     response.headers['Content-Disposition'] = f'inline; filename=protocolo_{protocolo.numero.replace("/", "-")}.pdf'
 
     return response
+
+
+def _response_pdf_autenticado(emissao):
+    pdf_bytes = read_attachment_bytes(emissao.pdf_anexo)
+    if not hmac.compare_digest(hashlib.sha256(pdf_bytes).hexdigest(), emissao.pdf_sha256):
+        abort(409, description='A integridade do documento autenticado não pôde ser confirmada.')
+    response = make_response(pdf_bytes)
+    response.headers['Content-Type'] = 'application/pdf'
+    response.headers['Content-Disposition'] = f'inline; filename={emissao.pdf_anexo.file_name}'
+    response.headers['Cache-Control'] = 'private, no-store'
+    return response
+
+
+def _public_code():
+    raw = secrets.token_hex(5).upper()
+    return f'{raw[:5]}-{raw[5:]}'
+
+
+@app.post('/protocolo/<int:protocolo_id>/autenticar-emissao')
+@permission_required('create')
+def autenticar_emissao_protocolo(protocolo_id):
+    organizacao = active_organization()
+    if not organizacao.emissao_eletronica_protocolista_enabled:
+        abort(404)
+    if current_user.tipo not in {'protocolista', 'admin'}:
+        abort(403)
+    protocolo = tenant_query(Protocolo).filter_by(id=protocolo_id).with_for_update().first_or_404()
+    if protocolo.arquivado_em:
+        abort(409, description='Processos arquivados não podem ser autenticados.')
+    emissao_anterior = protocolo.emissao_eletronica
+    if emissao_anterior and not protocolo.retificacao_pendente:
+        return _response_pdf_autenticado(protocolo.emissao_eletronica)
+    if not current_user.pin_hash:
+        flash('Configure seu PIN pessoal antes de autenticar a emissão.', 'warning')
+        return redirect(url_for('configurar_pin'))
+    if not _confirmar_pin_usuario(current_user, request.form.get('pin') or ''):
+        flash('PIN inválido ou temporariamente bloqueado. A emissão não foi autenticada.', 'danger')
+        return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
+
+    token = secrets.token_urlsafe(32)
+    codigo = _public_code()
+    while EmissaoEletronica.query.filter(or_(EmissaoEletronica.token_publico == token,
+                                             EmissaoEletronica.codigo_publico == codigo)).first():
+        token, codigo = secrets.token_urlsafe(32), _public_code()
+    declaracao = ('Protocolo emitido e autenticado eletronicamente pelo protocolista '
+                  'mediante confirmação de seu PIN pessoal no Sysprot.')
+    origem = request.headers.get('X-Forwarded-For', request.remote_addr or '').split(',')[0].strip()
+    nova_versao = (emissao_anterior.versao + 1) if emissao_anterior else 1
+    emissao = EmissaoEletronica(
+        tenant_id=current_tenant_id(), protocolo_id=protocolo.id,
+        emitido_por_id=current_user.id, pdf_anexo_id=0,
+        versao=nova_versao, substitui_emissao_id=emissao_anterior.id if emissao_anterior else None,
+        token_publico=token, codigo_publico=codigo, pdf_sha256='0' * 64,
+        metodo='pin_pessoal', nivel_garantia='interno', declaracao=declaracao,
+        nome_emitente=current_user.nome_completo or current_user.nome,
+        login_emitente=current_user.login,
+        ip_hash=hmac.new(app.config['SECRET_KEY'].encode(), origem.encode(), hashlib.sha256).hexdigest(),
+        user_agent_hash=hashlib.sha256((request.user_agent.string or '').encode()).hexdigest(),
+        emitido_em=datetime.now().astimezone(), status='VALIDA')
+    # O PDF inclui código/token e os dados congelados da evidência. O hash é calculado uma única vez.
+    pdf_bytes = render_protocol_pdf(protocolo, emissao)
+    digest = hashlib.sha256(pdf_bytes).hexdigest()
+    filename = f'protocolo_{protocolo.numero.replace("/", "-")}_autenticado_v{nova_versao}.pdf'
+    storage_path, backend, stored_hash, stored_data = store_attachment_bytes(
+        pdf_bytes, current_tenant_id(), protocolo.id, 'protocolo-autenticado', nova_versao,
+        filename, 'application/pdf')
+    if not hmac.compare_digest(digest, stored_hash):
+        abort(500, description='Falha ao confirmar a integridade do documento.')
+    documento = Anexo(
+        tenant_id=current_tenant_id(), protocolo_id=protocolo.id, file_name=filename,
+        storage_path=storage_path, storage_backend=backend, file_hash=digest,
+        file_size=len(pdf_bytes), mime_type='application/pdf', file_data=stored_data,
+        documento_chave='protocolo-autenticado', versao=nova_versao, enviado_por_id=current_user.id)
+    db.session.add(documento)
+    db.session.flush()
+    emissao.pdf_anexo_id = documento.id
+    emissao.pdf_sha256 = digest
+    protocolo.emitido_por_usuario_id = current_user.id
+    protocolo.retificacao_pendente = False
+    if emissao_anterior:
+        emissao_anterior.status = 'RETIFICADA'
+    db.session.add_all([emissao, HistoricoProtocolo(
+        tenant_id=current_tenant_id(), protocolo_id=protocolo.id, status=protocolo.status,
+        responsavel=current_user.login, usuario_id=current_user.id,
+        acao='RETIFICACAO_AUTENTICADA' if emissao_anterior else 'EMISSAO_AUTENTICADA',
+        observacao=f'Versão autenticada v{nova_versao}, código {codigo}.')])
+    db.session.commit()
+    return _response_pdf_autenticado(emissao)
+
+
+@app.route('/validar-emissao/<string:token_publico>', methods=['GET', 'POST'])
+@csrf.exempt
+def validar_emissao(token_publico):
+    emissao = EmissaoEletronica.query.filter_by(token_publico=token_publico).first_or_404()
+    arquivo_resultado = None
+    if request.method == 'POST' and request.files.get('arquivo'):
+        arquivo = request.files['arquivo']
+        dados = arquivo.read(21 * 1024 * 1024 + 1)
+        if len(dados) > 21 * 1024 * 1024:
+            abort(413)
+        arquivo_resultado = hmac.compare_digest(hashlib.sha256(dados).hexdigest(), emissao.pdf_sha256)
+    return render_template('validar_emissao.html', emissao=emissao,
+                           organizacao=db.session.get(Organizacao, emissao.tenant_id),
+                           arquivo_resultado=arquivo_resultado)
+
+
+@app.post('/protocolo/<int:protocolo_id>/cancelar-emissao')
+@permission_required('edit')
+def cancelar_emissao_protocolo(protocolo_id):
+    organizacao = active_organization()
+    if not organizacao.emissao_eletronica_protocolista_enabled:
+        abort(404)
+    if current_user.tipo not in {'protocolista', 'admin'}:
+        abort(403)
+    protocolo = tenant_query(Protocolo).filter_by(id=protocolo_id).with_for_update().first_or_404()
+    emissao = protocolo.emissao_eletronica
+    if not emissao or emissao.status != 'VALIDA':
+        abort(409, description='Não existe uma emissão eletrônica vigente para cancelar.')
+    if protocolo.retificacao_pendente:
+        abort(409, description='Conclua ou descarte a retificação pendente antes do cancelamento.')
+    senha = request.form.get('senha') or ''
+    motivo = (request.form.get('motivo') or '').strip()
+    if not senha or not bcrypt.check_password_hash(current_user.senha, senha):
+        flash('Senha inválida. A emissão não foi cancelada.', 'danger')
+        return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
+    if len(motivo) < 10:
+        flash('Informe uma justificativa para o cancelamento com pelo menos 10 caracteres.', 'danger')
+        return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
+    emissao.status = 'CANCELADA'
+    emissao.cancelado_em = datetime.now().astimezone()
+    emissao.cancelado_por_id = current_user.id
+    emissao.motivo_cancelamento = motivo
+    db.session.add(HistoricoProtocolo(
+        tenant_id=current_tenant_id(), protocolo_id=protocolo.id, status=protocolo.status,
+        responsavel=current_user.login, usuario_id=current_user.id, acao='EMISSAO_CANCELADA',
+        observacao=f'Versão autenticada v{emissao.versao}, código {emissao.codigo_publico}, cancelada. Motivo: {motivo}'))
+    db.session.commit()
+    flash(f'A versão autenticada {emissao.versao} foi cancelada sem apagar o documento ou suas evidências.', 'success')
+    return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
+
+
+@app.route('/protocolo/<int:protocolo_id>/retificar', methods=['GET', 'POST'])
+@permission_required('edit')
+def retificar_protocolo(protocolo_id):
+    original = accessible_protocol_or_404(protocolo_id)
+    if not original.emissao_eletronica:
+        flash('A retificação formal é utilizada para requerimentos já autenticados.', 'warning')
+        return redirect(url_for('editar_protocolo', protocolo_id=original.id))
+    if original.emissao_eletronica.status != 'VALIDA':
+        abort(409, description='Somente uma emissão vigente pode ser retificada.')
+    if request.method == 'GET':
+        return render_template('criar_protocolo.html', title='Retificar protocolo',
+                               legend=f'Retificar Protocolo {original.numero}',
+                               protocolo=original, retificacao_de=original)
+
+    nome = (request.form.get('nome') or '').strip()
+    if not nome:
+        abort(400, description='O nome do requerente é obrigatório.')
+    for campo in ('matricula', 'endereco', 'municipio', 'bairro', 'cep', 'telefone', 'cpf', 'rg',
+                  'cargo', 'lotacao', 'unidade_exercicio', 'tipo_requerimento', 'requer_ao', 'observacoes'):
+        setattr(original, campo, request.form.get(campo))
+    original.nome = nome
+    original.data_solicitacao = (parse_iso_date(request.form.get('data_solicitacao'), 'Data da solicitação')
+                                 or original.data_solicitacao or datetime.now().date())
+    original.prazo_em = parse_iso_date(request.form.get('prazo_em'), 'Prazo')
+    original.retificacao_pendente = True
+    db.session.add(HistoricoProtocolo(
+        tenant_id=current_tenant_id(), protocolo_id=original.id, status=original.status,
+        responsavel=current_user.login, usuario_id=current_user.id, acao='RETIFICACAO_CRIADA',
+        observacao='Nova versão preparada; a versão autenticada anterior permanece preservada até a autenticação desta retificação.'))
+    db.session.commit()
+    flash(f'Retificação do protocolo {original.numero} preparada. Confira e autentique a nova versão.', 'success')
+    return redirect(url_for('detalhe_protocolo', protocolo_id=original.id))
 
 
 @app.errorhandler(413)
@@ -1001,6 +2104,8 @@ def gerar_documento_versionado(protocolo_id):
     if protocolo.arquivado_em:
         flash('Processos arquivados não podem gerar novas versões.', 'warning')
         return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
+    if protocolo.emissao_eletronica:
+        return _response_pdf_autenticado(protocolo.emissao_eletronica)
     pdf_bytes = render_protocol_pdf(protocolo)
     chave = 'documento-protocolo'
     versao = (tenant_query(Anexo).filter_by(protocolo_id=protocolo.id, documento_chave=chave)
@@ -1108,6 +2213,7 @@ def criar_protocolo():
             observacoes=request.form.get('observacoes'),
             responsavel=current_user.login,
             criado_por_id=current_user.id,
+            modalidade_abertura='presencial_protocolista',
             setor_atual_id=current_user.lotacao_id,
             status='PROTOCOLO GERADO' # Status padrão como no sistema antigo
         )
@@ -1153,12 +2259,43 @@ def detalhe_protocolo(protocolo_id):
         documentos[chave] = anexo
     return render_template('protocolo_detalhe.html', title=f"Protocolo {protocolo.numero}", protocolo=protocolo, anexo_form=anexo_form, lotacoes=lotacoes, usuarios_destino=usuarios_destino, movimentacao_pendente=pendente, pode_receber=pode_receber, pode_encaminhar=pode_encaminhar, documentos_atuais=list(documentos.values()))
 
+
+@app.post('/protocolo/<int:protocolo_id>/solicitar-complemento')
+@permission_required('edit')
+def solicitar_complemento(protocolo_id):
+    protocolo = accessible_protocol_or_404(protocolo_id)
+    if protocolo.arquivado_em:
+        abort(409, description='Processos arquivados não podem receber solicitações.')
+    if protocolo.modalidade_abertura != 'remota_requerente' or not protocolo.requerente_servidor_id:
+        flash('A complementação pelo portal está disponível para requerimentos enviados remotamente.', 'warning')
+        return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
+    motivo = (request.form.get('motivo') or '').strip()
+    if len(motivo) < 10:
+        flash('Descreva o documento ou informação necessária com pelo menos 10 caracteres.', 'danger')
+        return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
+    solicitacao = SolicitacaoComplemento(
+        tenant_id=current_tenant_id(), protocolo_id=protocolo.id,
+        solicitado_por_id=current_user.id, motivo=motivo, status='PENDENTE')
+    db.session.add(solicitacao)
+    db.session.flush()
+    db.session.add(HistoricoProtocolo(
+        tenant_id=current_tenant_id(), protocolo_id=protocolo.id, status=protocolo.status,
+        responsavel=current_user.login, usuario_id=current_user.id,
+        acao='COMPLEMENTO_SOLICITADO',
+        observacao=f'Solicitação de complemento #{solicitacao.id}: {motivo}'))
+    db.session.commit()
+    flash('Solicitação registrada. O requerente será avisado no Portal do Servidor.', 'success')
+    return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
+
 @app.route("/protocolo/<int:protocolo_id>/editar", methods=['GET', 'POST'])
 @permission_required('edit')
 def editar_protocolo(protocolo_id):
     protocolo = accessible_protocol_or_404(protocolo_id)
     if protocolo.arquivado_em:
         flash('Processos arquivados são somente para consulta.', 'warning')
+        return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
+    if protocolo.emissao_eletronica and not protocolo.retificacao_pendente:
+        flash('O requerimento autenticado está congelado. Faça uma retificação para alterar seus dados.', 'warning')
         return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
 
     if request.method == 'POST':
@@ -1231,13 +2368,16 @@ def adicionar_anexo(protocolo_id):
     if protocolo.arquivado_em:
         flash('Processos arquivados não podem receber anexos ou novas versões.', 'warning')
         return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
+    if protocolo.emissao_eletronica and not protocolo.retificacao_pendente:
+        flash('Os anexos que integram a emissão autenticada estão congelados. Faça uma retificação para complementar o pedido.', 'warning')
+        return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
     form = AnexoForm()
     if form.validate_on_submit():
         file = form.anexo.data
         filename = secure_filename(file.filename)
-        file_data = file.read(20 * 1024 * 1024 + 1)
-        if not filename or not file_data or len(file_data) > 20 * 1024 * 1024:
-            flash('Envie um arquivo não vazio, com nome válido e até 20 MB.', 'danger')
+        file_data = file.read(5 * 1024 * 1024 + 1)
+        if not filename or not file_data or len(file_data) > 5 * 1024 * 1024:
+            flash('Envie um arquivo não vazio, com nome válido e até 5 MB.', 'danger')
             return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
         mime_type = verified_upload_mime(filename, file_data)
         if not mime_type:

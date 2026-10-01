@@ -9,7 +9,7 @@ class RegistrationForm(FlaskForm):
     """Formulário de Registro de Usuário"""
     nome_completo = StringField('Nome Completo', validators=[DataRequired(), Length(min=2, max=150)])
     login = StringField('Login de Acesso', validators=[DataRequired(), Length(min=4, max=25)])
-    senha = PasswordField('Senha', validators=[DataRequired(), Length(min=6)])
+    senha = PasswordField('Senha', validators=[DataRequired(), Length(min=12)])
     confirmar_senha = PasswordField('Confirmar Senha', validators=[DataRequired(), EqualTo('senha', message='As senhas devem ser iguais.')])
     # O campo 'tipo' (admin, user) pode ser definido administrativamente, não no registro público
     submit = SubmitField('Registrar')
@@ -29,6 +29,14 @@ from flask_wtf.file import FileField, FileRequired, FileAllowed
 class LoginForm(FlaskForm):
     """Formulário de Login de Usuário"""
     organizacao = StringField('Organização', validators=[DataRequired(), Length(min=2, max=80)])
+    login = StringField('Login', validators=[DataRequired()])
+    senha = PasswordField('Senha', validators=[DataRequired()])
+    remember = BooleanField('Lembrar-me')
+    submit = SubmitField('Entrar')
+
+
+class TenantLoginForm(FlaskForm):
+    """Login em uma organização já resolvida pela URL, sem escolha de cliente."""
     login = StringField('Login', validators=[DataRequired()])
     senha = PasswordField('Senha', validators=[DataRequired()])
     remember = BooleanField('Lembrar-me')
@@ -78,14 +86,16 @@ class AdminUserCreationForm(FlaskForm):
     nome_completo = StringField('Nome Completo', validators=[DataRequired()])
     login = StringField('Login', validators=[DataRequired()])
     email = StringField('Email', validators=[DataRequired()])
-    senha = PasswordField('Senha', validators=[DataRequired(), Length(min=6)])
+    senha = PasswordField('Senha', validators=[DataRequired(), Length(min=12)])
     tipo = SelectField('Perfil', choices=[
+        ('requerente', 'Servidor — Portal do Servidor'),
         ('consulta', 'Somente consulta'),
         ('tramitador', 'Tramitação e respostas'),
         ('protocolista', 'Protocolista'),
         ('admin', 'Administrador do cliente'),
     ], validators=[DataRequired()])
     lotacao_id = SelectField('Setor/Lotação', coerce=int, choices=[], validators=[Optional()])
+    servidor_id = SelectField('Cadastro funcional vinculado', coerce=int, choices=[], validators=[Optional()])
     submit = SubmitField('Criar Usuário')
 
     def validate_login(self, login):
@@ -100,7 +110,7 @@ class PlatformAdminCreationForm(FlaskForm):
     nome_completo = StringField('Nome Completo', validators=[DataRequired(), Length(min=2, max=150)])
     login = StringField('Login', validators=[DataRequired(), Length(min=4, max=25)])
     email = StringField('Email', validators=[DataRequired(), Length(max=180)])
-    senha = PasswordField('Senha inicial', validators=[DataRequired(), Length(min=8)])
+    senha = PasswordField('Senha inicial', validators=[DataRequired(), Length(min=12)])
     organizacao_id = SelectField('Organização de acesso', coerce=int, choices=[], validators=[DataRequired()])
     submit = SubmitField('Criar administrador geral')
 
@@ -115,4 +125,3 @@ class BrandingForm(FlaskForm):
     ])
     salvar = SubmitField('Salvar logo')
     remover = SubmitField('Restaurar logo padrão')
-

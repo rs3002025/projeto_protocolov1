@@ -1,0 +1,24 @@
+{% extends 'portal_base.html' %}
+{% block portal_content %}
+<a href="{{ url_for('portal_home') }}" class="btn btn-outline-secondary mb-3">← Meus protocolos</a>
+<h1 class="h3">Acessos ao Portal do Servidor</h1>
+<p class="text-muted">Confira os navegadores com acesso à sua conta. Cada acesso expira após 12 horas.</p>
+<div class="card"><div class="card-body">
+{% for record in records %}
+  {% set expiry = record.expira_em.replace(tzinfo=now.tzinfo) if not record.expira_em.tzinfo else record.expira_em %}
+  {% if expiry > now %}
+  <div class="d-flex justify-content-between align-items-center gap-3 border-bottom py-3">
+    <div><strong>{{ 'Este acesso' if record.id == current_id else 'Outro acesso' }}</strong>
+      <div class="text-muted small text-break">{{ record.dispositivo }}</div>
+      <div class="text-muted small">Iniciado em {{ record.criada_em.strftime('%d/%m/%Y %H:%M') }}</div>
+    </div>
+    <form method="post" action="{{ url_for('portal_encerrar_sessao', session_id=record.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="btn btn-outline-danger btn-sm" type="submit">Encerrar</button>
+    </form>
+  </div>
+  {% endif %}
+{% else %}<p class="mb-0">Nenhum acesso ativo.</p>{% endfor %}
+</div></div>
+{% endblock %}
+
