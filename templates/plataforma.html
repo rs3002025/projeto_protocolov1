@@ -14,6 +14,7 @@
       <div class="card-body">
         <h2 class="h5">{{ item.organization.nome }}</h2>
         <p class="text-muted mb-2">Identificador: {{ item.organization.slug }}</p>
+        <p class="mb-2">Endereço: {% if tenant_base_domain %}<a href="{{ tenant_entry_url('tenant_login', item.organization, external=True) }}">{{ item.organization.subdominio or item.organization.slug }}.{{ tenant_base_domain }}</a>{% else %}Aguardando configuração dos subdomínios no Railway{% endif %}</p>
         <p>{{ item.users }} usuário(s) ativo(s) · {{ item.protocols }} protocolo(s)</p>
         <div class="mb-3">
           <span class="badge {{ 'bg-success' if item.organization.emissao_eletronica_protocolista_enabled else 'bg-secondary' }}">Emissão eletrônica {{ 'ativa' if item.organization.emissao_eletronica_protocolista_enabled else 'inativa' }}</span>
@@ -27,6 +28,15 @@
           </button>
         </form>
         <hr>
+        <form method="POST" action="{{ url_for('platform_set_subdomain', organization_id=item.organization.id) }}" class="mb-3">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <label class="form-label" for="subdomain-{{ item.organization.id }}">Subdomínio do cliente</label>
+          <div class="input-group">
+            <input class="form-control" id="subdomain-{{ item.organization.id }}" name="subdominio" value="{{ item.organization.subdominio or '' }}" maxlength="63" pattern="[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?" placeholder="{{ item.organization.slug }}">
+            <button class="btn btn-outline-primary" type="submit">Salvar</button>
+          </div>
+          <small class="text-muted">Em branco, utiliza o identificador atual. Links antigos continuam válidos.</small>
+        </form>
         <form method="POST" action="{{ url_for('platform_update_capabilities', organization_id=item.organization.id) }}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <div class="form-check form-switch mb-2">
@@ -74,3 +84,4 @@
   </div>
 </div>
 {% endblock %}
+

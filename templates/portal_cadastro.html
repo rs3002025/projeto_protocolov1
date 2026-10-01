@@ -11,4 +11,5 @@
 <div class="col-12"><label class="form-label">E-mail<input class="form-control" name="email" type="email" required></label></div>
 <div class="col-12"><label class="form-label">Endereço<input class="form-control" name="endereco" required></label></div>
 <div class="col-12"><label class="form-label">Crie uma senha com pelo menos 12 caracteres<input class="form-control" name="senha" type="password" minlength="12" autocomplete="new-password" required></label></div>
-</div><button class="btn btn-primary mt-3" type="submit">Receber código por e-mail</button></form><a class="d-block mt-3" href="{{ url_for('portal_login', slug=organizacao.slug) }}">Voltar ao login</a></div></div></main></body></html>
+</div><button class="btn btn-primary mt-3" type="submit">Receber código por e-mail</button></form><a class="d-block mt-3" href="{{ tenant_entry_url('portal_login', organizacao) }}">Voltar ao login</a></div></div></main></body></html>
+

@@ -20,6 +20,7 @@ TENANT_TABLES = (
 
 SCHEMA_COLUMNS = {
     'organizacoes': {
+        'subdominio': 'VARCHAR(63)',
         'logo_data': 'BLOB',
         'logo_mime_type': 'VARCHAR(80)',
         'logo_nome_arquivo': 'VARCHAR(255)',
@@ -167,6 +168,7 @@ def bootstrap():
                         connection.execute(text(f'ALTER TABLE {table} ALTER COLUMN tenant_id SET NOT NULL'))
 
                 statements = (
+                    'CREATE UNIQUE INDEX IF NOT EXISTS uq_organizacao_subdominio ON organizacoes (subdominio) WHERE subdominio IS NOT NULL',
                     'CREATE UNIQUE INDEX IF NOT EXISTS uq_usuario_tenant_login ON usuarios (tenant_id, login)',
                     'CREATE UNIQUE INDEX IF NOT EXISTS uq_usuario_tenant_servidor ON usuarios (tenant_id, servidor_id) WHERE servidor_id IS NOT NULL',
                     'CREATE UNIQUE INDEX IF NOT EXISTS uq_protocolo_tenant_numero ON protocolos (tenant_id, numero)',
@@ -208,3 +210,4 @@ def bootstrap():
 
 if __name__ == '__main__':
     bootstrap()
+
