@@ -15,6 +15,7 @@ class Organizacao(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(180), nullable=False)
     slug = db.Column(db.String(80), unique=True, nullable=False, index=True)
+    subdominio = db.Column(db.String(63), unique=True, nullable=True, index=True)
     ativo = db.Column(db.Boolean, nullable=False, default=True)
     criado_em = db.Column(db.TIMESTAMP, server_default=db.func.current_timestamp(), nullable=False)
     logo_data = db.Column(db.LargeBinary)
@@ -27,6 +28,16 @@ class Organizacao(db.Model):
     emissao_eletronica_protocolista_enabled = db.Column(db.Boolean, nullable=False, default=False)
     portal_servidor_remoto_enabled = db.Column(db.Boolean, nullable=False, default=False)
     nivel_garantia_assinatura = db.Column(db.String(20), nullable=False, default='interno')
+
+
+class OrganizacaoSubdominioAlias(db.Model):
+    """Endereços anteriores continuam apontando ao mesmo cliente."""
+    __tablename__ = 'organizacao_subdominios_alias'
+    id = db.Column(db.Integer, primary_key=True)
+    organizacao_id = db.Column(db.Integer, db.ForeignKey('organizacoes.id'), nullable=False, index=True)
+    subdominio = db.Column(db.String(63), nullable=False, unique=True, index=True)
+    criado_em = db.Column(db.TIMESTAMP, server_default=db.func.current_timestamp(), nullable=False)
+    organizacao = db.relationship('Organizacao')
 
 
 class OrganizacaoCapacidadeEvento(db.Model):
@@ -375,3 +386,4 @@ class MensagemSuporte(TenantMixin, db.Model):
     criado_em = db.Column(db.TIMESTAMP(timezone=True), server_default=db.func.now(), nullable=False)
 
     autor = db.relationship('Usuario', foreign_keys=[autor_id])
+
