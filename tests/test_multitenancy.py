@@ -218,12 +218,17 @@ def test_subdominio_identifica_cliente_sem_codigo_no_login(monkeypatch):
     try:
         client = app.test_client()
         host = 'https://moradanova.muniprot.com.br'
-        gateway = client.get('/', base_url=host, follow_redirects=True)
-        assert gateway.status_code == 200
-        assert 'Cliente A' in gateway.get_data(as_text=True)
+        root = client.get('/', base_url=host)
+        assert root.status_code == 302
+        assert root.headers['Location'] == '/entrar'
+        legacy = client.get('/acesso', base_url=host)
+        assert legacy.status_code == 302
+        assert legacy.headers['Location'] == '/entrar'
+        assert 'Escolha a área' not in client.get('/', base_url=host, follow_redirects=True).get_data(as_text=True)
         login_page = client.get('/entrar', base_url=host)
         assert login_page.status_code == 200
         assert 'name="organizacao"' not in login_page.get_data(as_text=True)
+        assert client.get('/portaldoservidor', base_url=host).status_code == 200
         assert client.get('/portal/entrar', base_url=host).status_code == 200
         assert client.get('/portal/cadastre-se', base_url=host).status_code == 200
         assert client.get('/portal/cliente-b/entrar', base_url=host).status_code == 404
@@ -235,7 +240,7 @@ def test_subdominio_identifica_cliente_sem_codigo_no_login(monkeypatch):
             organization = Organizacao.query.filter_by(slug='cliente-a').one()
             assert tenant_entry_url('tenant_login', organization) == '/entrar'
             assert tenant_entry_url('portal_login', organization, external=True) == (
-                'https://moradanova.muniprot.com.br/portal/entrar')
+                'https://moradanova.muniprot.com.br/portaldoservidor')
             assert public_url('consulta_publica', consulta_token='teste') == (
                 'https://app.muniprot.com.br/consulta/teste')
         signed_in = client.post('/entrar', base_url=host, data={

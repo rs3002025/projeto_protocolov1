@@ -29,8 +29,10 @@ plataforma e das consultas/validações públicas. Cada cliente pode receber
 `<subdominio>.muniprot.com.br`. O administrador geral define o subdomínio em
 **Administração da plataforma**; se o campo ficar em branco, utiliza-se o
 identificador interno (`slug`). O usuário não precisa escolher o cliente na
-tela de login. O Portal do Servidor usa `/portal/entrar`, e a equipe usa
-`/entrar`. A raiz do subdomínio mostra as duas opções disponíveis.
+tela de login. O Portal do Servidor usa `/portaldoservidor`, e a equipe usa
+`/entrar`. A raiz do subdomínio leva diretamente ao login da equipe; o
+Portal do Servidor tem endereço próprio, sem menu intermediário. O caminho
+antigo `/portal/entrar` permanece aceito para links já distribuídos.
 
 Os endereços antigos com o slug no caminho continuam aceitos. Ao trocar um
 subdomínio, o anterior fica registrado como alias da mesma organização para
