@@ -118,15 +118,28 @@ def test_importacao_e_autocadastro_do_requerente_exigem_codigo_de_email():
         'matricula': 'REG-1', 'nome': 'Servidor Exemplo', 'cpf': '01234567890',
         'primeiro_nome_mae': 'Maria', 'ano_nascimento': '1985',
         'telefone': '88999999999', 'endereco': 'Rua Teste, 1',
-        'email': 'servidor@example.test', 'senha': 'uma senha longa de teste',
+        'email': 'servidor@example.test', 'senha': 'Teste123',
+        'confirmar_senha': 'Teste123',
     }
+    signup_page = client.get('/portal/cliente-a/cadastre-se').get_data(as_text=True)
+    assert 'Confirme a senha' in signup_page
+    assert 'Continuar cadastro' in signup_page
+    assert 'Receber código por e-mail' not in signup_page
+    assert 'minlength="8"' in signup_page
     invalid = client.post('/portal/cliente-a/cadastre-se', data={**payload, 'ano_nascimento': '1986'})
     assert invalid.status_code == 400
+    assert client.post('/portal/cliente-a/cadastre-se', data={**payload, 'senha': 'teste123',
+                       'confirmar_senha': 'teste123'}).status_code == 400
+    assert client.post('/portal/cliente-a/cadastre-se', data={**payload,
+                       'confirmar_senha': 'Outra123'}).status_code == 400
     with patch('app._send_account_email') as send_email:
         response = client.post('/portal/cliente-a/cadastre-se', data=payload)
         assert response.status_code == 302
         assert send_email.call_count == 1
         code = re.search(r'\b\d{6}\b', send_email.call_args.args[2]).group()
+    confirmation_page = client.get('/portal/cliente-a/confirmar-cadastro').get_data(as_text=True)
+    assert 'Enviamos um código de seis dígitos' in confirmation_page
+    assert 'name="codigo"' in confirmation_page
     assert client.post('/portal/cliente-a/confirmar-cadastro', data={'codigo': '000000'}).status_code == 400
     assert client.post('/portal/cliente-a/confirmar-cadastro', data={'codigo': code}).status_code == 302
     with app.app_context():
@@ -264,7 +277,8 @@ def test_login_por_cliente_nao_exibe_escolha_de_organizacao():
     pagina = client.get('/entrar/cliente-a')
     html = pagina.get_data(as_text=True)
     assert pagina.status_code == 200
-    assert 'Acesso de Cliente A' in html
+    assert 'Cliente A' in html
+    assert 'Acesso de Cliente A' not in html
     assert 'name="organizacao"' not in html
 
     response = client.post('/entrar/cliente-a', data={
@@ -1631,14 +1645,14 @@ def test_portal_servidor_isola_login_e_abertura_em_nome_proprio():
     reset_path = urlsplit(match.group(1)).path
     reset_client = app.test_client()
     assert reset_client.post(reset_path, data={
-        'senha': 'nova-senha-segura-123', 'confirmar_senha': 'nova-senha-segura-123',
+        'senha': 'Nova-senha-segura-123', 'confirmar_senha': 'Nova-senha-segura-123',
     }).status_code == 302
     assert reset_client.post(reset_path, data={
         'senha': 'outra-senha-segura', 'confirmar_senha': 'outra-senha-segura',
     }).status_code == 410
     assert client.get('/portal').status_code == 302
     assert client.post('/portal/cliente-a/entrar', data={
-        'login': 'servidor.portal', 'senha': 'nova-senha-segura-123',
+        'login': 'servidor.portal', 'senha': 'Nova-senha-segura-123',
     }).status_code == 302
     with app.app_context():
         session_id = PortalSessao.query.filter_by(usuario_id=user_id,
