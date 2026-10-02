@@ -1053,6 +1053,13 @@ def _strong_password(value):
         '123456789012', 'admin12345678', 'password123456', 'senha12345678'}
 
 
+def _portal_password_valid(value):
+    return (8 <= len(value) <= 128 and value.strip() == value
+            and any(char.islower() for char in value)
+            and any(char.isupper() for char in value)
+            and any(char.isdigit() for char in value))
+
+
 def _email_code_hash(record_id, code):
     return hmac.new(app.config['SECRET_KEY'].encode(), f'{record_id}:{code}'.encode(), hashlib.sha256).hexdigest()
 
@@ -1094,6 +1101,7 @@ def portal_cadastro(slug):
         telefone = (request.form.get('telefone') or '').strip()[:30]
         endereco = (request.form.get('endereco') or '').strip()[:500]
         senha = request.form.get('senha') or ''
+        confirmar_senha = request.form.get('confirmar_senha') or ''
         fingerprint = login_fingerprint(f'cadastro:{organizacao.slug}', matricula)
         now = datetime.utcnow()
         tentativa = LoginTentativa.query.filter_by(identificador_hash=fingerprint).with_for_update().first()
@@ -1110,7 +1118,9 @@ def portal_cadastro(slug):
                      and _identity_text(servidor.nome_mae).split(' ')[0] == primeiro_nome_mae
                      and str(servidor.nascimento.year) == ano
                      and not Usuario.query.filter_by(tenant_id=organizacao.id, servidor_id=servidor.id).first())
-        if not valid or not _strong_password(senha) or not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', email) or not telefone or not endereco:
+        if (not valid or not _portal_password_valid(senha) or senha != confirmar_senha
+                or not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', email)
+                or not telefone or not endereco):
             if not tentativa:
                 tentativa = LoginTentativa(identificador_hash=fingerprint, tentativas=0, janela_iniciada_em=now)
                 db.session.add(tentativa)
@@ -1213,8 +1223,8 @@ def portal_recuperar(slug, token):
     if request.method == 'POST':
         password = request.form.get('senha') or ''
         confirmation = request.form.get('confirmar_senha') or ''
-        if len(password) < 12 or password != confirmation:
-            flash('Informe uma senha de pelo menos 12 caracteres e repita-a corretamente.', 'danger')
+        if not _portal_password_valid(password) or password != confirmation:
+            flash('A senha deve ter pelo menos 8 caracteres, letras minúsculas, maiúsculas e um número. Confira também a confirmação.', 'danger')
         else:
             user = Usuario.query.filter_by(id=record.usuario_id, tenant_id=organizacao.id,
                                            tipo='requerente', status='ativo').first_or_404()
