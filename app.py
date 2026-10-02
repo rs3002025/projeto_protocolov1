@@ -80,7 +80,7 @@ _RESERVED_SUBDOMAINS = {'app', 'www', 'admin', 'api', 'mail', 'smtp', 'static',
                         'suporte', 'dev', 'development', 'visual-development'}
 _TENANT_URL_ENDPOINTS = {
     'tenant_login': '/entrar',
-    'portal_login': '/portal/entrar',
+    'portal_login': '/portaldoservidor',
     'portal_cadastro': '/portal/cadastre-se',
     'portal_confirmar_cadastro': '/portal/confirmar-cadastro',
 }
@@ -159,7 +159,7 @@ def enforce_tenant_host():
             current_user.is_platform_admin or current_user.tenant_id != organization.id):
         abort(403)
     if not current_user.is_authenticated and request.endpoint == 'home' and request.path == '/':
-        return redirect(url_for('tenant_gateway'))
+        return redirect(url_for('tenant_login_host'))
     if request.endpoint == 'login':
         return redirect(url_for('tenant_login_host'))
     return None
@@ -176,11 +176,10 @@ def unauthorized():
 
 
 @app.get('/acesso')
-def tenant_gateway():
-    organization = host_organization()
-    if not organization:
+def tenant_access_legacy():
+    if not host_organization():
         abort(404)
-    return render_template('tenant_gateway.html', organizacao=organization)
+    return redirect(url_for('tenant_login_host'))
 
 
 @app.route('/entrar', methods=['GET', 'POST'])
@@ -192,6 +191,7 @@ def tenant_login_host():
 
 
 @app.route('/portal/entrar', methods=['GET', 'POST'])
+@app.route('/portaldoservidor', methods=['GET', 'POST'])
 def portal_login_host():
     organization = host_organization()
     if not organization:
