@@ -14,7 +14,7 @@ Atualização: 06/10/2026. Este arquivo passa a ser a referência vigente. Os pl
 - Backup manual de banco e bucket com teste histórico de restauração; produção com snapshots nativos diários, semanais e mensais confirmados em 06/10.
 - Manuais e apresentações em português, incluindo materiais para equipe do cliente.
 
-## Correções preparadas neste bloco
+## Correções implementadas neste bloco
 
 - Retificação bloqueada em processo arquivado e quando a capacidade de emissão está desabilitada.
 - Novos eventos de auditoria incluem a data do histórico no conteúdo protegido; eventos antigos continuam conferidos em seu formato original.
@@ -26,7 +26,9 @@ Atualização: 06/10/2026. Este arquivo passa a ser a referência vigente. Os pl
 - Mensagem de limite alinhada: 5 MB por anexo; 30 MB de requisição total, incluindo o formulário.
 - Destino nominal não concede consulta automaticamente aos colegas do setor; participantes anteriores mantêm consulta legitimamente obtida no fluxo.
 
-Publicação e resultados dos testes devem ser registrados ao fim do bloco.
+Validação: 60 testes aprovados na execução conjunta e o teste de logo aprovado separadamente após completar as imagens de preparação do snapshot; 61 verificações aprovadas no total. Os testes usam banco temporário. As correções foram integradas às três branches; a consolidação final mantém a mesma versão de código em main, development e codex/visual-development. A implantação é automática no Railway e precisa ser conferida no painel.
+
+Endereços: produção em app.muniprot.com.br e cliente.muniprot.com.br; desenvolvimento principal em dev.muniprot.com.br e cliente.dev.muniprot.com.br; visual em visual.muniprot.com.br e cliente.visual.muniprot.com.br. O wildcard visual segue aguardando emissão do certificado. Bancos, buckets e variáveis continuam específicos de cada ambiente.
 
 ## Pendências vigentes
 
