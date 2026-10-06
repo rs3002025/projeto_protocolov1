@@ -1221,6 +1221,11 @@ def portal_cadastro(slug):
             db.session.commit()
             flash('Não foi possível validar o cadastro. Confira os dados e tente novamente.', 'danger')
             return _render_signup(organizacao), 400
+        previous = PortalCadastro.query.filter_by(tenant_id=organizacao.id,
+            servidor_id=servidor.id, confirmado_em=None).order_by(PortalCadastro.id.desc()).first()
+        if previous and _as_aware(previous.expira_em) > _portal_now() + timedelta(minutes=14):
+            flash('Aguarde um minuto antes de solicitar outro código de confirmação.', 'warning')
+            return _render_signup(organizacao), 429
         if tentativa:
             db.session.delete(tentativa)
         PortalCadastro.query.filter_by(tenant_id=organizacao.id, servidor_id=servidor.id,
@@ -3134,7 +3139,7 @@ def dashboard_stats():
         setor_protocolos = setor_query.with_entities(
             func.coalesce(Lotacao.nome, 'Não definido').label('setor'),
             func.count(Protocolo.id).label('total')
-        ).group_by(func.coalesce(Lotacao.nome, 'Não definido')).order_by(func.count(Protocolo.id).desc()).all()
+        ).group_by(Lotacao.nome).order_by(func.count(Protocolo.id).desc()).all()
 
         # --- Evolução (Line Chart) ---
         evolucao_query = base_query.filter(Protocolo.data_solicitacao != None)
