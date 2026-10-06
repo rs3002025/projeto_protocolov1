@@ -1,5 +1,7 @@
 # Plano geral consolidado — Sysprot+
 
+> Atualização de 06/10/2026: a referência vigente é [PLANO-CONSOLIDADO.md](PLANO-CONSOLIDADO.md). O conteúdo abaixo preserva o histórico e pode conter decisões já substituídas.
+
 ## 1. Finalidade e situação atual
 
 Este documento consolida o andamento funcional, técnico, operacional e visual do Sysprot+. Ele substitui o registro cronológico antigo, que já não representava o estado implantado.
@@ -203,4 +205,6 @@ Não há pendência funcional ou visual bloqueadora conhecida. Permanecem ativid
 8. Promover para `main` e validar a produção.
 
 Nenhuma alteração futura deve ser considerada concluída apenas porque o código foi enviado: o resultado implantado precisa ser conferido.
+
+
 

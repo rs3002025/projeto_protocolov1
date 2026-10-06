@@ -1,5 +1,7 @@
 # Plano de autenticação eletrônica do protocolo e abertura remota — Sysprot
 
+> Atualização de 06/10/2026: consulte [PLANO-CONSOLIDADO.md](PLANO-CONSOLIDADO.md) para o escopo vigente. As etapas antigas sobre WebAuthn e níveis adicionais foram substituídas; o fluxo atual usa PIN pessoal e cadastro funcional com confirmação de e-mail.
+
 ## 1. Objetivo
 
 O Sysprot terá dois recursos relacionados, mas distintos:
@@ -600,4 +602,6 @@ Limites desta entrega:
 - A suíte local passou com 60 testes, incluindo a tentativa de ativação direta de níveis indisponíveis.
 - A implementação de WebAuthn/passkey não foi liberada. O pacote oficial e suas dependências não puderam ser instalados pela rede deste ambiente, e o download pelo navegador foi bloqueado. Não se deve substituir a confirmação criptográfica prevista no nível forte por TOTP isolado nem afirmar equivalência jurídica.
 - A página pública de entrada do Portal do Servidor foi conferida no ambiente visual. A homologação autenticada no Railway aguarda sessões de teste de administrador e servidor; não foram usados dados de acesso reais sem disponibilização pelo usuário.
+
+
 
