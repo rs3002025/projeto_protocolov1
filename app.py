@@ -58,7 +58,7 @@ import smtplib
 import unicodedata
 import zipfile
 from email.message import EmailMessage
-from sqlalchemy import func, cast, Date, text, or_, false, exists
+from sqlalchemy import func, cast, Date, text, or_, and_, false, exists
 from datetime import datetime, timedelta
 from forms import LoginForm, TenantLoginForm, RegistrationForm, ProtocoloForm, AnexoForm, AdminUserCreationForm, PlatformAdminCreationForm, AdminListItemForm, ConsultaPublicaForm, BrandingForm
 from models import (Organizacao, OrganizacaoSubdominioAlias, Usuario, Protocolo, HistoricoProtocolo, Movimentacao,
@@ -257,12 +257,23 @@ def accessible_protocols_query():
         Movimentacao.tenant_id == current_tenant_id(),
         Movimentacao.protocolo_id == Protocolo.id,
         or_(Movimentacao.setor_origem_id == current_user.lotacao_id,
-            Movimentacao.setor_destino_id == current_user.lotacao_id,
+            and_(Movimentacao.setor_destino_id == current_user.lotacao_id,
+                 or_(Movimentacao.destinatario_usuario_id.is_(None),
+                     Movimentacao.destinatario_usuario_id == current_user.id)),
             Movimentacao.enviado_por_id == current_user.id,
             Movimentacao.recebido_por_id == current_user.id,
             Movimentacao.destinatario_usuario_id == current_user.id),
     )
-    return query.filter(or_(Protocolo.setor_atual_id == current_user.lotacao_id, participacao))
+    ultima_movimentacao = select(func.max(Movimentacao.id)).where(
+        Movimentacao.tenant_id == current_tenant_id(),
+        Movimentacao.protocolo_id == Protocolo.id).correlate(Protocolo).scalar_subquery()
+    destino_nominal_alheio = exists().where(
+        Movimentacao.id == ultima_movimentacao,
+        Movimentacao.setor_destino_id == current_user.lotacao_id,
+        Movimentacao.destinatario_usuario_id.is_not(None),
+        Movimentacao.destinatario_usuario_id != current_user.id)
+    return query.filter(or_(and_(Protocolo.setor_atual_id == current_user.lotacao_id,
+                                ~destino_nominal_alheio), participacao))
 
 def accessible_protocol_or_404(protocolo_id):
     return accessible_protocols_query().filter(Protocolo.id == protocolo_id).first_or_404()
@@ -357,6 +368,20 @@ def verified_upload_mime(filename, data):
     if extension == 'pdf' and data.startswith(b'%PDF-'):
         return 'application/pdf'
     if extension in ('docx', 'xlsx') and data.startswith(b'PK\x03\x04'):
+        try:
+            with zipfile.ZipFile(io.BytesIO(data)) as archive:
+                names = set(archive.namelist())
+                main_part = 'word/document.xml' if extension == 'docx' else 'xl/workbook.xml'
+                if not {'[Content_Types].xml', '_rels/.rels', main_part}.issubset(names):
+                    return None
+                if (any(info.flag_bits & 1 for info in archive.infolist()) or
+                        sum(info.file_size for info in archive.infolist()) > 50 * 1024 * 1024 or
+                        any(name.lower().endswith('vbaproject.bin') for name in names)):
+                    return None
+                if archive.testzip() is not None:
+                    return None
+        except (zipfile.BadZipFile, RuntimeError, OSError):
+            return None
         return {'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
                 'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}[extension]
     if extension in ('doc', 'xls') and data.startswith(bytes.fromhex('D0CF11E0A1B11AE1')):
@@ -624,7 +649,7 @@ def consulta_fingerprint():
 
 
 def login_fingerprint(organizacao, login):
-    origem = request.headers.get('X-Forwarded-For', request.remote_addr or '').split(',')[0].strip()
+    origem = request.remote_addr or ''
     valor = f'{organizacao.strip().lower()}\0{login.strip().lower()}\0{origem}'
     return hmac.new(app.config['SECRET_KEY'].encode(), valor.encode(), hashlib.sha256).hexdigest()
 
@@ -908,8 +933,11 @@ def append_protocol_audit(db_session, flush_context, instances):
         for item in (entry for entry in pending if entry.tenant_id == tenant_id):
             sequence += 1
             item.evento_uuid = str(uuid.uuid4())
+            if item.data_movimentacao is None:
+                item.data_movimentacao = datetime.now(timezone.utc).replace(tzinfo=None)
             payload = json.dumps({
-                'versao': 1, 'tenant_id': tenant_id, 'sequencia': sequence,
+                'versao': 2, 'tenant_id': tenant_id, 'sequencia': sequence,
+                'data_movimentacao': item.data_movimentacao.isoformat(timespec='microseconds'),
                 'evento_uuid': item.evento_uuid,
                 'protocolo_id': item.protocolo_id, 'usuario_id': item.usuario_id,
                 'acao': item.acao, 'status': item.status,
@@ -941,6 +969,11 @@ def verify_audit_chain(tenant_id):
         if not history or any(payload.get(field) != getattr(history, field) for field in (
                 'tenant_id', 'protocolo_id', 'usuario_id', 'acao', 'status',
                 'responsavel', 'observacao')):
+            return False, records, expected
+        if payload.get('versao', 1) >= 2 and (
+                not history.data_movimentacao or
+                payload.get('data_movimentacao') != history.data_movimentacao.replace(
+                    tzinfo=None).isoformat(timespec='microseconds')):
             return False, records, expected
         previous = item.hash_atual
     return True, records, None
@@ -1336,7 +1369,7 @@ def portal_novo_protocolo():
     while EmissaoEletronica.query.filter(or_(EmissaoEletronica.token_publico == token,
                                              EmissaoEletronica.codigo_publico == codigo)).first():
         token, codigo = secrets.token_urlsafe(32), _public_code()
-    origem = request.headers.get('X-Forwarded-For', request.remote_addr or '').split(',')[0].strip()
+    origem = request.remote_addr or ''
     emissao = EmissaoEletronica(
         tenant_id=current_tenant_id(), protocolo_id=protocolo.id,
         emitido_por_id=current_user.id, pdf_anexo_id=0, versao=1,
@@ -1610,6 +1643,7 @@ def trocar_senha_inicial():
             current_user.senha = bcrypt.generate_password_hash(nova).decode('utf-8')
             current_user.deve_trocar_senha = False
             db.session.commit()
+            login_user(current_user._get_current_object(), remember=False)
             flash('Senha alterada. Agora configure seu PIN pessoal de emissão.', 'success')
             return redirect(url_for('configurar_pin'))
     return render_template('trocar_senha_inicial.html')
@@ -1723,6 +1757,11 @@ def platform_select_organization(organization_id):
     organization = Organizacao.query.filter_by(id=organization_id, ativo=True).first_or_404()
     session['active_tenant_id'] = organization.id
     session.modified = True
+    db.session.add(HistoricoProtocolo(
+        tenant_id=organization.id, usuario_id=current_user.id,
+        acao='ACESSO_ADMINISTRADOR_GERAL', responsavel=current_user.login,
+        observacao='Administrador geral selecionou este cliente para acesso administrativo.'))
+    db.session.commit()
     flash(f'Cliente ativo: {organization.nome}.', 'info')
     return redirect(url_for('home'))
 
@@ -2154,7 +2193,7 @@ def autenticar_emissao_protocolo(protocolo_id):
         token, codigo = secrets.token_urlsafe(32), _public_code()
     declaracao = ('Protocolo emitido e autenticado eletronicamente pelo protocolista '
                   'mediante confirmação de seu PIN pessoal no Sysprot.')
-    origem = request.headers.get('X-Forwarded-For', request.remote_addr or '').split(',')[0].strip()
+    origem = request.remote_addr or ''
     nova_versao = (emissao_anterior.versao + 1) if emissao_anterior else 1
     emissao = EmissaoEletronica(
         tenant_id=current_tenant_id(), protocolo_id=protocolo.id,
@@ -2252,7 +2291,11 @@ def cancelar_emissao_protocolo(protocolo_id):
 @app.route('/protocolo/<int:protocolo_id>/retificar', methods=['GET', 'POST'])
 @permission_required('edit')
 def retificar_protocolo(protocolo_id):
-    original = accessible_protocol_or_404(protocolo_id)
+    original = accessible_protocols_query().filter_by(id=protocolo_id).with_for_update().first_or_404()
+    if original.arquivado_em:
+        abort(409, description='Processos arquivados não podem ser retificados.')
+    if not active_organization().emissao_eletronica_protocolista_enabled:
+        abort(403, description='A emissão eletrônica não está habilitada para este cliente.')
     if not original.emissao_eletronica:
         flash('A retificação formal é utilizada para requerimentos já autenticados.', 'warning')
         return redirect(url_for('editar_protocolo', protocolo_id=original.id))
@@ -2286,8 +2329,8 @@ def retificar_protocolo(protocolo_id):
 @app.errorhandler(413)
 def arquivo_grande_demais(_error):
     if request.is_json:
-        return jsonify({'erro': 'A requisição excede o limite permitido de 21 MB.'}), 413
-    flash('O envio excede o limite permitido de 21 MB.', 'danger')
+        return jsonify({'erro': 'O envio excede 30 MB no total. Cada anexo pode ter até 5 MB.'}), 413
+    flash('O envio excede 30 MB no total. Cada anexo pode ter até 5 MB.', 'danger')
     return redirect(request.referrer or url_for('home'))
 
 @app.post('/protocolo/<int:protocolo_id>/documento/gerar')
@@ -2815,6 +2858,9 @@ def backup_excel():
             p.observacoes, p.status, p.responsavel
         ]
         sheet.append(row)
+        for cell in sheet[sheet.max_row]:
+            if isinstance(cell.value, str):
+                cell.data_type = 's'
 
     virtual_workbook = io.BytesIO()
     workbook.save(virtual_workbook)
@@ -3081,4 +3127,6 @@ if __name__ == '__main__':
     # The port must be available. Railway provides the PORT env var.
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=True)
+
+
 
