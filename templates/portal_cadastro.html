@@ -28,11 +28,12 @@
             <section class="cadastro-section" aria-labelledby="identificacao-title">
                 <div class="section-heading"><span class="section-number">1</span><div><h2 id="identificacao-title">Identificação funcional</h2><p>Use os dados que constam no seu cadastro de servidor.</p></div></div>
                 <div class="form-grid">
-                    <div><label for="matricula">Matrícula</label><input id="matricula" name="matricula" autocomplete="off" maxlength="80" required></div>
+                    <div><label for="matricula">Matrícula</label><input id="matricula" name="matricula" value="{{ matricula }}" readonly required></div>
                     <div><label for="nome">Nome completo</label><input id="nome" name="nome" autocomplete="name" required></div>
                     <div><label for="cpf">CPF</label><input id="cpf" name="cpf" inputmode="numeric" autocomplete="off" required></div>
-                    <div><label for="primeiro_nome_mae">Primeiro nome da mãe</label><input id="primeiro_nome_mae" name="primeiro_nome_mae" autocomplete="off" required></div>
-                    <div><label for="ano_nascimento">Ano de nascimento</label><input id="ano_nascimento" name="ano_nascimento" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" required></div>
+                    {% for campo, pergunta in perguntas %}
+                    <div><label for="{{ campo }}">{{ pergunta }}</label><input id="{{ campo }}" name="{{ campo }}" autocomplete="off" {% if campo.endswith('nascimento') %}inputmode="numeric"{% endif %} required></div>
+                    {% endfor %}
                 </div>
             </section>
 
@@ -70,4 +71,6 @@
 </main>
 </body>
 </html>
+
+
 

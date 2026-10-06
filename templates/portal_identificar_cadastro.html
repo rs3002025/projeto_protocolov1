@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Cadastro no Portal do Servidor</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"><link href="{{ url_for('static', filename='portal-cadastro.css') }}" rel="stylesheet"></head>
+<body><main class="cadastro-shell" style="max-width:620px"><div class="cadastro-card">
+<header class="cadastro-header"><img class="cadastro-logo" src="{{ url_for('organization_logo', slug=organizacao.slug) }}" alt="Logo de {{ organizacao.nome }}"><span class="cadastro-eyebrow">{{ organizacao.nome }} · Portal do Servidor</span><h1>Crie sua conta</h1><p>Para começar, informe sua matrícula funcional.</p></header>
+{% with messages=get_flashed_messages(with_categories=true) %}{% for category,message in messages %}<div class="alert alert-{{ category }}" role="alert">{{ message }}</div>{% endfor %}{% endwith %}
+<form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="etapa" value="identificar"><section class="cadastro-section"><label for="matricula">Matrícula</label><input id="matricula" name="matricula" maxlength="80" autocomplete="off" required autofocus><p class="mt-3 text-muted">Use a matrícula registrada pelo seu órgão. Na próxima etapa, você confirmará seus dados e criará a senha.</p></section>
+<div class="cadastro-actions"><button class="submit-button" type="submit">Continuar</button><a href="{{ tenant_entry_url('portal_login', organizacao) }}">Já tem conta? Voltar ao login</a></div></form>
+</div></main></body></html>
+

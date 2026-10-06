@@ -121,6 +121,8 @@ def test_importacao_e_autocadastro_do_requerente_exigem_codigo_de_email():
         'email': 'servidor@example.test', 'senha': 'Teste123',
         'confirmar_senha': 'Teste123',
     }
+    with patch('app.secrets.choice', side_effect=lambda choices: choices[0]):
+        assert client.post('/portal/cliente-a/cadastre-se', data={'etapa': 'identificar', 'matricula': 'REG-1'}).status_code == 302
     signup_page = client.get('/portal/cliente-a/cadastre-se').get_data(as_text=True)
     assert 'Confirme a senha' in signup_page
     assert 'Continuar cadastro' in signup_page
