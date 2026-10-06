@@ -1,5 +1,7 @@
 # Plano de evolução visual e de usabilidade — Sysprot+
 
+> Atualização de 06/10/2026: situação atual e pendências em [PLANO-CONSOLIDADO.md](PLANO-CONSOLIDADO.md). Este arquivo preserva o histórico das propostas e entregas visuais.
+
 ## 1. Finalidade
 
 Este documento é a referência permanente para a modernização visual e a melhoria de usabilidade do Sysprot+. O primeiro bloco foi desenvolvido e homologado em ambiente isolado e, após aprovação, promovido para desenvolvimento principal e produção.
@@ -372,4 +374,6 @@ Não há pendência visual bloqueadora conhecida no bloco promovido. Os próximo
 6. promover para `main` e validar a produção.
 
 Pendência técnica não bloqueadora mantida: substituir gradualmente `datetime.utcnow()` por datas UTC com fuso explícito e eliminar os avisos de depreciação.
+
+
 

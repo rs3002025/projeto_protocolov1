@@ -756,7 +756,9 @@ def test_tramitacao_pode_destinar_usuario_ou_todo_setor():
     maria = app.test_client()
     maria.post('/login', data={'organizacao': 'cliente-a', 'login': 'maria', 'senha': 'senha-segura'})
     assert b'DEST-1/2026' not in maria.get('/pendencias-recebimento').data
-    assert maria.post(f'/protocolo/{protocolo_id}/receber').status_code == 302
+    assert b'DEST-1/2026' not in maria.get('/protocolos').data
+    assert maria.get(f'/protocolo/{protocolo_id}').status_code == 404
+    assert maria.post(f'/protocolo/{protocolo_id}/receber').status_code == 404
     with app.app_context():
         assert Movimentacao.query.filter_by(protocolo_id=protocolo_id).one().recebido_em is None
 
@@ -764,6 +766,8 @@ def test_tramitacao_pode_destinar_usuario_ou_todo_setor():
     joao.post('/login', data={'organizacao': 'cliente-a', 'login': 'joao', 'senha': 'senha-segura'})
     assert b'DEST-1/2026' in joao.get('/pendencias-recebimento').data
     assert joao.post(f'/protocolo/{protocolo_id}/receber').status_code == 302
+    assert maria.get(f'/protocolo/{protocolo_id}').status_code == 404
+    assert joao.get(f'/protocolo/{protocolo_id}').status_code == 200
     with app.app_context():
         assert Movimentacao.query.filter_by(protocolo_id=protocolo_id).one().recebido_em is not None
 
@@ -776,6 +780,7 @@ def test_tramitacao_pode_destinar_usuario_ou_todo_setor():
     admin.post(f'/protocolo/{geral_id}/tramitar', data={'setor_destino_id': setor_id})
     assert b'DEST-2/2026' in maria.get('/pendencias-recebimento').data
     assert b'DEST-2/2026' in joao.get('/pendencias-recebimento').data
+    assert maria.get(f'/protocolo/{geral_id}').status_code == 200
     with app.app_context():
         assert Movimentacao.query.filter_by(protocolo_id=geral_id).one().destinatario_usuario_id is None
 
@@ -1669,4 +1674,6 @@ def test_portal_servidor_isola_login_e_abertura_em_nome_proprio():
         TipoRequerimento.query.filter_by(nome='Requerimento remoto').delete()
         Organizacao.query.filter_by(slug='cliente-a').one().portal_servidor_remoto_enabled = False
         db.session.commit()
+
+
 

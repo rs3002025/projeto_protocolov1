@@ -1,14 +1,21 @@
-from app import db, login_manager
+from app import db, login_manager, app
 from flask_login import UserMixin
 import secrets
+import hashlib
+import hmac
 
 ID_TYPE = db.BigInteger().with_variant(db.Integer, 'sqlite')
 
 # Flask-Login requires this callback to load a user from the session
 @login_manager.user_loader
 def load_user(user_id):
-    user = db.session.get(Usuario, int(user_id))
-    return user if user and user.is_active else None
+    try:
+        identifier, credential = user_id.split(':', 1)
+        user = db.session.get(Usuario, int(identifier))
+    except (ValueError, AttributeError):
+        return None
+    return user if user and user.is_active and hmac.compare_digest(
+        credential, user.get_id().split(':', 1)[1]) else None
 
 class Organizacao(db.Model):
     __tablename__ = 'organizacoes'
@@ -87,6 +94,11 @@ class Usuario(TenantMixin, db.Model, UserMixin):
     servidor_id = db.Column(ID_TYPE, db.ForeignKey('servidores.id'))
     organizacao = db.relationship('Organizacao')
     servidor = db.relationship('Servidor', foreign_keys=[servidor_id])
+
+    def get_id(self):
+        credential = hmac.new(app.config['SECRET_KEY'].encode(),
+                              f'{self.id}:{self.senha}'.encode(), hashlib.sha256).hexdigest()
+        return f'{self.id}:{credential}'
 
     @property
     def is_active(self):
@@ -386,4 +398,6 @@ class MensagemSuporte(TenantMixin, db.Model):
     criado_em = db.Column(db.TIMESTAMP(timezone=True), server_default=db.func.now(), nullable=False)
 
     autor = db.relationship('Usuario', foreign_keys=[autor_id])
+
+
 
