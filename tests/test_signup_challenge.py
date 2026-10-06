@@ -59,6 +59,11 @@ def test_questions_follow_selected_variants_and_validate_answers():
     with client.session_transaction() as state:
         assert 'portal_identificacao' not in state
         assert state.get('portal_cadastro_id')
+    repeat = app.test_client()
+    identify(repeat)
+    with patch('app._send_account_email') as send:
+        assert repeat.post('/portal/cliente-a/cadastre-se', data=payload()).status_code == 429
+        send.assert_not_called()
 
 
 def test_expired_challenge_returns_to_identification():

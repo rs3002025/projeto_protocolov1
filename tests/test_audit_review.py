@@ -32,6 +32,26 @@ def test_forwarded_prefix_changes_limiter_identity():
         b = login_fingerprint('cliente-a', 'admin')
     assert a == b
 
+
+def test_dashboard_sector_grouping_is_postgresql_compatible():
+    from sqlalchemy import event
+    from sqlalchemy.dialects import postgresql
+    statements = []
+    def inspect_query(conn, cursor, statement, parameters, context, executemany):
+        if context.compiled and ' AS setor' in statement:
+            statements.append(str(context.compiled.statement.compile(dialect=postgresql.dialect())))
+    with app.app_context():
+        engine = db.engine
+        event.listen(engine, 'before_cursor_execute', inspect_query)
+    try:
+        client = app.test_client()
+        base.login(client, 'cliente-a')
+        assert client.get('/protocolos/dashboard-stats').status_code == 200
+        assert statements and all('GROUP BY lotacoes.nome' in sql for sql in statements)
+        assert all('GROUP BY coalesce' not in sql for sql in statements)
+    finally:
+        event.remove(engine, 'before_cursor_execute', inspect_query)
+
 def test_excel_exports_user_text_as_formula():
     with app.app_context():
         db.session.get(Protocolo, 1).observacoes = '=1+1'

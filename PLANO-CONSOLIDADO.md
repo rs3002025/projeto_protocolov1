@@ -57,5 +57,11 @@ Testes de regressão aprovados; publicação confirmada nos três ambientes; tes
 - *.visual.muniprot.com.br ainda apresenta ERR_CERT_COMMON_NAME_INVALID; não foi contornada a advertência do navegador.
 - Credenciais locais do bucket protegidas pelo Windows não puderam ser descriptografadas no contexto desta execução. Não foram apagadas, alteradas ou expostas; a tentativa não gerou backup novo.
 - A instalação local do auditor foi impedida pela restrição de rede ao PyPI; por isso a consulta foi transferida ao GitHub Actions.
-- Homologação administrativa no navegador aguarda sessão de administrador no desenvolvimento principal. Materiais antigos permanecem preservados; sua atualização não está concluída.
+- Sessão administrativa fornecida pelo usuário em produção. A homologação real detectou falha no agrupamento por setor do dashboard: PostgreSQL rejeitava expressões coalesce com parâmetros diferentes no SELECT e GROUP BY. Correção preparada usando o campo do setor no agrupamento e teste específico da consulta compilada para PostgreSQL. Materiais antigos permanecem preservados; sua atualização não está concluída.
+
+## Evidências da publicação do cadastro
+
+- PR 103 integrado; commit 9dc9d03115c40e43f9644aeccc821c17a0509cb2 nas três branches. Railway confirmou Deployment successful nos três ambientes; primeira tela do cadastro conferida visualmente em produção.
+- GitHub Actions, execução 37488148413: pip-audit concluiu em 06/10/2026 às 15:31 UTC com No known vulnerabilities found. Relatório preservado como artefato. Resultado limitado às versões resolvidas pelo requirements no Python 3.12 do CI; não equivale a uma auditoria integral de segurança nem à conferência do inventário de cada contêiner.
+- Controle adicional de reenvio: não gerar outro código de cadastro para a mesma matrícula antes de um minuto, inclusive em outra sessão. O PIN pessoal não foi transformado em código expirável por requerimento.
 
