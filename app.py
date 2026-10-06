@@ -1118,6 +1118,33 @@ def _confirmar_pin_usuario(user, pin):
     return True
 
 
+_SIGNUP_QUESTIONS = {
+    'primeiro_nome_mae': 'Qual é o primeiro nome da sua mãe?',
+    'ultimo_nome_mae': 'Qual é o último nome da sua mãe?',
+    'ano_nascimento': 'Em que ano você nasceu?',
+    'mes_nascimento': 'Em que mês você nasceu? Informe o número de 1 a 12.',
+    'dia_nascimento': 'Em que dia do mês você nasceu?',
+}
+
+
+def _signup_challenge(organization):
+    challenge = session.get('portal_identificacao')
+    if (not isinstance(challenge, dict) or challenge.get('tenant_id') != organization.id
+            or challenge.get('expira', 0) <= _portal_now().timestamp()):
+        session.pop('portal_identificacao', None)
+        return None
+    return challenge
+
+
+def _render_signup(organization):
+    challenge = _signup_challenge(organization)
+    if not challenge:
+        return render_template('portal_identificar_cadastro.html', organizacao=organization)
+    return render_template('portal_cadastro.html', organizacao=organization,
+                           matricula=challenge['matricula'],
+                           perguntas=[(field, _SIGNUP_QUESTIONS[field]) for field in challenge['perguntas']])
+
+
 @app.route('/portal/<string:slug>/cadastre-se', methods=['GET', 'POST'])
 def portal_cadastro(slug):
     organizacao = Organizacao.query.filter_by(slug=slug.strip().lower(), ativo=True,
@@ -1128,8 +1155,6 @@ def portal_cadastro(slug):
         matricula = (request.form.get('matricula') or '').strip()[:80]
         nome = _identity_text(request.form.get('nome'))
         cpf = re.sub(r'\D', '', request.form.get('cpf') or '')
-        primeiro_nome_mae = _identity_text(request.form.get('primeiro_nome_mae')).split(' ')[0]
-        ano = (request.form.get('ano_nascimento') or '').strip()
         email = (request.form.get('email') or '').strip().lower()
         telefone = (request.form.get('telefone') or '').strip()[:30]
         endereco = (request.form.get('endereco') or '').strip()[:500]
@@ -1140,17 +1165,50 @@ def portal_cadastro(slug):
         tentativa = LoginTentativa.query.filter_by(identificador_hash=fingerprint).with_for_update().first()
         if tentativa and tentativa.bloqueado_ate and tentativa.bloqueado_ate > now:
             flash('Não foi possível concluir o cadastro agora. Tente novamente mais tarde.', 'danger')
-            return render_template('portal_cadastro.html', organizacao=organizacao), 429
+            return _render_signup(organizacao), 429
         if tentativa and tentativa.janela_iniciada_em < now - timedelta(minutes=15):
             tentativa.tentativas = 0
             tentativa.janela_iniciada_em = now
             tentativa.bloqueado_ate = None
-        servidor = Servidor.query.filter_by(tenant_id=organizacao.id, matricula=matricula).first()
-        valid = bool(servidor and servidor.cpf and servidor.nascimento and servidor.nome_mae
-                     and _identity_text(servidor.nome) == nome and servidor.cpf == cpf
-                     and _identity_text(servidor.nome_mae).split(' ')[0] == primeiro_nome_mae
-                     and str(servidor.nascimento.year) == ano
-                     and not Usuario.query.filter_by(tenant_id=organizacao.id, servidor_id=servidor.id).first())
+        servidor = Servidor.query.filter_by(tenant_id=organizacao.id, matricula=matricula).with_for_update().first()
+        elegivel = bool(servidor and servidor.cpf and servidor.nascimento and servidor.nome_mae
+                        and not Usuario.query.filter_by(tenant_id=organizacao.id,
+                                                        servidor_id=servidor.id).first())
+        if request.form.get('etapa') == 'identificar':
+            if elegivel:
+                session['portal_identificacao'] = {
+                    'tenant_id': organizacao.id, 'matricula': matricula,
+                    'expira': (_portal_now() + timedelta(minutes=15)).timestamp(),
+                    'perguntas': [secrets.choice(['primeiro_nome_mae', 'ultimo_nome_mae']),
+                                 secrets.choice(['ano_nascimento', 'mes_nascimento', 'dia_nascimento'])]}
+                return redirect(tenant_entry_url('portal_cadastro', organizacao))
+            if not tentativa:
+                tentativa = LoginTentativa(identificador_hash=fingerprint, tentativas=0, janela_iniciada_em=now)
+                db.session.add(tentativa)
+            tentativa.tentativas += 1
+            if tentativa.tentativas >= 5:
+                tentativa.bloqueado_ate = now + timedelta(minutes=30)
+            db.session.commit()
+            flash('Não foi possível iniciar o cadastro com essa matrícula. Confira o número ou procure o setor responsável.', 'danger')
+            return _render_signup(organizacao), 400
+        challenge = _signup_challenge(organizacao)
+        respostas = {}
+        if elegivel:
+            mae = _identity_text(servidor.nome_mae).split()
+            respostas = {'primeiro_nome_mae': mae[0], 'ultimo_nome_mae': mae[-1],
+                         'ano_nascimento': str(servidor.nascimento.year),
+                         'mes_nascimento': str(servidor.nascimento.month),
+                         'dia_nascimento': str(servidor.nascimento.day)}
+        valid = bool(elegivel and challenge and challenge['matricula'] == matricula
+                     and _identity_text(servidor.nome) == nome and servidor.cpf == cpf)
+        if valid:
+            for field in challenge['perguntas']:
+                answer = _identity_text(request.form.get(field))
+                if field.endswith('nascimento') and answer.isdigit():
+                    answer = str(int(answer))
+                if answer != respostas[field]:
+                    valid = False
+                    break
         if (not valid or not _portal_password_valid(senha) or senha != confirmar_senha
                 or not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', email)
                 or not telefone or not endereco):
@@ -1162,7 +1220,7 @@ def portal_cadastro(slug):
                 tentativa.bloqueado_ate = now + timedelta(minutes=30)
             db.session.commit()
             flash('Não foi possível validar o cadastro. Confira os dados e tente novamente.', 'danger')
-            return render_template('portal_cadastro.html', organizacao=organizacao), 400
+            return _render_signup(organizacao), 400
         if tentativa:
             db.session.delete(tentativa)
         PortalCadastro.query.filter_by(tenant_id=organizacao.id, servidor_id=servidor.id,
@@ -1181,11 +1239,12 @@ def portal_cadastro(slug):
         except (RuntimeError, OSError, smtplib.SMTPException):
             db.session.rollback()
             flash('Não foi possível enviar o código agora. Tente novamente mais tarde.', 'danger')
-            return render_template('portal_cadastro.html', organizacao=organizacao), 503
+            return _render_signup(organizacao), 503
         db.session.commit()
         session['portal_cadastro_id'] = pending.id
+        session.pop('portal_identificacao', None)
         return redirect(tenant_entry_url('portal_confirmar_cadastro', organizacao))
-    return render_template('portal_cadastro.html', organizacao=organizacao)
+    return _render_signup(organizacao)
 
 
 @app.route('/portal/<string:slug>/confirmar-cadastro', methods=['GET', 'POST'])

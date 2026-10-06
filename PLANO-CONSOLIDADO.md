@@ -35,9 +35,9 @@ Endereços: produção em app.muniprot.com.br e cliente.muniprot.com.br; desenvo
 1. Homologar no navegador a restrição de destinatário nominal e a preservação do acesso de participantes anteriores, já implementadas neste bloco.
 2. Concluir o certificado de *.visual.muniprot.com.br: Railway informa validação pela autoridade certificadora. DNS e domínios já configurados; não contornar a verificação HTTPS.
 3. Homologar a rotina nativa de restauração e confirmar cópia independente dos anexos do bucket. PITR está desligado em produção; ativação não é pressuposto para afirmar que os snapshots funcionam.
-4. Decidir e implementar a etapa de perguntas aleatórias do autocadastro originalmente prevista; o formulário atual usa verificações fixas. Recuperação de acesso remoto ainda é mediada pelo administrador.
+4. Perguntas aleatórias implementadas: matrícula primeiro, uma pergunta sobre o nome da mãe e uma sobre a data de nascimento, identificação válida por 15 minutos e vinculada ao cliente. Os 65 testes automatizados passaram, incluindo bloqueio de envio de e-mail sem identificação, resposta incorreta, expiração e tentativa entre clientes. Falta conferir visualmente a execução publicada. Recuperação de acesso remoto ainda é mediada pelo administrador.
 5. Atualizar manuais e slides com cadastro atual, PIN e subdomínios; repetir homologação visual de portal, celular, PDF longo e versões.
-6. Conferir versões das dependências instaladas e vulnerabilidades conhecidas, com registro do resultado.
+6. Conferir versões das dependências instaladas e vulnerabilidades conhecidas, com registro do resultado. Workflow de pip-audit adicionado para cada publicação e execução manual; o relatório deve ser conferido antes de encerrar a pendência. A resolução do requirements não substitui o inventário efetivamente instalado no Railway.
 7. Ampliar auditoria das demais operações administrativas conforme a necessidade de rastreabilidade; o acesso do administrador geral agora está contemplado.
 
 ## Decisões mantidas
@@ -51,4 +51,11 @@ Endereços: produção em app.muniprot.com.br e cliente.muniprot.com.br; desenvo
 ## Critérios para encerrar o próximo ciclo
 
 Testes de regressão aprovados; publicação confirmada nos três ambientes; teste completo com dois clientes e perfis distintos; cadastro e e-mail reais; emissão e retificação com download de todas as versões; PDF multipágina conferido visualmente; backup/restauração documentados; materiais de treinamento correspondentes à versão publicada. Não declarar ausência absoluta de vulnerabilidades.
+
+## Limitações encontradas na continuação de 06/10
+
+- *.visual.muniprot.com.br ainda apresenta ERR_CERT_COMMON_NAME_INVALID; não foi contornada a advertência do navegador.
+- Credenciais locais do bucket protegidas pelo Windows não puderam ser descriptografadas no contexto desta execução. Não foram apagadas, alteradas ou expostas; a tentativa não gerou backup novo.
+- A instalação local do auditor foi impedida pela restrição de rede ao PyPI; por isso a consulta foi transferida ao GitHub Actions.
+- Homologação administrativa no navegador aguarda sessão de administrador no desenvolvimento principal. Materiais antigos permanecem preservados; sua atualização não está concluída.
 

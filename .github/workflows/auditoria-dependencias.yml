@@ -1,0 +1,31 @@
+name: Auditoria de dependências Python
+
+on:
+  push:
+    branches: [main, development, codex/visual-development]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  vulnerabilidades:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Preparar auditor
+        run: python -m pip install pip-audit
+      - name: Consultar vulnerabilidades das dependências resolvidas
+        run: pip-audit -r requirements.txt --format json --output auditoria-dependencias.json
+      - name: Preservar relatório mesmo quando houver vulnerabilidades
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: auditoria-dependencias-${{ github.run_id }}
+          path: auditoria-dependencias.json
+          if-no-files-found: warn
+
