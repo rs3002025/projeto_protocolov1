@@ -520,6 +520,10 @@ HISTORY_ACTION_LABELS = {
     'COMPLEMENTO_SOLICITADO': 'Documentação complementar solicitada',
     'COMPLEMENTO_ENVIADO': 'Documentação complementar enviada',
     'EMISSAO_AUTENTICADA': 'Requerimento autenticado',
+    'RECEBIMENTO_PORTAL': 'Requerimento recebido',
+    'RECEBIMENTO_ASSINADO': 'Assinatura do responsável registrada',
+    'RETIFICACAO_AUTENTICADA': 'Retificação assinada',
+    'RETIFICACAO_CRIADA': 'Correção preparada',
     'EMISSAO_CANCELADA': 'Autenticação cancelada',
     'RETIFICACAO': 'Retificação registrada',
     'TRAMITACAO': 'Encaminhamento',
@@ -529,7 +533,7 @@ HISTORY_ACTION_LABELS = {
     'ANEXO_ADICIONADO': 'Documento anexado',
     'NOVA_VERSAO_DOCUMENTO': 'Nova versão de documento',
 }
-EMISSION_STATUS_LABELS = {'VALIDA': 'Válida', 'RETIFICADA': 'Retificada', 'CANCELADA': 'Cancelada'}
+EMISSION_STATUS_LABELS = {'VALIDA': 'Válida', 'RETIFICADA': 'Retificada', 'SUBSTITUIDA': 'Anterior', 'CANCELADA': 'Cancelada'}
 
 def history_observation_label(observation):
     if observation == 'Requerimento enviado pelo próprio servidor em conta individual vinculada ao cadastro funcional.':
@@ -2419,7 +2423,7 @@ def autenticar_emissao_protocolo(protocolo_id):
         abort(409, description='Processos arquivados não podem ser autenticados.')
     emissao_anterior = protocolo.emissao_eletronica
     if emissao_anterior and not protocolo.retificacao_pendente and not protocolo.aguardando_recebimento_inicial:
-        return _response_pdf_autenticado(protocolo.emissao_eletronica)
+        return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
     if not current_user.pin_hash:
         flash('Configure seu PIN pessoal antes de autenticar a emissão.', 'warning')
         return redirect(url_for('configurar_pin'))
@@ -2427,7 +2431,8 @@ def autenticar_emissao_protocolo(protocolo_id):
         flash('PIN inválido ou temporariamente bloqueado. A emissão não foi autenticada.', 'danger')
         return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
 
-    if protocolo.aguardando_recebimento_inicial:
+    recebimento_inicial = protocolo.aguardando_recebimento_inicial
+    if recebimento_inicial:
         _register_portal_receipt(protocolo)
 
     token = secrets.token_urlsafe(32)
@@ -2471,14 +2476,18 @@ def autenticar_emissao_protocolo(protocolo_id):
     protocolo.emitido_por_usuario_id = current_user.id
     protocolo.retificacao_pendente = False
     if emissao_anterior:
-        emissao_anterior.status = 'RETIFICADA'
+        emissao_anterior.status = 'SUBSTITUIDA' if recebimento_inicial else 'RETIFICADA'
     db.session.add_all([emissao, HistoricoProtocolo(
         tenant_id=current_tenant_id(), protocolo_id=protocolo.id, status=protocolo.status,
         responsavel=current_user.login, usuario_id=current_user.id,
-        acao='RETIFICACAO_AUTENTICADA' if emissao_anterior else 'EMISSAO_AUTENTICADA',
-        observacao=f'Versão autenticada v{nova_versao}, código {codigo}.')])
+        acao=('RECEBIMENTO_ASSINADO' if recebimento_inicial else
+              ('RETIFICACAO_AUTENTICADA' if emissao_anterior else 'EMISSAO_AUTENTICADA')),
+        observacao=('Assinatura do responsável registrada no requerimento.' if recebimento_inicial else
+                    'Requerimento assinado eletronicamente pelo responsável.'))])
     db.session.commit()
-    return _response_pdf_autenticado(emissao)
+    flash('Requerimento recebido e assinatura registrada.' if recebimento_inicial else
+          'Assinatura registrada. O requerimento está disponível para abrir ou imprimir.', 'success')
+    return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
 
 
 @app.route('/validar-emissao/<string:token_publico>', methods=['GET', 'POST'])
@@ -2777,7 +2786,7 @@ def editar_protocolo(protocolo_id):
         flash('Processos arquivados são somente para consulta.', 'warning')
         return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
     if protocolo.emissao_eletronica and not protocolo.retificacao_pendente:
-        flash('O requerimento autenticado está congelado. Faça uma retificação para alterar seus dados.', 'warning')
+        flash('Este requerimento já foi assinado. Use Retificar para corrigir seus dados.', 'warning')
         return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
 
     if request.method == 'POST':
@@ -2851,7 +2860,7 @@ def adicionar_anexo(protocolo_id):
         flash('Processos arquivados não podem receber anexos ou novas versões.', 'warning')
         return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
     if protocolo.emissao_eletronica and not protocolo.retificacao_pendente:
-        flash('Os anexos que integram a emissão autenticada estão congelados. Faça uma retificação para complementar o pedido.', 'warning')
+        flash('Para alterar os documentos do requerimento assinado, use Retificar. Para pedir novos documentos ao requerente, use Solicitar complemento.', 'warning')
         return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
     form = AnexoForm()
     if form.validate_on_submit():

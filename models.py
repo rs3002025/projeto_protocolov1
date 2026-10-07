@@ -236,6 +236,16 @@ class EmissaoEletronica(TenantMixin, db.Model):
     substitui_emissao = db.relationship('EmissaoEletronica', remote_side=[id],
                                         foreign_keys=[substitui_emissao_id])
 
+    @property
+    def situacao_documento(self):
+        # Receber um envio do portal acrescenta a assinatura do responsável;
+        # não é uma correção dos dados enviados. Abrange também registros legados.
+        if self.status == 'RETIFICADA' and self.metodo == 'conta_individual' and any(
+                item.substitui_emissao_id == self.id and item.metodo == 'pin_pessoal'
+                for item in self.protocolo.emissoes_eletronicas):
+            return 'SUBSTITUIDA'
+        return self.status
+
 class Anexo(TenantMixin, db.Model):
     __tablename__ = 'anexos'
     id = db.Column(ID_TYPE, primary_key=True)

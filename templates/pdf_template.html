@@ -20,16 +20,17 @@
         .info-pdf { margin-bottom: 20px; display: flex; justify-content: space-between; gap: 20px; }
         .campo-destaque-pdf { font-weight: bold; font-size: 14px; background-color: #2e7d32; color: white; padding: 8px 12px; border-radius: 5px; margin: 4px 0; flex: 1; text-align: center; }
         .section-title-pdf { background: #f0f0f0; font-weight: bold; padding: 6px 10px; border-left: 4px solid #4caf50; margin-top: 20px; font-size: 14px; }
-        .grid-pdf { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 30px; margin-top: 10px; }
+        .grid-pdf { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px 30px; margin-top: 10px; }
+        .grid-pdf > div { min-width: 0; overflow-wrap: anywhere; }
         .box-pdf { border: 1px solid #ddd; padding: 10px; border-radius: 6px; background: #fafafa; margin-top: 10px; font-style: italic; overflow-wrap: anywhere; }
         .paragrafo-pdf { margin: 0 0 12px; break-inside: avoid; page-break-inside: avoid; }
         .paragrafo-pdf:last-child { margin-bottom: 0; }
         .fechamento-pdf { break-inside: avoid; page-break-inside: avoid; }
         .assinaturas-container { margin-top: 50px; }
         .assinaturas-flex { display: flex; justify-content: space-between; gap: 20px; }
-        .assinatura-pdf { text-align: center; flex: 1; }
+        .assinatura-pdf { text-align: center; flex: 1; min-width: 0; overflow-wrap: anywhere; }
         .selo-eletronico { border: 1px solid #777; padding: 10px 12px; text-align: left; font-size: 10px; line-height: 1.35; }
-        .selo-eletronico-remoto { flex: 1; }
+        .selo-eletronico-remoto { flex: 1; min-width: 0; overflow-wrap: anywhere; }
         .rodape-institucional { margin-top: 25px; padding-top: 8px; border-top: 1px solid #bbb; text-align: center; white-space: pre-line; }
         .linha-assinatura { border-top: 1px solid #000; margin-top: 40px; margin-bottom: 5px; }
         .recebido-container { margin-top: 28px; page-break-inside: avoid; display: flex; align-items: flex-end; gap: 34px; }
@@ -54,7 +55,7 @@
         </div>
         <h1 class="titulo-principal-pdf">{{ organizacao.orgao or organizacao.nome }}</h1>
         {% if organizacao.municipio %}<p style="text-align:center">{{ organizacao.municipio }}</p>{% endif %}
-        <div class="titulo-central-pdf"><span>{% if emissao and emissao.versao > 1 and protocolo.envio_requerente and emissao.substitui_emissao_id == protocolo.envio_requerente.id %}REQUERIMENTO RECEBIDO — VERSÃO {{ emissao.versao }}{% elif emissao and emissao.versao > 1 %}RETIFICAÇÃO — VERSÃO {{ emissao.versao }}{% else %}PROTOCOLO DE REQUERIMENTO{% endif %}</span></div>
+        <div class="titulo-central-pdf"><span>PROTOCOLO DE REQUERIMENTO</span></div>
         <div class="info-pdf">
             <div class="campo-destaque-pdf"><strong>Número:</strong> {{ protocolo.numero }}</div>
             <div class="campo-destaque-pdf"><strong>Data:</strong> {{ protocolo.data_solicitacao.strftime('%d/%m/%Y') if protocolo.data_solicitacao else '' }}</div>
@@ -107,8 +108,8 @@
                     {% if emissao and emissao.metodo != 'conta_individual' %}
                     <div class="assinatura-pdf selo-eletronico">
                         <strong>PROTOCOLO EMITIDO ELETRONICAMENTE</strong><br>
-                        Responsável: {{ emissao.nome_emitente }} · Usuário: {{ emissao.login_emitente }}<br>
-                        Emitido em {{ emissao.emitido_em.strftime('%d/%m/%Y às %H:%M:%S') }} · Versão {{ emissao.versao }} · Código {{ emissao.codigo_publico }}<br>
+                        Responsável: {{ emissao.nome_emitente }}<br>
+                        Emitido em {{ emissao.emitido_em.strftime('%d/%m/%Y às %H:%M:%S') }} · Código {{ emissao.codigo_publico }}<br>
                         Autenticidade verificável pelo QR Code.
                     </div>
                     {% else %}<div class="assinatura-pdf"><div class="linha-assinatura"></div>Responsável pelo Protocolo</div>{% endif %}
@@ -129,6 +130,5 @@
     </div>
 </body>
 </html>
-
 
 

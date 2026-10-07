@@ -104,13 +104,17 @@ def test_receipt_with_pin_preserves_submission_and_both_signature_blocks():
             organizacao=db.session.get(Organizacao,1),pdf_logo_url='',qr_code_url='',qr_validacao_url=''))
         return b'%PDF-1.7 recebido'
     with patch('app.render_protocol_pdf',side_effect=pdf):
-        assert admin.post(f'/protocolo/{protocol_id}/receber-portal',data={'pin':'123456'}).status_code==200
+        response = admin.post(f'/protocolo/{protocol_id}/receber-portal',data={'pin':'123456'})
+        assert response.status_code == 302
+        assert response.headers['Location'] == f'/protocolo/{protocol_id}'
     assert 'REQUERIMENTO ENVIADO ELETRONICAMENTE' in rendered[0]
     assert 'PROTOCOLO EMITIDO ELETRONICAMENTE' in rendered[0]
-    assert 'REQUERIMENTO RECEBIDO' in rendered[0]
+    assert 'PROTOCOLO DE REQUERIMENTO' in rendered[0]
+    assert 'REQUERIMENTO RECEBIDO' not in rendered[0] and 'VERSÃO' not in rendered[0]
     with app.app_context():
         protocol=db.session.get(Protocolo,protocol_id)
         assert protocol.status=='RECEBIDO' and protocol.responsavel=='admin'
         assert len(protocol.emissoes_eletronicas)==2 and protocol.envio_requerente.pdf_sha256==original_hash
+        assert protocol.envio_requerente.status == 'SUBSTITUIDA'
+        assert not any(h.acao == 'RETIFICACAO_AUTENTICADA' for h in protocol.historico)
     assert admin.post(f'/protocolo/{protocol_id}/receber-portal',data={'pin':'123456'}).status_code==409
-

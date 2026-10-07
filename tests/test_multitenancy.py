@@ -1439,7 +1439,9 @@ def test_emissao_autenticada_congela_pdf_dados_e_anexos_e_detecta_alteracao():
     with patch.dict(sys.modules, modules):
         response = client.post(f'/protocolo/{protocolo_id}/autenticar-emissao',
                                data={'pin': '123456'})
-    assert response.status_code == 200
+    assert response.status_code == 302
+    assert response.headers['Location'] == f'/protocolo/{protocolo_id}'
+    response = client.get(f'/protocolo/{protocolo_id}/pdf')
     assert response.data == b'%PDF-1.7\noriginal imutavel autenticado'
     assert len(qr_urls) == 2
     assert '/consulta/' in qr_urls[0] and '/validar-emissao/' in qr_urls[1]
@@ -1456,7 +1458,7 @@ def test_emissao_autenticada_congela_pdf_dados_e_anexos_e_detecta_alteracao():
     reprint = client.get(f'/protocolo/{protocolo_id}/pdf')
     assert reprint.data == response.data
     listagem = client.get('/protocolos').get_data(as_text=True)
-    assert 'Documento autenticado' in listagem
+    assert 'Requerimento' in listagem
     assert f'/protocolo/{protocolo_id}/pdf' in listagem
     assert client.post(f'/protocolo/{protocolo_id}/editar', data={'nome': 'Alterado'}).status_code == 302
     assert client.post(f'/protocolo/{protocolo_id}/anexo/novo', data={}).status_code == 302
@@ -1476,7 +1478,8 @@ def test_emissao_autenticada_congela_pdf_dados_e_anexos_e_detecta_alteracao():
     with patch.dict(sys.modules, modules):
         nova_emissao = client.post(f'/protocolo/{protocolo_id}/autenticar-emissao',
                                    data={'pin': '123456'})
-    assert nova_emissao.status_code == 200 and len(qr_urls) == 2
+    assert nova_emissao.status_code == 302 and len(qr_urls) == 2
+    nova_emissao = client.get(f'/protocolo/{protocolo_id}/pdf')
     with app.app_context():
         retificacao = db.session.get(Protocolo, protocolo_id)
         assert retificacao.numero == 'ASS-1/2026'
@@ -1505,7 +1508,7 @@ def test_emissao_autenticada_congela_pdf_dados_e_anexos_e_detecta_alteracao():
             protocolo_id=protocolo_id, acao='EMISSAO_CANCELADA').count() == 1
     assert client.get(f'/protocolo/{protocolo_id}/pdf').data == nova_emissao.data
     consulta_cancelada = client.get(f'/validar-emissao/{token_vigente}').get_data(as_text=True)
-    assert 'esta emissão foi cancelada' in consulta_cancelada
+    assert 'Documento cancelado' in consulta_cancelada
     assert 'Pedido cancelado formalmente' in consulta_cancelada
     assert client.get(f'/protocolo/{protocolo_id}/retificar').status_code == 409
 
@@ -1515,8 +1518,8 @@ def test_emissao_autenticada_congela_pdf_dados_e_anexos_e_detecta_alteracao():
     adulterado = client.post(f'/validar-emissao/{token}', data={
         'arquivo': (io.BytesIO(response.data + b'alteracao'), 'alterado.pdf')},
         content_type='multipart/form-data').get_data(as_text=True)
-    assert 'Integridade confirmada' in valido
-    assert 'Integridade não confirmada' in adulterado
+    assert 'Arquivo conferido' in valido
+    assert 'Arquivo diferente' in adulterado
 
     with app.app_context():
         org = Organizacao.query.filter_by(slug='cliente-a').one()
@@ -1598,7 +1601,7 @@ def test_portal_servidor_isola_login_e_abertura_em_nome_proprio():
     assert 'Requerimento enviado pelo portal' in detalhe
     assert 'Pedido enviado pelo próprio servidor por meio do Portal do Servidor.' in detalhe
     assert 'conta individual vinculada ao cadastro funcional' not in detalhe
-    assert 'Ver código de integridade' in detalhe
+    assert 'Ver código de integridade' not in detalhe and 'SHA-256' not in detalhe
     # Rotas do backoffice não ficam disponíveis na sessão do portal.
     assert client.get('/configuracoes').status_code == 302
     assert client.get('/portal/protocolo/1').status_code == 404
