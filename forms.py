@@ -28,7 +28,6 @@ from flask_wtf.file import FileField, FileRequired, FileAllowed
 
 class LoginForm(FlaskForm):
     """Formulário de Login de Usuário"""
-    organizacao = StringField('Organização', validators=[DataRequired(), Length(min=2, max=80)])
     login = StringField('Login', validators=[DataRequired()])
     senha = PasswordField('Senha', validators=[DataRequired()])
     remember = BooleanField('Lembrar-me')
@@ -111,7 +110,6 @@ class PlatformAdminCreationForm(FlaskForm):
     login = StringField('Login', validators=[DataRequired(), Length(min=4, max=25)])
     email = StringField('Email', validators=[DataRequired(), Length(max=180)])
     senha = PasswordField('Senha inicial', validators=[DataRequired(), Length(min=12)])
-    organizacao_id = SelectField('Organização de acesso', coerce=int, choices=[], validators=[DataRequired()])
     submit = SubmitField('Criar administrador geral')
 
 class AdminListItemForm(FlaskForm):
@@ -125,3 +123,4 @@ class BrandingForm(FlaskForm):
     ])
     salvar = SubmitField('Salvar logo')
     remover = SubmitField('Restaurar logo padrão')
+

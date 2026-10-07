@@ -67,6 +67,7 @@ class TenantMixin:
 
 class Usuario(TenantMixin, db.Model, UserMixin):
     __tablename__ = 'usuarios'
+    tenant_id = db.Column(db.Integer, db.ForeignKey('organizacoes.id'), nullable=True, index=True)
     __table_args__ = (
         db.UniqueConstraint('tenant_id', 'login', name='uq_usuario_tenant_login'),
         db.UniqueConstraint('tenant_id', 'servidor_id', name='uq_usuario_tenant_servidor'),
@@ -102,7 +103,8 @@ class Usuario(TenantMixin, db.Model, UserMixin):
 
     @property
     def is_active(self):
-        return self.status == 'ativo' and self.organizacao is not None and self.organizacao.ativo
+        return self.status == 'ativo' and (self.is_platform_admin or
+            (self.organizacao is not None and self.organizacao.ativo))
 
 
 class PortalSessao(TenantMixin, db.Model):
@@ -428,6 +430,5 @@ class MensagemSuporte(TenantMixin, db.Model):
     criado_em = db.Column(db.TIMESTAMP(timezone=True), server_default=db.func.now(), nullable=False)
 
     autor = db.relationship('Usuario', foreign_keys=[autor_id])
-
 
 

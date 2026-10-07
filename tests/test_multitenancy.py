@@ -167,7 +167,7 @@ def test_usuario_administrativo_troca_senha_inicial_e_configura_pin():
                                tipo='protocolista', deve_trocar_senha=True))
         db.session.commit()
     client = app.test_client()
-    client.post('/login', data={'organizacao': 'cliente-a', 'login': 'novo-protocolista',
+    client.post('/entrar/cliente-a', data={'organizacao': 'cliente-a', 'login': 'novo-protocolista',
                                 'senha': 'senha provisoria de teste'})
     assert '/minha-conta/trocar-senha' in client.get('/home').headers['Location']
     assert client.post('/minha-conta/trocar-senha', data={
@@ -211,7 +211,7 @@ def setup_module():
 
 
 def login(client, organizacao):
-    return client.post('/login', data={
+    return client.post('/entrar/' + organizacao, data={
         'organizacao': organizacao,
         'login': 'admin',
         'senha': 'senha-segura',
@@ -297,7 +297,7 @@ def test_administrador_geral_controla_capacidades_com_auditoria():
         db.session.commit()
 
     client = app.test_client()
-    client.post('/login', data={
+    client.post('/entrar/cliente-a', data={
         'organizacao': 'cliente-a', 'login': 'admin', 'senha': 'senha-segura',
     })
     response = client.post('/plataforma/cliente/2/capacidades', data={
@@ -329,14 +329,14 @@ def test_administrador_geral_controla_capacidades_com_auditoria():
 
 def test_login_nao_redireciona_para_site_externo():
     client = app.test_client()
-    response = client.post('/login?next=https://evil.example/coleta', data={
+    response = client.post('/entrar/cliente-a?next=https://evil.example/coleta', data={
         'organizacao': 'cliente-a', 'login': 'admin', 'senha': 'senha-segura',
     })
     assert response.status_code == 302
     assert response.headers['Location'] == '/home'
 
     client.post('/logout')
-    response = client.post('/login?next=/protocolos', data={
+    response = client.post('/entrar/cliente-a?next=/protocolos', data={
         'organizacao': 'cliente-a', 'login': 'admin', 'senha': 'senha-segura',
     })
     assert response.headers['Location'] == '/protocolos'
@@ -346,10 +346,10 @@ def test_login_bloqueia_forca_bruta_sem_revelar_usuario():
     client = app.test_client()
     dados = {'organizacao': 'cliente-a', 'login': 'inexistente', 'senha': 'incorreta'}
     for _ in range(5):
-        response = client.post('/login', data=dados)
+        response = client.post('/entrar/cliente-a', data=dados)
         assert response.status_code == 200
         assert 'Não foi possível autenticar' in response.get_data(as_text=True)
-    bloqueado = client.post('/login', data=dados)
+    bloqueado = client.post('/entrar/cliente-a', data=dados)
     assert bloqueado.status_code == 429
     assert 'Aguarde alguns minutos' in bloqueado.get_data(as_text=True)
     with app.app_context():
@@ -357,7 +357,7 @@ def test_login_bloqueia_forca_bruta_sem_revelar_usuario():
         tentativa.janela_iniciada_em = datetime.utcnow() - timedelta(minutes=16)
         tentativa.bloqueado_ate = None
         db.session.commit()
-    assert client.post('/login', data=dados).status_code == 200
+    assert client.post('/entrar/cliente-a', data=dados).status_code == 200
 
 
 def test_health_verifica_a_conexao_com_o_banco():
@@ -575,7 +575,7 @@ def test_consulta_publica_reutiliza_janela_expirada_e_aceita_unicode():
 
 def test_relatorios_e_exportacao_exigem_permissao():
     client = app.test_client()
-    client.post('/login', data={'organizacao': 'cliente-a', 'login': 'consulta', 'senha': 'senha-segura'})
+    client.post('/entrar/cliente-a', data={'organizacao': 'cliente-a', 'login': 'consulta', 'senha': 'senha-segura'})
     for path in ['/relatorios', '/protocolos/backup/excel']:
         assert client.get(path, headers={'Content-Type': 'application/json'}).status_code == 403
     for path in ['/api/usuarios', '/api/servidor/MAT-A', '/api/servidores/search?nome=Ana',
@@ -610,10 +610,10 @@ def test_csrf_rejeita_operacao_sem_token_e_aceita_formulario_legitimo():
     client = app.test_client()
     app.config['WTF_CSRF_ENABLED'] = True
     try:
-        assert client.post('/login', data={}).status_code == 400
+        assert client.post('/entrar/cliente-a', data={}).status_code == 400
         html = client.get('/login').get_data(as_text=True)
         token = re.search(r'name="csrf_token"[^>]*value="([^"]+)"', html).group(1)
-        response = client.post('/login', data={
+        response = client.post('/entrar/cliente-a', data={
             'organizacao': 'cliente-a', 'login': 'admin', 'senha': 'senha-segura',
             'csrf_token': token,
         })
@@ -638,13 +638,13 @@ def test_login_https_preserva_referer_necessario_ao_csrf():
     client = app.test_client()
     app.config['WTF_CSRF_ENABLED'] = True
     try:
-        pagina = client.get('/login', base_url='https://sysprot.example')
+        pagina = client.get('/entrar/cliente-a', base_url='https://sysprot.example')
         assert pagina.headers['Referrer-Policy'] == 'same-origin'
         token = re.search(
             r'name="csrf_token"[^>]*value="([^"]+)"', pagina.get_data(as_text=True)
         ).group(1)
         response = client.post(
-            '/login',
+            '/entrar/cliente-a',
             base_url='https://sysprot.example',
             headers={'Referer': 'https://sysprot.example/login'},
             data={
@@ -756,7 +756,7 @@ def test_tramitacao_pode_destinar_usuario_ou_todo_setor():
         assert movimento.destinatario_usuario_id == destinatario_id
 
     maria = app.test_client()
-    maria.post('/login', data={'organizacao': 'cliente-a', 'login': 'maria', 'senha': 'senha-segura'})
+    maria.post('/entrar/cliente-a', data={'organizacao': 'cliente-a', 'login': 'maria', 'senha': 'senha-segura'})
     assert b'DEST-1/2026' not in maria.get('/pendencias-recebimento').data
     assert b'DEST-1/2026' not in maria.get('/protocolos').data
     assert maria.get(f'/protocolo/{protocolo_id}').status_code == 404
@@ -765,7 +765,7 @@ def test_tramitacao_pode_destinar_usuario_ou_todo_setor():
         assert Movimentacao.query.filter_by(protocolo_id=protocolo_id).one().recebido_em is None
 
     joao = app.test_client()
-    joao.post('/login', data={'organizacao': 'cliente-a', 'login': 'joao', 'senha': 'senha-segura'})
+    joao.post('/entrar/cliente-a', data={'organizacao': 'cliente-a', 'login': 'joao', 'senha': 'senha-segura'})
     assert b'DEST-1/2026' in joao.get('/pendencias-recebimento').data
     assert joao.post(f'/protocolo/{protocolo_id}/receber').status_code == 302
     assert maria.get(f'/protocolo/{protocolo_id}').status_code == 404
@@ -792,7 +792,7 @@ def test_perfil_consulta_nao_pode_excluir():
         protocolo = Protocolo.query.filter_by(nome='Dado exclusivo A').one()
         protocolo_id = protocolo.id
     client = app.test_client()
-    client.post('/login', data={
+    client.post('/entrar/cliente-a', data={
         'organizacao': 'cliente-a', 'login': 'consulta', 'senha': 'senha-segura'
     })
     assert client.post(f'/protocolo/{protocolo_id}/deletar').status_code == 302
@@ -1023,10 +1023,10 @@ def test_administrador_edita_desativa_e_reativa_usuario_do_cliente():
         assert (consulta.nome_completo, consulta.tipo, consulta.lotacao_id) == ('Consulta Atualizada', 'protocolista', juridico_id)
     assert client.post(f'/admin/usuarios/{consulta_id}/status').status_code == 302
     inativo = app.test_client()
-    response = inativo.post('/login', data={'organizacao': 'cliente-a', 'login': 'consulta', 'senha': 'senha-segura'}, follow_redirects=True)
+    response = inativo.post('/entrar/cliente-a', data={'organizacao': 'cliente-a', 'login': 'consulta', 'senha': 'senha-segura'}, follow_redirects=True)
     assert 'Não foi possível autenticar' in response.get_data(as_text=True)
     client.post(f'/admin/usuarios/{consulta_id}/status')
-    assert b'Login bem-sucedido' in inativo.post('/login', data={
+    assert b'Login bem-sucedido' in inativo.post('/entrar/cliente-a', data={
         'organizacao': 'cliente-a', 'login': 'consulta', 'senha': 'senha-segura'}, follow_redirects=True).data
 
 
@@ -1198,14 +1198,14 @@ def test_novos_perfis_separam_protocolo_de_tramitacao():
         db.session.commit()
 
     protocolista = app.test_client()
-    protocolista.post('/login', data={
+    protocolista.post('/entrar/cliente-a', data={
         'organizacao': 'cliente-a', 'login': 'protocolista', 'senha': 'senha-segura'})
     assert protocolista.get('/protocolo/novo').status_code == 200
     assert protocolista.get('/configuracoes').status_code == 302
     assert protocolista.get('/pendencias-recebimento').status_code == 200
 
     tramitador = app.test_client()
-    tramitador.post('/login', data={
+    tramitador.post('/entrar/cliente-a', data={
         'organizacao': 'cliente-a', 'login': 'tramitador', 'senha': 'senha-segura'})
     assert tramitador.get('/protocolo/novo').status_code == 302
     assert tramitador.get('/configuracoes').status_code == 302
@@ -1228,7 +1228,7 @@ def test_tramitador_visualiza_somente_processos_do_seu_fluxo():
         visivel_id, oculto_id = visivel.id, oculto.id
 
     client = app.test_client()
-    client.post('/login', data={
+    client.post('/entrar/cliente-a', data={
         'organizacao': 'cliente-a', 'login': 'tramitador', 'senha': 'senha-segura'})
     html = client.get('/protocolos').get_data(as_text=True)
     assert 'Visível no Jurídico' in html
@@ -1247,7 +1247,7 @@ def test_administrador_plataforma_escolhe_cliente_explicitamente():
         db.session.commit()
 
     client = app.test_client()
-    response = client.post('/login', data={
+    response = client.post('/entrar/cliente-a', data={
         'organizacao': 'cliente-a', 'login': 'admin', 'senha': 'senha-segura'})
     assert response.headers['Location'] == '/plataforma'
     painel = client.get('/plataforma').get_data(as_text=True)
@@ -1278,7 +1278,7 @@ def test_somente_administrador_geral_cria_outro_administrador_geral():
         cliente_b_id = Organizacao.query.filter_by(slug='cliente-b').one().id
         db.session.commit()
     global_client = app.test_client()
-    global_client.post('/login', data={
+    global_client.post('/entrar/cliente-a', data={
         'organizacao': 'cliente-a', 'login': 'admin', 'senha': 'senha-segura'})
     response = global_client.post('/plataforma/administradores/novo', data={
         'nome_completo': 'Novo Global', 'login': 'novo-global',
@@ -1287,7 +1287,7 @@ def test_somente_administrador_geral_cria_outro_administrador_geral():
     })
     assert response.status_code == 302
     with app.app_context():
-        novo = Usuario.query.filter_by(tenant_id=cliente_b_id, login='novo-global').one()
+        novo = Usuario.query.filter_by(tenant_id=None, login='novo-global').one()
         assert novo.tipo == 'admin' and novo.is_platform_admin is True
         Usuario.query.filter_by(id=novo.id).delete()
         Usuario.query.filter_by(tenant_id=1, login='admin').one().is_platform_admin = False
@@ -1333,7 +1333,7 @@ def test_tramitador_mantem_consulta_mas_nao_altera_processo_que_saiu_do_setor():
         protocolo_id, destino_id = protocolo.id, juridico.id
 
     client = app.test_client()
-    client.post('/login', data={
+    client.post('/entrar/cliente-a', data={
         'organizacao': 'cliente-a', 'login': 'tramitador', 'senha': 'senha-segura'})
     detalhe = client.get(f'/protocolo/{protocolo_id}')
     assert detalhe.status_code == 200
@@ -1346,7 +1346,7 @@ def test_tramitador_mantem_consulta_mas_nao_altera_processo_que_saiu_do_setor():
 
 def test_usuario_abre_e_acompanha_apenas_os_proprios_chamados():
     consulta = app.test_client()
-    consulta.post('/login', data={
+    consulta.post('/entrar/cliente-a', data={
         'organizacao': 'cliente-a', 'login': 'consulta', 'senha': 'senha-segura'})
     response = consulta.post('/suporte/novo', data={
         'assunto': 'Erro ao consultar processo',
@@ -1382,7 +1382,7 @@ def test_administrador_geral_visualiza_assume_e_responde_chamados_de_todos_clien
         db.session.commit()
 
     global_client = app.test_client()
-    global_client.post('/login', data={
+    global_client.post('/entrar/cliente-a', data={
         'organizacao': 'cliente-a', 'login': 'admin', 'senha': 'senha-segura'})
     painel = global_client.get('/suporte').get_data(as_text=True)
     assert 'Todos os chamados' in painel
@@ -1689,6 +1689,5 @@ def test_portal_servidor_isola_login_e_abertura_em_nome_proprio():
         TipoRequerimento.query.filter_by(nome='Requerimento remoto').delete()
         Organizacao.query.filter_by(slug='cliente-a').one().portal_servidor_remoto_enabled = False
         db.session.commit()
-
 
 

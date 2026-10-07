@@ -747,10 +747,10 @@ def support_create():
         return redirect(url_for('support_list'))
     if categoria not in SUPPORT_CATEGORIES or prioridade not in SUPPORT_PRIORITIES:
         abort(400, description='Classificação de chamado inválida.')
-    # O administrador geral também possui uma organização de origem. Chamados
-    # abertos por ele permanecem vinculados a essa organização, ainda que esteja
-    # administrando outro cliente no momento.
-    tenant_id = current_user.tenant_id if current_user.is_platform_admin else current_tenant_id()
+    tenant_id = current_tenant_id()
+    if not tenant_id:
+        flash('Selecione um cliente antes de abrir um chamado.', 'warning')
+        return redirect(url_for('platform_organizations'))
     chamado = ChamadoSuporte(
         tenant_id=tenant_id, assunto=assunto, descricao=descricao,
         categoria=categoria, prioridade=prioridade, status='ABERTO',
@@ -1542,7 +1542,7 @@ def login():
     form = LoginForm()
     if form.validate_on_submit():
         agora = datetime.utcnow()
-        fingerprint = login_fingerprint(form.organizacao.data, form.login.data)
+        fingerprint = login_fingerprint('__plataforma__', form.login.data)
         tentativa = LoginTentativa.query.filter_by(identificador_hash=fingerprint).with_for_update().first()
         if tentativa and tentativa.bloqueado_ate and tentativa.bloqueado_ate > agora:
             flash('Não foi possível autenticar. Aguarde alguns minutos e tente novamente.', 'danger')
@@ -1551,9 +1551,8 @@ def login():
             tentativa.tentativas = 0
             tentativa.janela_iniciada_em = agora
             tentativa.bloqueado_ate = None
-        organizacao = Organizacao.query.filter_by(slug=form.organizacao.data.strip().lower(), ativo=True).first()
         user = Usuario.query.filter_by(
-            tenant_id=organizacao.id if organizacao else None,
+            tenant_id=None, is_platform_admin=True,
             login=form.login.data,
             status='ativo'
         ).first()
@@ -1781,7 +1780,6 @@ def solicitar_redefinicao_pin():
 def platform_organizations():
     organizations = Organizacao.query.order_by(Organizacao.nome).all()
     platform_form = PlatformAdminCreationForm()
-    platform_form.organizacao_id.choices = [(item.id, item.nome) for item in organizations if item.ativo]
     summaries = []
     for organization in organizations:
         summaries.append({
@@ -1799,16 +1797,14 @@ def platform_organizations():
 def platform_create_admin():
     organizations = Organizacao.query.filter_by(ativo=True).order_by(Organizacao.nome).all()
     form = PlatformAdminCreationForm()
-    form.organizacao_id.choices = [(item.id, item.nome) for item in organizations]
     if not form.validate_on_submit():
         flash('Verifique os dados do novo administrador geral.', 'danger')
         return redirect(url_for('platform_organizations'))
-    organization = Organizacao.query.filter_by(id=form.organizacao_id.data, ativo=True).first_or_404()
-    if Usuario.query.filter_by(tenant_id=organization.id, login=form.login.data.strip()).first():
-        flash('Esse login já existe na organização selecionada.', 'danger')
+    if Usuario.query.filter_by(is_platform_admin=True, login=form.login.data.strip()).first():
+        flash('Esse login já existe na plataforma.', 'danger')
         return redirect(url_for('platform_organizations'))
     user = Usuario(
-        tenant_id=organization.id, nome=form.nome_completo.data.strip().split()[0],
+        tenant_id=None, nome=form.nome_completo.data.strip().split()[0],
         nome_completo=form.nome_completo.data.strip(), login=form.login.data.strip(),
         email=form.email.data.strip(),
         senha=bcrypt.generate_password_hash(form.senha.data).decode('utf-8'),
@@ -3381,6 +3377,5 @@ if __name__ == '__main__':
     # The port must be available. Railway provides the PORT env var.
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=True)
-
 
 

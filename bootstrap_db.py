@@ -120,7 +120,8 @@ def bootstrap():
                 columns = {column['name'] for column in inspect(connection).get_columns(table)}
                 if 'tenant_id' not in columns:
                     connection.execute(text(f'ALTER TABLE {table} ADD COLUMN tenant_id INTEGER'))
-                connection.execute(text(f'UPDATE {table} SET tenant_id = :tenant_id WHERE tenant_id IS NULL'), {'tenant_id': organizacao.id})
+                if table != 'usuarios':
+                    connection.execute(text(f'UPDATE {table} SET tenant_id = :tenant_id WHERE tenant_id IS NULL'), {'tenant_id': organizacao.id})
 
             for table, expected_columns in SCHEMA_COLUMNS.items():
                 if table not in existing_tables:
@@ -150,6 +151,7 @@ def bootstrap():
                     "UPDATE usuarios SET tipo = 'protocolista' "
                     "WHERE tipo IN ('user', 'atendente', 'gestor')"
                 ))
+                connection.execute(text('UPDATE usuarios SET tenant_id = :tenant_id WHERE tenant_id IS NULL AND is_platform_admin = FALSE'), {'tenant_id': organizacao.id})
 
             if 'anexos' in existing_tables:
                 connection.execute(text("UPDATE anexos SET storage_backend = 'database' WHERE storage_backend IS NULL"))
@@ -161,13 +163,16 @@ def bootstrap():
                 if 'anexos' in existing_tables:
                     connection.execute(text('ALTER TABLE anexos ALTER COLUMN file_data DROP NOT NULL'))
                 connection.execute(text('ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_login_key'))
+                connection.execute(text('ALTER TABLE usuarios ALTER COLUMN tenant_id DROP NOT NULL'))
+                connection.execute(text('UPDATE usuarios SET tenant_id = NULL WHERE is_platform_admin = TRUE'))
                 connection.execute(text('ALTER TABLE protocolos DROP CONSTRAINT IF EXISTS protocolos_numero_key'))
                 connection.execute(text('ALTER TABLE emissoes_eletronicas DROP CONSTRAINT IF EXISTS emissoes_eletronicas_protocolo_id_key'))
                 for table in TENANT_TABLES:
-                    if table in existing_tables:
+                    if table in existing_tables and table != 'usuarios':
                         connection.execute(text(f'ALTER TABLE {table} ALTER COLUMN tenant_id SET NOT NULL'))
 
                 statements = (
+                    'CREATE UNIQUE INDEX IF NOT EXISTS uq_usuario_platform_login ON usuarios (login) WHERE is_platform_admin = TRUE',
                     'CREATE UNIQUE INDEX IF NOT EXISTS uq_organizacao_subdominio ON organizacoes (subdominio) WHERE subdominio IS NOT NULL',
                     'CREATE UNIQUE INDEX IF NOT EXISTS uq_usuario_tenant_login ON usuarios (tenant_id, login)',
                     'CREATE UNIQUE INDEX IF NOT EXISTS uq_usuario_tenant_servidor ON usuarios (tenant_id, servidor_id) WHERE servidor_id IS NOT NULL',
@@ -191,10 +196,10 @@ def bootstrap():
         admin_password = os.getenv('BOOTSTRAP_ADMIN_PASSWORD', '')
         admin_login = os.getenv('BOOTSTRAP_ADMIN_LOGIN', 'admin').strip() or 'admin'
         if admin_password and not Usuario.query.filter_by(
-                tenant_id=organizacao.id, login=admin_login).first():
+                is_platform_admin=True, login=admin_login).first():
             admin_name = os.getenv('BOOTSTRAP_ADMIN_NAME', 'Administrador').strip() or 'Administrador'
             db.session.add(Usuario(
-                tenant_id=organizacao.id,
+                tenant_id=None,
                 nome=admin_name.split()[0],
                 nome_completo=admin_name,
                 login=admin_login,
@@ -210,4 +215,5 @@ def bootstrap():
 
 if __name__ == '__main__':
     bootstrap()
+
 
