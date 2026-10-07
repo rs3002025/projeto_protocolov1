@@ -183,6 +183,19 @@ class Protocolo(TenantMixin, db.Model):
         """Versão autenticada mais recente, preservando compatibilidade com as telas."""
         return self.emissoes_eletronicas[-1] if self.emissoes_eletronicas else None
 
+    @property
+    def aguardando_recebimento_inicial(self):
+        return self.modalidade_abertura == 'remota_requerente' and not any(
+            evento.acao == 'RECEBIMENTO_PORTAL' for evento in self.historico)
+
+    @property
+    def responsavel_exibicao(self):
+        return 'Aguardando recebimento' if self.aguardando_recebimento_inicial else (self.responsavel or 'Não definido')
+
+    @property
+    def envio_requerente(self):
+        return next((e for e in self.emissoes_eletronicas if e.metodo == 'conta_individual'), None)
+
 
 class EmissaoEletronica(TenantMixin, db.Model):
     """Evidência imutável da emissão eletrônica do requerimento/protocolo."""

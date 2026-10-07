@@ -11,11 +11,11 @@
   <a class="btn btn-outline-secondary" href="{{ url_for('admin_servidores_portal') }}">Limpar filtro</a>
 </form>
 <div class="table-responsive"><table class="table table-striped align-middle">
-  <thead><tr><th>Matrícula</th><th>Servidor</th><th>Situação</th><th>O que fazer</th></tr></thead><tbody>
+  <thead><tr><th>Matrícula</th><th>Servidor</th><th>Situação</th><th>O que fazer</th><th>Ações</th></tr></thead><tbody>
   {% for servidor in servidores.items %}<tr><td>{{ servidor.matricula }}</td><td>{{ servidor.nome }}</td>
     {% if servidor.id in vinculados %}<td><span class="badge bg-primary">Conta já vinculada</span></td><td>Entrar pelo login do portal. Se necessário, recuperar acesso pela administração.</td>
     {% elif servidor.pendencias_autocadastro %}<td><span class="badge bg-warning text-dark">Dados incompletos</span></td><td>Completar pela importação: {{ servidor.pendencias_autocadastro|join(', ') }}.</td>
-    {% else %}<td><span class="badge bg-success">Pronto para cadastro</span></td><td>O servidor pode usar “Cadastre-se” no portal.</td>{% endif %}</tr>
+    {% else %}<td><span class="badge bg-success">Pronto para cadastro</span></td><td>O servidor pode usar “Cadastre-se” no portal.</td>{% endif %}<td><a class="btn btn-sm btn-outline-primary" href="{{ url_for('admin_editar_servidor', servidor_id=servidor.id) }}">Gerenciar</a></td></tr>
   {% else %}<tr><td colspan="4">Nenhum cadastro encontrado. Confira o número ou importe a planilha funcional.</td></tr>{% endfor %}
   </tbody></table></div>
 <nav aria-label="Páginas dos cadastros" class="d-flex align-items-center gap-3">

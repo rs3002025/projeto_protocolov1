@@ -9,7 +9,7 @@
   {% if expiry > now %}
   <div class="d-flex justify-content-between align-items-center gap-3 border-bottom py-3">
     <div><strong>{{ 'Este acesso' if record.id == current_id else 'Outro acesso' }}</strong>
-      <div class="text-muted small text-break">{{ record.dispositivo }}</div>
+      <div class="text-muted small">Navegador conectado</div>
       <div class="text-muted small">Iniciado em {{ record.criada_em.strftime('%d/%m/%Y %H:%M') }}</div>
     </div>
     <form method="post" action="{{ url_for('portal_encerrar_sessao', session_id=record.id) }}">
@@ -21,4 +21,6 @@
 {% else %}<p class="mb-0">Nenhum acesso ativo.</p>{% endfor %}
 </div></div>
 {% endblock %}
+
+
 
