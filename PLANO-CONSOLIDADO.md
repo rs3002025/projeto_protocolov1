@@ -57,11 +57,23 @@ Testes de regressão aprovados; publicação confirmada nos três ambientes; tes
 - *.visual.muniprot.com.br ainda apresenta ERR_CERT_COMMON_NAME_INVALID; não foi contornada a advertência do navegador.
 - Credenciais locais do bucket protegidas pelo Windows não puderam ser descriptografadas no contexto desta execução. Não foram apagadas, alteradas ou expostas; a tentativa não gerou backup novo.
 - A instalação local do auditor foi impedida pela restrição de rede ao PyPI; por isso a consulta foi transferida ao GitHub Actions.
-- Sessão administrativa fornecida pelo usuário em produção. A homologação real detectou falha no agrupamento por setor do dashboard: PostgreSQL rejeitava expressões coalesce com parâmetros diferentes no SELECT e GROUP BY. Correção preparada usando o campo do setor no agrupamento e teste específico da consulta compilada para PostgreSQL. Materiais antigos permanecem preservados; sua atualização não está concluída.
+- Sessão administrativa fornecida pelo usuário em produção. A homologação real encontrou falha PostgreSQL no agrupamento por setor do dashboard; corrigida pela PR 104, com teste da consulta compilada para PostgreSQL. Materiais antigos permanecem preservados; sua atualização não está concluída.
 
-## Evidências da publicação do cadastro
+## Continuação do ciclo
 
-- PR 103 integrado; commit 9dc9d03115c40e43f9644aeccc821c17a0509cb2 nas três branches. Railway confirmou Deployment successful nos três ambientes; primeira tela do cadastro conferida visualmente em produção.
-- GitHub Actions, execução 37488148413: pip-audit concluiu em 06/10/2026 às 15:31 UTC com No known vulnerabilities found. Relatório preservado como artefato. Resultado limitado às versões resolvidas pelo requirements no Python 3.12 do CI; não equivale a uma auditoria integral de segurança nem à conferência do inventário de cada contêiner.
-- Controle adicional de reenvio: não gerar outro código de cadastro para a mesma matrícula antes de um minuto, inclusive em outra sessão. O PIN pessoal não foi transformado em código expirável por requerimento.
+### Retomada em 07/10/2026
+
+- Consulta administrativa de elegibilidade do portal implementada: pesquisa por matrícula, dados faltantes e contas já vinculadas, com isolamento por cliente e sem expor CPF, nascimento ou nome da mãe completos na listagem.
+- Cadastro recusa dados funcionais vazios ou CPF fora do formato de onze dígitos. Isso é uma verificação de formato, não uma validação de identidade ou dos dígitos verificadores do CPF.
+- Auditoria administrativa ampliada para usuários, setores, tipos, importação, identidade visual e geração de recuperação do portal. Registro na mesma transação da operação; senhas, PINs e tokens não são registrados.
+- Regressão: 70 testes aprovados conjuntamente, em banco temporário. Conferência visual autenticada desta nova tela ainda pendente: Chrome não disponível na conexão de navegação em 07/10.
+- Matrícula 1300695: pré-cadastro sem CPF, nascimento e nome da mãe; não foi liberada por exceção. Pré-cadastro fictício TESTE-20261006 criado para teste em produção, sem criar conta. A matrícula só permanece disponível para autocadastro enquanto não vinculada a uma conta.
+- Ajustada a sequência de IDs de servidores em produção após detectar que estava atrás dos IDs existentes. Os registros anteriores foram preservados.
+- Materiais, restauração nativa, cópia independente de anexos, certificado visual e homologação ponta a ponta continuam pendentes; os 70 testes não encerram essas tarefas.
+
+Regressão final após correção do painel e controle de reenvio: 66 testes aprovados conjuntamente, usando banco temporário (06/10/2026).
+
+- PR 103: cadastro em etapas e perguntas sorteadas publicado, com Deployment successful confirmado nos três ambientes e primeira tela conferida visualmente em produção. Suite completa: 65 testes passaram.
+- GitHub Actions 37488148413, 06/10/2026 às 15:31 UTC: pip-audit retornou No known vulnerabilities found, com relatório preservado. Resultado limitado às versões resolvidas pelo requirements no CI; não representa auditoria integral nem inventário de cada contêiner.
+- PR 104: correção do dashboard e intervalo mínimo de um minuto entre códigos de cadastro para a mesma matrícula, inclusive em outra sessão. 11 testes específicos passaram. Commit 6f01c4626daac89035b846a339d32d0f8797c6c8 nas três branches. Produção confirmou Deployment successful; painel real carregou estatísticas, gráficos e distribuição de 110 protocolos por setor. Filtro SEAD mostrou 1 protocolo; ao remover o filtro, a visão geral voltou corretamente, sem aviso. Evidência visual: tmp/dashboard-corrigido-2026-10-06.png.
 

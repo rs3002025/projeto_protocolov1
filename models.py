@@ -340,6 +340,19 @@ class Servidor(TenantMixin, db.Model):
     cargo = db.Column(db.Text)
     unidade_de_exercicio = db.Column(db.Text)
 
+    @property
+    def pendencias_autocadastro(self):
+        pendencias = []
+        if not (self.nome or '').strip():
+            pendencias.append('nome')
+        if len(self.cpf or '') != 11 or not (self.cpf or '').isdigit():
+            pendencias.append('CPF')
+        if not self.nascimento:
+            pendencias.append('data de nascimento')
+        if not (self.nome_mae or '').strip():
+            pendencias.append('nome da mãe')
+        return pendencias
+
 
 class PortalCadastro(TenantMixin, db.Model):
     __tablename__ = 'portal_cadastros'
