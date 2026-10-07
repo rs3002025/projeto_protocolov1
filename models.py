@@ -193,6 +193,10 @@ class Protocolo(TenantMixin, db.Model):
         return 'Aguardando recebimento' if self.aguardando_recebimento_inicial else (self.responsavel or 'Não definido')
 
     @property
+    def status_exibicao(self):
+        return 'AGUARDANDO RECEBIMENTO' if self.aguardando_recebimento_inicial else self.status
+
+    @property
     def envio_requerente(self):
         return next((e for e in self.emissoes_eletronicas if e.metodo == 'conta_individual'), None)
 

@@ -5,3 +5,5 @@
 <div class="card"><div class="card-body"><h2 class="h5">Meus protocolos</h2><div class="table-responsive"><table class="table align-middle"><thead><tr><th>Número</th><th>Tipo</th><th>Data</th><th>Situação</th><th>Documentos solicitados</th><th></th></tr></thead><tbody>{% for p in protocolos %}<tr><td><strong>{{ p.numero }}</strong></td><td>{{ p.tipo_requerimento }}</td><td>{{ p.data_solicitacao.strftime('%d/%m/%Y') }}</td><td>{{ p.status }}</td><td>{% set abertas = p.solicitacoes_complemento|selectattr('status', 'equalto', 'PENDENTE')|list %}{% if abertas %}<span class="badge text-bg-warning">Aguardando envio ({{ abertas|length }})</span>{% else %}Nenhum{% endif %}</td><td><a class="btn btn-sm btn-outline-primary" href="{{ url_for('portal_detalhe', protocolo_id=p.id) }}">Acompanhar</a></td></tr>{% else %}<tr><td colspan="6" class="text-center text-muted py-4">Nenhum requerimento enviado.</td></tr>{% endfor %}</tbody></table></div></div></div>
 {% endblock %}
 
+
+

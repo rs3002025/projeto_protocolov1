@@ -42,7 +42,7 @@
 {% endif %}
 
 <div class="protocol-summary-grid mb-3" aria-label="Resumo do protocolo">
-    <div class="protocol-summary-item"><span>Status</span><strong>{{ protocolo.status }}</strong></div>
+    <div class="protocol-summary-item"><span>Status</span><strong>{{ protocolo.status_exibicao }}</strong></div>
     <div class="protocol-summary-item"><span>Prazo</span><strong>{{ protocolo.prazo_em.strftime('%d/%m/%Y') if protocolo.prazo_em else 'Não definido' }}</strong></div>
     <div class="protocol-summary-item"><span>Localização</span><strong>{{ protocol_location(protocolo) }}</strong></div>
     <div class="protocol-summary-item"><span>Responsável</span><strong>{{ protocolo.responsavel_exibicao }}</strong></div>
@@ -79,7 +79,7 @@
                 <p><strong>RG:</strong> {{ protocolo.rg or 'Não informado' }}</p>
             </div>
             <div class="col-md-6">
-                <p><strong>Status:</strong> <span class="badge bg-primary">{{ protocolo.status }}</span></p>
+                <p><strong>Status:</strong> <span class="badge bg-primary">{{ protocolo.status_exibicao }}</span></p>
                 <p><strong>Responsável Atual:</strong> {{ protocolo.responsavel_exibicao }}</p>
                 <p><strong>Localização atual:</strong> {{ protocol_location(protocolo) }}</p>
                 <p><strong>Prazo:</strong> {{ protocolo.prazo_em.strftime('%d/%m/%Y') if protocolo.prazo_em else 'Não definido' }}</p>
@@ -164,7 +164,7 @@
                 <li class="list-group-item protocol-timeline-item">
                     <strong>{{ h.data_movimentacao.strftime('%d/%m/%Y %H:%M') }}:</strong>
                         <strong>{{ history_action_label(h.acao) }}</strong> — situação <strong>{{ h.status }}</strong>.
-                    Responsável: <strong>{{ h.responsavel }}</strong>.
+                    {{ 'Enviado por' if h.acao == 'ENVIO_REMOTO' else 'Responsável' }}: <strong>{{ h.responsavel }}</strong>.
                     <p class="mb-0 mt-1 fst-italic">Observação: {{ history_observation_label(h.observacao) }}</p>
                 </li>
             {% else %}
