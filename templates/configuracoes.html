@@ -42,6 +42,7 @@
             <form method="POST" action="{{ url_for('admin_importar_servidores') }}" enctype="multipart/form-data" class="mb-3">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <label class="form-label" for="importar-servidores">Importar servidores para autocadastro</label>
+                <div class="mb-2"><a class="btn btn-outline-primary btn-sm" href="{{ url_for('admin_servidores_portal') }}">Verificar cadastros do portal</a></div>
                 <div class="input-group"><input class="form-control" id="importar-servidores" name="arquivo" type="file" accept=".xlsx" required><button class="btn btn-outline-primary" type="submit">Importar planilha</button></div>
                 <div class="form-text">Colunas: matricula, nome, cpf, data_nascimento e nome_mae. Matrículas que já possuem conta não serão alteradas.</div>
             </form>
@@ -151,3 +152,5 @@
     </div>
 </div>
 {% endblock content %}
+
+

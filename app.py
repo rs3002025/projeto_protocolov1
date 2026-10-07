@@ -1171,7 +1171,7 @@ def portal_cadastro(slug):
             tentativa.janela_iniciada_em = now
             tentativa.bloqueado_ate = None
         servidor = Servidor.query.filter_by(tenant_id=organizacao.id, matricula=matricula).with_for_update().first()
-        elegivel = bool(servidor and servidor.cpf and servidor.nascimento and servidor.nome_mae
+        elegivel = bool(servidor and not servidor.pendencias_autocadastro
                         and not Usuario.query.filter_by(tenant_id=organizacao.id,
                                                         servidor_id=servidor.id).first())
         if request.form.get('etapa') == 'identificar':
@@ -1301,6 +1301,7 @@ def admin_portal_recovery(user_id):
         tenant_id=current_tenant_id(), usuario_id=user.id,
         token_hash=_portal_token_hash(token), gerado_por_id=current_user.id,
         expira_em=now + timedelta(minutes=30)))
+    _admin_audit('RECUPERACAO_PORTAL_GERADA', f'Link de recuperação gerado para a conta {user.id}; links anteriores invalidados.')
     db.session.commit()
     link = tenant_entry_url('portal_recuperar', active_organization(), token=token, external=True)
     return render_template('portal_recuperacao_link.html', user=user, link=link)
@@ -1894,6 +1895,29 @@ def relatorios():
 
 # --- Rotas de Configuração (Admin) ---
 
+def _admin_audit(action, description):
+    """Registrar a ação na mesma transação, sem senhas, PINs ou dados de identificação."""
+    db.session.add(HistoricoProtocolo(tenant_id=current_tenant_id(),
+        status='ADMINISTRATIVO', responsavel=current_user.login,
+        usuario_id=current_user.id, acao=action, observacao=description))
+
+
+@app.get('/admin/servidores/cadastro-portal')
+@login_required
+@admin_required
+def admin_servidores_portal():
+    query = tenant_query(Servidor)
+    matricula = (request.args.get('matricula') or '').strip()[:80]
+    if matricula:
+        query = query.filter(Servidor.matricula == matricula)
+    page = query.order_by(Servidor.nome, Servidor.id).paginate(
+        page=request.args.get('page', 1, type=int), per_page=30, error_out=False)
+    ids = [item.id for item in page.items]
+    vinculados = {item.servidor_id for item in tenant_query(Usuario).filter(
+        Usuario.servidor_id.in_(ids)).all()} if ids else set()
+    return render_template('servidores_portal.html', servidores=page,
+        vinculados=vinculados, matricula=matricula, title='Cadastro do Portal do Servidor')
+
 @app.route("/configuracoes", methods=['GET', 'POST'])
 @login_required
 @admin_required
@@ -1936,6 +1960,7 @@ def admin_update_logo():
         organizacao.logo_mime_type = None
         organizacao.logo_nome_arquivo = None
         organizacao.logo_atualizada_em = datetime.utcnow()
+        _admin_audit('LOGO_RESTAURADA', 'Identidade visual: logo padrão restaurada.')
         db.session.commit()
         flash('Logo padrão restaurada.', 'success')
         return redirect(url_for('configuracoes'))
@@ -1943,6 +1968,7 @@ def admin_update_logo():
         flash('Verifique os dados e a imagem informados.', 'danger')
         return redirect(url_for('configuracoes'))
     if not form.logo.data:
+        _admin_audit('IDENTIDADE_ATUALIZADA', 'Dados institucionais atualizados.')
         db.session.commit()
         flash('Dados institucionais atualizados.', 'success')
         return redirect(url_for('configuracoes'))
@@ -1965,6 +1991,7 @@ def admin_update_logo():
     organizacao.logo_mime_type = 'image/png'
     organizacao.logo_nome_arquivo = secure_filename(arquivo.filename or 'logo.png')
     organizacao.logo_atualizada_em = datetime.utcnow()
+    _admin_audit('LOGO_ATUALIZADA', 'Logo do cliente substituída e normalizada para PNG.')
     db.session.commit()
     flash('Identidade visual atualizada em todo o sistema.', 'success')
     return redirect(url_for('configuracoes'))
@@ -2004,6 +2031,8 @@ def admin_create_user():
             servidor_id=servidor_id,
         )
         db.session.add(user)
+        db.session.flush()
+        _admin_audit('USUARIO_CRIADO', f'Conta {user.id} criada com perfil {user.tipo}.')
         db.session.commit()
         flash('Usuário criado com sucesso!', 'success')
     else:
@@ -2064,6 +2093,7 @@ def admin_importar_servidores():
                 record = Servidor(tenant_id=tenant, matricula=matricula)
                 db.session.add(record)
             record.nome, record.cpf, record.nascimento, record.nome_mae = nome, cpf, nascimento, mae
+        _admin_audit('SERVIDORES_IMPORTADOS', f'Planilha processada com {len(parsed)} matrícula(s); contas vinculadas preservadas.')
         db.session.commit()
         flash(f'Planilha processada: {len(parsed)} matrícula(s). Contas já vinculadas foram preservadas.', 'success')
     except (ValueError, StopIteration, OSError, TypeError, IndexError, zipfile.BadZipFile) as error:
@@ -2102,12 +2132,14 @@ def admin_update_user(user_id):
     if user.id == current_user.id and tipo != 'admin':
         flash('O administrador conectado não pode remover o próprio perfil administrativo.', 'warning')
         return redirect(url_for('configuracoes'))
+    perfil_anterior, setor_anterior, vinculo_anterior = user.tipo, user.lotacao_id, user.servidor_id
     user.nome_completo = nome
     user.nome = nome.split()[0]
     user.email = email
     user.tipo = tipo
     user.lotacao_id = lotacao_id
     user.servidor_id = servidor_id
+    _admin_audit('USUARIO_ATUALIZADO', f'Conta {user.id}: perfil {perfil_anterior} → {tipo}; setor {setor_anterior} → {lotacao_id}; vínculo funcional {vinculo_anterior} → {servidor_id}. Dados cadastrais salvos.')
     db.session.commit()
     flash(f'Usuário {user.login} atualizado.', 'success')
     return redirect(url_for('configuracoes'))
@@ -2129,6 +2161,7 @@ def admin_toggle_user_status(user_id):
             flash('A organização deve manter ao menos um administrador ativo.', 'warning')
             return redirect(url_for('configuracoes'))
     user.status = novo_status
+    _admin_audit('USUARIO_STATUS', f'Conta {user.id}: status alterado para {novo_status}.')
     db.session.commit()
     flash(f'Usuário {user.login} {novo_status}.', 'success')
     return redirect(url_for('configuracoes'))
@@ -2148,6 +2181,8 @@ def admin_create_list_item(item_type):
         if Model:
             new_item = Model(tenant_id=current_tenant_id(), nome=form.nome.data, ativo=True)
             db.session.add(new_item)
+            db.session.flush()
+            _admin_audit('ITEM_CRIADO', f'{item_type}: item {new_item.id} criado.')
             db.session.commit()
             flash(f'{item_type.capitalize()} adicionado com sucesso!', 'success')
     else:
@@ -2167,6 +2202,7 @@ def admin_toggle_item_status(item_type, item_id):
     if Model:
         item = tenant_get_or_404(Model, item_id)
         item.ativo = not item.ativo
+        _admin_audit('ITEM_STATUS', f'{item_type}: item {item.id}, ativo={item.ativo}.')
         db.session.commit()
         flash(f'Status do item alterado com sucesso!', 'success')
     return redirect(url_for('configuracoes'))
