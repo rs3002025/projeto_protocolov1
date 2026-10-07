@@ -85,13 +85,13 @@
                 {% for protocolo in protocolos.items %}
                     <tr>
                         <td><span class="protocol-number">{{ protocolo.numero }}</span></td>
-                        <td>{{ protocolo.nome }}</td>
+                        <td>{{ protocolo.nome }}<div class="small text-muted">{{ 'Portal do Servidor' if protocolo.modalidade_abertura == 'remota_requerente' else 'Interno' }}</div></td>
                         <td>{{ protocolo.tipo_requerimento }}</td>
                         <td>{{ protocolo.data_solicitacao.strftime('%d/%m/%Y') if protocolo.data_solicitacao else 'Não informada' }}</td>
                         <td>{{ protocolo.prazo_em.strftime('%d/%m/%Y') if protocolo.prazo_em else 'Não definido' }}</td>
                         <td><span class="badge bg-info">{{ protocolo.status }}</span></td>
                         <td>{{ protocol_location(protocolo) }}</td>
-                        <td>{{ protocolo.responsavel or 'Não definido' }}</td>
+                        <td>{{ protocolo.responsavel_exibicao }}</td>
                         <td><div class="action-group action-group-visible">
                             <a href="{{ url_for('detalhe_protocolo', protocolo_id=protocolo.id) }}" class="btn btn-sm btn-primary">Detalhes</a>
                             <button type="button" class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#modalAtualizarStatus" data-protocolo-id="{{ protocolo.id }}">Atualizar status</button>
@@ -137,4 +137,6 @@
         </ul>
     </nav>
 {% endblock content %}
+
+
 

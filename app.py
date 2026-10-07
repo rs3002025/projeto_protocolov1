@@ -59,7 +59,8 @@ import unicodedata
 import zipfile
 from email.message import EmailMessage
 from sqlalchemy import func, cast, Date, text, or_, and_, false, exists
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
+from sqlalchemy.exc import SQLAlchemyError
 from forms import LoginForm, TenantLoginForm, RegistrationForm, ProtocoloForm, AnexoForm, AdminUserCreationForm, PlatformAdminCreationForm, AdminListItemForm, ConsultaPublicaForm, BrandingForm
 from models import (Organizacao, OrganizacaoSubdominioAlias, Usuario, Protocolo, HistoricoProtocolo, Movimentacao,
                     ConsultaPublicaTentativa, LoginTentativa, Anexo, Lotacao,
@@ -1411,9 +1412,10 @@ def portal_novo_protocolo():
         unidade_exercicio=servidor.unidade_de_exercicio, tipo_requerimento=tipo,
         requer_ao=(request.form.get('requer_ao') or '').strip() or None,
         observacoes=observacoes, data_solicitacao=datetime.now().date(),
-        responsavel=current_user.login, criado_por_id=current_user.id,
+        cpf=servidor.cpf, endereco=current_user.endereco, telefone=current_user.telefone,
+        responsavel=None, criado_por_id=current_user.id,
         requerente_servidor_id=servidor.id, modalidade_abertura='remota_requerente',
-        setor_atual_id=setor.id if setor else None, status='PROTOCOLO GERADO')
+        setor_atual_id=None, status='AGUARDANDO RECEBIMENTO')
     db.session.add(protocolo)
     db.session.flush()
     db.session.add(HistoricoProtocolo(
@@ -1671,7 +1673,7 @@ def isolate_portal_surface():
         return None
     allowed = {'portal_home', 'portal_novo_protocolo', 'portal_detalhe',
                'portal_enviar_complemento', 'portal_logout',
-               'portal_sessoes', 'portal_encerrar_sessao',
+               'portal_sessoes', 'portal_encerrar_sessao', 'portal_meus_dados',
                'baixar_anexo', 'gerar_pdf_protocolo', 'organization_logo', 'static',
                'validar_emissao', 'health'}
     if session.get('auth_surface') != 'portal':
@@ -1895,6 +1897,141 @@ def relatorios():
 
 # --- Rotas de Configuração (Admin) ---
 
+def parse_functional_date(value):
+    if isinstance(value, datetime):
+        result = value.date()
+    elif isinstance(value, date):
+        result = value
+    elif isinstance(value, str):
+        result = datetime.strptime(value.strip(), '%d/%m/%Y').date()
+    else:
+        raise ValueError('Data inválida')
+    if result > date.today() or result.year < 1900:
+        raise ValueError('Data inválida')
+    return result
+
+
+def _register_portal_receipt(protocolo):
+    protocolo.responsavel = current_user.login
+    protocolo.emitido_por_usuario_id = current_user.id
+    protocolo.setor_atual_id = current_user.lotacao_id
+    protocolo.status = 'RECEBIDO'
+    db.session.add(HistoricoProtocolo(tenant_id=current_tenant_id(),
+        protocolo_id=protocolo.id, status='RECEBIDO', responsavel=current_user.login,
+        usuario_id=current_user.id, acao='RECEBIMENTO_PORTAL',
+        observacao='Requerimento externo recebido pela equipe de protocolo.'))
+
+
+@app.post('/protocolo/<int:protocolo_id>/receber-portal')
+@permission_required('create')
+def receber_portal(protocolo_id):
+    if current_user.tipo not in {'admin', 'protocolista'}:
+        abort(403)
+    protocolo = tenant_query(Protocolo).filter_by(id=protocolo_id).with_for_update().first_or_404()
+    if protocolo.arquivado_em or not protocolo.aguardando_recebimento_inicial:
+        abort(409, description='Este requerimento não está aguardando recebimento inicial.')
+    if active_organization().emissao_eletronica_protocolista_enabled:
+        return autenticar_emissao_protocolo(protocolo_id)
+    _register_portal_receipt(protocolo)
+    db.session.commit()
+    flash('Requerimento recebido. Você é o responsável pelo protocolo.', 'success')
+    return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
+
+
+@app.route('/portal/meus-dados', methods=['GET', 'POST'])
+@portal_required
+def portal_meus_dados():
+    if request.method == 'POST':
+        if request.form.get('acao') == 'confirmar_email':
+            pending = session.get('portal_email_change') or {}
+            code = request.form.get('codigo', '')
+            key = _email_code_hash(current_user.id, 'email-change:' + pending.get('hash', ''))
+            attempt = LoginTentativa.query.filter_by(identificador_hash=key).with_for_update().first()
+            if not attempt:
+                attempt = LoginTentativa(identificador_hash=key, tentativas=0)
+                db.session.add(attempt)
+            attempt.tentativas += 1
+            valid = (pending.get('usuario') == current_user.id and pending.get('tenant') == current_tenant_id()
+                and pending.get('expira', 0) > _portal_now().timestamp() and attempt.tentativas <= 5
+                and hmac.compare_digest(pending.get('hash', ''), _email_code_hash(current_user.id, code)))
+            if not valid:
+                db.session.commit()
+                session['portal_email_change'] = pending
+                flash('Código inválido ou expirado.', 'danger')
+                return redirect(url_for('portal_meus_dados'))
+            current_user.email = pending['email']
+            session.pop('portal_email_change', None)
+            _admin_audit('CONTATO_PORTAL_ATUALIZADO', f'Conta {current_user.id}: novo e-mail confirmado.')
+            db.session.commit()
+            flash('E-mail confirmado e atualizado.', 'success')
+        else:
+            email = (request.form.get('email') or '').strip().lower()
+            if not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', email) or len(email) > 180:
+                abort(400, description='Informe um e-mail válido.')
+            if email != (current_user.email or '').lower():
+                sending_key = _email_code_hash(current_user.id, 'email-change-send:' + str(current_tenant_id()))
+                sent = LoginTentativa.query.filter_by(identificador_hash=sending_key).with_for_update().first()
+                if sent and sent.bloqueado_ate and sent.bloqueado_ate > datetime.utcnow():
+                    flash('Aguarde um minuto antes de solicitar outro código.', 'warning')
+                    return redirect(url_for('portal_meus_dados'))
+                if not sent:
+                    sent = LoginTentativa(identificador_hash=sending_key, tentativas=0)
+                    db.session.add(sent)
+                sent.bloqueado_ate = datetime.utcnow() + timedelta(minutes=1)
+                db.session.commit()
+                code = ''.join(secrets.choice('0123456789') for _ in range(6))
+                try:
+                    _send_account_email(email, 'Confirme seu novo e-mail', f'Seu código de confirmação é {code}. Válido por 15 minutos.')
+                except Exception:
+                    flash('Não foi possível enviar a confirmação. Seus dados não foram alterados.', 'danger')
+                    return redirect(url_for('portal_meus_dados'))
+                session['portal_email_change'] = dict(usuario=current_user.id, tenant=current_tenant_id(), email=email,
+                    hash=_email_code_hash(current_user.id, code), erros=0, enviado=_portal_now().timestamp(),
+                    expira=_portal_now().timestamp()+900)
+                flash('Enviamos um código para o novo e-mail. Confirme para concluir a alteração.', 'info')
+            current_user.telefone = (request.form.get('telefone') or '').strip()[:30]
+            current_user.endereco = (request.form.get('endereco') or '').strip()[:500]
+            _admin_audit('CONTATO_PORTAL_ATUALIZADO', f'Conta {current_user.id}: contato e endereço atualizados.')
+            db.session.commit()
+            flash('Telefone e endereço salvos.', 'success')
+        return redirect(url_for('portal_meus_dados'))
+    return render_template('portal_meus_dados.html', organizacao=active_organization(),
+        pending=session.get('portal_email_change'))
+
+
+@app.route('/admin/servidores/<int:servidor_id>/editar', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def admin_editar_servidor(servidor_id):
+    servidor = tenant_get_or_404(Servidor, servidor_id)
+    user = tenant_query(Usuario).filter_by(servidor_id=servidor.id, tipo='requerente').first()
+    if request.method == 'POST':
+        if request.form.get('acao') == 'status' and user:
+            user.status = 'inativo' if user.status == 'ativo' else 'ativo'
+            _admin_audit('USUARIO_STATUS', f'Conta do portal {user.id}: status {user.status}.')
+        else:
+            nome = (request.form.get('nome') or '').strip()[:180]
+            cpf = re.sub(r'\D', '', request.form.get('cpf', ''))
+            mae = (request.form.get('nome_mae') or '').strip()[:180]
+            try:
+                nascimento = parse_functional_date(request.form.get('nascimento'))
+                if not nome or len(cpf) != 11 or not mae:
+                    raise ValueError('Confira os dados obrigatórios.')
+            except ValueError:
+                flash('Confira nome, CPF, nome da mãe e nascimento em DD/MM/AAAA.', 'danger')
+                return redirect(url_for('admin_editar_servidor', servidor_id=servidor.id))
+            servidor.nome, servidor.cpf, servidor.nome_mae, servidor.nascimento = nome, cpf, mae, nascimento
+            for field in ('cargo', 'lotacao', 'unidade_de_exercicio'):
+                setattr(servidor, field, (request.form.get(field) or '').strip()[:180])
+            if user:
+                user.nome_completo, user.nome, user.cpf = nome, nome.split()[0], cpf
+            _admin_audit('CADASTRO_FUNCIONAL_ATUALIZADO', f'Cadastro funcional {servidor.id} atualizado; documentos anteriores preservados.')
+        db.session.commit()
+        flash('Cadastro atualizado.', 'success')
+        return redirect(url_for('admin_editar_servidor', servidor_id=servidor.id))
+    return render_template('servidor_editar.html', servidor=servidor, user=user)
+
+
 def _admin_audit(action, description):
     """Registrar a ação na mesma transação, sem senhas, PINs ou dados de identificação."""
     db.session.add(HistoricoProtocolo(tenant_id=current_tenant_id(),
@@ -1933,10 +2070,12 @@ def configuracoes():
 
     lotacoes = tenant_query(Lotacao).all()
     user_form.lotacao_id.choices = [(0, 'Sem setor definido')] + [(item.id, item.nome) for item in lotacoes if item.ativo]
-    servidores = tenant_query(Servidor).order_by(Servidor.nome, Servidor.matricula).all()
+    users = tenant_query(Usuario).filter_by(is_platform_admin=False).filter(Usuario.tipo != 'requerente').all()
+    servidores = tenant_query(Servidor).filter(Servidor.id.in_([u.servidor_id for u in users if u.servidor_id])).all()
+    user_form.tipo.choices = [(value, label) for value, label in user_form.tipo.choices if value != 'requerente']
     user_form.servidor_id.choices = [(0, 'Sem vínculo funcional')] + [
         (item.id, f'{item.nome} — matrícula {item.matricula}') for item in servidores]
-    users = tenant_query(Usuario).filter_by(is_platform_admin=False).all()
+    users = tenant_query(Usuario).filter_by(is_platform_admin=False).filter(Usuario.tipo != 'requerente').all()
     tipos = tenant_query(TipoRequerimento).all()
 
     return render_template('configuracoes.html', title="Configurações",
@@ -2076,8 +2215,10 @@ def admin_importar_servidores():
                    and float(cpf_raw).is_integer() else re.sub(r'\D', '', str(cpf_raw or '')))
             mae = str(values[positions['nome_mae']] or '').strip()
             raw_date = values[positions['data_nascimento']]
-            nascimento = raw_date.date() if isinstance(raw_date, datetime) else (
-                datetime.strptime(raw_date, '%d/%m/%Y').date() if isinstance(raw_date, str) else raw_date)
+            try:
+                nascimento = parse_functional_date(raw_date)
+            except ValueError:
+                raise ValueError(f'Data de nascimento inválida na linha {number}. Use DD/MM/AAAA ou uma data do Excel.')
             if not matricula or not nome or len(cpf) != 11 or not mae or not nascimento or matricula in seen:
                 raise ValueError(f'Dados inválidos ou matrícula repetida na linha {number}.')
             seen.add(matricula)
@@ -2096,6 +2237,10 @@ def admin_importar_servidores():
         _admin_audit('SERVIDORES_IMPORTADOS', f'Planilha processada com {len(parsed)} matrícula(s); contas vinculadas preservadas.')
         db.session.commit()
         flash(f'Planilha processada: {len(parsed)} matrícula(s). Contas já vinculadas foram preservadas.', 'success')
+    except SQLAlchemyError:
+        db.session.rollback()
+        app.logger.error('Importação de servidores falhou na gravação; transação revertida.')
+        flash('Importação não concluída. Nenhum dado foi salvo. Procure o suporte.', 'danger')
     except (ValueError, StopIteration, OSError, TypeError, IndexError, zipfile.BadZipFile) as error:
         db.session.rollback()
         flash(f'Importação não concluída: {error}', 'danger')
@@ -2277,7 +2422,7 @@ def autenticar_emissao_protocolo(protocolo_id):
     if protocolo.arquivado_em:
         abort(409, description='Processos arquivados não podem ser autenticados.')
     emissao_anterior = protocolo.emissao_eletronica
-    if emissao_anterior and not protocolo.retificacao_pendente:
+    if emissao_anterior and not protocolo.retificacao_pendente and not protocolo.aguardando_recebimento_inicial:
         return _response_pdf_autenticado(protocolo.emissao_eletronica)
     if not current_user.pin_hash:
         flash('Configure seu PIN pessoal antes de autenticar a emissão.', 'warning')
@@ -2285,6 +2430,9 @@ def autenticar_emissao_protocolo(protocolo_id):
     if not _confirmar_pin_usuario(current_user, request.form.get('pin') or ''):
         flash('PIN inválido ou temporariamente bloqueado. A emissão não foi autenticada.', 'danger')
         return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
+
+    if protocolo.aguardando_recebimento_inicial:
+        _register_portal_receipt(protocolo)
 
     token = secrets.token_urlsafe(32)
     codigo = _public_code()
@@ -2392,6 +2540,8 @@ def cancelar_emissao_protocolo(protocolo_id):
 @permission_required('edit')
 def retificar_protocolo(protocolo_id):
     original = accessible_protocols_query().filter_by(id=protocolo_id).with_for_update().first_or_404()
+    if original.aguardando_recebimento_inicial:
+        abort(409, description='Receba o requerimento antes de preparar uma retificação.')
     if original.arquivado_em:
         abort(409, description='Processos arquivados não podem ser retificados.')
     if not active_organization().emissao_eletronica_protocolista_enabled:
@@ -2804,6 +2954,8 @@ def atualizar_protocolo_status():
         return jsonify({'sucesso': False, 'mensagem': 'Dados insuficientes.'}), 400
 
     protocolo = accessible_protocol_or_404(protocolo_id)
+    if protocolo.aguardando_recebimento_inicial:
+        return jsonify({'sucesso': False, 'mensagem': 'Receba o requerimento antes de alterar a situação.'}), 409
     if not can_operate_protocol(protocolo):
         return jsonify({'sucesso': False, 'mensagem': 'O processo não está sob responsabilidade do seu setor.'}), 403
     if protocolo.arquivado_em:
@@ -2838,6 +2990,8 @@ def atualizar_protocolo_status():
 @permission_required('route')
 def tramitar_protocolo(protocolo_id):
     protocolo = accessible_protocol_or_404(protocolo_id)
+    if protocolo.aguardando_recebimento_inicial:
+        abort(409, description='Receba o requerimento antes de tramitar.')
     if not can_operate_protocol(protocolo):
         abort(403)
     setor_destino = tenant_get_or_404(Lotacao, request.form.get('setor_destino_id', type=int))

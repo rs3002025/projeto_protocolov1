@@ -33,7 +33,7 @@ Endereços: produção em app.muniprot.com.br e cliente.muniprot.com.br; desenvo
 ## Pendências vigentes
 
 1. Homologar no navegador a restrição de destinatário nominal e a preservação do acesso de participantes anteriores, já implementadas neste bloco.
-2. Concluir o certificado de *.visual.muniprot.com.br: Railway informa validação pela autoridade certificadora. DNS e domínios já configurados; não contornar a verificação HTTPS.
+2. Concluído em 07/10/2026: certificado de *.visual.muniprot.com.br emitido após reinício da emissão pelo Railway. HTTPS em prefeitura.visual.muniprot.com.br confirmado sem advertência; chamado marcado Solved pelo usuário via assistência. Nenhuma alteração adicional de DNS necessária.
 3. Homologar a rotina nativa de restauração e confirmar cópia independente dos anexos do bucket. PITR está desligado em produção; ativação não é pressuposto para afirmar que os snapshots funcionam.
 4. Perguntas aleatórias implementadas: matrícula primeiro, uma pergunta sobre o nome da mãe e uma sobre a data de nascimento, identificação válida por 15 minutos e vinculada ao cliente. Os 65 testes automatizados passaram, incluindo bloqueio de envio de e-mail sem identificação, resposta incorreta, expiração e tentativa entre clientes. Falta conferir visualmente a execução publicada. Recuperação de acesso remoto ainda é mediada pelo administrador.
 5. Atualizar manuais e slides com cadastro atual, PIN e subdomínios; repetir homologação visual de portal, celular, PDF longo e versões.
@@ -62,6 +62,21 @@ Testes de regressão aprovados; publicação confirmada nos três ambientes; tes
 ## Continuação do ciclo
 
 ### Retomada em 07/10/2026
+
+### Correções após teste real do portal
+
+- Campo de entrada Matrícula; navegação Meus dados; download Baixar requerimento; ato público distingue envio do servidor de confirmação do protocolista.
+- CPF funcional, endereço e telefone da conta são copiados para novos requerimentos. Documentos já emitidos permanecem preservados.
+- Usuários internos separados das contas do portal. Gestão de servidores paginada, por cliente, com edição funcional e ativação/desativação da conta vinculada.
+- Servidor altera endereço e telefone; novo e-mail exige código de confirmação, expira em 15 minutos, cinco tentativas persistentes por código e intervalo persistente de um minuto entre envios. Dados funcionais são corrigidos pela administração.
+- Envio externo fica aguardando recebimento, sem atribuir responsabilidade ao servidor. Recebimento inicial exclusivo de admin/protocolista; PIN quando emissão eletrônica habilitada; responsável e status RECEBIDO registrados na mesma transação. Status e tramitação não podem pular o recebimento.
+- PDF de nova emissão conserva bloco de envio do requerente e acrescenta bloco do protocolista no espaço correspondente. Anexos não exibem hash no corpo do documento; integridade permanece registrada.
+- Importador rejeita data numérica ou inválida antes de gravar e apresenta a linha; erros de banco são revertidos sem deixar sessão transacional quebrada.
+- 74 testes passaram em banco temporário, incluindo contato, confirmação de e-mail, isolamento administrativo, recebimento com PIN e preservação de versões. Publicação e visualização finais precisam ser confirmadas após este registro.
+
+Suporte do certificado encerrado em 07/10: chamado wildcard-tls-pending-for-visual-munipr-9ddd7cc7 com status Solved, confirmado no navegador. As referências históricas abaixo ao certificado pendente ficam superadas por este registro.
+
+Publicação no GitHub: PR 105 integrada; main, development e codex/visual-development atualizadas para e98d6da191061b3eae63f959aa37a435c4effd89. Implantação no Railway e conferência visual autenticada ainda precisam ser confirmadas, não inferidas a partir das branches.
 
 - Consulta administrativa de elegibilidade do portal implementada: pesquisa por matrícula, dados faltantes e contas já vinculadas, com isolamento por cliente e sem expor CPF, nascimento ou nome da mãe completos na listagem.
 - Cadastro recusa dados funcionais vazios ou CPF fora do formato de onze dígitos. Isso é uma verificação de formato, não uma validação de identidade ou dos dígitos verificadores do CPF.

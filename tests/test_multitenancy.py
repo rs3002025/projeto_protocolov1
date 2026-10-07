@@ -1529,14 +1529,14 @@ def test_portal_servidor_isola_login_e_abertura_em_nome_proprio():
         org = Organizacao.query.filter_by(slug='cliente-a').one()
         org.portal_servidor_remoto_enabled = True
         servidor = Servidor(tenant_id=org.id, matricula='PORTAL-1', nome='Servidor Portal',
-                            cargo='Analista', lotacao='Protocolo', unidade_de_exercicio='Sede')
+                            cpf='01234567890', cargo='Analista', lotacao='Protocolo', unidade_de_exercicio='Sede')
         tipo = TipoRequerimento(tenant_id=org.id, nome='Requerimento remoto', ativo=True)
         db.session.add_all([servidor, tipo])
         db.session.flush()
         senha = bcrypt.generate_password_hash('senha-portal').decode('utf-8')
         usuario = Usuario(tenant_id=org.id, nome='Servidor', nome_completo='Servidor Portal',
                           login='servidor.portal', senha=senha, tipo='requerente',
-                          servidor_id=servidor.id, status='ativo')
+                          servidor_id=servidor.id, status='ativo', telefone='88999999999', endereco='Rua do teste')
         db.session.add(usuario)
         db.session.commit()
         servidor_id = servidor.id
@@ -1582,6 +1582,10 @@ def test_portal_servidor_isola_login_e_abertura_em_nome_proprio():
         assert protocolo.nome == 'Servidor Portal'
         assert protocolo.matricula == 'PORTAL-1'
         assert protocolo.modalidade_abertura == 'remota_requerente'
+        assert protocolo.cpf == '01234567890' and protocolo.telefone == '88999999999'
+        assert protocolo.endereco == 'Rua do teste' and protocolo.responsavel is None
+        assert protocolo.aguardando_recebimento_inicial
+        assert protocolo.status == 'AGUARDANDO RECEBIMENTO'
         assert protocolo.emissao_eletronica.metodo == 'conta_individual'
         assert protocolo.emissao_eletronica.pdf_sha256 == hashlib.sha256(
             b'%PDF-1.7\nenvio remoto autenticado').hexdigest()
@@ -1609,7 +1613,7 @@ def test_portal_servidor_isola_login_e_abertura_em_nome_proprio():
     assert 'ENVIO_REMOTO' not in detalhe_interno
     assert 'Pedido enviado pelo próprio servidor por meio do Portal do Servidor.' in detalhe_interno
     assert 'conta individual vinculada ao cadastro funcional' not in detalhe_interno
-    assert 'Abrir requerimento autenticado' in detalhe_interno
+    assert 'Abrir requerimento' in detalhe_interno
     assert 'protocolo-autenticado' not in detalhe_interno
     assert 'Até 20 MB' not in detalhe_interno
     client.post('/logout')
@@ -1645,6 +1649,15 @@ def test_portal_servidor_isola_login_e_abertura_em_nome_proprio():
         user_id = portal_user.id
     admin_client = app.test_client()
     login(admin_client, 'cliente-a')
+    assert admin_client.post('/protocolos/atualizar', json={'protocoloId': protocolo_id,
+        'novoStatus': 'EM ANÁLISE'}).status_code == 409
+    assert admin_client.post(f'/protocolo/{protocolo_id}/receber-portal').status_code == 302
+    with app.app_context():
+        recebido = db.session.get(Protocolo, protocolo_id)
+        assert recebido.status == 'RECEBIDO' and recebido.responsavel == 'admin'
+        assert not recebido.aguardando_recebimento_inicial
+        assert recebido.emissao_eletronica.pdf_sha256 == pdf_hash_original
+    assert admin_client.post(f'/protocolo/{protocolo_id}/receber-portal').status_code == 409
     recovery = admin_client.post(f'/admin/usuarios/{user_id}/recuperar-portal')
     assert recovery.status_code == 200
     match = re.search(r'id="recovery-link" value="([^"]+)"', recovery.get_data(as_text=True))
