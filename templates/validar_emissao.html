@@ -6,11 +6,11 @@
 {% set situacao = emissao.situacao_documento %}
 {% if situacao == 'RETIFICADA' %}<p class="alert">Este requerimento foi corrigido posteriormente. Consulte o documento atualizado no sistema.</p>
 {% elif situacao == 'SUBSTITUIDA' %}<p class="alert">Este é o documento enviado pelo requerente. O sistema também possui uma cópia com a assinatura do responsável pelo recebimento.</p>
-{% elif situacao == 'CANCELADA' %}<p class="alert"><strong>Documento cancelado</strong> em {{ emissao.cancelado_em.strftime('%d/%m/%Y às %H:%M') }}. Motivo: {{ emissao.motivo_cancelamento }}</p>
+{% elif situacao == 'CANCELADA' %}<p class="alert"><strong>Documento cancelado</strong> em {{ emissao.cancelado_em|brasilia('%d/%m/%Y às %H:%M') }}. Motivo: {{ emissao.motivo_cancelamento }}</p>
 {% else %}<p class="ok">Documento registrado no sistema.</p>{% endif %}
 <dl><dt>Organização</dt><dd>{{ organizacao.nome }}</dd><dt>Protocolo</dt><dd>{{ emissao.protocolo.numero }}</dd>
 <dt>Registro</dt><dd>{{ 'Enviado pelo requerente' if emissao.metodo == 'conta_individual' else 'Assinado pelo responsável pelo protocolo' }}</dd>
-<dt>Nome</dt><dd>{{ emissao.nome_emitente }}</dd><dt>Data e hora</dt><dd>{{ emissao.emitido_em.strftime('%d/%m/%Y às %H:%M:%S') }}</dd><dt>Código de verificação</dt><dd>{{ emissao.codigo_publico }}</dd></dl>
+<dt>Nome</dt><dd>{{ emissao.nome_emitente }}</dd><dt>Data e hora</dt><dd>{{ emissao.emitido_em|brasilia('%d/%m/%Y às %H:%M:%S') }}</dd><dt>Código de verificação</dt><dd>{{ emissao.codigo_publico }}</dd></dl>
 <hr><h2>Conferir o PDF</h2><p>Selecione o arquivo para verificar se corresponde ao documento registrado. O arquivo enviado para conferência não é armazenado.</p>
 <form method="post" enctype="multipart/form-data"><label for="arquivo">Arquivo PDF</label><input id="arquivo" type="file" name="arquivo" accept="application/pdf" required><button type="submit">Verificar arquivo</button></form>
 {% if arquivo_resultado is sameas true %}<p class="ok"><strong>Arquivo conferido:</strong> corresponde exatamente ao documento registrado.</p>{% elif arquivo_resultado is sameas false %}<p class="bad"><strong>Arquivo diferente:</strong> não corresponde ao documento registrado.</p>{% endif %}

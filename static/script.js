@@ -791,6 +791,10 @@ function preencherCamposServidor(servidor) {
         nomeInput.value = servidor.nome;
         cargoInput.value = servidor.cargo || '';
         unidadeInput.value = servidor.unidade_de_exercicio || '';
+        for (const field of ['cpf', 'rg', 'endereco', 'bairro', 'municipio', 'cep', 'telefone']) {
+            const input = document.getElementById(field);
+            if (input) input.value = servidor[field] || '';
+        }
 
         // Para o select de lotação, precisamos verificar se a opção existe
         const lotacaoValue = servidor.lotacao || '';
@@ -1000,4 +1004,5 @@ async function gerarNumeroProtocolo() {
         document.getElementById('numeroProtocolo').value = `0001/${anoAtual}`;
     }
 }
+
 

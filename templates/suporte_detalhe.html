@@ -4,7 +4,7 @@
   <div>
     <a href="{{ url_for('support_list') }}" class="btn btn-outline-secondary btn-back">← Voltar para o suporte</a>
     <h1 class="h3 mt-2 mb-1">SUP-{{ '%06d'|format(chamado.id) }} {{ chamado.assunto }}</h1>
-    <p class="text-muted mb-0">Aberto em {{ chamado.criado_em.strftime('%d/%m/%Y %H:%M') }} por {{ chamado.aberto_por.nome_completo or chamado.aberto_por.nome }}{% if current_user.is_platform_admin %} · {{ organizacao_chamado.nome }}{% endif %}</p>
+    <p class="text-muted mb-0">Aberto em {{ chamado.criado_em|brasilia('%d/%m/%Y %H:%M') }} por {{ chamado.aberto_por.nome_completo or chamado.aberto_por.nome }}{% if current_user.is_platform_admin %} · {{ organizacao_chamado.nome }}{% endif %}</p>
   </div>
   <span class="badge fs-6 bg-{% if chamado.status in ['RESOLVIDO', 'FECHADO'] %}success{% elif chamado.status == 'ABERTO' %}warning text-dark{% else %}info text-dark{% endif %}">{{ chamado.status }}</span>
 </div>
@@ -22,7 +22,7 @@
           <article class="border-bottom pb-3 mb-3">
             <div class="d-flex justify-content-between gap-3 mb-2">
               <strong>{{ item.autor.nome_completo or item.autor.nome }}{% if item.autor.is_platform_admin %} · Suporte técnico{% endif %}</strong>
-              <small class="text-muted">{{ item.criado_em.strftime('%d/%m/%Y %H:%M') }}</small>
+              <small class="text-muted">{{ item.criado_em|brasilia('%d/%m/%Y %H:%M') }}</small>
             </div>
             <p class="mb-0" style="white-space: pre-wrap">{{ item.mensagem }}</p>
           </article>
@@ -73,3 +73,4 @@
   </div>
 </div>
 {% endblock %}
+

@@ -71,7 +71,7 @@
               <td><span class="badge priority-{{ chamado.prioridade|lower }}">{{ chamado.prioridade.title() }}</span></td>
               <td><span class="badge bg-{% if chamado.status in ['RESOLVIDO', 'FECHADO'] %}success{% elif chamado.status == 'ABERTO' %}warning text-dark{% else %}info text-dark{% endif %}">{{ chamado.status }}</span></td>
               <td>{{ (chamado.atribuido_a.nome_completo or chamado.atribuido_a.nome) if chamado.atribuido_a else 'Não atribuído' }}</td>
-              <td><span class="d-block">{{ chamado.atualizado_em.strftime('%d/%m/%Y') }}</span><small class="text-muted">{{ chamado.atualizado_em.strftime('%H:%M') }}</small></td>
+              <td><span class="d-block">{{ chamado.atualizado_em|brasilia('%d/%m/%Y') }}</span><small class="text-muted">{{ chamado.atualizado_em|brasilia('%H:%M') }}</small></td>
               <td><a class="btn btn-sm btn-outline-primary" href="{{ url_for('support_detail', ticket_id=chamado.id) }}">Acompanhar</a></td>
             </tr>
           {% else %}
@@ -83,3 +83,4 @@
     </div>
 </div>
 {% endblock %}
+

@@ -70,9 +70,22 @@ from models import SolicitacaoComplemento
 from models import PortalSessao, PortalRecuperacao, PortalCadastro
 from models import AuditoriaEvento
 from datetime import timezone
+from zoneinfo import ZoneInfo
 from sqlalchemy import event, select
 from sqlalchemy.orm import Session
 import json
+
+@app.template_filter('brasilia')
+def format_brasilia(value, fmt='%d/%m/%Y %H:%M'):
+    """Persistência em UTC; apresentação no horário de Brasília."""
+    from datetime_display import format_brasilia as display
+    return display(value, fmt)
+
+@app.template_filter('chronological')
+def chronological(events):
+    return sorted(events, key=lambda item: (
+        item.data_movimentacao.replace(tzinfo=timezone.utc) if item.data_movimentacao.tzinfo is None
+        else item.data_movimentacao.astimezone(timezone.utc), item.id or 0))
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
@@ -689,7 +702,7 @@ def consulta_publica(consulta_token):
                 db.session.delete(tentativa)
             historico = HistoricoProtocolo.query.filter_by(
                 tenant_id=organizacao.id, protocolo_id=protocolo.id
-            ).order_by(HistoricoProtocolo.data_movimentacao.desc()).all()
+            ).order_by(HistoricoProtocolo.data_movimentacao.asc(), HistoricoProtocolo.id.asc()).all()
             db.session.commit()
         else:
             janela = timedelta(minutes=15)
@@ -1416,7 +1429,10 @@ def portal_novo_protocolo():
         unidade_exercicio=servidor.unidade_de_exercicio, tipo_requerimento=tipo,
         requer_ao=(request.form.get('requer_ao') or '').strip() or None,
         observacoes=observacoes, data_solicitacao=datetime.now().date(),
-        cpf=servidor.cpf, endereco=current_user.endereco, telefone=current_user.telefone,
+        cpf=servidor.cpf, rg=servidor.rg,
+        endereco=current_user.endereco or servidor.endereco,
+        telefone=current_user.telefone or servidor.telefone,
+        bairro=servidor.bairro, municipio=servidor.municipio, cep=servidor.cep,
         responsavel=None, criado_por_id=current_user.id,
         requerente_servidor_id=servidor.id, modalidade_abertura='remota_requerente',
         setor_atual_id=None, status='AGUARDANDO RECEBIMENTO')
@@ -2021,7 +2037,7 @@ def admin_editar_servidor(servidor_id):
                 flash('Confira nome, CPF, nome da mãe e nascimento em DD/MM/AAAA.', 'danger')
                 return redirect(url_for('admin_editar_servidor', servidor_id=servidor.id))
             servidor.nome, servidor.cpf, servidor.nome_mae, servidor.nascimento = nome, cpf, mae, nascimento
-            for field in ('cargo', 'lotacao', 'unidade_de_exercicio'):
+            for field in ('cargo', 'lotacao', 'unidade_de_exercicio', 'rg', 'endereco', 'bairro', 'municipio', 'cep', 'telefone', 'email'):
                 setattr(servidor, field, (request.form.get(field) or '').strip()[:180])
             if user:
                 user.nome_completo, user.nome, user.cpf = nome, nome.split()[0], cpf
@@ -2179,6 +2195,17 @@ def admin_create_user():
     return redirect(url_for('configuracoes'))
 
 
+SERVER_IMPORT_OPTIONAL = ('rg', 'cargo', 'lotacao', 'unidade_de_exercicio',
+                          'endereco', 'bairro', 'municipio', 'cep', 'telefone', 'email')
+
+@app.get('/admin/servidores/modelo')
+@login_required
+@admin_required
+def admin_modelo_servidores():
+    return send_file(os.path.join(app.root_path, 'static', 'modelos', 'servidores.xlsx'),
+                     as_attachment=True, download_name='modelo-servidores.xlsx',
+                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
 @app.post('/admin/servidores/importar')
 @login_required
 @admin_required
@@ -2193,12 +2220,15 @@ def admin_importar_servidores():
         return redirect(url_for('configuracoes'))
     try:
         workbook = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
-        rows = workbook.active.iter_rows(values_only=True)
+        sheet = workbook['Servidores'] if 'Servidores' in workbook.sheetnames else workbook.active
+        rows = sheet.iter_rows(values_only=True)
         header = [str(value or '').strip().lower() for value in next(rows)]
         required = ('matricula', 'nome', 'cpf', 'data_nascimento', 'nome_mae')
         if any(column not in header for column in required):
             raise ValueError('Colunas obrigatórias: matricula, nome, cpf, data_nascimento, nome_mae.')
-        positions = {column: header.index(column) for column in required}
+        if len(header) != len(set(header)):
+            raise ValueError('A planilha contém colunas repetidas.')
+        positions = {column: header.index(column) for column in required + SERVER_IMPORT_OPTIONAL if column in header}
         parsed = []
         seen = set()
         for number, values in enumerate(rows, start=2):
@@ -2222,11 +2252,27 @@ def admin_importar_servidores():
             if not matricula or not nome or len(cpf) != 11 or not mae or not nascimento or matricula in seen:
                 raise ValueError(f'Dados inválidos ou matrícula repetida na linha {number}.')
             seen.add(matricula)
-            parsed.append((matricula, nome, cpf, nascimento, mae))
+            extras = {}
+            for column in SERVER_IMPORT_OPTIONAL:
+                if column not in positions:
+                    continue
+                raw = values[positions[column]]
+                value = str(int(raw)) if isinstance(raw, (int, float)) and float(raw).is_integer() else str(raw or '').strip()
+                if column == 'cep' and value:
+                    value = re.sub(r'\D', '', value).zfill(8)
+                    if len(value) != 8:
+                        raise ValueError(f'CEP inválido na linha {number}.')
+                if len(value) > 180:
+                    raise ValueError(f'Campo {column} excede 180 caracteres na linha {number}.')
+                extras[column] = value
+            parsed.append((matricula, nome, cpf, nascimento, mae, extras))
+        workbook.close()
+        if not parsed:
+            raise ValueError('Preencha ao menos um servidor na planilha.')
         tenant = current_tenant_id()
         existing = {record.matricula: record for record in tenant_query(Servidor).filter(
             Servidor.matricula.in_(seen)).all()}
-        for matricula, nome, cpf, nascimento, mae in parsed:
+        for matricula, nome, cpf, nascimento, mae, extras in parsed:
             record = existing.get(matricula)
             if record and tenant_query(Usuario).filter_by(servidor_id=record.id).first():
                 continue
@@ -2234,6 +2280,8 @@ def admin_importar_servidores():
                 record = Servidor(tenant_id=tenant, matricula=matricula)
                 db.session.add(record)
             record.nome, record.cpf, record.nascimento, record.nome_mae = nome, cpf, nascimento, mae
+            for field, value in extras.items():
+                setattr(record, field, value)
         _admin_audit('SERVIDORES_IMPORTADOS', f'Planilha processada com {len(parsed)} matrícula(s); contas vinculadas preservadas.')
         db.session.commit()
         flash(f'Planilha processada: {len(parsed)} matrícula(s). Contas já vinculadas foram preservadas.', 'success')
@@ -3157,7 +3205,9 @@ def get_servidor(matricula):
             'nome': servidor.nome,
             'lotacao': servidor.lotacao,
             'cargo': servidor.cargo,
-            'unidade_de_exercicio': servidor.unidade_de_exercicio
+            'unidade_de_exercicio': servidor.unidade_de_exercicio,
+            **{field: getattr(servidor, field) or '' for field in
+               ('cpf', 'rg', 'endereco', 'bairro', 'municipio', 'cep', 'telefone')}
         })
     return jsonify({'error': 'Servidor não encontrado'}), 404
 
@@ -3174,7 +3224,9 @@ def search_servidores():
         'nome': s.nome,
         'lotacao': s.lotacao,
         'cargo': s.cargo,
-        'unidade_de_exercicio': s.unidade_de_exercicio
+        'unidade_de_exercicio': s.unidade_de_exercicio,
+        **{field: getattr(s, field) or '' for field in
+           ('cpf', 'rg', 'endereco', 'bairro', 'municipio', 'cep', 'telefone')}
     } for s in servidores])
 
 @app.route('/api/lotacoes')

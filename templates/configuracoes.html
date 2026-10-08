@@ -42,9 +42,9 @@
             <form method="POST" action="{{ url_for('admin_importar_servidores') }}" enctype="multipart/form-data" class="mb-3">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <label class="form-label" for="importar-servidores">Importar servidores para autocadastro</label>
-                <div class="mb-2"><a class="btn btn-outline-primary btn-sm" href="{{ url_for('admin_servidores_portal') }}">Verificar cadastros do portal</a></div>
+                <div class="mb-2"><a class="btn btn-outline-primary btn-sm" href="{{ url_for('admin_modelo_servidores') }}">Baixar planilha-modelo</a> <a class="btn btn-outline-primary btn-sm" href="{{ url_for('admin_servidores_portal') }}">Verificar cadastros do portal</a></div>
                 <div class="input-group"><input class="form-control" id="importar-servidores" name="arquivo" type="file" accept=".xlsx" required><button class="btn btn-outline-primary" type="submit">Importar planilha</button></div>
-                <div class="form-text">Colunas: matricula, nome, cpf, data_nascimento e nome_mae. Matrículas que já possuem conta não serão alteradas.</div>
+                <div class="form-text">Baixe o modelo, preencha a aba Servidores e importe o arquivo .xlsx (até 2 MB). O modelo inclui identificação, dados funcionais e contato. Matrícula, nome, CPF, nascimento e nome da mãe são obrigatórios. Matrículas que já possuem conta não serão alteradas.</div>
             </form>
             <button class="btn btn-primary mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#createUserPanel" aria-expanded="false">Criar novo usuário</button>
             <div class="collapse" id="createUserPanel"><h5>Dados do novo usuário</h5>
@@ -152,5 +152,4 @@
     </div>
 </div>
 {% endblock content %}
-
 

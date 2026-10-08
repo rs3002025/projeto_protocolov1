@@ -47,6 +47,13 @@ SCHEMA_COLUMNS = {
         'pin_redefinicao_erros': 'INTEGER DEFAULT 0 NOT NULL',
     },
     'servidores': {
+        'rg': 'TEXT',
+        'endereco': 'TEXT',
+        'bairro': 'TEXT',
+        'municipio': 'TEXT',
+        'cep': 'TEXT',
+        'telefone': 'TEXT',
+        'email': 'TEXT',
         'cpf': 'VARCHAR(11)',
         'nascimento': 'DATE',
         'nome_mae': 'TEXT',

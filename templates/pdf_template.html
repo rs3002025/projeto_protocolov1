@@ -99,7 +99,7 @@
                     <div class="selo-eletronico selo-eletronico-remoto">
                         <strong>REQUERIMENTO ENVIADO ELETRONICAMENTE</strong><br>
                         Requerente: {{ protocolo.nome }} · Matrícula: {{ protocolo.matricula }}<br>
-                        Enviado em {{ envio.emitido_em.strftime('%d/%m/%Y às %H:%M:%S') }} · Código {{ envio.codigo_publico }}<br>
+                        Enviado em {{ envio.emitido_em|brasilia('%d/%m/%Y às %H:%M:%S') }} · Código {{ envio.codigo_publico }}<br>
                         Autenticidade verificável pelo QR Code.
                     </div>
                     {% else %}
@@ -109,7 +109,7 @@
                     <div class="assinatura-pdf selo-eletronico">
                         <strong>PROTOCOLO EMITIDO ELETRONICAMENTE</strong><br>
                         Responsável: {{ emissao.nome_emitente }}<br>
-                        Emitido em {{ emissao.emitido_em.strftime('%d/%m/%Y às %H:%M:%S') }} · Código {{ emissao.codigo_publico }}<br>
+                        Emitido em {{ emissao.emitido_em|brasilia('%d/%m/%Y às %H:%M:%S') }} · Código {{ emissao.codigo_publico }}<br>
                         Autenticidade verificável pelo QR Code.
                     </div>
                     {% else %}<div class="assinatura-pdf"><div class="linha-assinatura"></div>Responsável pelo Protocolo</div>{% endif %}

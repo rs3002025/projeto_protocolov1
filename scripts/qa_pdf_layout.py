@@ -6,12 +6,16 @@ import base64
 import io
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from weasyprint import HTML
+import sys
 import qrcode
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root))
+from datetime_display import format_brasilia
 output = root / 'tmp' / 'pdf-layout-review'
 output.mkdir(parents=True, exist_ok=True)
 env = Environment(loader=FileSystemLoader(root / 'templates'), autoescape=select_autoescape())
+env.filters['brasilia'] = format_brasilia
 template = env.get_template('pdf_template.html')
 buffer = io.BytesIO()
 qrcode.make('https://example.org/documento-de-teste').save(buffer, format='PNG')

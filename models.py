@@ -368,6 +368,13 @@ class Servidor(TenantMixin, db.Model):
     lotacao = db.Column(db.Text)
     cargo = db.Column(db.Text)
     unidade_de_exercicio = db.Column(db.Text)
+    rg = db.Column(db.Text)
+    endereco = db.Column(db.Text)
+    bairro = db.Column(db.Text)
+    municipio = db.Column(db.Text)
+    cep = db.Column(db.Text)
+    telefone = db.Column(db.Text)
+    email = db.Column(db.Text)
 
     @property
     def pendencias_autocadastro(self):
