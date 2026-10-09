@@ -90,6 +90,9 @@
                 {# Para selects com opções estáticas, podemos usar um loop e uma condição #}
                 {% set requer_ao_options = ["SECRETÁRIO", "COORDENADOR DE RH", "PREFEITA"] %}
                 <option value="">Selecione...</option>
+                {% if protocolo and protocolo.requer_ao and protocolo.requer_ao not in requer_ao_options %}
+                    <option value="{{ protocolo.requer_ao }}" selected>{{ protocolo.requer_ao }}</option>
+                {% endif %}
                 {% for option in requer_ao_options %}
                     <option value="{{ option }}" {% if protocolo and protocolo.requer_ao == option %}selected{% endif %}>{{ option }}</option>
                 {% endfor %}
@@ -173,4 +176,5 @@ window.protocoloData = {{ {
 {% endif %}
 </script>
 {% endblock %}
+
 

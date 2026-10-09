@@ -89,7 +89,7 @@ def test_receipt_with_pin_preserves_submission_and_both_signature_blocks():
         db.session.commit()
     portal=portal_client()
     with patch('app.render_protocol_pdf',return_value=b'%PDF-1.7 original'):
-        assert portal.post('/portal/novo',data={'tipo_requerimento':'Teste recebimento','observacoes':'Pedido teste','declaracao':'on'}).status_code==302
+        assert portal.post('/portal/novo',data={'tipo_requerimento':'Teste recebimento','requer_ao':'Secretaria de teste do portal','observacoes':'Pedido teste','declaracao':'on'}).status_code==302
     with app.app_context():
         protocol=Protocolo.query.filter_by(tipo_requerimento='Teste recebimento').one(); protocol_id=protocol.id
         original_hash=protocol.emissao_eletronica.pdf_sha256
@@ -122,4 +122,5 @@ def test_receipt_with_pin_preserves_submission_and_both_signature_blocks():
         assert protocol.envio_requerente.status == 'SUBSTITUIDA'
         assert not any(h.acao == 'RETIFICACAO_AUTENTICADA' for h in protocol.historico)
     assert admin.post(f'/protocolo/{protocol_id}/receber-portal',data={'pin':'123456'}).status_code==409
+    assert '<option value="Secretaria de teste do portal" selected>' in admin.get(f'/protocolo/{protocol_id}/retificar').get_data(as_text=True)
     assert f'/protocolo/{protocol_id}' not in admin.get('/pendencias-recebimento').get_data(as_text=True)
