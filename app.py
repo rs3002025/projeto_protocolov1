@@ -322,6 +322,17 @@ def pendencias_recebimento_query():
             Movimentacao.destinatario_usuario_id == current_user.id),
     )
 
+def pendencias_recebimento_inicial_query():
+    query = tenant_query(Protocolo).filter(
+        Protocolo.modalidade_abertura == 'remota_requerente',
+        Protocolo.arquivado_em.is_(None),
+        ~Protocolo.historico.any(HistoricoProtocolo.acao == 'RECEBIMENTO_PORTAL'),
+    )
+    if current_user.tipo not in ('admin', 'protocolista'):
+        return query.filter(false())
+    return query
+
+
 def parse_iso_date(value, field_name):
     if not value:
         return None
@@ -572,7 +583,8 @@ def permission_context():
         logo_url = url_for('organization_logo', slug=organization.slug, v=version)
     pendencias_recebimento = 0
     if current_user.is_authenticated:
-        pendencias_recebimento = pendencias_recebimento_query().count()
+        pendencias_recebimento = (pendencias_recebimento_query().count()
+                                 + pendencias_recebimento_inicial_query().count())
     chamados_pendentes = 0
     if current_user.is_authenticated:
         chamados_pendentes = support_tickets_query().filter(
@@ -849,7 +861,9 @@ def support_update_status(ticket_id):
 @permission_required('route')
 def pendencias_recebimento():
     movimentos = pendencias_recebimento_query().order_by(Movimentacao.enviado_em.desc()).all()
-    return render_template('pendencias_recebimento.html', title='Pendências de recebimento', movimentos=movimentos)
+    requerimentos = pendencias_recebimento_inicial_query().order_by(Protocolo.data_envio.asc(), Protocolo.id.asc()).all()
+    return render_template('pendencias_recebimento.html', title='Pendências de recebimento',
+                           movimentos=movimentos, requerimentos=requerimentos)
 
 @app.route("/register", methods=['GET', 'POST'])
 def register():

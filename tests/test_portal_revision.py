@@ -94,6 +94,10 @@ def test_receipt_with_pin_preserves_submission_and_both_signature_blocks():
         protocol=Protocolo.query.filter_by(tipo_requerimento='Teste recebimento').one(); protocol_id=protocol.id
         original_hash=protocol.emissao_eletronica.pdf_sha256
     admin=app.test_client(); base.login(admin,'cliente-a')
+    pending = admin.get('/pendencias-recebimento').get_data(as_text=True)
+    assert f'/protocolo/{protocol_id}' in pending and 'Aguardando recebimento inicial' in pending
+    other = app.test_client(); base.login(other, 'cliente-b')
+    assert f'/protocolo/{protocol_id}' not in other.get('/pendencias-recebimento').get_data(as_text=True)
     admin.post(f'/protocolo/{protocol_id}/receber-portal',data={'pin':'000000'})
     with app.app_context():
         assert db.session.get(Protocolo,protocol_id).aguardando_recebimento_inicial
@@ -118,3 +122,4 @@ def test_receipt_with_pin_preserves_submission_and_both_signature_blocks():
         assert protocol.envio_requerente.status == 'SUBSTITUIDA'
         assert not any(h.acao == 'RETIFICACAO_AUTENTICADA' for h in protocol.historico)
     assert admin.post(f'/protocolo/{protocol_id}/receber-portal',data={'pin':'123456'}).status_code==409
+    assert f'/protocolo/{protocol_id}' not in admin.get('/pendencias-recebimento').get_data(as_text=True)
