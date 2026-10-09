@@ -28,7 +28,8 @@ WORKDIR /app
 COPY requirements.txt .
 
 # Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+RUN python -m pip install --no-cache-dir --upgrade pip==26.2.1 \
+    && python -m pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the application's code
 COPY . .
@@ -38,3 +39,5 @@ EXPOSE 8080
 
 # Atualiza o esquema de forma idempotente antes de iniciar cada implantação.
 CMD ["sh", "-c", "python bootstrap_db.py && gunicorn --bind 0.0.0.0:${PORT:-8080} --workers ${WEB_CONCURRENCY:-2} --timeout 60 app:app"]
+
+
