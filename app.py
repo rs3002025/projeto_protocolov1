@@ -1690,7 +1690,7 @@ def require_platform_tenant_selection():
                'platform_update_capabilities',
                'support_list', 'support_create', 'support_detail', 'support_reply',
                'support_assign', 'support_update_status',
-               'health', 'static', 'organization_logo'}
+               'health', 'static', 'organization_logo', 'consulta_publica', 'validar_emissao'}
     if request.endpoint in allowed:
         return None
     selected = session.get('active_tenant_id')
@@ -1708,7 +1708,7 @@ def isolate_portal_surface():
                'portal_enviar_complemento', 'portal_logout',
                'portal_sessoes', 'portal_encerrar_sessao', 'portal_meus_dados',
                'baixar_anexo', 'gerar_pdf_protocolo', 'organization_logo', 'static',
-               'validar_emissao', 'health'}
+               'validar_emissao', 'consulta_publica', 'health'}
     if session.get('auth_surface') != 'portal':
         session.pop('auth_surface', None)
         logout_user()

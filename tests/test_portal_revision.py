@@ -28,6 +28,18 @@ def portal_client():
     assert client.post('/portal/cliente-a/entrar', data={'login':'PROFILE','senha':'SenhaTeste123'}).status_code == 302
     return client
 
+def test_logged_portal_user_can_open_public_tracking_without_internal_access():
+    with app.app_context():
+        protocol=Protocolo.query.filter_by(nome='Dado exclusivo A').one()
+        token=protocol.consulta_token
+    client=portal_client()
+    assert client.get(f'/consulta/{token}').status_code == 200
+    invalid=client.post(f'/consulta/{token}',data={'matricula':'incorreta'}).get_data(as_text=True)
+    assert '0001/2026' not in invalid
+    valid=client.post(f'/consulta/{token}',data={'matricula':'MAT-A'}).get_data(as_text=True)
+    assert '0001/2026' in valid
+    assert client.get('/configuracoes').status_code == 302
+
 def test_invalid_numeric_date_rejected_before_database():
     for value in (1011990, None, 45000, '31/02/1990'):
         try:

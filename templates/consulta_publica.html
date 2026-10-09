@@ -35,14 +35,14 @@
   <dl>
     <dt>Número</dt><dd>{{ protocolo.numero }}</dd>
     <dt>Data da solicitação</dt><dd>{{ protocolo.data_solicitacao.strftime('%d/%m/%Y') if protocolo.data_solicitacao else 'Não informada' }}</dd>
-    <dt>Status</dt><dd>{{ protocolo.status }}</dd>
+    <dt>Situação</dt><dd>{{ protocolo.status_exibicao }}</dd>
     <dt>Localização atual</dt><dd>{{ protocol_location(protocolo) }}</dd>
     <dt>Prazo</dt><dd>{{ protocolo.prazo_em.strftime('%d/%m/%Y') if protocolo.prazo_em else 'Não informado' }}</dd>
   </dl>
   <h2>Andamentos</h2>
   <ol>
     {% for item in historico %}
-      <li><strong>{{ item.acao }}</strong> — {{ item.status }}<br><small>{{ item.data_movimentacao|brasilia('%d/%m/%Y %H:%M') }}</small></li>
+      <li><strong>{{ history_action_label(item.acao) }}</strong> — {{ item.status }}<br><small>{{ item.data_movimentacao|brasilia('%d/%m/%Y %H:%M') }}</small></li>
     {% else %}
       <li>Nenhum andamento registrado.</li>
     {% endfor %}

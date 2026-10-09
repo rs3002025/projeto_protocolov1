@@ -68,5 +68,25 @@ def test_public_history_is_chronological_and_brasilia():
             status='RECEBIDO',responsavel='admin',data_movimentacao=datetime(2026,10,8,11))])
         db.session.commit()
     html=app.test_client().post(f'/consulta/{token}',data={'matricula':'MAT-A'}).get_data(as_text=True)
-    assert html.index('EVENTO_ANTERIOR') < html.index('EVENTO_POSTERIOR')
+    assert html.index('Evento Anterior') < html.index('Evento Posterior')
     assert '08/10/2026 08:00' in html and '08/10/2026 09:00' in html
+
+def test_public_history_uses_reader_labels_and_pending_receipt_state():
+    with app.app_context():
+        protocol=Protocolo.query.filter_by(nome='Dado exclusivo A').one()
+        token=protocol.consulta_token
+        previous=protocol.modalidade_abertura
+        protocol.modalidade_abertura='remota_requerente'
+        db.session.add(HistoricoProtocolo(tenant_id=1,protocolo_id=protocol.id,
+            acao='ENVIO_REMOTO',status='AGUARDANDO RECEBIMENTO',responsavel='servidor'))
+        db.session.commit()
+    try:
+        html=app.test_client().post(f'/consulta/{token}',data={'matricula':'MAT-A'}).get_data(as_text=True)
+        assert 'Requerimento enviado pelo portal' in html
+        assert 'ENVIO_REMOTO' not in html
+        assert '<dd>AGUARDANDO RECEBIMENTO</dd>' in html
+    finally:
+        with app.app_context():
+            protocol=Protocolo.query.filter_by(nome='Dado exclusivo A').one()
+            protocol.modalidade_abertura=previous
+            db.session.commit()
