@@ -29,6 +29,7 @@ COPY requirements.txt .
 
 # Install Python dependencies
 RUN python -m pip install --no-cache-dir --upgrade pip==26.2.1 \
+    && python -c "import pip,pathlib,shutil; assert pip.__version__ == '26.2.1'; stale = pathlib.Path(pip.__file__).resolve().parent.parent / 'pip-25.0.1.dist-info'; shutil.rmtree(stale) if stale.is_dir() else None" \
     && python -m pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the application's code
