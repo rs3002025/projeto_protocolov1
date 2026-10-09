@@ -13,7 +13,13 @@
 <dt>Nome</dt><dd>{{ emissao.nome_emitente }}</dd><dt>Data e hora</dt><dd>{{ emissao.emitido_em|brasilia('%d/%m/%Y às %H:%M:%S') }}</dd><dt>Código de verificação</dt><dd>{{ emissao.codigo_publico }}</dd></dl>
 <hr><h2>Conferir o PDF</h2><p>Selecione o arquivo para verificar se corresponde ao documento registrado. O arquivo enviado para conferência não é armazenado.</p>
 <form method="post" enctype="multipart/form-data"><label for="arquivo">Arquivo PDF</label><input id="arquivo" type="file" name="arquivo" accept="application/pdf" required><button type="submit">Verificar arquivo</button></form>
-{% if arquivo_resultado is sameas true %}<p class="ok"><strong>Arquivo conferido:</strong> corresponde exatamente ao documento registrado.</p>{% elif arquivo_resultado is sameas false %}<p class="bad"><strong>Arquivo diferente:</strong> não corresponde ao documento registrado.</p>{% endif %}
+{% if arquivo_resultado is sameas true %}<p id="resultado-arquivo" class="ok" role="status"><strong>Arquivo conferido:</strong> corresponde exatamente ao documento registrado.</p>{% elif arquivo_resultado is sameas false %}<p id="resultado-arquivo" class="bad" role="status"><strong>Arquivo diferente:</strong> não corresponde ao documento registrado.</p>{% endif %}
+<script>
+document.getElementById('arquivo').addEventListener('change', function () {
+    const resultado = document.getElementById('resultado-arquivo');
+    if (resultado) resultado.hidden = true;
+});
+</script>
 </main></body></html>
 
 

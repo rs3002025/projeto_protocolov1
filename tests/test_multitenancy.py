@@ -182,6 +182,8 @@ def test_usuario_administrativo_troca_senha_inicial_e_configura_pin():
 
 
 def setup_module():
+    # Outras suítes compartilham este banco e podem já ter removido a pasta.
+    Path(_test_directory.name).mkdir(exist_ok=True)
     app.config.update(TESTING=True, WTF_CSRF_ENABLED=False)
     with app.app_context():
         assert db.engine.url.drivername == 'sqlite'
@@ -1520,6 +1522,10 @@ def test_emissao_autenticada_congela_pdf_dados_e_anexos_e_detecta_alteracao():
         content_type='multipart/form-data').get_data(as_text=True)
     assert 'Arquivo conferido' in valido
     assert 'Arquivo diferente' in adulterado
+    for pagina in (valido, adulterado):
+        assert 'id="resultado-arquivo"' in pagina
+        assert "addEventListener('change'" in pagina
+        assert 'resultado.hidden = true' in pagina
 
     with app.app_context():
         org = Organizacao.query.filter_by(slug='cliente-a').one()

@@ -17,6 +17,7 @@ Este registro atualiza o plano consolidado sem apagar o histórico. Não constit
 - Cadastro em etapas e confirmação por e-mail executados com conta fictícia; gestão funcional, elegibilidade, edição, portal e tela móvel conferidos.
 - Protocolo real de teste 0007/2026 preservado em produção. Envio pelo servidor, recebimento e assinatura do protocolista, retificação, downloads e histórico conferidos no navegador.
 - PDFs de envio e recebimento com duas páginas e retificação com uma página renderizados e inspecionados. Título fixo, dados funcionais, marcas do requerente e responsável nos respectivos espaços e dois QR Codes distintos. Horário exibido coincide com o registro UTC convertido para Brasília. Documentos antigos não foram regravados.
+- Verificador público testado pelo navegador: PDF original aceito e cópia com alteração visível rejeitada. Evidência em tmp/homologacao-20261009/verificador-alterado-rejeitado.png. Ao selecionar outro arquivo, o resultado anterior agora é ocultado, evitando confusão antes da nova conferência. A leitura física dos QR Codes pela câmera não foi executada.
 - Restauração nativa do snapshot de desenvolvimento executada: 110 protocolos, 30 históricos e 6.653 servidores preservados; novo volume montado e anterior conservado desmontado. Produção não foi restaurada.
 - Backup independente de PostgreSQL e bucket restaurado em destinos temporários: 114 protocolos, 45 históricos e 10 objetos; hashes conferidos e destinos temporários removidos ao fim.
 - Snapshots de produção com agendamento diário, semanal e mensal conferidos. PITR continua desligado em produção por decisão explícita; ativo em desenvolvimento. Snapshot do banco não substitui cópia do bucket.
@@ -29,9 +30,7 @@ Novos manuais em PDF (cliente: 9 páginas; administração geral: 10 páginas) e
 
 Arquivos locais em training-artifacts/output, com sufixo “2026-10-09 final”. Relatórios de validação em training-artifacts/build-20261009/cliente-v3 e geral-v3; evidências de telas e auditoria em tmp/homologacao-20261009.
 
-## Duas pendências manuais específicas
+## Pendência manual específica
 
 1. **Tramitação nominal e acesso de participantes anteriores no navegador.** Regras implementadas e testadas automaticamente. A conta consulta_qa foi acessada e restrições administrativas conferidas. A credencial original de tramitador_qa, recuperada do histórico de criação, foi recusada no login normal; estado ativo e vínculo foram conferidos sem expor hash. Não houve acesso por sessão artificial nem alteração de senha por fora do fluxo. Necessário restabelecer a credencial pelo titular/administrador para terminar o teste visual com esse perfil. Não pedir ao usuário que adivinhe uma senha criada pelo agente.
-2. **Envio do PDF original e alterado no verificador público pelo navegador.** Tela pública e identificação da emissão conferidas; integridade testada automaticamente. A seleção do arquivo pela extensão retornou sem arquivo selecionado. Necessário habilitar/confirmar “Allow access to file URLs” na extensão ChatGPT antes de repetir a prova visual. Não declarar como concluído o upload que não ocorreu nem a leitura física dos QR Codes pela câmera.
-
-Não há outra correção conhecida de código aguardando implementação neste registro. Essas duas provas impedem afirmar que toda a homologação manual terminou. Alterações adicionais encontradas devem ser incorporadas sem abandonar o andamento principal.
+Não há outra correção conhecida de código aguardando implementação neste registro. Essa prova impede afirmar que toda a homologação manual terminou. Alterações adicionais encontradas devem ser incorporadas sem abandonar o andamento principal.
