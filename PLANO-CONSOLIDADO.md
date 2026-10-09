@@ -1,6 +1,28 @@
 # Plano consolidado — Muniprot / Sysprot
 
-Atualização: 06/10/2026. Este arquivo passa a ser a referência vigente. Os planos anteriores ficam preservados como histórico; decisões substituídas não devem ser reintroduzidas como tarefas pendentes.
+Atualização: 09/10/2026. O estado vigente está no [fechamento de homologação de 09/10](STATUS-HOMOLOGACAO-2026-10-09.md). As pendências e limitações datadas abaixo são históricas quando substituídas por esse registro. Os planos anteriores ficam preservados; decisões substituídas não devem ser reintroduzidas como tarefas pendentes.
+
+## Situação atual — revisão de requerimentos em 08/10/2026
+
+### Ajustes de histórico, horário e importação — 08/10
+
+- Código enviado e confirmado nas três branches no commit 1859fc25e049b9a70111b3365319c9f1cc1956b8. Verificação HTTPS posterior confirmou o JavaScript novo sendo servido (HTTP 200) em app.muniprot.com.br, dev.muniprot.com.br e visual.muniprot.com.br. Conferência visual autenticada e status nominal dos deployments no painel Railway ainda não renovados.
+- Eventos em ordem crescente de data, com desempate por ID: consulta via QR Code, detalhes internos e portal. Registros persistidos e cadeia de auditoria não foram alterados.
+- Exibição de timestamps convertida para America/Sao_Paulo nas telas e nos novos PDFs. Timestamps sem fuso seguem a convenção UTC da aplicação. PDFs já emitidos não são regravados.
+- Planilha-modelo baixável em Configurações, na área de importação. Aba Servidores com 15 campos: matrícula, nome, CPF, nascimento, nome da mãe, RG, cargo, lotação, unidade de exercício, endereço, bairro, município, CEP, telefone e e-mail. Aba Orientações com campos obrigatórios e preenchimento.
+- Importador ampliado, preservando compatibilidade com o modelo anterior de cinco campos e contas já vinculadas. Migração aditiva/idempotente dos campos de cadastro. Matrícula, CPF e CEP preservam zeros à esquerda no modelo.
+- Dados importados disponíveis para preenchimento do formulário interno; novos pedidos do portal usam dados funcionais e endereço/telefone atuais da conta, com os contatos importados como alternativa quando não preenchidos. Não é criada uma conta automaticamente pela importação.
+- 80 testes aprovados, incluindo baixar/preencher/importar o modelo, conferir dados e isolamento entre clientes, ordem pública dos eventos e conversão de fuso com mudança de dia. As duas abas da planilha foram inspecionadas visualmente.
+- Evidências: tmp/import-modelo-20261008. Modelo distribuído no sistema: static/modelos/servidores.xlsx.
+- Disponibilidade após publicação: login e arquivo do modelo retornaram HTTP 200 nos três domínios. O download administrativo usa autenticação e nome modelo-servidores.xlsx. Esse teste HTTP não é apresentado como teste visual autenticado de importação em produção.
+
+- Main, development e codex/visual-development confirmadas no commit fffee27e28405c815314b16ddf58dde962fb7cfb, incluindo a revisão funcional 9ce6aa2 e o ajuste final da tabela.
+- Título do documento fixo; recebimento retorna aos detalhes; PIN em modal; histórico e controles internos separados da apresentação comum; preservados os dois QR Codes e as assinaturas distintas.
+- 76 testes aprovados. PDFs reais curto (uma página) e longo (duas páginas) gerados no workflow 37642915826 e todas as páginas inspecionadas visualmente. Evidências em tmp/pdf-review-20261007.
+- Em produção foram conferidos detalhes e modal de recebimento. Recebimento completo validado nos testes e navegador local, não confirmado com PIN em produção. PDFs anteriores permanecem preservados.
+- Falta conferir o status final dos deployments do commit fffee27 nos três ambientes e a tabela publicada. Nesta retomada o Chrome não está disponível na conexão de navegação. Publicação de branch não é tomada como confirmação do deployment.
+- Continuam as pendências gerais descritas abaixo: homologações multicliente/portal, restauração nativa e cópia independente dos anexos, atualização dos materiais e inventário das dependências efetivamente instaladas. Este bloco não declara todos os planos concluídos.
+- Detalhes em REVISAO-USABILIDADE-REQUERIMENTOS-2026-10-07.md.
 
 ## Entregas existentes
 
@@ -65,6 +87,10 @@ Testes de regressão aprovados; publicação confirmada nos três ambientes; tes
 
 ### Correções após teste real do portal
 
+Conferência final da publicação em 07/10/2026: PR 107 integrada e main, development e codex/visual-development na versão fe9738bebf576adac2d429f16940f3a0713e2535. Railway apresentou Active e Deployment successful da PR 107 nos três ambientes. Produção: requerimento 0003/2026 passou a exibir AGUARDANDO RECEBIMENTO, responsável Aguardando recebimento, botão Receber requerimento e histórico Enviado por. Navegação da gestão funcional e campo Matrícula do login visual conferidos; a listagem administrativa de usuários internos não inclui a conta externa testada. Evidência tmp/portal-recebimento-2026-10-07.png. Regressão conjunta repetida: 74 testes passaram. Ainda não concluída a homologação visual do portal autenticado e do PDF real com duas marcas, que depende de sessão e confirmação pessoal do usuário. PDFs antigos não foram regravados para alterar CPF ou layout.
+
+PR 106 publicada com Deployment successful nos três ambientes: produção b9716936-b739-48dd-a8cc-3bc6bf0f60b3; desenvolvimento 4e7c59a8-58c6-4622-bede-2f9f9bac2cdc; visual 8bf68934-ab1a-445e-a11f-58747a90831d. Edição funcional, separação e botão de recebimento conferidos na produção autenticada. PR 107 complementa o status exibido de pedidos antigos e o rótulo do ator no histórico; não altera documentos anteriores. Conferência de portal autenticado e PDF real com as duas marcas continua pendente da sessão/PIN do usuário; testes dessas regras passaram em banco temporário.
+
 - Campo de entrada Matrícula; navegação Meus dados; download Baixar requerimento; ato público distingue envio do servidor de confirmação do protocolista.
 - CPF funcional, endereço e telefone da conta são copiados para novos requerimentos. Documentos já emitidos permanecem preservados.
 - Usuários internos separados das contas do portal. Gestão de servidores paginada, por cliente, com edição funcional e ativação/desativação da conta vinculada.
@@ -91,4 +117,3 @@ Regressão final após correção do painel e controle de reenvio: 66 testes apr
 - PR 103: cadastro em etapas e perguntas sorteadas publicado, com Deployment successful confirmado nos três ambientes e primeira tela conferida visualmente em produção. Suite completa: 65 testes passaram.
 - GitHub Actions 37488148413, 06/10/2026 às 15:31 UTC: pip-audit retornou No known vulnerabilities found, com relatório preservado. Resultado limitado às versões resolvidas pelo requirements no CI; não representa auditoria integral nem inventário de cada contêiner.
 - PR 104: correção do dashboard e intervalo mínimo de um minuto entre códigos de cadastro para a mesma matrícula, inclusive em outra sessão. 11 testes específicos passaram. Commit 6f01c4626daac89035b846a339d32d0f8797c6c8 nas três branches. Produção confirmou Deployment successful; painel real carregou estatísticas, gráficos e distribuição de 110 protocolos por setor. Filtro SEAD mostrou 1 protocolo; ao remover o filtro, a visão geral voltou corretamente, sem aviso. Evidência visual: tmp/dashboard-corrigido-2026-10-06.png.
-
