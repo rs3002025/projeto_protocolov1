@@ -1,5 +1,7 @@
 # Plano consolidado — Muniprot / Sysprot
 
+Atualização em execução — 14/10/2026: [preparação para receber clientes](LIBERACAO-CLIENTES-2026-10-14.md). Esse registro complementa o fechamento anterior e as provas de segurança de 13/10. QR Codes confirmados pelo usuário. Correções de versões flutuantes e bibliotecas remotas preparadas; publicação e validação final em execução.
+
 Atualização: 09/10/2026. O estado vigente está no [fechamento de homologação de 09/10](STATUS-HOMOLOGACAO-2026-10-09.md). As pendências e limitações datadas abaixo são históricas quando substituídas por esse registro. Os planos anteriores ficam preservados; decisões substituídas não devem ser reintroduzidas como tarefas pendentes.
 
 ## Situação atual — revisão de requerimentos em 08/10/2026

@@ -1,0 +1,46 @@
+{
+  "bootstrap-5.1.3.min.css": {
+    "package": "bootstrap",
+    "version": "5.1.3",
+    "bytes": 163873,
+    "sha256": "62f74b1cf824a89f03554c638e719594c309b4d8a627a758928c0516fa7890ab",
+    "integrity": "sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3"
+  },
+  "bootstrap-5.1.3.bundle.min.js": {
+    "package": "bootstrap",
+    "version": "5.1.3",
+    "bytes": 78129,
+    "sha256": "f5210fa3e7f0245a4c51eb7f280092c0ef99fdd28c45e17dab8cc5854fdf4fd3",
+    "integrity": "sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p"
+  },
+  "bootstrap-5.3.3.min.css": {
+    "package": "bootstrap",
+    "version": "5.3.3",
+    "bytes": 232803,
+    "sha256": "3c8f27e6009ccfd710a905e6dcf12d0ee3c6f2ac7da05b0572d3e0d12e736fc8",
+    "integrity": "sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+  },
+  "chart-4.5.1.umd.js": {
+    "package": "chart.js",
+    "version": "4.5.1",
+    "bytes": 208518,
+    "sha256": "ecc3cd1eeb8c34d2178e3f59fd63ec5a3d84358c11730af0b9958dc886d7652a",
+    "integrity": "sha384-hfkuqrKeWFmnTMWN31VWyoe8xgdTADD11kgxmdpx2uyE6j5Az5uZq6u6AKYYmAOw"
+  },
+  "qrcode-1.0.0.min.js": {
+    "package": "qrcodejs",
+    "version": "1.0.0",
+    "bytes": 19927,
+    "sha256": "c541ef06327885a8415bca8df6071e14189b4855336def4f36db54bde8484f36",
+    "integrity": "sha384-3zSEDfvllQohrq0PHL1fOXJuC/jSOO34H46t6UQfobFOmxE5BpjjaIJY5F2/bMnU"
+  },
+  "html2pdf-0.14.0.bundle.min.js": {
+    "package": "html2pdf.js",
+    "version": "0.14.0",
+    "jspdf": "4.2.1",
+    "dompurify": "3.4.17",
+    "bytes": 835275,
+    "sha256": "f5a9d497103ea0821c6646c87ddef108bc14f910bb9bd29bd68cfa76f3d70110",
+    "integrity": "sha384-tbj7rr74QkFvl/+WIIth+BNzVj/RfDOVtZJlZV9xHVCSpqflPI0CJMphZC2chArX"
+  }
+}

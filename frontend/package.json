@@ -1,0 +1,17 @@
+{
+  "name": "muniprot-browser-libraries",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": { "build": "node build.mjs" },
+  "dependencies": {
+    "bootstrap": "5.1.3",
+    "bootstrap-portal": "npm:bootstrap@5.3.3",
+    "chart.js": "4.5.1",
+    "dompurify": "3.4.17",
+    "html2pdf.js": "0.14.0",
+    "jspdf": "4.2.1",
+    "qrcodejs": "1.0.0"
+  },
+  "devDependencies": { "esbuild": "0.28.2" },
+  "overrides": { "jspdf": "4.2.1", "dompurify": "3.4.17" }
+}

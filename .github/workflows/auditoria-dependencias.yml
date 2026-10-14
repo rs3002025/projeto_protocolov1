@@ -1,4 +1,4 @@
-name: Auditoria de dependências Python
+name: Auditoria de dependências fixadas
 
 on:
   push:
@@ -16,11 +16,22 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: '3.12.15'
       - name: Preparar auditor
         run: python -m pip install pip-audit
-      - name: Consultar vulnerabilidades das dependências resolvidas
-        run: pip-audit -r requirements.txt --format json --output auditoria-dependencias.json
+      - name: Consultar vulnerabilidades do manifesto aprovado
+        run: pip-audit --disable-pip --no-deps -r requirements-hashes.lock --format json --output auditoria-dependencias.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Instalar bibliotecas do navegador sem scripts de terceiros
+        working-directory: frontend
+        run: npm ci --ignore-scripts --no-fund
+      - name: Auditar dependências do navegador
+        working-directory: frontend
+        run: npm audit --audit-level=low
       - name: Preservar relatório mesmo quando houver vulnerabilidades
         if: always()
         uses: actions/upload-artifact@v4

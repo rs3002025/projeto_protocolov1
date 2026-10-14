@@ -1,0 +1,10 @@
+.git
+**/node_modules
+.venv
+.env
+.env.test
+**/__pycache__
+.pytest_cache
+tmp
+*.dump
+*.zip
