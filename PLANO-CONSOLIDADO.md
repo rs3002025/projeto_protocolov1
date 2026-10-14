@@ -1,6 +1,8 @@
 # Plano consolidado — Muniprot / Sysprot
 
-Atualização em execução — 14/10/2026: [preparação para receber clientes](LIBERACAO-CLIENTES-2026-10-14.md). Esse registro complementa o fechamento anterior e as provas de segurança de 13/10. QR Codes confirmados pelo usuário. Correções de versões flutuantes e bibliotecas remotas preparadas; publicação e validação final em execução.
+Atualização vigente — 14/10/2026: [liberação para receber clientes](LIBERACAO-CLIENTES-2026-10-14.md). Ciclo concluído: três ambientes sincronizados, 104 testes aprovados, dependências efetivamente idênticas e auditadas, bibliotecas locais com integridade, PDF real conferido e backups verificados. Nenhuma pendência bloqueadora conhecida dos planos ou da avaliação de segurança permanece aberta. QR Codes confirmados pelo usuário. Segurança é avaliada no escopo registrado, não garantia de risco zero.
+
+Todos os blocos datados abaixo, inclusive a antiga seção “Pendências vigentes”, são histórico e estão substituídos pelos fechamentos de 09/10 e 14/10. Decisões opcionais (como PITR desligado em produção e recuperação mediada pelo administrador) não são reabertas como pendências.
 
 Atualização: 09/10/2026. O estado vigente está no [fechamento de homologação de 09/10](STATUS-HOMOLOGACAO-2026-10-09.md). As pendências e limitações datadas abaixo são históricas quando substituídas por esse registro. Os planos anteriores ficam preservados; decisões substituídas não devem ser reintroduzidas como tarefas pendentes.
 

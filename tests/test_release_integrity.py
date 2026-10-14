@@ -9,6 +9,13 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def test_dashboard_pdf_keeps_charts_within_printable_page():
+    script = (ROOT / 'static/script.js').read_text(encoding='utf-8')
+    assert script.count('height: 230px; object-fit: contain') == 2
+    assert 'height: 250px; object-fit: contain' in script
+    assert "avoid: ['tr', 'img']" in script
+
+
 def test_local_browser_assets_have_matching_integrity():
     manifest = json.loads((ROOT / 'static/vendor/manifest.json').read_text())
     assert len(manifest) == 6
