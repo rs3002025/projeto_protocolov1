@@ -467,7 +467,7 @@ window.gerarImpressaoPersonalizada = async function() {
             html += `<td style="width: 50%; padding-right: 2.5px; box-sizing: border-box;">
                         <div style="border: 1px solid #eee; border-radius: 8px; padding: 10px;">
                             <h4 style="font-size: 0.9em; margin: 0 0 5px 0;">Top 5 Tipos de Requerimento</h4>
-                            <img src="${chartImageMap['#tiposChart'].src}" style="width: 100%; height: auto;">
+                            <img src="${chartImageMap['#tiposChart'].src}" style="width: 100%; height: 230px; object-fit: contain;">
                         </div>
                      </td>`;
         }
@@ -475,7 +475,7 @@ window.gerarImpressaoPersonalizada = async function() {
             html += `<td style="width: 50%; padding-left: 2.5px; box-sizing: border-box;">
                         <div style="border: 1px solid #eee; border-radius: 8px; padding: 10px;">
                             <h4 style="font-size: 0.9em; margin: 0 0 5px 0;">${document.getElementById('pieChartTitle').textContent}</h4>
-                            <img src="${chartImageMap['#statusChart'].src}" style="width: 100%; height: auto;">
+                            <img src="${chartImageMap['#statusChart'].src}" style="width: 100%; height: 230px; object-fit: contain;">
                         </div>
                      </td>`;
         }
@@ -490,7 +490,7 @@ window.gerarImpressaoPersonalizada = async function() {
                 <td>
                     <div style="border: 1px solid #eee; border-radius: 8px; padding: 10px; text-align: center;">
                         <h4 style="font-size: 0.9em; margin: 0 0 5px 0;">${document.getElementById('evolucaoChartTitle').textContent}</h4>
-                        <img src="${chartImageMap['#evolucaoChart'].src}" style="width: 90%; height: auto; margin: 0 auto;">
+                        <img src="${chartImageMap['#evolucaoChart'].src}" style="width: 100%; height: 250px; object-fit: contain; margin: 0 auto;">
                     </div>
                 </td>
             </tr>`;
@@ -512,6 +512,7 @@ window.salvarDashboardPersonalizadoPDF = async function() {
         filename: 'Dashboard_Personalizado.pdf',
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true },
+        pagebreak: { mode: ['css', 'legacy'], avoid: ['tr', 'img'] },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
