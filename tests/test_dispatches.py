@@ -277,11 +277,35 @@ class DispatchTests(unittest.TestCase):
             org = db.session.get(Organizacao, self.tenant)
             stream = BytesIO(); Image.new('RGB', (16, 16), 'green').save(stream, format='PNG')
             org.logo_data = stream.getvalue()
-            d = DespachoProtocolo(protocolo_numero='0001/2026', texto='<img src="http://127.0.0.1/private">\n\nTexto formal com acentuação e parágrafos.', autor_nome='Autor fictício', autor_setor='Setor fictício', criado_em=datetime.now(timezone.utc))
+            d = DespachoProtocolo(numero=1, protocolo_numero='0001/2026', texto='<img src="http://127.0.0.1/private">\n\nTexto formal com acentuação e parágrafos.', autor_nome='Autor fictício', autor_setor='Setor fictício', criado_em=datetime.now(timezone.utc))
             with patch('urllib.request.HTTPHandler.http_open', side_effect=AssertionError('Não deve acessar a rede')):
                 data = render_dispatch_pdf(d, org)
             self.assertTrue(data.startswith(b'%PDF-'))
             self.assertGreater(len(data), 5000)
+
+    def test_pdf_header_number_and_optional_author_units(self):
+        from types import SimpleNamespace
+        from flask import render_template
+        with app.app_context(), app.test_request_context('/'):
+            org = db.session.get(Organizacao, self.tenant)
+            d = SimpleNamespace(numero=2, protocolo_numero='0001/2026', texto='Texto fictício',
+                autor_nome='Autor fictício', autor_setor='Setor de atendimento',
+                autor_secretaria='Secretaria de Administração', criado_em=datetime.now(timezone.utc))
+            html = render_template('despacho_pdf.html', despacho=d, organizacao=org, pdf_logo_url=None)
+            self.assertIn('DESPACHO 002 - PROTOCOLO 0001/2026', html)
+            header = html.split('<header>', 1)[1].split('</header>', 1)[0]
+            self.assertIn('Secretaria de Administração', header)
+            self.assertIn('Setor de atendimento', header)
+            self.assertNotIn(org.nome, header)
+            d.autor_setor = d.autor_secretaria
+            html = render_template('despacho_pdf.html', despacho=d, organizacao=org, pdf_logo_url=None)
+            self.assertEqual(html.split('<header>', 1)[1].split('</header>', 1)[0].count(d.autor_secretaria), 1)
+            del d.autor_secretaria
+            d.autor_setor = None
+            d.numero = 1001
+            html = render_template('despacho_pdf.html', despacho=d, organizacao=org, pdf_logo_url=None)
+            self.assertIn('DESPACHO 1001 - PROTOCOLO 0001/2026', html)
+            self.assertNotIn('None', html.split('<header>', 1)[1].split('</header>', 1)[0])
 
 
 if __name__ == '__main__':
