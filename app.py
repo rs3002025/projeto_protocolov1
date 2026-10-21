@@ -519,9 +519,9 @@ def read_attachment_bytes(anexo):
     return data
 
 ROLE_PERMISSIONS = {
-    'admin': {'view', 'create', 'edit', 'route', 'archive', 'delete', 'manage', 'reports'},
+    'admin': {'view', 'create', 'edit', 'route', 'archive', 'unarchive', 'delete', 'manage', 'reports'},
     # Cria e mantém protocolos, mas não administra usuários, setores ou a identidade do cliente.
-    'protocolista': {'view', 'create', 'edit', 'route', 'reports'},
+    'protocolista': {'view', 'create', 'edit', 'route', 'unarchive', 'reports'},
     # Atua somente no fluxo: recebe, encaminha e responde processos do seu setor/usuário.
     'tramitador': {'view', 'route'},
     'consulta': {'view'},
@@ -553,6 +553,7 @@ HISTORY_ACTION_LABELS = {
     'TRAMITACAO': 'Encaminhamento',
     'RECEBIMENTO': 'Recebimento',
     'ARQUIVAMENTO': 'Arquivamento',
+    'DESARQUIVAMENTO': 'Desarquivamento',
     'ALTERACAO_STATUS': 'Alteração de situação',
     'ANEXO_ADICIONADO': 'Documento anexado',
     'NOVA_VERSAO_DOCUMENTO': 'Nova versão de documento',
@@ -3146,6 +3147,32 @@ def arquivar_protocolo(protocolo_id):
     ))
     db.session.commit()
     flash('Processo arquivado eletronicamente.', 'success')
+    return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
+
+
+@app.post('/protocolo/<int:protocolo_id>/desarquivar')
+@permission_required('unarchive')
+def desarquivar_protocolo(protocolo_id):
+    protocolo = accessible_protocols_query().filter(
+        Protocolo.id == protocolo_id).with_for_update().first_or_404()
+    if not protocolo.arquivado_em and protocolo.status != 'ARQUIVADO':
+        flash('O processo não está arquivado.', 'info')
+        return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
+    motivo = (request.form.get('justificativa') or '').strip()
+    if not motivo or len(motivo) > 2000:
+        flash('Informe a justificativa do desarquivamento, com até 2.000 caracteres.', 'warning')
+        return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
+    situacao_anterior = protocolo.status
+    protocolo.arquivado_em = None
+    protocolo.status = 'EM ANÁLISE'
+    db.session.add(HistoricoProtocolo(
+        tenant_id=current_tenant_id(), protocolo_id=protocolo.id,
+        status=protocolo.status, responsavel=current_user.login,
+        usuario_id=current_user.id, acao='DESARQUIVAMENTO',
+        observacao=f'Processo desarquivado. Situação anterior: {situacao_anterior}. Justificativa: {motivo}',
+    ))
+    db.session.commit()
+    flash('Processo desarquivado e disponível para continuidade da análise.', 'success')
     return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
 
 # --- Rota de Backup ---

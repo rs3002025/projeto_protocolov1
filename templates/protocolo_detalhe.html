@@ -109,6 +109,22 @@
     </div>
 </div>
 
+
+{% if can('unarchive') and (protocolo.arquivado_em or protocolo.status == 'ARQUIVADO') %}
+<div class="card mt-4" id="desarquivamento">
+    <div class="card-header"><h4>Desarquivar processo</h4></div>
+    <div class="card-body">
+        <p>O processo voltará para Em análise. O histórico e os documentos serão preservados.</p>
+        <form method="POST" action="{{ url_for('desarquivar_protocolo', protocolo_id=protocolo.id) }}" data-confirm="Desarquivar este processo e permitir a continuidade da análise?">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <label class="form-label" for="justificativa-desarquivamento">Justificativa</label>
+            <textarea class="form-control mb-3" id="justificativa-desarquivamento" name="justificativa" rows="3" maxlength="2000" required></textarea>
+            <button class="btn btn-outline-primary" type="submit">Desarquivar processo</button>
+        </form>
+    </div>
+</div>
+{% endif %}
+
 {% if can('route') and not protocolo.arquivado_em %}
 <div class="card mt-4" id="tramitacao">
     <div class="card-header"><h4>Tramitação eletrônica</h4></div>
