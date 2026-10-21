@@ -1114,7 +1114,7 @@ def _identity_text(value):
 
 
 def _strong_password(value):
-    return 12 <= len(value) <= 128 and value.strip() == value and value.casefold() not in {
+    return 8 <= len(value) <= 128 and value.strip() == value and value.casefold() not in {
         '123456789012', 'admin12345678', 'password123456', 'senha12345678'}
 
 
@@ -1738,7 +1738,7 @@ def trocar_senha_inicial():
         if (not bcrypt.check_password_hash(current_user.senha, atual)
                 or not _strong_password(nova) or nova != request.form.get('confirmar_senha')
                 or bcrypt.check_password_hash(current_user.senha, nova)):
-            flash('Confira a senha atual e escolha uma nova senha com pelo menos 12 caracteres.', 'danger')
+            flash('Confira a senha atual e escolha uma nova senha com pelo menos 8 caracteres.', 'danger')
         else:
             current_user.senha = bcrypt.generate_password_hash(nova).decode('utf-8')
             current_user.deve_trocar_senha = False
