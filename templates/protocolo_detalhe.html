@@ -155,7 +155,7 @@
 {% for despacho in protocolo.despachos %}<article class="dispatch-document" id="despacho-{{ despacho.id }}">
 <header class="dispatch-document-header"><div class="dispatch-document-title"><span class="dispatch-document-icon" aria-hidden="true"><svg width="21" height="24" viewBox="0 0 24 28" fill="none"><path d="M4 1h10l6 6v19H4zM14 1v7h6M8 13h8M8 17h8M8 21h5" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></span><div><h3 class="h6 mb-1">Despacho nº {{ despacho.numero }}</h3><strong class="dispatch-author">{{ despacho.autor_nome }}</strong>{% if despacho.autor_setor %}<span class="dispatch-sector">{{ despacho.autor_setor }}</span>{% endif %}</div></div><time class="dispatch-date">{{ despacho.criado_em|brasilia('%d/%m/%Y') }}<span>{{ despacho.criado_em|brasilia('%H:%M') }}</span></time></header>
 <div class="dispatch-document-body">{{ despacho.texto }}</div>
-<footer class="dispatch-document-footer"><a class="btn btn-sm btn-outline-primary" href="{{ url_for('baixar_despacho', protocolo_id=protocolo.id, despacho_id=despacho.id) }}">Baixar PDF do despacho</a></footer>
+<footer class="dispatch-document-footer"><a class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" download href="{{ url_for('baixar_despacho', protocolo_id=protocolo.id, despacho_id=despacho.id) }}">Baixar PDF do despacho</a></footer>
 </article>
 {% else %}<div class="dispatch-empty"><strong>Nenhum despacho registrado</strong><p class="mb-0">As manifestações formais deste protocolo aparecerão aqui.</p></div>{% endfor %}
 </div></div></section>
