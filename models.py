@@ -246,6 +246,31 @@ class EmissaoEletronica(TenantMixin, db.Model):
             return 'SUBSTITUIDA'
         return self.status
 
+class DespachoProtocolo(TenantMixin, db.Model):
+    """Manifestação formal e PDF preservados no momento do registro."""
+    __tablename__ = 'despachos_protocolos'
+    __table_args__ = (
+        db.UniqueConstraint('tenant_id', 'protocolo_id', 'numero', name='uq_despacho_numero'),
+        db.UniqueConstraint('tenant_id', 'protocolo_id', 'envio_token', name='uq_despacho_envio'),
+    )
+    id = db.Column(ID_TYPE, primary_key=True)
+    protocolo_id = db.Column(db.Integer, db.ForeignKey('protocolos.id'), nullable=False, index=True)
+    numero = db.Column(db.Integer, nullable=False)
+    protocolo_numero = db.Column(db.Text, nullable=False)
+    texto = db.Column(db.Text, nullable=False)
+    autor_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)
+    autor_nome = db.Column(db.Text, nullable=False)
+    autor_setor = db.Column(db.Text)
+    criado_em = db.Column(db.TIMESTAMP(timezone=True), nullable=False)
+    envio_token = db.Column(db.String(80), nullable=False)
+    file_name = db.Column(db.Text, nullable=False)
+    storage_path = db.Column(db.Text, nullable=False)
+    storage_backend = db.Column(db.String(20), nullable=False)
+    file_hash = db.Column(db.String(64), nullable=False)
+    file_data = db.Column(db.LargeBinary)
+    protocolo = db.relationship('Protocolo', backref=db.backref('despachos', order_by='DespachoProtocolo.numero'))
+
+
 class Anexo(TenantMixin, db.Model):
     __tablename__ = 'anexos'
     id = db.Column(ID_TYPE, primary_key=True)
@@ -447,5 +472,6 @@ class MensagemSuporte(TenantMixin, db.Model):
     criado_em = db.Column(db.TIMESTAMP(timezone=True), server_default=db.func.now(), nullable=False)
 
     autor = db.relationship('Usuario', foreign_keys=[autor_id])
+
 
 

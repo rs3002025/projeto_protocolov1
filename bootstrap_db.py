@@ -16,6 +16,7 @@ TENANT_TABLES = (
     'usuarios', 'protocolos', 'anexos', 'historico_protocolos', 'lotacoes',
     'servidores', 'tipos_requerimento', 'emails_sistema', 'movimentacoes',
     'chamados_suporte', 'mensagens_suporte', 'solicitacoes_complemento',
+    'despachos_protocolos',
 )
 
 SCHEMA_COLUMNS = {
@@ -222,5 +223,6 @@ def bootstrap():
 
 if __name__ == '__main__':
     bootstrap()
+
 
 

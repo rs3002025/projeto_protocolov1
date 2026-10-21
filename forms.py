@@ -65,7 +65,7 @@ class ProtocoloForm(FlaskForm):
     tipo_requerimento = StringField('Tipo de Requerimento', validators=[DataRequired()])
     requer_ao = StringField('Requer A', validators=[Optional()])
     data_solicitacao = DateField('Data da Solicitação (AAAA-MM-DD)', format='%Y-%m-%d', validators=[DataRequired()])
-    observacoes = TextAreaField('Observações/Complemento', validators=[Optional()])
+    observacoes = TextAreaField('Informações adicionais', validators=[Optional()])
     responsavel = StringField('Responsável Inicial', validators=[Optional()])
     status = StringField('Status Inicial', default='Aberto', validators=[Optional()])
     submit = SubmitField('Salvar Protocolo')
@@ -123,4 +123,5 @@ class BrandingForm(FlaskForm):
     ])
     salvar = SubmitField('Salvar logo')
     remover = SubmitField('Restaurar logo padrão')
+
 

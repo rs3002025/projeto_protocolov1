@@ -540,6 +540,8 @@ SUPPORT_STATUSES = ('ABERTO', 'EM ATENDIMENTO', 'AGUARDANDO USUÁRIO', 'RESOLVID
 SUPPORT_CATEGORIES = ('ACESSO', 'PROTOCOLOS', 'DOCUMENTOS', 'RELATÓRIOS', 'CONFIGURAÇÃO', 'OUTRO')
 SUPPORT_PRIORITIES = ('BAIXA', 'NORMAL', 'ALTA', 'CRÍTICA')
 HISTORY_ACTION_LABELS = {
+    'CRIACAO': 'Criação',
+    'DESPACHO_REGISTRADO': 'Despacho registrado',
     'ENVIO_REMOTO': 'Requerimento enviado pelo portal',
     'COMPLEMENTO_SOLICITADO': 'Documentação complementar solicitada',
     'COMPLEMENTO_ENVIADO': 'Documentação complementar enviada',
@@ -564,6 +566,16 @@ def history_observation_label(observation):
     if observation == 'Requerimento enviado pelo próprio servidor em conta individual vinculada ao cadastro funcional.':
         return 'Pedido enviado pelo próprio servidor por meio do Portal do Servidor.'
     return observation or 'Sem observação.'
+
+
+def history_parts(event):
+    """Separa a apresentação sem reescrever eventos auditados existentes."""
+    value = event.observacao or ''
+    if event.acao == 'TRAMITACAO':
+        match = re.match(r'^(Encaminhado para .+?(?:, aos cuidados de .+?|, disponível a todos do setor))\.\s*(.*)$', value, re.S)
+        if match:
+            return {'sistema': match.group(1) + '.', 'observacao': match.group(2)}
+    return {'sistema': '', 'observacao': value}
 
 def support_tickets_query():
     query = ChamadoSuporte.query
@@ -602,6 +614,7 @@ def permission_context():
             action, (action or 'Atualização').replace('_', ' ').title()),
         'emission_status_label': lambda status: EMISSION_STATUS_LABELS.get(status, status.title()),
         'history_observation_label': history_observation_label,
+        'history_parts': history_parts,
     }
 
 def permission_required(permission):
@@ -1426,10 +1439,12 @@ def portal_novo_protocolo():
     tipo = (request.form.get('tipo_requerimento') or '').strip()
     observacoes = (request.form.get('observacoes') or '').strip()
     declaracao_aceita = request.form.get('declaracao') == 'on'
-    if not declaracao_aceita or not observacoes or not tenant_query(TipoRequerimento).filter_by(nome=tipo, ativo=True).first():
-        flash('Selecione o tipo, descreva o pedido e confirme a declaração de envio.', 'danger')
+    if not declaracao_aceita or not tenant_query(TipoRequerimento).filter_by(nome=tipo, ativo=True).first():
+        flash('Selecione o tipo de requerimento e confirme a declaração de envio.', 'danger')
         return render_template('portal_novo.html', servidor=servidor, tipos=tipos,
                                organizacao=active_organization()), 400
+    if len(observacoes) > 100000 or '\x00' in observacoes:
+        abort(400, description='As informações adicionais devem ter até 100.000 caracteres.')
     try:
         uploads = validated_uploads(request.files.getlist('anexos'))
     except ValueError as error:
@@ -2799,7 +2814,7 @@ def detalhe_protocolo(protocolo_id):
     anexo_form = AnexoForm()
     lotacoes = tenant_query(Lotacao).filter_by(ativo=True).order_by(Lotacao.nome).all()
     usuarios_destino = tenant_query(Usuario).filter_by(status='ativo').filter(
-        Usuario.lotacao_id.isnot(None)).order_by(Usuario.nome).all()
+        Usuario.lotacao_id.isnot(None), Usuario.tipo.in_(['admin', 'protocolista', 'tramitador'])).order_by(Usuario.nome).all()
     pendente = tenant_query(Movimentacao).filter_by(protocolo_id=protocolo.id, recebido_em=None).order_by(Movimentacao.id.desc()).first()
     pode_receber = bool(pendente and (
         current_user.tipo == 'admin' or
@@ -2811,7 +2826,13 @@ def detalhe_protocolo(protocolo_id):
         # Os anexos anteriores ao versionamento tinham todos a chave 'anexo'.
         chave = anexo.documento_chave if anexo.documento_chave != 'anexo' else f'legado-{anexo.id}'
         documentos[chave] = anexo
-    return render_template('protocolo_detalhe.html', title=f"Protocolo {protocolo.numero}", protocolo=protocolo, anexo_form=anexo_form, lotacoes=lotacoes, usuarios_destino=usuarios_destino, movimentacao_pendente=pendente, pode_receber=pode_receber, pode_encaminhar=pode_encaminhar, documentos_atuais=list(documentos.values()))
+    atores = Usuario.query.with_entities(Usuario.id, Usuario.login, Usuario.nome, Usuario.nome_completo).filter(
+        or_(Usuario.tenant_id == current_tenant_id(), Usuario.is_platform_admin.is_(True)),
+        or_(Usuario.id.in_([h.usuario_id for h in protocolo.historico if h.usuario_id]),
+            Usuario.login == protocolo.responsavel)).all()
+    nomes_por_login = {u.login: u.nome_completo or u.nome for u in atores}
+    nomes_por_id = {u.id: u.nome_completo or u.nome for u in atores}
+    return render_template('protocolo_detalhe.html', title=f"Protocolo {protocolo.numero}", protocolo=protocolo, anexo_form=anexo_form, lotacoes=lotacoes, usuarios_destino=usuarios_destino, movimentacao_pendente=pendente, pode_receber=pode_receber, pode_encaminhar=pode_encaminhar, documentos_atuais=list(documentos.values()), nomes_por_login=nomes_por_login, nomes_por_id=nomes_por_id, despacho_token=secrets.token_urlsafe(24))
 
 
 @app.post('/protocolo/<int:protocolo_id>/solicitar-complemento')
@@ -3057,7 +3078,9 @@ def atualizar_protocolo_status():
 @app.post('/protocolo/<int:protocolo_id>/tramitar')
 @permission_required('route')
 def tramitar_protocolo(protocolo_id):
-    protocolo = accessible_protocol_or_404(protocolo_id)
+    protocolo = accessible_protocols_query().filter(Protocolo.id == protocolo_id).with_for_update().first_or_404()
+    if len(request.form.get('observacao') or '') > 10000:
+        abort(400, description='A observação do encaminhamento deve ter até 10.000 caracteres.')
     if protocolo.aguardando_recebimento_inicial:
         abort(409, description='Receba o requerimento antes de tramitar.')
     if not can_operate_protocol(protocolo):
@@ -3067,7 +3090,8 @@ def tramitar_protocolo(protocolo_id):
     destinatario = None
     if destinatario_id:
         destinatario = tenant_query(Usuario).filter_by(
-            id=destinatario_id, lotacao_id=setor_destino.id, status='ativo').first_or_404()
+            id=destinatario_id, lotacao_id=setor_destino.id, status='ativo').filter(
+                Usuario.tipo.in_(['admin', 'protocolista', 'tramitador'])).first_or_404()
     if protocolo.arquivado_em:
         flash('Um processo arquivado não pode ser tramitado.', 'danger')
         return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
@@ -3082,7 +3106,7 @@ def tramitar_protocolo(protocolo_id):
         setor_destino_id=setor_destino.id,
         destinatario_usuario_id=destinatario.id if destinatario else None,
         enviado_por_id=current_user.id,
-        observacao=request.form.get('observacao'),
+        observacao=(request.form.get('observacao') or '').strip(),
     )
     protocolo.status = 'EM TRAMITAÇÃO'
     db.session.add_all([movimento, HistoricoProtocolo(
@@ -3104,7 +3128,7 @@ def tramitar_protocolo(protocolo_id):
 @app.post('/protocolo/<int:protocolo_id>/receber')
 @permission_required('route')
 def receber_protocolo(protocolo_id):
-    protocolo = accessible_protocol_or_404(protocolo_id)
+    protocolo = accessible_protocols_query().filter(Protocolo.id == protocolo_id).with_for_update().first_or_404()
     movimento = tenant_query(Movimentacao).filter_by(protocolo_id=protocolo.id, recebido_em=None).order_by(Movimentacao.id.desc()).first_or_404()
     if current_user.tipo != 'admin' and (
             current_user.lotacao_id != movimento.setor_destino_id or
@@ -3129,7 +3153,7 @@ def receber_protocolo(protocolo_id):
 @app.post('/protocolo/<int:protocolo_id>/arquivar')
 @permission_required('archive')
 def arquivar_protocolo(protocolo_id):
-    protocolo = accessible_protocol_or_404(protocolo_id)
+    protocolo = accessible_protocols_query().filter(Protocolo.id == protocolo_id).with_for_update().first_or_404()
     pendente = tenant_query(Movimentacao).filter_by(protocolo_id=protocolo.id, recebido_em=None).first()
     if pendente:
         flash('Receba ou regularize a tramitação pendente antes de arquivar.', 'warning')
@@ -3475,9 +3499,13 @@ def dashboard_stats():
         app.logger.error(f"ERROR in dashboard_stats: {e}\n{traceback.format_exc()}")
         return jsonify({'error': 'Não foi possível carregar os dados do dashboard.'}), 500
 
+from protocol_dispatches import register_dispatch_routes
+register_dispatch_routes(app, db)
+
 if __name__ == '__main__':
     # The port must be available. Railway provides the PORT env var.
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=True)
+
 
 

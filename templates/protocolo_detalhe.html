@@ -1,24 +1,24 @@
 {% extends "layout.html" %}
 {% block content %}
 <div class="detail-page-header mb-3">
-    <div>
-        <a href="{{ url_for('listar_protocolos') }}" class="btn btn-outline-secondary btn-back" aria-label="Voltar à lista de protocolos">← Voltar aos protocolos</a>
-        <h1 class="h3 mb-1">Protocolo {{ protocolo.numero }}</h1>
-        <p class="text-muted mb-0">{{ protocolo.nome or 'Requerente não informado' }}</p>
-    </div>
-    <div class="detail-actions action-group">
-        {% if protocolo.aguardando_recebimento_inicial and current_user.tipo in ['admin', 'protocolista'] %}
-        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalReceberRequerimento">Receber requerimento</button>
-        {% endif %}
-            {% if active_organization.emissao_eletronica_protocolista_enabled and (not protocolo.emissao_eletronica or protocolo.retificacao_pendente) and current_user.tipo in ['admin', 'protocolista'] and not protocolo.arquivado_em %}
-            <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#modalAutenticarEmissao">Assinar requerimento</button>
-            {% endif %}
-            {% if protocolo.emissao_eletronica %}<a class="btn btn-primary" target="_blank" href="{{ url_for('gerar_pdf_protocolo', protocolo_id=protocolo.id) }}">Abrir requerimento</a>{% elif can('edit') and not protocolo.arquivado_em %}<form method="POST" target="_blank" action="{{ url_for('gerar_documento_versionado', protocolo_id=protocolo.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="btn btn-primary">Gerar documento</button></form>{% endif %}
-            {% if can('edit') and not protocolo.arquivado_em and not protocolo.aguardando_recebimento_inicial %}{% if protocolo.emissao_eletronica and protocolo.emissao_eletronica.status == 'VALIDA' and not protocolo.retificacao_pendente %}<a href="{{ url_for('retificar_protocolo', protocolo_id=protocolo.id) }}" class="btn btn-outline-secondary">Retificar</a>{% elif not protocolo.emissao_eletronica %}<a href="{{ url_for('editar_protocolo', protocolo_id=protocolo.id) }}" class="btn btn-outline-secondary">Editar</a>{% endif %}{% endif %}
-            {% if active_organization.emissao_eletronica_protocolista_enabled and protocolo.emissao_eletronica and protocolo.emissao_eletronica.status == 'VALIDA' and not protocolo.retificacao_pendente and not protocolo.aguardando_recebimento_inicial and current_user.tipo in ['admin', 'protocolista'] %}<button class="btn btn-outline-danger" type="button" data-bs-toggle="modal" data-bs-target="#modalCancelarEmissao">Cancelar emissão</button>{% endif %}
-    </div>
+  <div><a href="{{ url_for('listar_protocolos') }}" class="btn btn-outline-secondary btn-back">← Voltar aos protocolos</a>
+  <h1 class="h3 mb-1">Protocolo {{ protocolo.numero }}</h1><p class="text-muted mb-0">{{ protocolo.nome or 'Requerente não informado' }}</p></div>
+  <div class="detail-actions action-group action-group-visible">
+    {% if protocolo.aguardando_recebimento_inicial and current_user.tipo in ['admin', 'protocolista'] %}
+    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalReceberRequerimento">Receber requerimento</button>
+    {% elif can('route') and pode_receber %}<a class="btn btn-primary" href="#tramitacao">Receber protocolo</a>
+    {% elif can('route') and pode_encaminhar and not protocolo.arquivado_em and protocolo.status != 'ARQUIVADO' %}<a class="btn btn-primary" href="#tramitacao">Encaminhar protocolo</a>{% endif %}
+    {% if not protocolo.emissao_eletronica and can('edit') and not protocolo.arquivado_em %}<form method="post" target="_blank" action="{{ url_for('gerar_documento_versionado', protocolo_id=protocolo.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-outline-primary" type="submit">Abrir requerimento</button></form>{% else %}<a class="btn btn-outline-primary" target="_blank" rel="noopener" href="{{ url_for('gerar_pdf_protocolo', protocolo_id=protocolo.id) }}">Abrir requerimento</a>{% endif %}
+    {% if can_add_dispatch(protocolo) %}<a class="btn btn-outline-primary" href="#novo-despacho">Incluir despacho</a>{% endif %}
+    {% if can('edit') and not protocolo.arquivado_em and not protocolo.aguardando_recebimento_inicial %}
+    <div class="dropdown"><button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">Outras ações</button><ul class="dropdown-menu dropdown-menu-end">
+    {% if active_organization.emissao_eletronica_protocolista_enabled and (not protocolo.emissao_eletronica or protocolo.retificacao_pendente) and current_user.tipo in ['admin', 'protocolista'] %}<li><button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#modalAutenticarEmissao">Assinar requerimento</button></li>{% endif %}
+    {% if not protocolo.aguardando_recebimento_inicial %}{% if protocolo.emissao_eletronica and protocolo.emissao_eletronica.status == 'VALIDA' and not protocolo.retificacao_pendente %}<li><a class="dropdown-item" href="{{ url_for('retificar_protocolo', protocolo_id=protocolo.id) }}">Retificar requerimento</a></li>{% elif not protocolo.emissao_eletronica %}<li><a class="dropdown-item" href="{{ url_for('editar_protocolo', protocolo_id=protocolo.id) }}">Editar protocolo</a></li>{% endif %}{% endif %}
+    {% if active_organization.emissao_eletronica_protocolista_enabled and protocolo.emissao_eletronica and protocolo.emissao_eletronica.status == 'VALIDA' and not protocolo.retificacao_pendente and not protocolo.aguardando_recebimento_inicial and current_user.tipo in ['admin', 'protocolista'] %}<li><hr class="dropdown-divider"></li><li><button class="dropdown-item text-danger" type="button" data-bs-toggle="modal" data-bs-target="#modalCancelarEmissao">Cancelar emissão</button></li>{% endif %}
+    {% if can('archive') and not movimentacao_pendente %}<li><hr class="dropdown-divider"></li><li><button class="dropdown-item text-danger" type="button" data-bs-toggle="modal" data-bs-target="#modalArquivarProtocolo">Arquivar processo</button></li>{% endif %}
+    </ul></div>{% endif %}
+  </div>
 </div>
-
 {% if protocolo.aguardando_recebimento_inicial and current_user.tipo in ['admin', 'protocolista'] %}
 <div class="modal fade" id="modalReceberRequerimento" tabindex="-1" aria-labelledby="receber-titulo" aria-hidden="true"><div class="modal-dialog"><div class="modal-content">
 <form method="POST" action="{{ url_for('receber_portal', protocolo_id=protocolo.id) }}">
@@ -52,82 +52,33 @@
 </div></div></div>
 {% endif %}
 
+{% if can('archive') and not protocolo.arquivado_em and not movimentacao_pendente %}
+<div class="modal fade" id="modalArquivarProtocolo" tabindex="-1" aria-labelledby="arquivar-titulo" aria-hidden="true"><div class="modal-dialog"><div class="modal-content">
+<form method="post" action="{{ url_for('arquivar_protocolo', protocolo_id=protocolo.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="observacao" value="Arquivamento autorizado pelo usuário.">
+<div class="modal-header"><h2 class="modal-title h5" id="arquivar-titulo">Arquivar processo</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
+<div class="modal-body"><p class="mb-0">Arquivar o protocolo {{ protocolo.numero }}? O histórico e os documentos permanecerão disponíveis para consulta. Para retomar a tramitação, será necessário desarquivá-lo.</p></div>
+<div class="modal-footer"><button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Voltar</button><button class="btn btn-danger" type="submit">Confirmar arquivamento</button></div>
+</form></div></div></div>{% endif %}
 <div class="protocol-summary-grid mb-3" aria-label="Resumo do protocolo">
-    <div class="protocol-summary-item"><span>Status</span><strong>{{ protocolo.status_exibicao }}</strong></div>
-    <div class="protocol-summary-item"><span>Prazo</span><strong>{{ protocolo.prazo_em.strftime('%d/%m/%Y') if protocolo.prazo_em else 'Não definido' }}</strong></div>
-    <div class="protocol-summary-item"><span>Localização</span><strong>{{ protocol_location(protocolo) }}</strong></div>
-    <div class="protocol-summary-item"><span>Responsável</span><strong>{{ protocolo.responsavel_exibicao }}</strong></div>
+<div class="protocol-summary-item"><span>Situação</span><strong>{{ protocolo.status_exibicao }}</strong></div>
+<div class="protocol-summary-item"><span>Prazo</span><strong>{{ protocolo.prazo_em.strftime('%d/%m/%Y') if protocolo.prazo_em else 'Não definido' }}</strong></div>
+<div class="protocol-summary-item"><span>Localização atual</span><strong>{{ protocol_location(protocolo) }}</strong></div>
+<div class="protocol-summary-item"><span>Responsável</span><strong>{{ nomes_por_login.get(protocolo.responsavel_exibicao, protocolo.responsavel_exibicao) }}</strong></div>
 </div>
 {% if protocolo.retificacao_pendente %}<div class="alert alert-warning">Há uma correção aguardando sua assinatura. O requerimento anterior continua disponível até a confirmação.</div>{% endif %}
-{% if protocolo.emissao_eletronica and protocolo.emissao_eletronica.status == 'CANCELADA' %}<div class="alert alert-danger"><strong>Emissão cancelada.</strong> O documento anterior permanece disponível no histórico. Motivo: {{ protocolo.emissao_eletronica.motivo_cancelamento }}</div>{% endif %}
-
-{% if protocolo.modalidade_abertura == 'remota_requerente' %}
-<div class="card mb-4"><div class="card-header"><h2 class="h5 mb-0">Complementação pelo requerente</h2></div><div class="card-body">
-  {% for solicitacao in protocolo.solicitacoes_complemento|reverse %}<div class="alert alert-{{ 'warning' if solicitacao.status == 'PENDENTE' else 'success' }}"><strong>#{{ solicitacao.id }} · {{ solicitacao.status }}</strong> — {{ solicitacao.motivo }}<small class="d-block">Solicitada por {{ solicitacao.solicitado_por.nome }} em {{ solicitacao.criado_em|brasilia('%d/%m/%Y %H:%M') }}{% if solicitacao.atendido_em %}; atendida em {{ solicitacao.atendido_em|brasilia('%d/%m/%Y %H:%M') }} com {{ solicitacao.anexos|length }} arquivo(s){% endif %}.</small></div>{% endfor %}
-  {% if can('edit') and not protocolo.arquivado_em %}<form method="POST" action="{{ url_for('solicitar_complemento', protocolo_id=protocolo.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label class="form-label" for="motivo-complemento">Solicitar documento ou informação complementar</label><textarea class="form-control mb-2" id="motivo-complemento" name="motivo" minlength="10" required placeholder="Descreva objetivamente o que o requerente deve enviar."></textarea><button class="btn btn-primary" type="submit">Enviar solicitação ao portal</button></form>{% endif %}
-</div></div>
-{% endif %}
-
+{% if protocolo.emissao_eletronica and protocolo.emissao_eletronica.status == 'CANCELADA' %}<div class="alert alert-danger"><strong>Emissão cancelada.</strong> Motivo: {{ protocolo.emissao_eletronica.motivo_cancelamento }}</div>{% endif %}
 <nav class="detail-section-nav mb-4" aria-label="Seções do protocolo">
-    <a href="#visao-geral">Visão geral</a>
-    {% if can('route') and not protocolo.arquivado_em %}<a href="#tramitacao">Tramitação</a>{% endif %}
-    <a href="#historico">Histórico</a>
-    <a href="#documentos">Documentos</a>
+<a href="#requerimento">Requerimento</a>{% if can('route') and not protocolo.arquivado_em %}<a href="#tramitacao">Tramitação</a>{% endif %}<a href="#despachos">Despachos</a><a href="#documentos">Documentos</a><a href="#historico">Histórico</a>
 </nav>
-
-<div class="card" id="visao-geral">
-    <div class="card-header"><h2 class="h4 mb-0">Visão geral</h2></div>
-    <div class="card-body">
-        <h3 class="h5">Requerente: {{ protocolo.nome }}</h3>
-        <p class="card-text"><strong>Matrícula:</strong> {{ protocolo.matricula or 'Não informado' }}</p>
-        <hr>
-        <div class="row">
-            <div class="col-md-6">
-                <p><strong>Data da Solicitação:</strong> {{ protocolo.data_solicitacao.strftime('%d/%m/%Y') if protocolo.data_solicitacao else 'Não informada' }}</p>
-                <p><strong>Tipo de Requerimento:</strong> {{ protocolo.tipo_requerimento }}</p>
-                <p><strong>CPF:</strong> {{ protocolo.cpf or 'Não informado' }}</p>
-                <p><strong>RG:</strong> {{ protocolo.rg or 'Não informado' }}</p>
-            </div>
-            <div class="col-md-6">
-                <p><strong>Status:</strong> <span class="badge bg-primary">{{ protocolo.status_exibicao }}</span></p>
-                <p><strong>Responsável Atual:</strong> {{ protocolo.responsavel_exibicao }}</p>
-                <p><strong>Localização atual:</strong> {{ protocol_location(protocolo) }}</p>
-                <p><strong>Prazo:</strong> {{ protocolo.prazo_em.strftime('%d/%m/%Y') if protocolo.prazo_em else 'Não definido' }}</p>
-                <p><strong>Telefone:</strong> {{ protocolo.telefone or 'Não informado' }}</p>
-            </div>
-        </div>
-        <hr>
-        <h6>Endereço</h6>
-        {% if protocolo.endereco or protocolo.bairro or protocolo.municipio or protocolo.cep %}
-        <p>{{ protocolo.endereco or 'Endereço não informado' }}{% if protocolo.bairro or protocolo.municipio or protocolo.cep %}<br>{% endif %}
-           {% if protocolo.bairro %}{{ protocolo.bairro }}{% endif %}{% if protocolo.bairro and protocolo.municipio %}, {% endif %}{{ protocolo.municipio or '' }}{% if protocolo.cep %} — CEP: {{ protocolo.cep }}{% endif %}
-        </p>
-        {% else %}<p>Não informado.</p>{% endif %}
-        <hr>
-        <h6>Observações</h6>
-        <p class="protocol-observations">{{ protocolo.observacoes or 'Nenhuma observação.' }}</p>
-    </div>
-</div>
-
-
-{% if can('unarchive') and (protocolo.arquivado_em or protocolo.status == 'ARQUIVADO') %}
-<div class="card mt-4" id="desarquivamento">
-    <div class="card-header"><h4>Desarquivar processo</h4></div>
-    <div class="card-body">
-        <p>O processo voltará para Em análise. O histórico e os documentos serão preservados.</p>
-        <form method="POST" action="{{ url_for('desarquivar_protocolo', protocolo_id=protocolo.id) }}" data-confirm="Desarquivar este processo e permitir a continuidade da análise?">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <label class="form-label" for="justificativa-desarquivamento">Justificativa</label>
-            <textarea class="form-control mb-3" id="justificativa-desarquivamento" name="justificativa" rows="3" maxlength="2000" required></textarea>
-            <button class="btn btn-outline-primary" type="submit">Desarquivar processo</button>
-        </form>
-    </div>
-</div>
-{% endif %}
-
+<section class="card" id="requerimento"><div class="card-header"><h2 class="h5 mb-0">Requerimento</h2></div><div class="card-body">
+<div class="row"><div class="col-md-6"><p><strong>Tipo:</strong> {{ protocolo.tipo_requerimento or 'Não informado' }}</p><p><strong>Dirigido a:</strong> {{ protocolo.requer_ao or 'Não informado' }}</p></div><div class="col-md-6"><p><strong>Data da solicitação:</strong> {{ protocolo.data_solicitacao.strftime('%d/%m/%Y') if protocolo.data_solicitacao else 'Não informada' }}</p><p><strong>Origem:</strong> {{ 'Portal do Servidor' if protocolo.modalidade_abertura == 'remota_requerente' else ('Importação de histórico' if protocolo.modalidade_abertura == 'legado_importado' else 'Atendimento interno') }}</p></div></div>
+{% if protocolo.observacoes %}<h3 class="h6">Informações adicionais</h3><div class="protocol-observations mb-3">{{ protocolo.observacoes }}</div>{% endif %}
+<details class="requester-details"><summary>Dados do requerente</summary><dl class="requester-data mt-3">
+{% for label, value in [('Nome', protocolo.nome), ('Matrícula', protocolo.matricula), ('CPF', protocolo.cpf), ('RG', protocolo.rg), ('Telefone', protocolo.telefone), ('Cargo/Função', protocolo.cargo), ('Lotação', protocolo.lotacao), ('Unidade de exercício', protocolo.unidade_exercicio), ('Endereço', protocolo.endereco), ('Bairro', protocolo.bairro), ('Município', protocolo.municipio), ('CEP', protocolo.cep)] %}<div><dt>{{ label }}</dt><dd>{{ value or 'Não informado' }}</dd></div>{% endfor %}
+</dl></details></div></section>
 {% if can('route') and not protocolo.arquivado_em %}
 <div class="card mt-4" id="tramitacao">
-    <div class="card-header"><h4>Tramitação eletrônica</h4></div>
+    <div class="card-header"><h2 class="h5 mb-0">Encaminhamento e recebimento</h2></div>
     <div class="card-body">
         {% if movimentacao_pendente %}
             <p>Encaminhado para <strong>{{ movimentacao_pendente.setor_destino.nome }}</strong>{% if movimentacao_pendente.destinatario_usuario %}, aos cuidados de <strong>{{ movimentacao_pendente.destinatario_usuario.nome }}</strong>{% else %}, disponível a todos do setor{% endif %}, em {{ movimentacao_pendente.enviado_em|brasilia('%d/%m/%Y %H:%M') }}. Aguardando recebimento.</p>
@@ -139,22 +90,22 @@
             <form method="POST" action="{{ url_for('tramitar_protocolo', protocolo_id=protocolo.id) }}">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="row g-2">
-                    <div class="col-md-4">
+                    <div class="col-md-6">
                         <label class="form-label" for="setor-destino">Setor destinatário</label>
                         <select class="form-select" name="setor_destino_id" id="setor-destino" required>
                             <option value="">Selecione o setor destinatário</option>
                             {% for setor in lotacoes %}<option value="{{ setor.id }}">{{ setor.nome }}</option>{% endfor %}
                         </select>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-6">
                         <label class="form-label" for="usuario-destino">Usuário destinatário (opcional)</label>
                         <select class="form-select" name="destinatario_usuario_id" id="usuario-destino">
                             <option value="">Qualquer usuário do setor</option>
                             {% for usuario in usuarios_destino %}<option value="{{ usuario.id }}" data-setor="{{ usuario.lotacao_id }}">{{ usuario.nome }}</option>{% endfor %}
                         </select>
                     </div>
-                    <div class="col-md-2"><label class="form-label" for="despacho-tramitacao">Despacho</label><input id="despacho-tramitacao" class="form-control" name="observacao" placeholder="Despacho"></div>
-                    <div class="col-md-2"><button class="btn btn-primary w-100" type="submit">Tramitar</button></div>
+                    <div class="col-12"><label class="form-label" for="observacao-tramitacao">Observação do encaminhamento (opcional)</label><textarea id="observacao-tramitacao" class="form-control" name="observacao" rows="4" maxlength="10000"></textarea></div>
+                    <div class="col-12"><button class="btn btn-primary" type="submit">Encaminhar protocolo</button></div>
                 </div>
             </form>
             <script>
@@ -169,46 +120,65 @@
               })();
             </script>
         {% else %}<p class="text-muted mb-0">Processo disponível somente para consulta; ele não está mais sob responsabilidade do seu setor.</p>{% endif %}
-        {% if can('archive') %}
-        <form class="mt-3" method="POST" action="{{ url_for('arquivar_protocolo', protocolo_id=protocolo.id) }}" data-confirm="Arquivar este protocolo? Ele ficará disponível somente para consulta e não poderá receber novas tramitações ou documentos.">
-<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input type="hidden" name="observacao" value="Arquivamento autorizado pelo usuário.">
-            <button class="btn btn-outline-danger" type="submit">Arquivar eletronicamente</button>
-        </form>
-        {% endif %}
     </div>
 </div>
 {% endif %}
 
-<div class="card mt-4" id="historico">
-    <div class="card-header">
-        <h4>Histórico de Movimentações</h4>
-    </div>
+{% if can('unarchive') and (protocolo.arquivado_em or protocolo.status == 'ARQUIVADO') %}
+<div class="card mt-4" id="desarquivamento">
+    <div class="card-header"><h2 class="h5 mb-0">Desarquivar processo</h2></div>
     <div class="card-body">
-        <ul class="list-group protocol-timeline">
-            {% for h in protocolo.historico|chronological %}
-                <li class="list-group-item protocol-timeline-item">
-                    <strong>{{ h.data_movimentacao|brasilia('%d/%m/%Y %H:%M') }}:</strong>
-                        <strong>{{ history_action_label(h.acao) }}</strong> — situação <strong>{{ h.status }}</strong>.
-                    {{ 'Enviado por' if h.acao == 'ENVIO_REMOTO' else 'Responsável' }}: <strong>{{ h.responsavel }}</strong>.
-                    <p class="mb-0 mt-1 fst-italic">Observação: {{ history_observation_label(h.observacao) }}</p>
-                </li>
-            {% else %}
-                <li class="list-group-item">Nenhum histórico encontrado.</li>
-            {% endfor %}
-        </ul>
+        <p>O processo voltará para Em análise. O histórico e os documentos serão preservados.</p>
+        <form method="POST" action="{{ url_for('desarquivar_protocolo', protocolo_id=protocolo.id) }}" data-confirm="Desarquivar este processo e permitir a continuidade da análise?">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <label class="form-label" for="justificativa-desarquivamento">Justificativa</label>
+            <textarea class="form-control mb-3" id="justificativa-desarquivamento" name="justificativa" rows="3" maxlength="2000" required></textarea>
+            <button class="btn btn-outline-primary" type="submit">Desarquivar processo</button>
+        </form>
     </div>
 </div>
+{% endif %}
 
+<section class="card mt-4 dispatch-section" id="despachos">
+<div class="card-header dispatch-section-header"><div><h2 class="h5 mb-1">Despachos</h2><span class="dispatch-count">{{ protocolo.despachos|length }} {{ 'registrado' if protocolo.despachos|length == 1 else 'registrados' }}</span></div>
+{% if can_add_dispatch(protocolo) %}<button class="btn btn-primary" type="button" data-dispatch-toggle aria-controls="novo-despacho" aria-expanded="false">+ Incluir despacho</button>{% endif %}</div>
+<div class="card-body">
+{% if can_add_dispatch(protocolo) %}<div id="novo-despacho" class="dispatch-editor-panel mb-4" hidden>
+<div class="dispatch-editor-heading"><h3 class="h6 mb-0">Novo despacho</h3><button type="button" class="btn-close" data-dispatch-close aria-label="Fechar editor de despacho"></button></div>
+<form method="post" action="{{ url_for('adicionar_despacho', protocolo_id=protocolo.id) }}">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="envio_token" value="{{ despacho_token }}">
+<label class="form-label" for="texto-despacho">Texto do despacho</label><textarea class="form-control dispatch-textarea mb-2" id="texto-despacho" name="texto" rows="14" maxlength="100000" required aria-describedby="despacho-ajuda"></textarea>
+<p class="form-text" id="despacho-ajuda">Confira o texto antes de registrar. Seu nome, setor e data serão incluídos automaticamente no PDF.</p>
+<div class="dispatch-editor-actions"><button class="btn btn-primary" type="submit">Registrar despacho</button><button class="btn btn-outline-secondary" type="button" data-dispatch-close>Voltar</button></div>
+</form></div>{% endif %}
+<div class="dispatch-list">
+{% for despacho in protocolo.despachos %}<article class="dispatch-document" id="despacho-{{ despacho.id }}">
+<header class="dispatch-document-header"><div class="dispatch-document-title"><span class="dispatch-document-icon" aria-hidden="true"><svg width="21" height="24" viewBox="0 0 24 28" fill="none"><path d="M4 1h10l6 6v19H4zM14 1v7h6M8 13h8M8 17h8M8 21h5" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></span><div><h3 class="h6 mb-1">Despacho nº {{ despacho.numero }}</h3><strong class="dispatch-author">{{ despacho.autor_nome }}</strong>{% if despacho.autor_setor %}<span class="dispatch-sector">{{ despacho.autor_setor }}</span>{% endif %}</div></div><time class="dispatch-date">{{ despacho.criado_em|brasilia('%d/%m/%Y') }}<span>{{ despacho.criado_em|brasilia('%H:%M') }}</span></time></header>
+<div class="dispatch-document-body">{{ despacho.texto }}</div>
+<footer class="dispatch-document-footer"><a class="btn btn-sm btn-outline-primary" href="{{ url_for('baixar_despacho', protocolo_id=protocolo.id, despacho_id=despacho.id) }}">Baixar PDF do despacho</a></footer>
+</article>
+{% else %}<div class="dispatch-empty"><strong>Nenhum despacho registrado</strong><p class="mb-0">As manifestações formais deste protocolo aparecerão aqui.</p></div>{% endfor %}
+</div></div></section>
+<script>
+(() => {
+  const editor = document.getElementById('novo-despacho');
+  if (!editor) return;
+  const setOpen = open => { editor.hidden = !open; document.querySelectorAll('[data-dispatch-toggle]').forEach(button => button.setAttribute('aria-expanded', String(open))); };
+  document.querySelectorAll('[data-dispatch-toggle]').forEach(button => button.addEventListener('click', () => { setOpen(editor.hidden); if (!editor.hidden) editor.scrollIntoView({block:'start', behavior:'smooth'}); }));
+  document.querySelectorAll('[data-dispatch-close]').forEach(button => button.addEventListener('click', () => setOpen(false)));
+  document.querySelectorAll('a[href="#novo-despacho"]').forEach(link => link.addEventListener('click', () => setOpen(true)));
+  if (location.hash === '#novo-despacho') setOpen(true);
+})();
+</script>
 <div class="card mt-4" id="documentos">
     <div class="card-header">
-        <h4>Anexos</h4>
+        <h2 class="h5 mb-0">Documentos</h2>
     </div>
     <div class="card-body">
         {% if protocolo.emissoes_eletronicas %}<details class="mb-4 document-history"><summary>Histórico de documentos</summary><ul class="list-group">{% for versao in protocolo.emissoes_eletronicas|reverse %}<li class="list-group-item d-flex justify-content-between align-items-center"><span><strong>Versão {{ versao.versao }}</strong> · {{ emission_status_label(versao.situacao_documento) }}<small class="d-block">Registrada por {{ versao.nome_emitente }} em {{ versao.emitido_em|brasilia('%d/%m/%Y %H:%M') }}</small>{% if versao.status == 'CANCELADA' %}<small class="d-block text-danger">Cancelada em {{ versao.cancelado_em|brasilia('%d/%m/%Y %H:%M') }}. Motivo: {{ versao.motivo_cancelamento }}</small>{% endif %}</span><a class="btn btn-sm btn-outline-primary" href="{{ url_for('baixar_anexo', anexo_id=versao.pdf_anexo_id) }}">Download</a></li>{% endfor %}</ul></details><hr>{% endif %}
         <div class="mb-3">
             {% if can('edit') and not protocolo.arquivado_em and (not protocolo.emissao_eletronica or protocolo.retificacao_pendente) %}
-            <h5>Adicionar documento ou nova versão</h5>
+            <details class="mb-3"><summary>Adicionar anexo ou substituir arquivo</summary>
             <form action="{{ url_for('adicionar_anexo', protocolo_id=protocolo.id) }}" method="POST" enctype="multipart/form-data">
                 {{ anexo_form.hidden_tag() }}
                 <label for="documento_id" class="form-label">Documento</label>
@@ -229,14 +199,11 @@
                         <small>{{ anexo_form.anexo.errors[0] }}</small>
                     </div>
                 {% endif %}
-            </form>
-            {% else %}
-            <h5>Documentos do requerimento</h5>
-            <p>Para pedir novos documentos, use Solicitar complemento. Para corrigir os dados do requerimento, use Retificar.</p>
+            </form></details>
             {% endif %}
         </div>
         <hr>
-        <h5>Outros documentos</h5>
+        <h3 class="h6">Anexos</h3>
         <ul class="list-group">
             {% for anexo in protocolo.anexos if anexo.documento_chave != 'protocolo-autenticado' %}
                 <li class="list-group-item d-flex justify-content-between align-items-center">
@@ -249,12 +216,28 @@
                     </div>
                 </li>
             {% else %}
-                <li class="list-group-item">Nenhum outro documento anexado.</li>
+                <li class="list-group-item">Nenhum anexo disponível.</li>
             {% endfor %}
         </ul>
     </div>
 </div>
 
 
+{% if protocolo.modalidade_abertura == 'remota_requerente' %}
+<div class="card mb-4"><div class="card-header"><h2 class="h5 mb-0">Complementação pelo requerente</h2></div><div class="card-body">
+  {% for solicitacao in protocolo.solicitacoes_complemento|reverse %}<div class="alert alert-{{ 'warning' if solicitacao.status == 'PENDENTE' else 'success' }}"><strong>#{{ solicitacao.id }} · {{ solicitacao.status }}</strong> — {{ solicitacao.motivo }}<small class="d-block">Solicitada por {{ solicitacao.solicitado_por.nome }} em {{ solicitacao.criado_em|brasilia('%d/%m/%Y %H:%M') }}{% if solicitacao.atendido_em %}; atendida em {{ solicitacao.atendido_em|brasilia('%d/%m/%Y %H:%M') }} com {{ solicitacao.anexos|length }} arquivo(s){% endif %}.</small></div>{% endfor %}
+  {% if can('edit') and not protocolo.arquivado_em %}<form method="POST" action="{{ url_for('solicitar_complemento', protocolo_id=protocolo.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label class="form-label" for="motivo-complemento">Solicitar documento ou informação complementar</label><textarea class="form-control mb-2" id="motivo-complemento" name="motivo" minlength="10" required placeholder="Descreva objetivamente o que o requerente deve enviar."></textarea><button class="btn btn-primary" type="submit">Enviar solicitação ao portal</button></form>{% endif %}
+</div></div>
+{% endif %}
+
+<section class="card mt-4" id="historico"><div class="card-header"><h2 class="h5 mb-0">Histórico do protocolo</h2></div><div class="card-body"><ol class="list-group protocol-timeline">
+{% for h in protocolo.historico|chronological %}{% set partes = history_parts(h) %}
+<li class="list-group-item protocol-timeline-item"><div class="history-entry-heading"><strong>{{ history_action_label(h.acao) }}</strong><time>{{ h.data_movimentacao|brasilia('%d/%m/%Y às %H:%M') }}</time></div>
+<p class="text-muted mb-1">{{ nomes_por_id.get(h.usuario_id, nomes_por_login.get(h.responsavel, h.responsavel or 'Sistema')) }} · {{ h.status }}</p>
+{% if partes.sistema %}<p class="mb-1">{{ partes.sistema }}</p>{% endif %}
+{% if partes.observacao %}<div class="history-user-observation"><span class="text-muted">{{ 'Observação do encaminhamento' if h.acao == 'TRAMITACAO' else 'Registro' }}</span><div>{{ history_observation_label(partes.observacao) }}</div></div>{% endif %}
+{% if h.acao == 'DESPACHO_REGISTRADO' %}<a href="#despachos">Consultar despachos</a>{% endif %}
+</li>{% else %}<li class="list-group-item">Nenhum histórico encontrado.</li>{% endfor %}
+</ol></div></section>
 {% endblock content %}
 

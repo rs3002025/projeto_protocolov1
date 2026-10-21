@@ -108,7 +108,7 @@
             <input type="date" id="prazoEm" name="prazo_em" class="form-control" value="{{ protocolo.prazo_em.strftime('%Y-%m-%d') if protocolo and protocolo.prazo_em else '' }}">
         </div>
         <div class="form-group full-row">
-            <label for="complemento">Informações Complementares</label>
+            <label for="complemento">Informações adicionais</label>
             <textarea id="complemento" name="observacoes" rows="8" class="form-control">{{ protocolo.observacoes if protocolo else '' }}</textarea>
         </div>
 
@@ -116,7 +116,7 @@
             {# O texto do botão de submit muda se estamos editando ou criando #}
             <button type="button" id="reviewProtocolButton" class="btn btn-primary">{{ 'Revisar retificação' if retificacao_de is defined and retificacao_de else ('Revisar atualização' if protocolo else 'Revisar e cadastrar') }}</button>
             <button type="button" id="imprimirBtn" class="btn btn-outline-primary">Imprimir</button>
-            <a href="{{ url_for('detalhe_protocolo', protocolo_id=protocolo.id) if protocolo else url_for('home') }}" class="btn btn-outline-secondary">{{ 'Voltar aos detalhes' if protocolo else 'Voltar' }}</a>
+            <a href="{{ url_for('detalhe_protocolo', protocolo_id=protocolo.id) if protocolo else url_for('home') }}" class="btn btn-outline-secondary">{{ 'Voltar ao protocolo' if protocolo else 'Voltar' }}</a>
         </div>
     </form>
 
@@ -176,5 +176,6 @@ window.protocoloData = {{ {
 {% endif %}
 </script>
 {% endblock %}
+
 
 

@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><title>Despacho - Protocolo {{ despacho.protocolo_numero }}</title>
+<style>
+@page { size: A4; margin: 18mm 18mm 20mm;
+  @bottom-left { content: 'Muniprot - Despacho'; font: 9pt sans-serif; color: #555; }
+  @bottom-right { content: counter(page) ' / ' counter(pages); font: 9pt sans-serif; color: #555; }
+}
+body { font: 11pt/1.6 'Liberation Sans', sans-serif; color: #172522; margin: 0; }
+header { border-bottom: 2px solid #176b63; padding-bottom: 12px; margin-bottom: 22px; }
+header img { display: block; max-width: 240px; max-height: 70px; margin-bottom: 10px; }
+.institution { font-size: 13pt; font-weight: bold; }
+.city { font-size: 10pt; color: #52615c; }
+h1 { background: #176b63; color: white; font-size: 15pt; text-align: center; padding: 12px; margin: 0 0 22px; }
+.text { white-space: pre-wrap; overflow-wrap: anywhere; word-wrap: break-word; orphans: 3; widows: 3; }
+.author { break-inside: avoid; page-break-inside: avoid; border-top: 1px solid #b8ccc6; padding-top: 14px; margin-top: 28px; }
+.author p { margin: 2px 0; }
+.footer { margin-top: 24px; padding-top: 10px; border-top: 1px solid #ddd; white-space: pre-line; font-size: 9pt; color: #52615c; }
+</style></head><body>
+<header>{% if pdf_logo_url %}<img src="{{ pdf_logo_url }}" alt="Logo">{% endif %}<div class="institution">{{ organizacao.orgao or organizacao.nome }}</div>{% if organizacao.municipio %}<div class="city">{{ organizacao.municipio }}</div>{% endif %}</header>
+<h1>DESPACHO - PROTOCOLO {{ despacho.protocolo_numero }}</h1>
+<div class="text">{{ despacho.texto }}</div>
+<div class="author"><p><strong>{{ despacho.autor_nome }}</strong></p>{% if despacho.autor_setor %}<p>{{ despacho.autor_setor }}</p>{% endif %}<p>Registrado em {{ despacho.criado_em|brasilia('%d/%m/%Y às %H:%M:%S') }} (horário de Brasília).</p></div>
+{% if organizacao.rodape_documento %}<div class="footer">{{ organizacao.rodape_documento }}</div>{% endif %}
+</body></html>

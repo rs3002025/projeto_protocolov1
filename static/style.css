@@ -973,6 +973,39 @@ h1, .h1 { font-size: clamp(1.65rem, 2.6vw, 2.2rem); }
 }
 
 .is-submitting { opacity: .72; pointer-events: none; }
+.requester-details summary { cursor: pointer; font-weight: 700; color: var(--brand-800); padding: .5rem 0; }
+.requester-data { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .8rem 1.5rem; }
+.requester-data dt { color: var(--ink-500); font-size: .8rem; }
+.requester-data dd { margin: .2rem 0 0; overflow-wrap: anywhere; }
+.history-entry-heading { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: .65rem; }
+.history-user-observation > div { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.7; }
+.dispatch-section-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: .75rem; }
+.dispatch-count { color: var(--ink-500); font-size: .8rem; }
+.dispatch-list { display: grid; gap: 1.25rem; }
+.dispatch-document { border: 1px solid #d8e5e0; border-radius: .85rem; background: #fff; box-shadow: 0 3px 12px rgba(21, 62, 51, .035); overflow: hidden; }
+.dispatch-document-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; padding: 1rem 1.35rem; border-bottom: 1px solid #e3ece8; background: #f6faf8; }
+.dispatch-document-title { display: flex; gap: .8rem; min-width: 0; }
+.dispatch-document-icon { flex: 0 0 42px; display: grid; place-items: center; height: 46px; border: 1px solid #c8e0d7; border-radius: .6rem; color: var(--brand-700); background: #eaf4ef; }
+.dispatch-document-title h3 { color: var(--brand-800); font-weight: 800; }
+.dispatch-author { display: block; color: var(--ink-700); font-size: .88rem; overflow-wrap: anywhere; }
+.dispatch-sector { display: block; color: var(--ink-500); font-size: .8rem; margin-top: .1rem; overflow-wrap: anywhere; }
+.dispatch-date { flex: 0 0 auto; font-size: .83rem; color: var(--ink-700); text-align: right; }
+.dispatch-date span { display: block; color: var(--ink-500); margin-top: .15rem; }
+.dispatch-document-body { max-width: 100ch; padding: 1.35rem; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.75; }
+.dispatch-document-footer { display: flex; justify-content: flex-end; padding: .8rem 1.35rem; border-top: 1px solid #edf2ef; }
+.dispatch-editor-panel { padding: 1.25rem; border: 1px solid #b8d9cf; border-radius: .8rem; background: #f6faf8; }
+.dispatch-editor-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+.dispatch-editor-actions { display: flex; flex-wrap: wrap; gap: .6rem; }
+.dispatch-empty { padding: 2rem 1rem; text-align: center; color: var(--ink-500); border: 1px dashed #cddfd7; border-radius: .8rem; background: #fafcfb; }
+.dispatch-empty strong { display: block; color: var(--ink-700); margin-bottom: .4rem; }
+.dispatch-textarea { min-height: 19rem; resize: vertical; line-height: 1.65; }
+.history-entry-heading time { color: var(--ink-500); font-size: .85rem; }
+.history-user-observation { margin-top: .6rem; padding: .75rem 1rem; border-left: 3px solid #b8ddd4; background: #f6faf8; border-radius: .35rem; }
+.history-user-observation > span { font-size: .78rem; font-weight: 700; }
+.detail-section-nav { flex-wrap: wrap; }
+#requerimento, #tramitacao, #despachos, #documentos, #historico, #novo-despacho { scroll-margin-top: 170px; }
+@media(max-width: 768px) { .requester-data { grid-template-columns: repeat(2, minmax(0, 1fr)); } #requerimento, #tramitacao, #despachos, #documentos, #historico, #novo-despacho { scroll-margin-top: 100px; } }
+@media(max-width: 480px) { .requester-data { grid-template-columns: 1fr; } .dispatch-document-header { flex-wrap: wrap; padding: 1rem; } .dispatch-date { text-align: left; margin-left: 54px; } .dispatch-date span { display: inline; margin-left: .4rem; } .dispatch-document-body { padding: 1rem; } .dispatch-document-footer .btn, .dispatch-section-header .btn { width: 100%; } }
 .form-section-title { display: flex; align-items: center; gap: .75rem; margin: .55rem 0 -.1rem; padding-top: .85rem; border-top: 1px solid var(--line); }
 .form-section-title:first-of-type { margin-top: -.2rem; padding-top: 0; border-top: 0; }
 .form-section-title > span { display: grid; place-items: center; flex: 0 0 30px; width: 30px; height: 30px; border-radius: 50%; color: #fff; background: var(--brand-700); font-size: .82rem; font-weight: 800; }
@@ -995,5 +1028,6 @@ h1, .h1 { font-size: clamp(1.65rem, 2.6vw, 2.2rem); }
     .responsive-table tbody td[colspan] { display: block; text-align: center; }
     .responsive-table tbody td[colspan]::before { display: none; }
 }
+
 
 

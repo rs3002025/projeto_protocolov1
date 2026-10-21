@@ -1,0 +1,10 @@
+{% extends 'layout.html' %}{% block content %}
+<h1 class="h3">Registrar despacho - Protocolo {{ protocolo.numero }}</h1>
+<div class="alert alert-warning">Não foi possível concluir o registro. Seu texto foi preservado abaixo. Tente novamente em instantes.</div>
+<form method="post" action="{{ url_for('adicionar_despacho', protocolo_id=protocolo.id) }}">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="envio_token" value="{{ envio_token }}">
+<label for="despacho-texto" class="form-label">Texto do despacho</label>
+<textarea id="despacho-texto" class="form-control mb-3" name="texto" rows="18" maxlength="100000" required>{{ texto }}</textarea>
+<button class="btn btn-primary" type="submit">Tentar registrar novamente</button>
+<a class="btn btn-outline-secondary" href="{{ url_for('detalhe_protocolo', protocolo_id=protocolo.id) }}">Voltar ao protocolo</a>
+</form>{% endblock %}

@@ -93,7 +93,7 @@
                         <td>{{ protocol_location(protocolo) }}</td>
                         <td>{{ protocolo.responsavel_exibicao }}</td>
                         <td><div class="action-group action-group-visible">
-                            <a href="{{ url_for('detalhe_protocolo', protocolo_id=protocolo.id) }}" class="btn btn-sm btn-primary">Detalhes</a>
+                            <a href="{{ url_for('detalhe_protocolo', protocolo_id=protocolo.id) }}" class="btn btn-sm btn-primary">Abrir protocolo</a>
                             {% if not protocolo.aguardando_recebimento_inicial %}<button type="button" class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#modalAtualizarStatus" data-protocolo-id="{{ protocolo.id }}">Atualizar status</button>{% endif %}
                             <a class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" href="{{ url_for('gerar_pdf_protocolo', protocolo_id=protocolo.id) }}">Requerimento</a>
                         </div>
@@ -137,5 +137,6 @@
         </ul>
     </nav>
 {% endblock content %}
+
 
 
