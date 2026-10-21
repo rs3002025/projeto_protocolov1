@@ -540,6 +540,12 @@ SUPPORT_STATUSES = ('ABERTO', 'EM ATENDIMENTO', 'AGUARDANDO USUÁRIO', 'RESOLVID
 SUPPORT_CATEGORIES = ('ACESSO', 'PROTOCOLOS', 'DOCUMENTOS', 'RELATÓRIOS', 'CONFIGURAÇÃO', 'OUTRO')
 SUPPORT_PRIORITIES = ('BAIXA', 'NORMAL', 'ALTA', 'CRÍTICA')
 HISTORY_ACTION_LABELS = {
+    'IMPORTACAO_LEGADO': 'Importado',
+    'REGISTRO_LEGADO': 'Registro original',
+    'TRAMITACAO_LEGADA': 'Encaminhamento',
+    'RECEBIMENTO_LEGADO': 'Recebimento',
+    'ARQUIVAMENTO_LEGADO': 'Arquivamento',
+    'DOCUMENTO_LEGADO': 'Documento registrado',
     'CRIACAO': 'Criação',
     'DESPACHO_REGISTRADO': 'Despacho registrado',
     'ENVIO_REMOTO': 'Requerimento enviado pelo portal',
@@ -562,7 +568,21 @@ HISTORY_ACTION_LABELS = {
 }
 EMISSION_STATUS_LABELS = {'VALIDA': 'Válida', 'RETIFICADA': 'Retificada', 'SUBSTITUIDA': 'Anterior', 'CANCELADA': 'Cancelada'}
 
-def history_observation_label(observation):
+LEGACY_HISTORY_ACTIONS = frozenset({
+    'REGISTRO_LEGADO', 'TRAMITACAO_LEGADA', 'RECEBIMENTO_LEGADO',
+    'ARQUIVAMENTO_LEGADO', 'DOCUMENTO_LEGADO',
+})
+
+
+def history_date_label(event):
+    # Source ledgers provide a date, never a verified time of day.
+    fmt = '%d/%m/%Y' if event.acao in LEGACY_HISTORY_ACTIONS else '%d/%m/%Y às %H:%M'
+    return format_brasilia(event.data_movimentacao, fmt)
+
+
+def history_observation_label(observation, action=None):
+    if action == 'IMPORTACAO_LEGADO':
+        return ''
     if observation == 'Requerimento enviado pelo próprio servidor em conta individual vinculada ao cadastro funcional.':
         return 'Pedido enviado pelo próprio servidor por meio do Portal do Servidor.'
     return observation or 'Sem observação.'
@@ -571,6 +591,8 @@ def history_observation_label(observation):
 def history_parts(event):
     """Separa a apresentação sem reescrever eventos auditados existentes."""
     value = event.observacao or ''
+    if event.acao == 'IMPORTACAO_LEGADO':
+        return {'sistema': '', 'observacao': ''}
     if event.acao == 'TRAMITACAO':
         match = re.match(r'^(Encaminhado para .+?(?:, aos cuidados de .+?|, disponível a todos do setor))\.\s*(.*)$', value, re.S)
         if match:
@@ -615,6 +637,8 @@ def permission_context():
         'emission_status_label': lambda status: EMISSION_STATUS_LABELS.get(status, status.title()),
         'history_observation_label': history_observation_label,
         'history_parts': history_parts,
+        'history_date_label': history_date_label,
+        'history_is_imported': lambda event: event.acao in LEGACY_HISTORY_ACTIONS or event.acao == 'IMPORTACAO_LEGADO',
     }
 
 def permission_required(permission):
