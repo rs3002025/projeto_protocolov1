@@ -1167,7 +1167,24 @@ def test_pdf_gerado_e_armazenado_com_versionamento_e_historico():
         primeira = client.post(f'/protocolo/{protocolo_id}/documento/gerar')
         segunda = client.post(f'/protocolo/{protocolo_id}/documento/gerar')
     assert primeira.status_code == 200 and primeira.content_type == 'application/pdf'
-    assert segunda.status_code == 200 and '_v2.pdf' in segunda.headers['Content-Disposition']
+    assert segunda.status_code == 200 and '_v1.pdf' in segunda.headers['Content-Disposition']
+    assert segunda.data == primeira.data
+    with patch('app.render_protocol_pdf', side_effect=AssertionError('Consulta não deve gerar PDF')):
+        assert client.get(f'/protocolo/{protocolo_id}/pdf').data == primeira.data
+    with app.app_context():
+        assert Anexo.query.filter_by(protocolo_id=protocolo_id, documento_chave='documento-protocolo').count() == 1
+        assert HistoricoProtocolo.query.filter_by(protocolo_id=protocolo_id, acao='DOCUMENTO_GERADO').count() == 1
+    with patch('app.read_attachment_bytes', side_effect=RuntimeError('Armazenamento indisponível')), \
+         patch('app.render_protocol_pdf', side_effect=AssertionError('Não substituir arquivo inacessível')):
+        assert client.get(f'/protocolo/{protocolo_id}/pdf').status_code == 503
+        assert client.post(f'/protocolo/{protocolo_id}/documento/gerar').status_code == 503
+    html = client.get(f'/protocolo/{protocolo_id}').get_data(as_text=True)
+    assert f'href="/protocolo/{protocolo_id}/pdf"' in html
+    assert 'Gerar nova versão do requerimento' in html
+    with patch.dict(sys.modules, {'weasyprint': types.SimpleNamespace(HTML=FakeHTML),
+                                  'qrcode': fake_qrcode}):
+        nova = client.post(f'/protocolo/{protocolo_id}/documento/gerar', data={'nova_versao':'1'})
+    assert nova.status_code == 200 and '_v2.pdf' in nova.headers['Content-Disposition']
     assert all('data:image/png;base64,' in html for html in htmls_renderizados)
     assert all('/consulta/' not in html for html in htmls_renderizados)
     with app.app_context():

@@ -2486,6 +2486,11 @@ def gerar_pdf_protocolo(protocolo_id):
     protocolo = accessible_protocol_or_404(protocolo_id)
     if protocolo.emissao_eletronica:
         return _response_pdf_autenticado(protocolo.emissao_eletronica)
+    documento = tenant_query(Anexo).filter_by(
+        protocolo_id=protocolo.id, documento_chave='documento-protocolo'
+    ).order_by(Anexo.versao.desc(), Anexo.id.desc()).first()
+    if documento:
+        return _response_pdf_documento(documento)
     pdf_bytes = render_protocol_pdf(protocolo)
 
     # Cria a resposta HTTP com o PDF
@@ -2494,6 +2499,17 @@ def gerar_pdf_protocolo(protocolo_id):
     response.headers['Content-Disposition'] = f'inline; filename=protocolo_{protocolo.numero.replace("/", "-")}.pdf'
 
     return response
+
+
+def _response_pdf_documento(documento):
+    """Consulta o arquivo preservado; não cria versões nem substitui conteúdo."""
+    try:
+        data = read_attachment_bytes(documento)
+    except Exception:
+        app.logger.exception('Falha ao recuperar ou validar anexo %s.', documento.id)
+        return 'O arquivo está temporariamente indisponível.', 503
+    return send_file(io.BytesIO(data), mimetype='application/pdf',
+                     as_attachment=False, download_name=documento.file_name)
 
 
 def _response_pdf_autenticado(emissao):
@@ -2699,8 +2715,14 @@ def gerar_documento_versionado(protocolo_id):
         return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
     if protocolo.emissao_eletronica:
         return _response_pdf_autenticado(protocolo.emissao_eletronica)
-    pdf_bytes = render_protocol_pdf(protocolo)
     chave = 'documento-protocolo'
+    atual = tenant_query(Anexo).filter_by(
+        protocolo_id=protocolo.id, documento_chave=chave
+    ).order_by(Anexo.versao.desc(), Anexo.id.desc()).first()
+    # Compatibilidade com páginas antigas: abrir novamente não é retificar.
+    if atual and request.form.get('nova_versao') != '1':
+        return _response_pdf_documento(atual)
+    pdf_bytes = render_protocol_pdf(protocolo)
     versao = (tenant_query(Anexo).filter_by(protocolo_id=protocolo.id, documento_chave=chave)
               .with_entities(func.max(Anexo.versao)).scalar() or 0) + 1
     filename = f'protocolo_{protocolo.numero.replace("/", "-")}_v{versao}.pdf'
