@@ -249,9 +249,12 @@ def current_tenant_id():
 def active_organization():
     return db.session.get(Organizacao, current_tenant_id())
 
-def tenant_query(model):
-    """Consulta obrigatoriamente limitada à organização autenticada."""
-    return model.query.filter(model.tenant_id == current_tenant_id())
+def tenant_query(model, *, include_deleted=False):
+    """Consulta da organização autenticada; protocolos excluídos ficam fora do uso."""
+    query = model.query.filter(model.tenant_id == current_tenant_id())
+    if model is Protocolo and not include_deleted:
+        query = query.filter(Protocolo.excluido_em.is_(None))
+    return query
 
 def tenant_get_or_404(model, object_id):
     return tenant_query(model).filter(model.id == object_id).first_or_404()
@@ -311,7 +314,9 @@ def protocol_location(protocolo):
     return protocolo.setor_atual.nome if protocolo.setor_atual else 'Não definido'
 
 def pendencias_recebimento_query():
-    query = tenant_query(Movimentacao).filter(Movimentacao.recebido_em.is_(None))
+    query = tenant_query(Movimentacao).filter(
+        Movimentacao.recebido_em.is_(None),
+        Movimentacao.protocolo.has(Protocolo.excluido_em.is_(None)))
     if current_user.tipo == 'admin':
         return query
     if not current_user.lotacao_id:
@@ -562,6 +567,7 @@ HISTORY_ACTION_LABELS = {
     'RECEBIMENTO': 'Recebimento',
     'ARQUIVAMENTO': 'Arquivamento',
     'DESARQUIVAMENTO': 'Desarquivamento',
+    'EXCLUSAO': 'Exclusão do protocolo',
     'ALTERACAO_STATUS': 'Alteração de situação',
     'ANEXO_ADICIONADO': 'Documento anexado',
     'NOVA_VERSAO_DOCUMENTO': 'Nova versão de documento',
@@ -724,7 +730,8 @@ def login_fingerprint(organizacao, login):
 @app.route('/consulta/<string:consulta_token>', methods=['GET', 'POST'])
 def consulta_publica(consulta_token):
     """Exige confirmação da matrícula antes de exibir o andamento."""
-    protocolo = Protocolo.query.filter_by(consulta_token=consulta_token).first_or_404()
+    protocolo = Protocolo.query.filter_by(consulta_token=consulta_token).filter(
+        Protocolo.excluido_em.is_(None)).first_or_404()
     organizacao = Organizacao.query.filter_by(id=protocolo.tenant_id, ativo=True).first_or_404()
     form = ConsultaPublicaForm()
     consulta_autorizada = False
@@ -1859,7 +1866,8 @@ def platform_organizations():
         summaries.append({
             'organization': organization,
             'users': Usuario.query.filter_by(tenant_id=organization.id, status='ativo').count(),
-            'protocols': Protocolo.query.filter_by(tenant_id=organization.id).count(),
+            'protocols': Protocolo.query.filter_by(tenant_id=organization.id).filter(
+                Protocolo.excluido_em.is_(None)).count(),
             'selected': session.get('active_tenant_id') == organization.id,
         })
     platform_admins = Usuario.query.filter_by(is_platform_admin=True).order_by(Usuario.nome_completo).all()
@@ -2611,7 +2619,8 @@ def autenticar_emissao_protocolo(protocolo_id):
 @app.route('/validar-emissao/<string:token_publico>', methods=['GET', 'POST'])
 @csrf.exempt
 def validar_emissao(token_publico):
-    emissao = EmissaoEletronica.query.filter_by(token_publico=token_publico).first_or_404()
+    emissao = EmissaoEletronica.query.filter_by(token_publico=token_publico).filter(
+        EmissaoEletronica.protocolo.has(Protocolo.excluido_em.is_(None))).first_or_404()
     arquivo_resultado = None
     if request.method == 'POST' and request.files.get('arquivo'):
         arquivo = request.files['arquivo']
@@ -2768,7 +2777,7 @@ def gerar_proximo_numero_protocolo():
     # A linha da organização serializa a numeração por cliente no PostgreSQL.
     Organizacao.query.filter_by(id=current_tenant_id()).with_for_update().one()
     # Busca os protocolos dentro da mesma transação protegida.
-    protocolos_do_ano = tenant_query(Protocolo).filter(
+    protocolos_do_ano = tenant_query(Protocolo, include_deleted=True).filter(
         Protocolo.numero.like(f'%/{current_year}')
     ).all()
 
@@ -2975,9 +2984,22 @@ def editar_protocolo(protocolo_id):
 @app.route("/protocolo/<int:protocolo_id>/deletar", methods=['POST'])
 @permission_required('delete')
 def deletar_protocolo(protocolo_id):
-    protocolo = accessible_protocol_or_404(protocolo_id)
-    flash('A exclusão permanente está desativada para preservar o histórico. Utilize o arquivamento eletrônico.', 'warning')
-    return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
+    protocolo = accessible_protocols_query().filter(
+        Protocolo.id == protocolo_id).with_for_update().first_or_404()
+    motivo = (request.form.get('justificativa') or '').strip()
+    if (request.form.get('confirmar_exclusao') != '1' or
+            not 10 <= len(motivo) <= 2000 or '\x00' in motivo):
+        abort(400, description='Confirme a exclusão e informe uma justificativa de 10 a 2.000 caracteres.')
+    protocolo.excluido_em = datetime.now(timezone.utc)
+    db.session.add(HistoricoProtocolo(
+        tenant_id=current_tenant_id(), protocolo_id=protocolo.id,
+        status=protocolo.status, responsavel=current_user.login,
+        usuario_id=current_user.id, acao='EXCLUSAO',
+        observacao=f'Protocolo {protocolo.numero} excluído. Justificativa: {motivo}',
+    ))
+    db.session.commit()
+    flash('Protocolo excluído. Histórico e documentos preservados para auditoria.', 'success')
+    return redirect(url_for('listar_protocolos'))
 
 # --- Rotas de Anexos ---
 
@@ -3368,7 +3390,7 @@ def get_bairros():
 @permission_required('create')
 def get_ultimo_numero(ano):
     """Obtém o último número de protocolo para um determinado ano."""
-    protocolos_do_ano = tenant_query(Protocolo).filter(
+    protocolos_do_ano = tenant_query(Protocolo, include_deleted=True).filter(
         Protocolo.numero.like(f'%/{ano}')
     ).all()
 

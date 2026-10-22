@@ -18,8 +18,20 @@
     {% if active_organization.emissao_eletronica_protocolista_enabled and protocolo.emissao_eletronica and protocolo.emissao_eletronica.status == 'VALIDA' and not protocolo.retificacao_pendente and not protocolo.aguardando_recebimento_inicial and current_user.tipo in ['admin', 'protocolista'] %}<li><hr class="dropdown-divider"></li><li><button class="dropdown-item text-danger" type="button" data-bs-toggle="modal" data-bs-target="#modalCancelarEmissao">Cancelar emissão</button></li>{% endif %}
     {% if can('archive') and not movimentacao_pendente %}<li><hr class="dropdown-divider"></li><li><button class="dropdown-item text-danger" type="button" data-bs-toggle="modal" data-bs-target="#modalArquivarProtocolo">Arquivar processo</button></li>{% endif %}
     </ul></div>{% endif %}
+    {% if can('delete') %}<button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalExcluirProtocolo">Excluir protocolo</button>{% endif %}
   </div>
 </div>
+{% if can('delete') %}
+<div class="modal fade" id="modalExcluirProtocolo" tabindex="-1" aria-labelledby="excluir-protocolo-titulo" aria-hidden="true"><div class="modal-dialog"><div class="modal-content">
+<form method="post" action="{{ url_for('deletar_protocolo', protocolo_id=protocolo.id) }}">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div class="modal-header"><h2 class="modal-title h5" id="excluir-protocolo-titulo">Excluir protocolo {{ protocolo.numero }}</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
+<div class="modal-body"><p>O protocolo deixará de aparecer nas consultas, pendências e relatórios. O histórico e os documentos serão preservados para auditoria.</p>
+<label class="form-label" for="justificativa-exclusao">Justificativa da exclusão</label><textarea class="form-control" id="justificativa-exclusao" name="justificativa" minlength="10" maxlength="2000" rows="3" required></textarea>
+<div class="form-check mt-3"><input class="form-check-input" id="confirmar-exclusao" name="confirmar_exclusao" type="checkbox" value="1" required><label class="form-check-label" for="confirmar-exclusao">Confirmo a exclusão do protocolo {{ protocolo.numero }}.</label></div></div>
+<div class="modal-footer"><button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancelar</button><button class="btn btn-danger" type="submit">Confirmar exclusão</button></div>
+</form></div></div></div>
+{% endif %}
 {% if protocolo.aguardando_recebimento_inicial and current_user.tipo in ['admin', 'protocolista'] %}
 <div class="modal fade" id="modalReceberRequerimento" tabindex="-1" aria-labelledby="receber-titulo" aria-hidden="true"><div class="modal-dialog"><div class="modal-content">
 <form method="POST" action="{{ url_for('receber_portal', protocolo_id=protocolo.id) }}">
