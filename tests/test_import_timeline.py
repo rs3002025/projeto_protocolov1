@@ -69,7 +69,7 @@ def test_public_history_is_chronological_and_brasilia():
         db.session.commit()
     html=app.test_client().post(f'/consulta/{token}',data={'matricula':'MAT-A'}).get_data(as_text=True)
     assert html.index('Evento Anterior') < html.index('Evento Posterior')
-    assert '08/10/2026 08:00' in html and '08/10/2026 09:00' in html
+    assert '08/10/2026 às 08:00' in html and '08/10/2026 às 09:00' in html
 
 def test_public_history_uses_reader_labels_and_pending_receipt_state():
     with app.app_context():
