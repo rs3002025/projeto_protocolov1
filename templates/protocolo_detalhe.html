@@ -10,15 +10,18 @@
     {% elif can('route') and pode_encaminhar and not protocolo.arquivado_em and protocolo.status != 'ARQUIVADO' %}<a class="btn btn-primary" href="#tramitacao">Encaminhar protocolo</a>{% endif %}
     <a class="btn btn-outline-primary" target="_blank" rel="noopener" href="{{ url_for('gerar_pdf_protocolo', protocolo_id=protocolo.id) }}">Abrir requerimento</a>
     {% if can_add_dispatch(protocolo) %}<a class="btn btn-outline-primary" href="#novo-despacho">Incluir despacho</a>{% endif %}
-    {% if can('edit') and not protocolo.arquivado_em and not protocolo.aguardando_recebimento_inicial %}
+    {% set pode_editar_acoes = can('edit') and not protocolo.arquivado_em and not protocolo.aguardando_recebimento_inicial %}
+    {% if pode_editar_acoes or can('delete') %}
     <div class="dropdown"><button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">Outras ações</button><ul class="dropdown-menu dropdown-menu-end">
+    {% if pode_editar_acoes %}
       {% if not protocolo.emissao_eletronica %}<li><form method="post" target="_blank" action="{{ url_for('gerar_documento_versionado', protocolo_id=protocolo.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="nova_versao" value="1"><button type="submit" class="dropdown-item">Gerar nova versão do requerimento</button></form></li>{% endif %}
     {% if active_organization.emissao_eletronica_protocolista_enabled and (not protocolo.emissao_eletronica or protocolo.retificacao_pendente) and current_user.tipo in ['admin', 'protocolista'] %}<li><button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#modalAutenticarEmissao">Assinar requerimento</button></li>{% endif %}
     {% if not protocolo.aguardando_recebimento_inicial %}{% if protocolo.emissao_eletronica and protocolo.emissao_eletronica.status == 'VALIDA' and not protocolo.retificacao_pendente %}<li><a class="dropdown-item" href="{{ url_for('retificar_protocolo', protocolo_id=protocolo.id) }}">Retificar requerimento</a></li>{% elif not protocolo.emissao_eletronica %}<li><a class="dropdown-item" href="{{ url_for('editar_protocolo', protocolo_id=protocolo.id) }}">Editar protocolo</a></li>{% endif %}{% endif %}
     {% if active_organization.emissao_eletronica_protocolista_enabled and protocolo.emissao_eletronica and protocolo.emissao_eletronica.status == 'VALIDA' and not protocolo.retificacao_pendente and not protocolo.aguardando_recebimento_inicial and current_user.tipo in ['admin', 'protocolista'] %}<li><hr class="dropdown-divider"></li><li><button class="dropdown-item text-danger" type="button" data-bs-toggle="modal" data-bs-target="#modalCancelarEmissao">Cancelar emissão</button></li>{% endif %}
     {% if can('archive') and not movimentacao_pendente %}<li><hr class="dropdown-divider"></li><li><button class="dropdown-item text-danger" type="button" data-bs-toggle="modal" data-bs-target="#modalArquivarProtocolo">Arquivar processo</button></li>{% endif %}
+    {% endif %}
+    {% if can('delete') %}{% if pode_editar_acoes %}<li><hr class="dropdown-divider"></li>{% endif %}<li><button type="button" class="dropdown-item text-danger" data-bs-toggle="modal" data-bs-target="#modalExcluirProtocolo">Excluir protocolo</button></li>{% endif %}
     </ul></div>{% endif %}
-    {% if can('delete') %}<button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalExcluirProtocolo">Excluir protocolo</button>{% endif %}
   </div>
 </div>
 {% if can('delete') %}
