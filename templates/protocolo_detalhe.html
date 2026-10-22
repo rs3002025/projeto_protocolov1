@@ -1,9 +1,8 @@
 {% extends "layout.html" %}
 {% block content %}
 <div class="detail-page-header mb-3">
-  <div><a href="{{ url_for('listar_protocolos') }}" class="btn btn-outline-secondary btn-back">← Voltar aos protocolos</a>
-  <h1 class="h3 mb-1">Protocolo {{ protocolo.numero }}</h1><p class="text-muted mb-0">{{ protocolo.nome or 'Requerente não informado' }}</p></div>
   <div class="detail-actions action-group action-group-visible">
+    <a href="{{ url_for('listar_protocolos') }}" class="btn btn-outline-secondary btn-back">← Voltar aos protocolos</a>
     {% if protocolo.aguardando_recebimento_inicial and current_user.tipo in ['admin', 'protocolista'] %}
     <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalReceberRequerimento">Receber requerimento</button>
     {% elif can('route') and pode_receber %}<a class="btn btn-primary" href="#tramitacao">Receber protocolo</a>
@@ -23,6 +22,7 @@
     {% if can('delete') %}{% if pode_editar_acoes %}<li><hr class="dropdown-divider"></li>{% endif %}<li><button type="button" class="dropdown-item text-danger" data-bs-toggle="modal" data-bs-target="#modalExcluirProtocolo">Excluir protocolo</button></li>{% endif %}
     </ul></div>{% endif %}
   </div>
+  <div class="detail-identity"><h1 class="h3 mb-1">Protocolo {{ protocolo.numero }}</h1><p class="text-muted mb-0">{{ protocolo.nome or 'Requerente não informado' }}</p></div>
 </div>
 {% if can('delete') %}
 <div class="modal fade" id="modalExcluirProtocolo" tabindex="-1" aria-labelledby="excluir-protocolo-titulo" aria-hidden="true"><div class="modal-dialog"><div class="modal-content">
