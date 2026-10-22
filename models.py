@@ -95,6 +95,7 @@ class Usuario(TenantMixin, db.Model, UserMixin):
     servidor_id = db.Column(ID_TYPE, db.ForeignKey('servidores.id'))
     organizacao = db.relationship('Organizacao')
     servidor = db.relationship('Servidor', foreign_keys=[servidor_id])
+    lotacao = db.relationship('Lotacao', foreign_keys=[lotacao_id])
 
     def get_id(self):
         credential = hmac.new(app.config['SECRET_KEY'].encode(),
@@ -162,6 +163,9 @@ class Protocolo(TenantMixin, db.Model):
     data_envio = db.Column(db.TIMESTAMP, server_default=db.func.current_timestamp())
     status = db.Column(db.String, default='Aberto')
     arquivado_em = db.Column(db.TIMESTAMP)
+    excluido_em = db.Column(db.TIMESTAMP)
+    finalizado_em = db.Column(db.TIMESTAMP)
+    resultado_final = db.Column(db.Text)
     consulta_token = db.Column(db.String(64), unique=True, nullable=False,
                                default=lambda: secrets.token_urlsafe(32), index=True)
 
@@ -192,6 +196,18 @@ class Protocolo(TenantMixin, db.Model):
 
     @property
     def responsavel_exibicao(self):
+        abertas = [p for p in self.providencias if not p.concluida_em]
+        if abertas:
+            nomes = []
+            for p in abertas:
+                m = p.movimento_atual
+                if m and m.recebido_por:
+                    nomes.append(m.recebido_por.nome_completo or m.recebido_por.nome)
+                elif m:
+                    nomes.append('Aguardando recebimento — ' + (m.destinatario_usuario.nome if m.destinatario_usuario else m.setor_destino.nome))
+            return '; '.join(dict.fromkeys(nomes))
+        if self.providencias:
+            return 'Providências concluídas'
         return 'Aguardando recebimento' if self.aguardando_recebimento_inicial else (self.responsavel or 'Não definido')
 
     @property
@@ -346,9 +362,36 @@ class Movimentacao(TenantMixin, db.Model):
     enviado_em = db.Column(db.TIMESTAMP, server_default=db.func.current_timestamp(), nullable=False)
     recebido_em = db.Column(db.TIMESTAMP)
     observacao = db.Column(db.Text)
+    providencia_id = db.Column(db.Integer, db.ForeignKey('providencias_protocolos.id'), index=True)
+    envio_token = db.Column(db.String(100))
+    recebido_por = db.relationship('Usuario', foreign_keys=[recebido_por_id])
     setor_origem = db.relationship('Lotacao', foreign_keys=[setor_origem_id])
     setor_destino = db.relationship('Lotacao', foreign_keys=[setor_destino_id])
     destinatario_usuario = db.relationship('Usuario', foreign_keys=[destinatario_usuario_id])
+
+
+class ProvidenciaProtocolo(TenantMixin, db.Model):
+    __tablename__ = 'providencias_protocolos'
+    id = db.Column(db.Integer, primary_key=True)
+    protocolo_id = db.Column(db.Integer, db.ForeignKey('protocolos.id'), nullable=False, index=True)
+    criada_em = db.Column(db.TIMESTAMP, nullable=False, server_default=db.func.current_timestamp())
+    concluida_em = db.Column(db.TIMESTAMP)
+    concluida_por_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'))
+    resultado = db.Column(db.Text)
+    protocolo = db.relationship('Protocolo', backref=db.backref('providencias', lazy=True))
+    movimentos = db.relationship('Movimentacao', backref='providencia', order_by='Movimentacao.id')
+
+    @property
+    def movimento_atual(self):
+        return self.movimentos[-1] if self.movimentos else None
+
+
+class AcompanhamentoProtocolo(TenantMixin, db.Model):
+    __tablename__ = 'acompanhamentos_protocolos'
+    __table_args__ = (db.UniqueConstraint('tenant_id', 'protocolo_id', 'usuario_id', name='uq_acompanhamento_usuario_protocolo'),)
+    id = db.Column(db.Integer, primary_key=True)
+    protocolo_id = db.Column(db.Integer, db.ForeignKey('protocolos.id'), nullable=False, index=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False, index=True)
 
 class ConsultaPublicaTentativa(db.Model):
     __tablename__ = 'consulta_publica_tentativas'

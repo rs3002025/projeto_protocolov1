@@ -18,6 +18,10 @@ class UnarchiveTests(unittest.TestCase):
         app.config.update(TESTING=True, WTF_CSRF_ENABLED=False)
         with app.app_context():
             assert db.engine.url.drivername == "sqlite"
+            # Outras suítes podem remover a pasta do SQLite compartilhado.
+            database = db.engine.url.database
+            if database and database != ':memory:':
+                Path(database).parent.mkdir(parents=True, exist_ok=True)
             db.drop_all()
             db.create_all()
             a = Organizacao(nome="Teste A", slug="teste-a")

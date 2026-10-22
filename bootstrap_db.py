@@ -17,6 +17,7 @@ TENANT_TABLES = (
     'servidores', 'tipos_requerimento', 'emails_sistema', 'movimentacoes',
     'chamados_suporte', 'mensagens_suporte', 'solicitacoes_complemento',
     'despachos_protocolos',
+    'providencias_protocolos', 'acompanhamentos_protocolos',
 )
 
 SCHEMA_COLUMNS = {
@@ -64,6 +65,9 @@ SCHEMA_COLUMNS = {
         'criado_por_id': 'INTEGER',
         'setor_atual_id': 'BIGINT',
         'arquivado_em': 'TIMESTAMP',
+        'excluido_em': 'TIMESTAMP',
+        'finalizado_em': 'TIMESTAMP',
+        'resultado_final': 'TEXT',
         'consulta_token': 'VARCHAR(64)',
         'requerente_servidor_id': 'BIGINT',
         'emitido_por_usuario_id': 'INTEGER',
@@ -89,6 +93,8 @@ SCHEMA_COLUMNS = {
     },
     'movimentacoes': {
         'destinatario_usuario_id': 'INTEGER',
+        'providencia_id': 'INTEGER REFERENCES providencias_protocolos(id)',
+        'envio_token': 'VARCHAR(100)',
     },
 }
 
@@ -140,6 +146,12 @@ def bootstrap():
                         if column == 'logo_data' and db.engine.dialect.name == 'postgresql':
                             sql_type = 'BYTEA'
                         connection.execute(text(f'ALTER TABLE {table} ADD COLUMN {column} {sql_type}'))
+
+            if 'movimentacoes' in existing_tables:
+                connection.execute(text(
+                    'CREATE INDEX IF NOT EXISTS ix_movimentacoes_providencia_id '
+                    'ON movimentacoes (providencia_id)'
+                ))
 
             if 'protocolos' in existing_tables:
                 normalizacoes = {
