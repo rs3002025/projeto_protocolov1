@@ -92,8 +92,11 @@ def synchronize(protocol):
         if movement and movement.recebido_em:
             protocol.responsavel = movement.recebido_por.login
             protocol.setor_atual_id = movement.setor_destino_id
-    protocol.status = 'EM TRAMITAÇÃO' if any(
-        p.movimento_atual and not p.movimento_atual.recebido_em for p in open_items) else 'EM ANÁLISE'
+    # Receber não significa iniciar análise. Preserve a situação de trabalho
+    # explicitamente registrada mesmo quando outra participação é recebida/concluída.
+    if protocol.status not in ('EM ANÁLISE', 'PENDENTE DE DOCUMENTO'):
+        protocol.status = 'EM TRAMITAÇÃO' if any(
+            p.movimento_atual and not p.movimento_atual.recebido_em for p in open_items) else 'RECEBIDO'
 
 
 @workflow_feedback
@@ -203,7 +206,7 @@ def receive_protocol(protocolo_id):
     else:
         protocol.setor_atual_id = movement.setor_destino_id
         protocol.responsavel = current_user.login
-        protocol.status = 'EM ANÁLISE'
+        protocol.status = 'RECEBIDO'
     target = f' (destinatário: {movement.destinatario_usuario.nome})' if movement.destinatario_usuario else ''
     event(protocol, 'RECEBIMENTO', f'Recebido por {current_user.nome_completo or current_user.nome}, setor {movement.setor_destino.nome}{target}.')
     db.session.commit()

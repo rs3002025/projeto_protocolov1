@@ -10,6 +10,7 @@
     <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalReceberRequerimento">Receber requerimento</button>
     {% elif can('route') and pode_receber %}<a class="btn btn-primary" href="#tramitacao">Receber protocolo</a>
     {% elif can('route') and pode_encaminhar and not protocolo.arquivado_em and protocolo.status != 'ARQUIVADO' %}<a class="btn btn-primary" href="#tramitacao">Encaminhar protocolo</a>{% endif %}
+    {% if can_update_protocol_status(protocolo) %}<button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalAtualizarStatus" data-protocolo-id="{{ protocolo.id }}" data-protocolo-status="{{ protocolo.status_exibicao }}">Atualizar status</button>{% endif %}
     <a class="btn btn-outline-primary" target="_blank" rel="noopener" href="{{ url_for('gerar_pdf_protocolo', protocolo_id=protocolo.id) }}">Abrir requerimento</a>
     {% set pode_editar_acoes = can('edit') and not protocolo.arquivado_em and not protocolo.aguardando_recebimento_inicial %}
     {% if pode_editar_acoes or can('delete') %}

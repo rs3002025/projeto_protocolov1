@@ -122,6 +122,10 @@ document.addEventListener('DOMContentLoaded', function () {
             const protocoloId = button.getAttribute('data-protocolo-id');
             const modalProtocoloIdInput = updateStatusModal.querySelector('#atualizarProtocoloId');
             modalProtocoloIdInput.value = protocoloId;
+            const currentStatus = button.getAttribute('data-protocolo-status');
+            const statusSelect = updateStatusModal.querySelector('#statusSelect');
+            statusSelect.value = [...statusSelect.options].some(option => option.value === currentStatus) ? currentStatus : '';
+            updateStatusModal.querySelector('#observacaoAtualizacao').value = '';
         });
     }
 
@@ -219,7 +223,7 @@ window.fecharModal = function(modalId) {
 }
 
 window.popularFiltrosDashboard = function() {
-    const statusOptions = '<option value="">Todos os Status</option><option>PROTOCOLO GERADO</option><option>EM ANÁLISE</option><option>PENDENTE DE DOCUMENTO</option><option>CONCLUÍDO</option><option>EM TRAMITAÇÃO</option><option>ARQUIVADO</option>';
+    const statusOptions = '<option value="">Todos os Status</option><option>PROTOCOLO GERADO</option><option>AGUARDANDO RECEBIMENTO</option><option>RECEBIDO</option><option>EM ANÁLISE</option><option>PENDENTE DE DOCUMENTO</option><option>CONCLUÍDO</option><option>EM TRAMITAÇÃO</option><option>ARQUIVADO</option>';
     const statusSelect = document.getElementById('dashStatus');
     if (statusSelect) {
         statusSelect.innerHTML = statusOptions;
@@ -577,6 +581,10 @@ window.confirmarAtualizacaoStatus = async function() {
     const protocoloId = document.getElementById('atualizarProtocoloId').value;
     const statusSelect = document.getElementById('statusSelect');
     let novoStatus = statusSelect.value;
+    if (!novoStatus) {
+        alert('Selecione a situação de trabalho.');
+        return;
+    }
 
     if (novoStatus === 'Outro') {
         novoStatus = document.getElementById('statusCustom').value.trim();
