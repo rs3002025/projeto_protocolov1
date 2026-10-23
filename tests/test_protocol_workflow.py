@@ -220,8 +220,8 @@ class WorkflowTests(unittest.TestCase):
         html = self.client.get(f'/protocolo/{self.pid}').get_data(as_text=True)
         for label in ('Acompanhar processo', 'Concluir processo', 'Excluir protocolo', 'Participação 1', 'Participação 2', 'Receber participação'):
             self.assertIn(label, html)
-        self.assertNotIn('data-forward-protocol', html)
-        self.assertNotIn('Encaminhamento coletivo (opcional)', html)
+        self.assertIn('data-forward-protocol', html)
+        self.assertIn('Encaminhamento coletivo (opcional)', html)
         self.login('consulta'); html = self.client.get(f'/protocolo/{self.pid}').get_data(as_text=True)
         self.assertNotIn('id="excluir-processo"', html)
 
@@ -234,6 +234,37 @@ class WorkflowTests(unittest.TestCase):
         with app.app_context():
             self.assertEqual(Movimentacao.query.count(), 2)
             self.assertEqual(ProvidenciaProtocolo.query.count(), 2)
+
+    def test_managers_can_intervene_after_send_without_faking_receipts(self):
+        self.login('admin'); self.send('alice')
+        original, original_movement = self.participation('alice')
+        for manager, recipient in [('admin', 'carol'), ('protocolista', 'bob')]:
+            self.login(manager)
+            html = self.client.get(f'/protocolo/{self.pid}').get_data(as_text=True)
+            self.assertIn('data-forward-protocol', html)
+            self.assertIn('name="nova_providencia"', html)
+            self.assertEqual(self.send(recipient, nova_providencia='1').status_code, 302)
+        with app.app_context():
+            self.assertEqual(ProvidenciaProtocolo.query.count(), 3)
+            self.assertEqual(Movimentacao.query.count(), 3)
+            self.assertIsNone(db.session.get(Movimentacao, original_movement).recebido_em)
+            self.assertIsNone(db.session.get(ProvidenciaProtocolo, original).concluida_em)
+            self.assertEqual(HistoricoProtocolo.query.filter(
+                HistoricoProtocolo.observacao.startswith('Intervenção da equipe de protocolo.')).count(), 2)
+            self.assertTrue(verify_audit_chain(self.tenant)[0])
+        self.receive('alice')
+        self.assertEqual(self.send('carol', nova_providencia='1').status_code, 409)
+        self.assertNotIn('data-forward-protocol', self.client.get(f'/protocolo/{self.pid}').get_data(as_text=True))
+
+    def test_managers_cannot_bypass_closed_process(self):
+        self.login('admin'); self.send('alice')
+        with app.app_context():
+            p = db.session.get(Protocolo, self.pid)
+            p.status = 'CONCLUÍDO'; db.session.commit()
+        for manager in ('admin', 'protocolista'):
+            self.login(manager)
+            self.assertEqual(self.send('carol', nova_providencia='1').status_code, 409)
+            self.assertNotIn('data-forward-protocol', self.client.get(f'/protocolo/{self.pid}').get_data(as_text=True))
 
     def test_collective_blocks_forward_until_only_one_active_holder_remains(self):
         self.login('protocolista'); self.send('alice', 'bob')
