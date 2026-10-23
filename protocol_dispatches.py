@@ -115,7 +115,7 @@ def register_dispatch_routes(app, db):
     def baixar_despacho(protocolo_id, despacho_id):
         accessible_protocol_or_404(protocolo_id)
         despacho = tenant_query(DespachoProtocolo).filter_by(
-            id=despacho_id, protocolo_id=protocolo_id).first_or_404()
+            id=despacho_id, protocolo_id=protocolo_id, excluido_em=None).first_or_404()
         try:
             data = read_attachment_bytes(despacho)
         except Exception:
@@ -126,3 +126,26 @@ def register_dispatch_routes(app, db):
         response.headers['Cache-Control'] = 'private, no-store'
         response.headers['X-Content-Type-Options'] = 'nosniff'
         return response
+
+    @app.post('/protocolo/<int:protocolo_id>/despachos/<int:despacho_id>/excluir')
+    @permission_required('delete')
+    def excluir_despacho(protocolo_id, despacho_id):
+        # Mesmo bloqueio da inclusão: preserva a numeração e serializa operações.
+        protocolo = accessible_protocols_query().filter(
+            Protocolo.id == protocolo_id).with_for_update().first_or_404()
+        despacho = tenant_query(DespachoProtocolo).filter_by(
+            id=despacho_id, protocolo_id=protocolo.id, excluido_em=None).first_or_404()
+        motivo = (request.form.get('motivo') or '').strip()
+        if request.form.get('confirmar_exclusao') != '1' or len(motivo) > 2000 or '\x00' in motivo:
+            abort(400, description='Confirme a exclusão do despacho. O motivo pode ter até 2.000 caracteres.')
+        despacho.excluido_em = datetime.now(timezone.utc)
+        despacho.excluido_por_id = current_user.id
+        despacho.motivo_exclusao = motivo or None
+        db.session.add(HistoricoProtocolo(
+            tenant_id=current_tenant_id(), protocolo_id=protocolo.id,
+            status=protocolo.status, responsavel=current_user.login,
+            usuario_id=current_user.id, acao='DESPACHO_EXCLUIDO',
+            observacao=f'Despacho nº {despacho.numero} excluído.' + (f' Motivo: {motivo}' if motivo else '')))
+        db.session.commit()
+        flash('Despacho excluído. Registro preservado para auditoria.', 'success')
+        return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id, _anchor='despachos'))

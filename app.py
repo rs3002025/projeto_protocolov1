@@ -565,6 +565,7 @@ HISTORY_ACTION_LABELS = {
     'DOCUMENTO_LEGADO': 'Documento registrado',
     'CRIACAO': 'Criação',
     'DESPACHO_REGISTRADO': 'Despacho registrado',
+    'DESPACHO_EXCLUIDO': 'Despacho excluído',
     'ENVIO_REMOTO': 'Requerimento enviado pelo portal',
     'COMPLEMENTO_SOLICITADO': 'Documentação complementar solicitada',
     'COMPLEMENTO_ENVIADO': 'Documentação complementar enviada',
