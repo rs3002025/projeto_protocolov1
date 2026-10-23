@@ -105,6 +105,7 @@ class WorkflowTests(unittest.TestCase):
             self.assertEqual(HistoricoProtocolo.query.filter_by(acao='FINALIZACAO').count(), 1)
             self.assertTrue(verify_audit_chain(self.tenant)[0])
         self.assertEqual(self.send('carol', nova_providencia='1').status_code, 409)
+        self.assertNotIn('href="#tramitacao"', self.client.get(f'/protocolo/{self.pid}').get_data(as_text=True))
         self.assertIn('protocol-number-finalized', self.client.get('/protocolos').get_data(as_text=True))
 
     def test_nominal_reception_and_completion_cannot_be_stolen(self):
