@@ -117,7 +117,8 @@ def forward_protocol(protocolo_id):
             flash('Este encaminhamento já foi registrado.', 'info')
             return return_to(protocol)
     active = [p for p in protocol.providencias if not p.concluida_em]
-    if len(active) > 1:
+    manager = current_user.tipo in ('admin', 'protocolista')
+    if len(active) > 1 and not manager:
         abort(409, description='Conclua sua participação. O encaminhamento volta a ficar disponível quando restar apenas um responsável.')
     note = (request.form.get('observacao') or '').strip()
     if len(note) > 10000 or '\x00' in note:
@@ -135,7 +136,7 @@ def forward_protocol(protocolo_id):
             abort(409, description='Selecione a participação que deseja encaminhar.')
     elif not can_operate_protocol(protocol):
         abort(403)
-    if not protocol.providencias and tenant_query(Movimentacao).filter_by(
+    if not manager and not protocol.providencias and tenant_query(Movimentacao).filter_by(
             protocolo_id=protocol.id, recebido_em=None).first():
         abort(409, description='Receba o encaminhamento pendente antes de continuar.')
 
@@ -167,6 +168,7 @@ def forward_protocol(protocolo_id):
     # Valide todos os alvos antes de qualquer mutação: o envio é atômico.
     origin = participation.movimento_atual.setor_destino_id if participation else protocol.setor_atual_id
     previous_holder = participation.movimento_atual.recebido_por if participation else None
+    intervention = manager and bool(protocol.providencias) and (not participation or len(active) > 1)
     for index, (sector, user) in enumerate(targets):
         item = participation if index == 0 and participation else ProvidenciaProtocolo(
             tenant_id=protocol.tenant_id, protocolo=protocol)
@@ -178,7 +180,8 @@ def forward_protocol(protocolo_id):
         protocol.status = 'PENDENTE DE DOCUMENTO' if protocol.complemento_pendente else 'EM TRAMITAÇÃO'
         target = f', aos cuidados de {user.nome_completo or user.nome}' if user else ', disponível a todos do setor'
         holder = f' Responsabilidade transferida de {previous_holder.nome_completo or previous_holder.nome}.' if previous_holder and index == 0 else ''
-        event(protocol, 'TRAMITACAO', f'Encaminhado para {sector.nome}{target}. {holder} {note}'.strip())
+        intervention_note = 'Intervenção da equipe de protocolo. ' if intervention else ''
+        event(protocol, 'TRAMITACAO', f'{intervention_note}Encaminhado para {sector.nome}{target}. {holder} {note}'.strip())
     db.session.flush()
     synchronize(protocol)
     db.session.commit()

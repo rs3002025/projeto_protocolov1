@@ -2,6 +2,7 @@
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <input type="hidden" name="envio_token" value="{{ tramitacao_token }}-{{ item.id if item else 'simples' }}">
   {% if item %}<input type="hidden" name="providencia_id" value="{{ item.id }}">{% endif %}
+  {% if not item and current_user.tipo in ['admin', 'protocolista'] %}<input type="hidden" name="nova_providencia" value="1">{% endif %}
   <div class="row g-3">
     <div class="col-md-6"><label class="form-label" for="setor-{{ item.id if item else 'simples' }}">Setor destinatário</label>
       <select class="form-select" name="setor_destino_id" id="setor-{{ item.id if item else 'simples' }}" required><option value="">Selecione o setor destinatário</option>{% for setor in lotacoes %}<option value="{{ setor.id }}">{{ setor.nome }}</option>{% endfor %}</select></div>

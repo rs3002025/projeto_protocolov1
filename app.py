@@ -2945,6 +2945,8 @@ def detalhe_protocolo(protocolo_id):
                            if not p.concluida_em and p.movimento_atual)
         ativas = [p for p in protocolo.providencias if not p.concluida_em]
         pode_encaminhar = len(ativas) == 1 and can_work(ativas[0])
+    if current_user.tipo in ('admin', 'protocolista'):
+        pode_encaminhar = not protocolo.aguardando_recebimento_inicial and not protocolo.arquivado_em and protocolo.status not in ('FINALIZADO', 'CONCLUÍDO', 'ARQUIVADO')
     documentos = {}
     for anexo in sorted(protocolo.anexos, key=lambda item: (item.versao, item.id)):
         # Os anexos anteriores ao versionamento tinham todos a chave 'anexo'.

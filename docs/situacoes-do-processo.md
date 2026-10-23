@@ -20,6 +20,8 @@ O fluxo considera apenas participações ativas, nunca quem apenas acompanha nem
 
 O encaminhamento coletivo é uma opção secundária do formulário individual, não uma etapa obrigatória. Os registros de participações anteriores permanecem no histórico. Concluir processo e Atualizar status são ações separadas, com suas permissões próprias.
 
+Exceção de gestão: administradores e protocolistas podem encaminhar novamente mesmo após um envio ou enquanto houver vários responsáveis ativos. Sem uma participação recebida selecionada, a intervenção acrescenta um encaminhamento sem apagar os anteriores, concluir participações ou fabricar recebimentos. A autoria da intervenção fica registrada no histórico. A regra de um/vários responsáveis continua valendo para os demais usuários. Processos concluídos ou arquivados precisam ser reabertos; o recebimento inicial com assinatura também não é dispensado.
+
 Versões de PDF são controle interno: não existe comando manual para gerar versões extras. Ao corrigir os dados de um requerimento sem assinatura, seu PDF já registrado é atualizado automaticamente, preservando o anterior no histórico de documentos. Salvar sem alterar conteúdo não gera nova cópia. Documentos assinados continuam sujeitos à retificação própria.
 
 O botão Atualizar status está na lista e na página do processo. Permite marcar Em análise ou Pendente de documento, com observação e registro de autoria no histórico, sem mudar a custódia. Fica disponível ao responsável por uma participação recebida; administradores e protocolistas também podem atuar sobre participações recebidas. Usuários somente de consulta e participantes que ainda não receberam não podem usar a ação.
