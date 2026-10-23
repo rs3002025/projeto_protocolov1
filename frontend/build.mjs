@@ -13,6 +13,8 @@ const copies = [
   ['bootstrap-portal', 'dist/css/bootstrap.min.css', 'bootstrap-5.3.3.min.css'],
   ['chart.js', 'dist/chart.umd.js', 'chart-4.5.1.umd.js'],
   ['qrcodejs', 'qrcode.min.js', 'qrcode-1.0.0.min.js'],
+  ['quill', 'dist/quill.js', 'quill-2.0.2.js'],
+  ['quill', 'dist/quill.snow.css', 'quill-2.0.2.snow.css'],
 ];
 const manifest = {};
 for (const [pkg, source, name] of copies) {
@@ -38,7 +40,7 @@ for (const [name, info] of Object.entries(manifest)) {
   info.integrity = 'sha384-' + createHash('sha384').update(data).digest('base64');
 }
 const licenses = [];
-for (const pkg of ['bootstrap', 'bootstrap-portal', 'chart.js', 'qrcodejs', 'html2pdf.js', 'jspdf', 'dompurify']) {
+for (const pkg of ['bootstrap', 'bootstrap-portal', 'chart.js', 'qrcodejs', 'html2pdf.js', 'jspdf', 'dompurify', 'quill']) {
   for (const name of ['LICENSE', 'LICENSE.md', 'LICENSE.txt']) {
     try { licenses.push(`${pkg}\n${await readFile(resolve(root, 'node_modules', pkg, name), 'utf8')}`); break; }
     catch (error) { if (error.code !== 'ENOENT') throw error; }

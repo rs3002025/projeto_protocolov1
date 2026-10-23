@@ -92,6 +92,8 @@ SCHEMA_COLUMNS = {
         'substitui_emissao_id': 'BIGINT',
     },
     'despachos_protocolos': {
+        'assunto': 'VARCHAR(250)',
+        'conteudo_delta': 'TEXT',
         'excluido_em': 'TIMESTAMP WITH TIME ZONE',
         'excluido_por_id': 'INTEGER',
         'motivo_exclusao': 'TEXT',

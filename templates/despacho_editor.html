@@ -1,0 +1,29 @@
+{% extends 'layout.html' %}{% block content %}
+<link rel="stylesheet" href="{{ url_for('static',filename='vendor/quill-2.0.2.snow.css') }}" integrity="sha384-VvSC4PGxeMkOaAmyuDGZECjY2dkqdO/IdBYBUK+BCYNc3WIvRxHLUzQ5OSgUaMA7" crossorigin="anonymous">
+<link rel="stylesheet" href="{{ url_for('static',filename='dispatch_editor.css',v='20261023') }}">
+<a class="btn btn-outline-secondary mb-3" href="{{ url_for('detalhe_protocolo',protocolo_id=protocolo.id,_anchor='despachos') }}">← Voltar ao protocolo</a>
+<div class="card dispatch-writing"><div class="card-header"><h1 class="h4 mb-1">Novo despacho</h1><p class="mb-0 text-muted">Protocolo {{ protocolo.numero }} · {{ protocolo.nome }}</p></div>
+<div class="card-body">
+{% if falha %}<div class="alert alert-warning">Não foi possível concluir o registro. Seu assunto, texto e formatação foram preservados. Tente novamente em instantes.</div>{% endif %}
+<form method="post" id="dispatch-form" action="{{ url_for('adicionar_despacho',protocolo_id=protocolo.id) }}">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="envio_token" value="{{ envio_token }}">
+<label for="dispatch-subject" class="form-label">Assunto</label><input class="form-control mb-3" id="dispatch-subject" name="assunto" value="{{ assunto }}" maxlength="250" required placeholder="Resuma o objetivo do despacho">
+<label id="dispatch-body-label" for="dispatch-plain" class="form-label">Texto do despacho</label>
+<p class="form-text" id="dispatch-help">Formate o texto abaixo. Seu nome, setor e horário serão incluídos automaticamente no documento.</p>
+<div id="dispatch-rich-wrapper" hidden>
+<div id="dispatch-toolbar" class="dispatch-toolbar" role="toolbar" aria-label="Formatação do despacho">
+<span class="ql-formats"><select class="ql-header" aria-label="Estilo do parágrafo"><option selected>Texto normal</option><option value="1">Título 1</option><option value="2">Título 2</option><option value="3">Título 3</option></select><select class="ql-font" aria-label="Fonte"><option selected>Arial</option><option value="times-new-roman">Times New Roman</option><option value="georgia">Georgia</option><option value="calibri">Calibri</option><option value="monospace">Monoespaçada</option></select><select class="ql-size" aria-label="Tamanho"><option value="small">Pequeno</option><option selected>Normal</option><option value="large">Grande</option><option value="huge">Muito grande</option></select></span>
+<span class="ql-formats"><button type="button" class="ql-bold" title="Negrito" aria-label="Negrito"></button><button type="button" class="ql-italic" title="Itálico" aria-label="Itálico"></button><button type="button" class="ql-underline" title="Sublinhado" aria-label="Sublinhado"></button><button type="button" class="ql-strike" title="Tachado" aria-label="Tachado"></button><select class="ql-color" aria-label="Cor do texto"></select><select class="ql-background" aria-label="Cor de fundo"></select></span>
+<span class="ql-formats"><select class="ql-align" aria-label="Alinhamento"></select><button type="button" class="ql-list" value="ordered" title="Lista numerada" aria-label="Lista numerada"></button><button type="button" class="ql-list" value="bullet" title="Lista com marcadores" aria-label="Lista com marcadores"></button><button type="button" class="ql-indent" value="-1" title="Diminuir recuo" aria-label="Diminuir recuo"></button><button type="button" class="ql-indent" value="+1" title="Aumentar recuo" aria-label="Aumentar recuo"></button></span>
+<span class="ql-formats"><button type="button" class="ql-blockquote" title="Citação" aria-label="Citação"></button><button type="button" class="ql-link" title="Inserir link" aria-label="Inserir link"></button><button type="button" class="ql-clean" title="Limpar formatação" aria-label="Limpar formatação"></button></span>
+<span class="ql-formats"><button type="button" class="ql-undo" title="Desfazer" aria-label="Desfazer">↶</button><button type="button" class="ql-redo" title="Refazer" aria-label="Refazer">↷</button><button type="button" class="ql-expand" title="Ampliar editor" aria-label="Ampliar editor">⛶</button></span>
+</div><div id="dispatch-rich" aria-labelledby="dispatch-body-label" aria-describedby="dispatch-help"></div></div>
+<textarea class="form-control dispatch-textarea" id="dispatch-plain" name="texto" rows="18" maxlength="100000" required>{{ texto }}</textarea>
+<input type="hidden" id="dispatch-delta" name="conteudo_delta" value="{{ conteudo_delta }}" disabled>
+<p class="form-text">Até 100.000 caracteres. Confira o assunto e o conteúdo antes de registrar.</p>
+<p id="dispatch-error" class="text-danger" role="alert" hidden></p>
+<div class="d-flex flex-wrap gap-2"><button class="btn btn-primary" type="submit">Registrar despacho</button><a class="btn btn-outline-secondary" href="{{ url_for('detalhe_protocolo',protocolo_id=protocolo.id,_anchor='despachos') }}">Cancelar</a></div>
+</form></div></div>
+<script src="{{ url_for('static',filename='vendor/quill-2.0.2.js') }}" integrity="sha384-hcxmSutM10NL6iGBAA0LStIhy+kWJxfrhqWVMRuABZH5Vqztexq2nBz/Xnfllly9" crossorigin="anonymous"></script>
+<script src="{{ url_for('static',filename='dispatch_editor.js',v='20261023') }}"></script>
+{% endblock %}

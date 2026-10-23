@@ -1,0 +1,20 @@
+.dispatch-writing { max-width: 1100px; margin: 0 auto; }
+.dispatch-writing .card-body { padding: 1.5rem; }
+.dispatch-writing .ql-container { background: #fff; font: 16px/1.65 Arial, sans-serif; }
+.dispatch-writing .ql-editor { min-height: 26rem; padding: 1.5rem 2rem; }
+.dispatch-writing .ql-toolbar { background: #f3f7f5; border-radius: .5rem .5rem 0 0; }
+.dispatch-writing .ql-font-times-new-roman { font-family: 'Times New Roman',serif; }
+.dispatch-writing .ql-font-georgia { font-family: Georgia,serif; }
+.dispatch-writing .ql-font-calibri { font-family: Calibri,sans-serif; }
+.dispatch-writing .ql-font-arial { font-family: Arial,sans-serif; }
+.dispatch-writing .ql-snow .ql-picker.ql-font .ql-picker-label::before,
+.dispatch-writing .ql-snow .ql-picker.ql-font .ql-picker-item::before,
+.dispatch-writing .ql-snow .ql-picker.ql-size .ql-picker-label::before,
+.dispatch-writing .ql-snow .ql-picker.ql-size .ql-picker-item::before,
+.dispatch-writing .ql-snow .ql-picker.ql-header .ql-picker-label::before,
+.dispatch-writing .ql-snow .ql-picker.ql-header .ql-picker-item::before { content: attr(data-label); }
+.dispatch-writing .ql-undo, .dispatch-writing .ql-redo, .dispatch-writing .ql-expand { font-size: 21px; line-height: 20px; }
+.dispatch-expanded { position: fixed; inset: 1rem; z-index: 1080; background: #fff; display: flex; flex-direction: column; box-shadow: 0 0 0 100vmax #001b1ab3; }
+.dispatch-expanded .ql-container { flex: 1; overflow: auto; }
+.dispatch-expanded .ql-editor { min-height: 100%; }
+@media(max-width:600px) { .dispatch-writing .card-body { padding: 1rem; } .dispatch-writing .ql-editor { padding: 1rem; min-height: 22rem; } .dispatch-expanded { inset: .25rem; } }

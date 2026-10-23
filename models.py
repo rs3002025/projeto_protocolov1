@@ -288,6 +288,8 @@ class DespachoProtocolo(TenantMixin, db.Model):
     excluido_em = db.Column(db.TIMESTAMP(timezone=True))
     excluido_por_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'))
     motivo_exclusao = db.Column(db.Text)
+    assunto = db.Column(db.String(250))
+    conteudo_delta = db.Column(db.Text)
 
 
 class Anexo(TenantMixin, db.Model):
