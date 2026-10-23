@@ -632,9 +632,18 @@ def history_parts(event):
     if event.acao == 'IMPORTACAO_LEGADO':
         return {'sistema': '', 'observacao': ''}
     if event.acao == 'TRAMITACAO':
-        match = re.match(r'^(Encaminhado para .+?(?:, aos cuidados de .+?|, disponível a todos do setor))\.\s*(.*)$', value, re.S)
+        # Novos eventos separam destino e texto livre sem interpretar seu conteúdo.
+        heading, separator, note = value.partition('\n\n')
+        if (heading.startswith('Encaminhado para ') and heading.endswith('.') and
+                ', disponível a todos do setor' not in heading and ', aos cuidados de ' not in heading):
+            return {'sistema': heading, 'observacao': note if separator else ''}
+        legacy_value = re.sub(r'^Intervenção da equipe de protocolo\.\s*', '', value)
+        match = re.match(r'^(Encaminhado para .+?(?:, aos cuidados de .+?|, disponível a todos do setor))\.\s*(.*)$', legacy_value, re.S)
         if match:
-            return {'sistema': match.group(1) + '.', 'observacao': match.group(2)}
+            heading = match.group(1).replace(', disponível a todos do setor', '').replace(', aos cuidados de ', ' — ')
+            note = re.sub(r'^Transferência administrativa do encaminhamento de .+?\.\s*', '', match.group(2), count=1, flags=re.S)
+            note = re.sub(r'^Responsabilidade transferida de .+?\.\s*', '', note, count=1, flags=re.S)
+            return {'sistema': heading + '.', 'observacao': note}
     return {'sistema': '', 'observacao': value}
 
 def support_tickets_query():

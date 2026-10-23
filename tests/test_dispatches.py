@@ -306,7 +306,7 @@ class DispatchTests(unittest.TestCase):
     def test_history_separation_preserves_original(self):
         h = HistoricoProtocolo(acao='TRAMITACAO', observacao='Encaminhado para SEAD, disponível a todos do setor. Minha observação.\nOutra linha.')
         parts = history_parts(h)
-        self.assertEqual(parts['sistema'], 'Encaminhado para SEAD, disponível a todos do setor.')
+        self.assertEqual(parts['sistema'], 'Encaminhado para SEAD.')
         self.assertEqual(parts['observacao'], 'Minha observação.\nOutra linha.')
         self.assertIn('Minha observação.', h.observacao)
 

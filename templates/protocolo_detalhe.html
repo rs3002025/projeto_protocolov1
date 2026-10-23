@@ -228,7 +228,7 @@
 <li class="list-group-item protocol-timeline-item"><div class="history-entry-heading"><strong>{{ history_action_label(h.acao) }}</strong><time>{{ history_date_label(h) }}</time></div>
 {% if not history_is_imported(h) %}<p class="text-muted mb-1">{{ nomes_por_id.get(h.usuario_id, nomes_por_login.get(h.responsavel, h.responsavel or 'Sistema')) }} · {{ canonical_status(h.status) }}</p>{% elif h.acao != 'IMPORTACAO_LEGADO' %}<p class="text-muted mb-1">Importado</p>{% endif %}
 {% if partes.sistema %}<p class="mb-1">{{ partes.sistema }}</p>{% endif %}
-{% if partes.observacao %}<div class="history-user-observation"><span class="text-muted">{{ 'Observação do encaminhamento' if h.acao == 'TRAMITACAO' else 'Registro' }}</span><div>{{ history_observation_label(partes.observacao) }}</div></div>{% endif %}
+{% if partes.observacao %}<div class="history-user-observation"><span class="text-muted">{{ 'Observação' if h.acao == 'TRAMITACAO' else 'Registro' }}</span><div>{{ history_observation_label(partes.observacao) }}</div></div>{% endif %}
 {% if h.acao == 'DESPACHO_REGISTRADO' %}<a href="#despachos">Consultar despachos</a>{% endif %}
 </li>{% else %}<li class="list-group-item">Nenhum histórico encontrado.</li>{% endfor %}
 </ol></div></section>

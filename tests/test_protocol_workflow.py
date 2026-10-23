@@ -250,8 +250,10 @@ class WorkflowTests(unittest.TestCase):
             self.assertEqual(Movimentacao.query.count(), 3)
             self.assertIsNone(db.session.get(Movimentacao, original_movement).recebido_em)
             self.assertIsNone(db.session.get(ProvidenciaProtocolo, original).concluida_em)
-            self.assertEqual(HistoricoProtocolo.query.filter(
-                HistoricoProtocolo.observacao.contains('Transferência administrativa do encaminhamento')).count(), 2)
+            events = HistoricoProtocolo.query.filter_by(acao='TRAMITACAO').order_by(HistoricoProtocolo.id).all()
+            self.assertEqual(len(events), 3)
+            self.assertEqual([h.usuario_id for h in events[-2:]], [self.ids['admin'], self.ids['protocolista']])
+            self.assertTrue(all('Transferência administrativa' not in h.observacao for h in events))
             from protocol_workflow import pending_movement_condition
             self.assertEqual(Movimentacao.query.filter(pending_movement_condition()).count(), 1)
             self.assertTrue(verify_audit_chain(self.tenant)[0])
