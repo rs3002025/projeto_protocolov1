@@ -14,6 +14,9 @@
 .dispatch-writing .ql-snow .ql-picker.ql-header .ql-picker-label::before,
 .dispatch-writing .ql-snow .ql-picker.ql-header .ql-picker-item::before { content: attr(data-label); }
 .dispatch-writing .ql-undo, .dispatch-writing .ql-redo, .dispatch-writing .ql-expand { font-size: 21px; line-height: 20px; }
+.dispatch-writing .ql-toolbar button.ql-undo, .dispatch-writing .ql-toolbar button.ql-redo, .dispatch-writing .ql-toolbar button.ql-expand { color: #334740; }
+.dispatch-writing .ql-toolbar button.ql-undo:hover, .dispatch-writing .ql-toolbar button.ql-redo:hover, .dispatch-writing .ql-toolbar button.ql-expand:hover { color: #08776a; }
+.dispatch-writing .ql-snow .ql-picker.ql-header { width: 120px; }
 .dispatch-expanded { position: fixed; inset: 1rem; z-index: 1080; background: #fff; display: flex; flex-direction: column; box-shadow: 0 0 0 100vmax #001b1ab3; }
 .dispatch-expanded .ql-container { flex: 1; overflow: auto; }
 .dispatch-expanded .ql-editor { min-height: 100%; }
