@@ -2771,6 +2771,25 @@ def arquivo_grande_demais(_error):
     flash('O envio excede 30 MB no total. Cada anexo pode ter até 5 MB.', 'danger')
     return redirect(request.referrer or url_for('home'))
 
+def _persist_unsigned_document(protocolo):
+    """Versão técnica criada apenas quando o conteúdo realmente é corrigido."""
+    pdf_bytes = render_protocol_pdf(protocolo)
+    chave = 'documento-protocolo'
+    versao = (tenant_query(Anexo).filter_by(protocolo_id=protocolo.id, documento_chave=chave)
+              .with_entities(func.max(Anexo.versao)).scalar() or 0) + 1
+    filename = f'protocolo_{protocolo.numero.replace("/", "-")}_v{versao}.pdf'
+    storage_path, storage_backend, file_hash, stored_data = store_attachment_bytes(
+        pdf_bytes, current_tenant_id(), protocolo.id, chave, versao, filename, 'application/pdf')
+    documento = Anexo(tenant_id=current_tenant_id(), protocolo_id=protocolo.id,
+        file_name=filename, storage_path=storage_path, storage_backend=storage_backend,
+        file_hash=file_hash, file_size=len(pdf_bytes), mime_type='application/pdf', file_data=stored_data,
+        documento_chave=chave, versao=versao, enviado_por_id=current_user.id)
+    db.session.add_all([documento, HistoricoProtocolo(tenant_id=current_tenant_id(), protocolo_id=protocolo.id,
+        status=protocolo.status, responsavel=current_user.login, usuario_id=current_user.id,
+        acao='DOCUMENTO_GERADO', observacao='Requerimento registrado.' if versao == 1 else 'Requerimento atualizado após correção dos dados.')])
+    return documento, pdf_bytes
+
+
 @app.post('/protocolo/<int:protocolo_id>/documento/gerar')
 @permission_required('edit')
 def gerar_documento_versionado(protocolo_id):
@@ -2785,23 +2804,10 @@ def gerar_documento_versionado(protocolo_id):
         protocolo_id=protocolo.id, documento_chave=chave
     ).order_by(Anexo.versao.desc(), Anexo.id.desc()).first()
     # Compatibilidade com páginas antigas: abrir novamente não é retificar.
-    if atual and request.form.get('nova_versao') != '1':
+    if atual:
         return _response_pdf_documento(atual)
-    pdf_bytes = render_protocol_pdf(protocolo)
-    versao = (tenant_query(Anexo).filter_by(protocolo_id=protocolo.id, documento_chave=chave)
-              .with_entities(func.max(Anexo.versao)).scalar() or 0) + 1
-    filename = f'protocolo_{protocolo.numero.replace("/", "-")}_v{versao}.pdf'
-    storage_path, storage_backend, file_hash, stored_data = store_attachment_bytes(
-        pdf_bytes, current_tenant_id(), protocolo.id, chave, versao, filename, 'application/pdf')
-    documento = Anexo(
-        tenant_id=current_tenant_id(), protocolo_id=protocolo.id,
-        file_name=filename, storage_path=storage_path, storage_backend=storage_backend,
-        file_hash=file_hash, file_size=len(pdf_bytes), mime_type='application/pdf', file_data=stored_data,
-        documento_chave=chave, versao=versao, enviado_por_id=current_user.id)
-    db.session.add_all([documento, HistoricoProtocolo(
-        tenant_id=current_tenant_id(), protocolo_id=protocolo.id,
-        status=protocolo.status, responsavel=current_user.login, usuario_id=current_user.id,
-        acao='DOCUMENTO_GERADO', observacao=f'{filename} — versão {versao}.')])
+    documento, pdf_bytes = _persist_unsigned_document(protocolo)
+    filename = documento.file_name
     db.session.commit()
     response = make_response(pdf_bytes)
     response.headers['Content-Type'] = 'application/pdf'
@@ -2933,11 +2939,12 @@ def detalhe_protocolo(protocolo_id):
         current_user.tipo == 'admin' or
         (current_user.lotacao_id == pendente.setor_destino_id and
          (not pendente.destinatario_usuario_id or pendente.destinatario_usuario_id == current_user.id))))
-    pode_encaminhar = can_operate_protocol(protocolo) and not pendente
+    pode_encaminhar = can_operate_protocol(protocolo) and not pendente and not protocolo.aguardando_recebimento_inicial
     if protocolo.providencias:
         pode_receber = any(can_receive(p.movimento_atual) for p in protocolo.providencias
                            if not p.concluida_em and p.movimento_atual)
-        pode_encaminhar = any(can_work(p) for p in protocolo.providencias)
+        ativas = [p for p in protocolo.providencias if not p.concluida_em]
+        pode_encaminhar = len(ativas) == 1 and can_work(ativas[0])
     documentos = {}
     for anexo in sorted(protocolo.anexos, key=lambda item: (item.versao, item.id)):
         # Os anexos anteriores ao versionamento tinham todos a chave 'anexo'.
@@ -2988,7 +2995,8 @@ def solicitar_complemento(protocolo_id):
 @app.route("/protocolo/<int:protocolo_id>/editar", methods=['GET', 'POST'])
 @permission_required('edit')
 def editar_protocolo(protocolo_id):
-    protocolo = accessible_protocol_or_404(protocolo_id)
+    query = accessible_protocols_query().filter(Protocolo.id == protocolo_id)
+    protocolo = (query.with_for_update() if request.method == 'POST' else query).first_or_404()
     if protocolo.arquivado_em:
         flash('Processos arquivados são somente para consulta.', 'warning')
         return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
@@ -3038,6 +3046,16 @@ def editar_protocolo(protocolo_id):
             observacao='; '.join(alteracoes) if alteracoes else 'Formulário salvo sem alteração de dados.'
         )
         db.session.add(historico)
+        conteudo_alterado = any(anteriores[campo] != getattr(protocolo, campo) for campo in campos) or data_anterior != protocolo.data_solicitacao
+        if conteudo_alterado and not protocolo.emissao_eletronica and tenant_query(Anexo).filter_by(
+                protocolo_id=protocolo.id, documento_chave='documento-protocolo').first():
+            try:
+                _persist_unsigned_document(protocolo)
+            except Exception:
+                db.session.rollback()
+                app.logger.exception('Falha ao atualizar o requerimento após edição.')
+                flash('Não foi possível atualizar o requerimento. Nenhuma alteração foi salva; tente novamente.', 'danger')
+                return redirect(url_for('editar_protocolo', protocolo_id=protocolo_id))
         db.session.commit()
 
         flash('Protocolo atualizado com sucesso!', 'success')
@@ -3101,6 +3119,8 @@ def adicionar_anexo(protocolo_id):
             if not documento_id.isdecimal():
                 return 'Documento inválido.', 400
             anterior = tenant_query(Anexo).filter_by(id=int(documento_id), protocolo_id=protocolo.id).first_or_404()
+            if anterior.documento_chave in ('documento-protocolo', 'protocolo-autenticado'):
+                return 'Corrija o requerimento por Editar protocolo ou Retificar; não substitua o documento gerado por um anexo.', 409
             if anterior.documento_chave == 'anexo':
                 anterior.documento_chave = chave
                 db.session.flush()

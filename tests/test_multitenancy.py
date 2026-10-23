@@ -1105,7 +1105,8 @@ def test_arquivamento_exige_tramitacao_regularizada():
     client.post(f'/protocolo/{protocolo_id}/receber')
     with app.app_context():
         providencia_id = ProvidenciaProtocolo.query.filter_by(protocolo_id=protocolo_id).one().id
-    client.post(f'/protocolo/{protocolo_id}/providencia/{providencia_id}/concluir')
+    assert client.post(f'/protocolo/{protocolo_id}/providencia/{providencia_id}/concluir').status_code == 409
+    assert client.post(f'/protocolo/{protocolo_id}/finalizar').status_code == 302
     client.post(f'/protocolo/{protocolo_id}/arquivar')
     with app.app_context():
         protocolo = db.session.get(Protocolo, protocolo_id)
@@ -1185,10 +1186,23 @@ def test_pdf_gerado_e_armazenado_com_versionamento_e_historico():
         assert client.post(f'/protocolo/{protocolo_id}/documento/gerar').status_code == 503
     html = client.get(f'/protocolo/{protocolo_id}').get_data(as_text=True)
     assert f'href="/protocolo/{protocolo_id}/pdf"' in html
-    assert 'Gerar nova versão do requerimento' in html
+    assert 'Gerar nova versão do requerimento' not in html
     with patch.dict(sys.modules, {'weasyprint': types.SimpleNamespace(HTML=FakeHTML),
                                   'qrcode': fake_qrcode}):
         nova = client.post(f'/protocolo/{protocolo_id}/documento/gerar', data={'nova_versao':'1'})
+    assert '_v1.pdf' in nova.headers['Content-Disposition']
+    with app.app_context():
+        p = db.session.get(Protocolo, protocolo_id)
+        campos = ('nome','matricula','endereco','municipio','bairro','cep','telefone','cpf','rg','cargo',
+                  'lotacao','unidade_exercicio','tipo_requerimento','requer_ao','observacoes')
+        dados = {campo: getattr(p, campo) or '' for campo in campos}
+        dados['data_solicitacao'] = p.data_solicitacao.isoformat() if p.data_solicitacao else ''
+        dados['prazo_em'] = p.prazo_em.isoformat() if p.prazo_em else ''
+        dados['observacoes'] = 'Informação corrigida no formulário.'
+    with patch.dict(sys.modules, {'weasyprint': types.SimpleNamespace(HTML=FakeHTML),
+                                  'qrcode': fake_qrcode}):
+        assert client.post(f'/protocolo/{protocolo_id}/editar', data=dados).status_code == 302
+        nova = client.get(f'/protocolo/{protocolo_id}/pdf')
     assert nova.status_code == 200 and '_v2.pdf' in nova.headers['Content-Disposition']
     assert all('data:image/png;base64,' in html for html in htmls_renderizados)
     assert all('/consulta/' not in html for html in htmls_renderizados)
@@ -1197,6 +1211,15 @@ def test_pdf_gerado_e_armazenado_com_versionamento_e_historico():
         assert [documento.versao for documento in docs] == [1, 2]
         assert all(documento.file_data.startswith(b'%PDF') for documento in docs)
         assert HistoricoProtocolo.query.filter_by(protocolo_id=protocolo_id, acao='DOCUMENTO_GERADO').count() == 2
+        generated_id = docs[-1].id
+    replacement = client.post(f'/protocolo/{protocolo_id}/anexo/novo', data={
+        'documento_id': str(generated_id), 'anexo': (io.BytesIO(b'tentativa'), 'arquivo.txt')})
+    assert replacement.status_code == 409
+    html = client.get(f'/protocolo/{protocolo_id}').get_data(as_text=True)
+    assert 'Histórico do requerimento' in html
+    assert 'Requerimento atual' in html and 'Requerimento anterior' in html
+    with patch('app.render_protocol_pdf', side_effect=AssertionError('Salvar sem alteração não cria versão')):
+        assert client.post(f'/protocolo/{protocolo_id}/editar', data=dados).status_code == 302
     with app.app_context():
         protocolo = db.session.get(Protocolo, protocolo_id)
         protocolo.arquivado_em = datetime.utcnow()

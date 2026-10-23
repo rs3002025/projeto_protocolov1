@@ -16,6 +16,12 @@ A situação é geral do processo. O recebimento, o responsável e a conclusão 
 
 ## Atualização durante a tramitação
 
+O fluxo considera apenas participações ativas, nunca quem apenas acompanha nem participações já concluídas. Com um responsável ativo, aparece somente Encaminhar. Com dois ou mais, o responsável recebido vê somente Concluir minha participação; o servidor também bloqueia encaminhamentos nesse estágio. Quando resta um responsável ativo, o formulário de encaminhamento volta automaticamente. Recebimentos pendentes continuam exigindo confirmação. O administrador pode concluir o processo com o último atendimento recebido, encerrando-o na mesma ação, desde que não existam outras pendências.
+
+O encaminhamento coletivo é uma opção secundária do formulário individual, não uma etapa obrigatória. Os registros de participações anteriores permanecem no histórico. Concluir processo e Atualizar status são ações separadas, com suas permissões próprias.
+
+Versões de PDF são controle interno: não existe comando manual para gerar versões extras. Ao corrigir os dados de um requerimento sem assinatura, seu PDF já registrado é atualizado automaticamente, preservando o anterior no histórico de documentos. Salvar sem alterar conteúdo não gera nova cópia. Documentos assinados continuam sujeitos à retificação própria.
+
 O botão Atualizar status está na lista e na página do processo. Permite marcar Em análise ou Pendente de documento, com observação e registro de autoria no histórico, sem mudar a custódia. Fica disponível ao responsável por uma participação recebida; administradores e protocolistas também podem atuar sobre participações recebidas. Usuários somente de consulta e participantes que ainda não receberam não podem usar a ação.
 
 Receber, encaminhar, concluir e arquivar continuam sendo ações próprias: não é possível simular essas operações escolhendo um texto no campo de situação. Processos concluídos/arquivados não podem ser reabertos por esse campo.

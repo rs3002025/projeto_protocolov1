@@ -1,0 +1,13 @@
+<form method="post" data-forward-protocol action="{{ url_for('tramitar_protocolo', protocolo_id=protocolo.id) }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="envio_token" value="{{ tramitacao_token }}-{{ item.id if item else 'simples' }}">
+  {% if item %}<input type="hidden" name="providencia_id" value="{{ item.id }}">{% endif %}
+  <div class="row g-3">
+    <div class="col-md-6"><label class="form-label" for="setor-{{ item.id if item else 'simples' }}">Setor destinatário</label>
+      <select class="form-select" name="setor_destino_id" id="setor-{{ item.id if item else 'simples' }}" required><option value="">Selecione o setor destinatário</option>{% for setor in lotacoes %}<option value="{{ setor.id }}">{{ setor.nome }}</option>{% endfor %}</select></div>
+    <div class="col-md-6"><label class="form-label" for="destino-{{ item.id if item else 'simples' }}">Usuário destinatário (opcional)</label>
+      <select class="form-select" name="destinatario_usuario_id" id="destino-{{ item.id if item else 'simples' }}"><option value="">Qualquer usuário do setor</option>{% for u in usuarios_destino %}<option value="{{ u.id }}" data-setor="{{ u.lotacao_id }}">{{ u.nome_completo or u.nome }}</option>{% endfor %}</select></div>
+    <div class="col-12"><label class="form-label" for="observacao-{{ item.id if item else 'simples' }}">Observação do encaminhamento (opcional)</label><textarea class="form-control" name="observacao" id="observacao-{{ item.id if item else 'simples' }}" rows="4" maxlength="10000"></textarea></div>
+    <div class="col-12"><button class="btn btn-primary" type="submit">Encaminhar protocolo</button></div>
+  </div>
+</form>
