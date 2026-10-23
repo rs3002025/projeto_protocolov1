@@ -838,7 +838,7 @@ h1, .h1 { font-size: clamp(1.65rem, 2.6vw, 2.2rem); }
 .stat-card-link:focus-visible, .attention-item:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
 .attention-panel { margin: 1.25rem 0; padding: 1.2rem; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--shadow-sm); }
 .attention-heading { margin-bottom: 1rem; }
-.attention-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; }
+.attention-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: .75rem; }
 .attention-item { display: flex; flex-direction: column; min-height: 94px; padding: 1rem; border: 1px solid var(--line); border-radius: var(--radius-md); color: var(--ink-700); background: #f8fbfa; text-decoration: none; }
 .attention-item:hover { border-color: var(--brand-500); color: var(--brand-800); background: var(--brand-50); }
 .attention-item strong { color: var(--brand-800); font-size: 1.65rem; }

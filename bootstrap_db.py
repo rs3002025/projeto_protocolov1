@@ -238,6 +238,20 @@ def bootstrap():
                 deve_trocar_senha=True,
             ))
         db.session.commit()
+        # Regulariza apenas pedidos externos ainda pendentes em clientes sem PIN.
+        # Cada recebimento gera histórico e auditoria, sem recriar PDFs/assinaturas.
+        from protocol_receipts import receive_pending_without_signature
+        pending_tenants = db.session.query(Protocolo.tenant_id).filter(
+            Protocolo.modalidade_abertura == 'remota_requerente',
+            Protocolo.status == 'AGUARDANDO RECEBIMENTO',
+            Protocolo.excluido_em.is_(None), Protocolo.arquivado_em.is_(None))
+        for organization in Organizacao.query.filter(
+                Organizacao.emissao_eletronica_protocolista_enabled.is_(False),
+                Organizacao.id.in_(pending_tenants)).order_by(Organizacao.id).all():
+            count = receive_pending_without_signature(organization)
+            db.session.commit()
+            if count:
+                print(f'Recebimento automático: cliente {organization.id}, {count} requerimentos.')
 
 
 if __name__ == '__main__':

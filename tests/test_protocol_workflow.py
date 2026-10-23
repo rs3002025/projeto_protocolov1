@@ -312,6 +312,36 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(self.update_status('EM ANÁLISE').status_code, 403)
         self.assertNotIn('>Atualizar status</button>', self.client.get(f'/protocolo/{self.pid}').get_data(as_text=True))
 
+    def test_document_request_survives_forward_and_blocks_false_analysis(self):
+        self.login('admin'); self.send('alice', 'carol')
+        with app.app_context():
+            p = db.session.get(Protocolo, self.pid)
+            p.status = 'PENDENTE DE DOCUMENTO'
+            db.session.add(SolicitacaoComplemento(tenant_id=self.tenant, protocolo_id=self.pid,
+                solicitado_por_id=self.ids['admin'], motivo='Envie a certidão faltante.', status='PENDENTE'))
+            db.session.commit()
+        self.receive('alice')
+        self.assertEqual(self.update_status('EM ANÁLISE').status_code, 409)
+        aid, _ = self.participation('alice')
+        self.send('bob', providencia_id=aid)
+        with app.app_context():
+            self.assertEqual(db.session.get(Protocolo, self.pid).status, 'PENDENTE DE DOCUMENTO')
+        self.receive('carol')
+        with app.app_context():
+            self.assertEqual(db.session.get(Protocolo, self.pid).status, 'PENDENTE DE DOCUMENTO')
+        self.login('admin')
+        self.assertEqual(self.post('finalizar').status_code, 409)
+
+    def test_manual_document_pending_blocks_completion_and_archive(self):
+        self.login('admin')
+        self.assertEqual(self.update_status('PENDENTE DE DOCUMENTO').status_code, 200)
+        self.assertEqual(self.post('finalizar').status_code, 409)
+        self.post('arquivar')
+        with app.app_context():
+            self.assertIsNone(db.session.get(Protocolo, self.pid).arquivado_em)
+        self.update_status('EM ANÁLISE')
+        self.assertEqual(self.post('finalizar').status_code, 302)
+
     def test_completion_aliases_share_filters_display_and_dashboard(self):
         from datetime import date
         self.login('admin')
