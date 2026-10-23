@@ -285,6 +285,9 @@ class DespachoProtocolo(TenantMixin, db.Model):
     file_hash = db.Column(db.String(64), nullable=False)
     file_data = db.Column(db.LargeBinary)
     protocolo = db.relationship('Protocolo', backref=db.backref('despachos', order_by='DespachoProtocolo.numero'))
+    excluido_em = db.Column(db.TIMESTAMP(timezone=True))
+    excluido_por_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'))
+    motivo_exclusao = db.Column(db.Text)
 
 
 class Anexo(TenantMixin, db.Model):

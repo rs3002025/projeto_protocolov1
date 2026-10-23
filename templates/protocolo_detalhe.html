@@ -171,7 +171,8 @@
 {% endif %}
 
 <section class="card mt-4 dispatch-section" id="despachos">
-<div class="card-header dispatch-section-header"><div><h2 class="h5 mb-1">Despachos</h2><span class="dispatch-count">{{ protocolo.despachos|length }} {{ 'registrado' if protocolo.despachos|length == 1 else 'registrados' }}</span></div>
+{% set despachos_visiveis = protocolo.despachos|selectattr('excluido_em', 'none')|list %}
+<div class="card-header dispatch-section-header"><div><h2 class="h5 mb-1">Despachos</h2><span class="dispatch-count">{{ despachos_visiveis|length }} {{ 'registrado' if despachos_visiveis|length == 1 else 'registrados' }}</span></div>
 {% if can_add_dispatch(protocolo) %}<button class="btn btn-primary" type="button" data-dispatch-toggle aria-controls="novo-despacho" aria-expanded="false">+ Incluir despacho</button>{% endif %}</div>
 <div class="card-body">
 {% if can_add_dispatch(protocolo) %}<div id="novo-despacho" class="dispatch-editor-panel mb-4" hidden>
@@ -183,10 +184,17 @@
 <div class="dispatch-editor-actions"><button class="btn btn-primary" type="submit">Registrar despacho</button><button class="btn btn-outline-secondary" type="button" data-dispatch-close>Voltar</button></div>
 </form></div>{% endif %}
 <div class="dispatch-list">
-{% for despacho in protocolo.despachos %}<article class="dispatch-document" id="despacho-{{ despacho.id }}">
+{% for despacho in despachos_visiveis %}<article class="dispatch-document" id="despacho-{{ despacho.id }}">
 <header class="dispatch-document-header"><div class="dispatch-document-title"><span class="dispatch-document-icon" aria-hidden="true"><svg width="21" height="24" viewBox="0 0 24 28" fill="none"><path d="M4 1h10l6 6v19H4zM14 1v7h6M8 13h8M8 17h8M8 21h5" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></span><div><h3 class="h6 mb-1">Despacho nº {{ despacho.numero }}</h3><strong class="dispatch-author">{{ despacho.autor_nome }}</strong>{% if despacho.autor_setor %}<span class="dispatch-sector">{{ despacho.autor_setor }}</span>{% endif %}</div></div><time class="dispatch-date">{{ despacho.criado_em|brasilia('%d/%m/%Y') }}<span>{{ despacho.criado_em|brasilia('%H:%M') }}</span></time></header>
 <div class="dispatch-document-body">{{ despacho.texto }}</div>
-<footer class="dispatch-document-footer"><a class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" download href="{{ url_for('baixar_despacho', protocolo_id=protocolo.id, despacho_id=despacho.id) }}">Baixar PDF do despacho</a></footer>
+<footer class="dispatch-document-footer d-flex flex-wrap gap-2 align-items-start"><a class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" download href="{{ url_for('baixar_despacho', protocolo_id=protocolo.id, despacho_id=despacho.id) }}">Baixar PDF do despacho</a>
+{% if can('delete') %}<details class="dispatch-delete"><summary class="btn btn-sm btn-outline-danger">Excluir despacho</summary>
+<form class="mt-2" method="post" action="{{ url_for('excluir_despacho', protocolo_id=protocolo.id, despacho_id=despacho.id) }}">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<label class="form-label" for="motivo-despacho-{{ despacho.id }}">Motivo (opcional)</label><textarea class="form-control mb-2" id="motivo-despacho-{{ despacho.id }}" name="motivo" rows="2" maxlength="2000"></textarea>
+<label class="d-block mb-2"><input type="checkbox" name="confirmar_exclusao" value="1" required> Confirmo a exclusão do despacho nº {{ despacho.numero }}.</label>
+<button class="btn btn-sm btn-danger" type="submit">Confirmar exclusão</button>
+</form></details>{% endif %}</footer>
 </article>
 {% else %}<div class="dispatch-empty"><strong>Nenhum despacho registrado</strong><p class="mb-0">As manifestações formais deste protocolo aparecerão aqui.</p></div>{% endfor %}
 </div></div></section>
@@ -209,17 +217,10 @@
         {% if protocolo.emissoes_eletronicas %}<details class="mb-4 document-history"><summary>Histórico de documentos</summary><ul class="list-group">{% for versao in protocolo.emissoes_eletronicas|reverse %}<li class="list-group-item d-flex justify-content-between align-items-center"><span><strong>Versão {{ versao.versao }}</strong> · {{ emission_status_label(versao.situacao_documento) }}<small class="d-block">Registrada por {{ versao.nome_emitente }} em {{ versao.emitido_em|brasilia('%d/%m/%Y %H:%M') }}</small>{% if versao.status == 'CANCELADA' %}<small class="d-block text-danger">Cancelada em {{ versao.cancelado_em|brasilia('%d/%m/%Y %H:%M') }}. Motivo: {{ versao.motivo_cancelamento }}</small>{% endif %}</span><a class="btn btn-sm btn-outline-primary" href="{{ url_for('baixar_anexo', anexo_id=versao.pdf_anexo_id) }}">Download</a></li>{% endfor %}</ul></details><hr>{% endif %}
         <div class="mb-3">
             {% if can('edit') and not protocolo.arquivado_em and (not protocolo.emissao_eletronica or protocolo.retificacao_pendente) %}
-            <details class="mb-3"><summary>Adicionar anexo ou substituir arquivo</summary>
+            <details class="mb-3"><summary>Adicionar documento</summary>
             <form action="{{ url_for('adicionar_anexo', protocolo_id=protocolo.id) }}" method="POST" enctype="multipart/form-data">
                 {{ anexo_form.hidden_tag() }}
-                <label for="documento_id" class="form-label">Documento</label>
-                <select name="documento_id" id="documento_id" class="form-select mb-2">
-                    <option value="">Novo documento independente</option>
-                    {% for documento in documentos_atuais %}
-                    <option value="{{ documento.id }}">Nova versão de {{ documento.file_name }} (atual: v{{ documento.versao }})</option>
-                    {% endfor %}
-                </select>
-                <p class="form-text">Até 5 MB por arquivo. Uma nova versão não apaga a anterior.</p>
+                <p class="form-text">Até 5 MB por arquivo.</p>
                 <label for="anexo" class="form-label">Arquivo</label>
                 <div class="input-group">
                     {{ anexo_form.anexo(class="form-control") }}
@@ -237,13 +238,23 @@
         <h3 class="h6">Anexos</h3>
         <ul class="list-group">
             {% for anexo in protocolo.anexos if anexo.documento_chave != 'protocolo-autenticado' %}
-                <li class="list-group-item d-flex justify-content-between align-items-center">
+                <li class="list-group-item d-flex flex-wrap gap-3 justify-content-between align-items-start">
                     <span>{{ anexo.file_name }} — <strong>v{{ anexo.versao }}</strong> ({{ (anexo.file_size / 1024)|round(2) }} KB)
                         <small class="d-block">Enviado por {{ anexo.enviado_por.nome if anexo.enviado_por else 'não registrado (legado)' }} em {{ anexo.created_at|brasilia('%d/%m/%Y %H:%M') if anexo.created_at else 'data não registrada' }}.</small>
                         {% if anexo.solicitacao_complemento_id %}<small class="d-block">Documento enviado para atender solicitação de complementação.</small>{% endif %}
                     </span>
-                    <div>
+                    <div class="d-flex flex-wrap gap-2 align-items-start">
                         <a href="{{ url_for('baixar_anexo', anexo_id=anexo.id) }}" class="btn btn-sm btn-outline-primary">Download</a>
+                        {% if anexo in documentos_atuais and can('edit') and not protocolo.arquivado_em and (not protocolo.emissao_eletronica or protocolo.retificacao_pendente) %}
+                        <details><summary class="btn btn-sm btn-outline-secondary">Substituir</summary>
+                        <form class="mt-2" action="{{ url_for('adicionar_anexo', protocolo_id=protocolo.id) }}" method="post" enctype="multipart/form-data">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="documento_id" value="{{ anexo.id }}">
+                            <label class="form-label" for="substituir-arquivo-{{ anexo.id }}">Novo arquivo para {{ anexo.file_name }}</label>
+                            <input class="form-control mb-2" type="file" id="substituir-arquivo-{{ anexo.id }}" name="anexo" required>
+                            <p class="form-text">Até 5 MB. A versão anterior será preservada no histórico.</p>
+                            <button class="btn btn-sm btn-primary" type="submit">Enviar substituição</button>
+                        </form></details>
+                        {% endif %}
                     </div>
                 </li>
             {% else %}

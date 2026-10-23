@@ -91,6 +91,11 @@ SCHEMA_COLUMNS = {
         'versao': 'INTEGER DEFAULT 1 NOT NULL',
         'substitui_emissao_id': 'BIGINT',
     },
+    'despachos_protocolos': {
+        'excluido_em': 'TIMESTAMP WITH TIME ZONE',
+        'excluido_por_id': 'INTEGER',
+        'motivo_exclusao': 'TEXT',
+    },
     'movimentacoes': {
         'destinatario_usuario_id': 'INTEGER',
         'providencia_id': 'INTEGER REFERENCES providencias_protocolos(id)',

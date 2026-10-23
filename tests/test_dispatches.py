@@ -88,6 +88,76 @@ class DispatchTests(unittest.TestCase):
         self.assertEqual(self.count(), 1)
         self.assertEqual(self.renderer.call_count, 1)
 
+    def delete_dispatch(self, did, **changes):
+        data={'confirmar_exclusao': '1', 'motivo': 'Lançamento de teste'}
+        data.update(changes)
+        return self.client.post(f'/protocolo/{self.pid}/despachos/{did}/excluir', data=data)
+
+    def test_admin_deletes_dispatch_preserving_evidence_and_sequence(self):
+        self.login('admin'); self.post('Despacho que será excluído.')
+        with app.app_context():
+            d=DespachoProtocolo.query.one(); did=d.id; pdf=d.file_data
+        self.assertEqual(self.delete_dispatch(did).status_code, 302)
+        html=self.client.get(f'/protocolo/{self.pid}').get_data(as_text=True)
+        self.assertNotIn('Despacho que será excluído.', html)
+        self.assertNotIn(f'id="despacho-{did}"', html)
+        self.assertIn('Nenhum despacho registrado', html)
+        self.assertEqual(self.client.get(f'/protocolo/{self.pid}/despachos/{did}/pdf').status_code, 404)
+        self.assertEqual(self.delete_dispatch(did).status_code, 404)
+        self.post('Novo despacho.', token='b'*32)
+        with app.app_context():
+            deleted=db.session.get(DespachoProtocolo,did)
+            self.assertIsNotNone(deleted.excluido_em)
+            self.assertEqual(deleted.excluido_por_id,self.ids['admin'])
+            self.assertEqual(deleted.file_data,pdf)
+            self.assertEqual(deleted.texto,'Despacho que será excluído.')
+            self.assertEqual([d.numero for d in DespachoProtocolo.query.order_by(DespachoProtocolo.numero)],[1,2])
+            self.assertEqual(HistoricoProtocolo.query.filter_by(acao='DESPACHO_EXCLUIDO').count(),1)
+            self.assertTrue(verify_audit_chain(self.tenant)[0])
+
+    def test_dispatch_delete_admin_only_confirmed_csrf_and_tenant_scoped(self):
+        self.login('admin'); self.post()
+        with app.app_context(): did=DespachoProtocolo.query.one().id
+        for role in ('protocolista','tramitador','consulta','requerente'):
+            self.login(role)
+            self.assertIn(self.delete_dispatch(did).status_code,(302,403))
+            html=self.client.get(f'/protocolo/{self.pid}').get_data(as_text=True)
+            self.assertNotIn('>Excluir despacho<',html)
+        self.login('admin')
+        self.assertEqual(self.client.get(f'/protocolo/{self.pid}/despachos/{did}/excluir').status_code,405)
+        self.assertEqual(self.delete_dispatch(did, confirmar_exclusao='').status_code,400)
+        self.assertEqual(self.delete_dispatch(did, motivo='x'*2001).status_code,400)
+        self.assertEqual(self.delete_dispatch(did, motivo='bad\x00value').status_code,400)
+        self.assertEqual(self.client.post(f'/protocolo/{self.foreign}/despachos/{did}/excluir', data={'confirmar_exclusao':'1'}).status_code,404)
+        app.config['WTF_CSRF_ENABLED']=True
+        self.assertEqual(self.delete_dispatch(did).status_code,400)
+        app.config['WTF_CSRF_ENABLED']=False
+        with app.app_context(): self.assertIsNone(db.session.get(DespachoProtocolo,did).excluido_em)
+
+    def test_attachment_replace_is_per_current_file_and_preserves_versions(self):
+        import io
+        from models import Anexo
+        self.login('admin')
+        endpoint=f'/protocolo/{self.pid}/anexo/novo'
+        self.assertEqual(self.client.post(endpoint,data={'anexo':(io.BytesIO(b'original'),'teste.txt')}).status_code,302)
+        with app.app_context(): original=Anexo.query.one().id
+        html=self.client.get(f'/protocolo/{self.pid}').get_data(as_text=True)
+        self.assertNotIn('Novo documento independente',html)
+        self.assertNotIn('<select name="documento_id"',html)
+        self.assertIn(f'name="documento_id" value="{original}"',html)
+        self.assertIn('>Substituir<',html)
+        self.assertEqual(self.client.post(endpoint,data={'documento_id':str(original),'anexo':(io.BytesIO(b'replacement'),'novo.txt')}).status_code,302)
+        with app.app_context():
+            versions=Anexo.query.order_by(Anexo.versao).all()
+            self.assertEqual([a.file_data for a in versions],[b'original',b'replacement'])
+            latest=versions[-1].id
+        html=self.client.get(f'/protocolo/{self.pid}').get_data(as_text=True)
+        self.assertNotIn(f'name="documento_id" value="{original}"',html)
+        self.assertIn(f'name="documento_id" value="{latest}"',html)
+        self.login('consulta')
+        html=self.client.get(f'/protocolo/{self.pid}').get_data(as_text=True)
+        self.assertNotIn('>Substituir<',html)
+
     def test_read_only_and_portal_cannot_register(self):
         for role in ('consulta', 'requerente'):
             self.login(role)
