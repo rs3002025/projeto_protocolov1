@@ -388,6 +388,32 @@ class DispatchTests(unittest.TestCase):
         return self.client.get(f'/protocolo/{self.pid}').get_data(as_text=True)
 
     @unittest.skipUnless(os.environ.get('RUN_PDF_QA') == '1', 'Exige o renderizador PDF e suas bibliotecas nativas.')
+    def test_justified_pdf_fills_line_width_except_last_line(self):
+        import json
+        from types import SimpleNamespace
+        from flask import render_template
+        from weasyprint import HTML
+        text=' '.join(['Texto de teste para conferir o alinhamento justificado das linhas.']*12)
+        rich=json.dumps({'ops':[{'insert':text},{'insert':'\n','attributes':{'align':'justify'}}]})
+        d=SimpleNamespace(numero=3,protocolo_numero='1470/2026',texto=text,
+            conteudo_delta=rich,assunto='Conferência de alinhamento',autor_nome='Autor fictício',
+            autor_setor=None,criado_em=datetime.now(timezone.utc))
+        with app.app_context(),app.test_request_context('/'):
+            html=render_template('despacho_pdf.html',despacho=d,
+                organizacao=db.session.get(Organizacao,self.tenant),pdf_logo_url=None)
+            document=HTML(string=html).render()
+        paragraphs=[b for page in document.pages for b in page._page_box.descendants()
+                    if type(b).__name__=='BlockBox' and b.element_tag=='p'
+                    and 'text-align:justify' in b.element.get('style','')]
+        self.assertEqual(len(paragraphs),1)
+        paragraph=paragraphs[0]
+        lines=[b for b in paragraph.children if type(b).__name__=='LineBox']
+        self.assertGreaterEqual(len(lines),3)
+        for line in lines[:-1]:
+            self.assertAlmostEqual(line.width,paragraph.width,delta=.1)
+        self.assertLess(lines[-1].width,paragraph.width-1)
+
+    @unittest.skipUnless(os.environ.get('RUN_PDF_QA') == '1', 'Exige o renderizador PDF e suas bibliotecas nativas.')
     def test_real_pdf_renderer(self):
         self.pdf_mock.stop()
         from protocol_dispatches import render_dispatch_pdf
