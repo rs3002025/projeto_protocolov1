@@ -870,11 +870,11 @@ h1, .h1 { font-size: clamp(1.65rem, 2.6vw, 2.2rem); }
 .protocol-list-table .badge { white-space: normal; line-height: 1.4; max-width: 100%; }
 .protocol-list-table .action-group { flex-direction: column; align-items: stretch; white-space: normal; }
 .protocol-list-table .btn { white-space: normal; overflow-wrap: anywhere; }
-.detail-page-header { flex-direction: column; align-items: stretch; }
-.detail-identity { min-width: 0; }
-.detail-actions { flex: none; width: 100%; max-width: 100%; justify-content: flex-start; white-space: normal; }
+.detail-page-header { flex-direction: row; flex-wrap: wrap; align-items: flex-start; }
+.detail-identity { flex: 1 1 13rem; min-width: 0; overflow-wrap: anywhere; }
+.detail-actions { flex: 0 0 auto; width: auto; max-width: 100%; margin-left: auto; justify-content: flex-end; white-space: normal; }
 .detail-actions .btn { white-space: nowrap; font-size: .875rem; padding: .5rem .75rem; }
-.detail-actions .btn-back { margin-bottom: 0; }
+.detail-identity .detail-protocol-number { min-height: 40px; max-width: 100%; padding: .5rem .75rem; font-size: 1.125rem; line-height: 1.25; white-space: normal; overflow-wrap: anywhere; }
 .document-history summary { font-weight: 700; cursor: pointer; padding: .5rem 0; }
 .protocol-number { display: inline-block; padding: .3rem .58rem; border: 1px solid #b8ddd4; border-radius: .55rem; color: var(--brand-800); background: var(--brand-50); font-weight: 800; letter-spacing: .015em; white-space: nowrap; }
 .dashboard-charts-grid { gap: 1rem; }
