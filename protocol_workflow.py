@@ -96,6 +96,8 @@ def synchronize(protocol):
     # explicitamente registrada mesmo quando outra participação é recebida/concluída.
     if protocol.complemento_pendente:
         protocol.status = 'PENDENTE DE DOCUMENTO'
+    elif protocol.providencias and not open_items and protocol.status != 'PENDENTE DE DOCUMENTO':
+        protocol.status = 'AGUARDANDO CONCLUSÃO'
     elif protocol.status not in ('EM ANÁLISE', 'PENDENTE DE DOCUMENTO'):
         protocol.status = 'EM TRAMITAÇÃO' if any(
             p.movimento_atual and not p.movimento_atual.recebido_em for p in open_items) else 'RECEBIDO'
