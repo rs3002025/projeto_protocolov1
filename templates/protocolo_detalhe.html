@@ -1,9 +1,11 @@
 {% extends "layout.html" %}
 {% block content %}
+{% set tramitacao_token = despacho_token %}
 <a href="{{ url_for('listar_protocolos') }}" class="btn btn-outline-secondary btn-back">← Voltar aos protocolos</a>
 <div class="detail-page-header mb-3">
   <div class="detail-identity"><h1 class="protocol-number detail-protocol-number mb-1">Protocolo {{ protocolo.numero }}</h1><p class="text-muted mb-0">{{ protocolo.nome or 'Requerente não informado' }}</p></div>
   <div class="detail-actions action-group action-group-visible">
+    {% if current_user.tipo in ['admin', 'protocolista'] %}<form method="post" action="{{ url_for('acompanhar_protocolo', protocol_id=protocolo.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="acompanhar" value="{{ '0' if acompanhando else '1' }}"><button class="btn btn-outline-primary" type="submit" aria-pressed="{{ 'true' if acompanhando else 'false' }}">{{ 'Deixar de acompanhar' if acompanhando else 'Acompanhar processo' }}</button></form>{% endif %}
     {% if protocolo.aguardando_recebimento_inicial and current_user.tipo in ['admin', 'protocolista'] %}
     <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalReceberRequerimento">Receber requerimento</button>
     {% elif can('route') and pode_receber %}<a class="btn btn-primary" href="#tramitacao">Receber protocolo</a>
@@ -12,6 +14,7 @@
     {% set pode_editar_acoes = can('edit') and not protocolo.arquivado_em and not protocolo.aguardando_recebimento_inicial %}
     {% if pode_editar_acoes or can('delete') %}
     <div class="dropdown"><button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">Outras ações</button><ul class="dropdown-menu dropdown-menu-end">
+    {% if current_user.tipo == 'admin' and protocolo.status not in ['FINALIZADO', 'CONCLUÍDO', 'ARQUIVADO'] and not protocolo.arquivado_em %}<li><button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#finalizar-processo">Finalizar processo</button></li>{% endif %}
     {% if pode_editar_acoes %}
       {% if not protocolo.emissao_eletronica %}<li><form method="post" target="_blank" action="{{ url_for('gerar_documento_versionado', protocolo_id=protocolo.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="nova_versao" value="1"><button type="submit" class="dropdown-item">Gerar nova versão do requerimento</button></form></li>{% endif %}
     {% if active_organization.emissao_eletronica_protocolista_enabled and (not protocolo.emissao_eletronica or protocolo.retificacao_pendente) and current_user.tipo in ['admin', 'protocolista'] %}<li><button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#modalAutenticarEmissao">Assinar requerimento</button></li>{% endif %}
@@ -91,10 +94,12 @@
 <details class="requester-details"><summary>Dados do requerente</summary><dl class="requester-data mt-3">
 {% for label, value in [('Nome', protocolo.nome), ('Matrícula', protocolo.matricula), ('CPF', protocolo.cpf), ('RG', protocolo.rg), ('Telefone', protocolo.telefone), ('Cargo/Função', protocolo.cargo), ('Lotação', protocolo.lotacao), ('Unidade de exercício', protocolo.unidade_exercicio), ('Endereço', protocolo.endereco), ('Bairro', protocolo.bairro), ('Município', protocolo.municipio), ('CEP', protocolo.cep)] %}<div><dt>{{ label }}</dt><dd>{{ value or 'Não informado' }}</dd></div>{% endfor %}
 </dl></details></div></section>
-{% if can('route') and not protocolo.arquivado_em %}
+{% if can('route') and not protocolo.arquivado_em and protocolo.status not in ['FINALIZADO', 'CONCLUÍDO'] %}
 <div class="card mt-4" id="tramitacao">
     <div class="card-header"><h2 class="h5 mb-0">Encaminhamento e recebimento</h2></div>
     <div class="card-body">
+        {% include 'workflow_participations.html' %}
+        {% if not protocolo.providencias %}
         {% if movimentacao_pendente %}
             <p>Encaminhado para <strong>{{ movimentacao_pendente.setor_destino.nome }}</strong>{% if movimentacao_pendente.destinatario_usuario %}, aos cuidados de <strong>{{ movimentacao_pendente.destinatario_usuario.nome }}</strong>{% else %}, disponível a todos do setor{% endif %}, em {{ movimentacao_pendente.enviado_em|brasilia('%d/%m/%Y %H:%M') }}. Aguardando recebimento.</p>
             {% if pode_receber %}<form method="POST" action="{{ url_for('receber_protocolo', protocolo_id=protocolo.id) }}">
@@ -104,6 +109,7 @@
         {% elif pode_encaminhar %}
             <form method="POST" action="{{ url_for('tramitar_protocolo', protocolo_id=protocolo.id) }}">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<input type="hidden" name="envio_token" value="{{ tramitacao_token }}-simples">
                 <div class="row g-2">
                     <div class="col-md-6">
                         <label class="form-label" for="setor-destino">Setor destinatário</label>
@@ -135,9 +141,19 @@
               })();
             </script>
         {% else %}<p class="text-muted mb-0">Processo disponível somente para consulta; ele não está mais sob responsabilidade do seu setor.</p>{% endif %}
+        {% endif %}
+        {% if (not protocolo.providencias and pode_encaminhar) or (protocolo.providencias and current_user.tipo in ['admin', 'protocolista']) %}
+        <details class="mt-3"><summary>Encaminhar para várias pessoas — para providências</summary>
+        <form class="mt-3" method="post" action="{{ url_for('tramitar_protocolo', protocolo_id=protocolo.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="envio_token" value="{{ tramitacao_token }}-multiplo"><input type="hidden" name="nova_providencia" value="1">
+        <p class="form-text">Cada destinatário receberá uma participação no mesmo processo. A conclusão de uma não encerra as demais.</p>
+        <label class="form-label" for="destinatarios-multiplos">Destinatários</label><select id="destinatarios-multiplos" class="form-select" name="destinatarios_ids" multiple size="6" required>{% for u in usuarios_destino %}<option value="{{ u.id }}">{{ u.nome_completo or u.nome }} — {{ u.lotacao.nome if u.lotacao else '' }}</option>{% endfor %}</select>
+        <p class="form-text">No computador, use Ctrl ou Shift para selecionar mais de uma pessoa.</p><label class="form-label" for="observacao-multipla">Observação (opcional)</label><textarea id="observacao-multipla" class="form-control mb-3" name="observacao" rows="4" maxlength="10000"></textarea><button type="submit" class="btn btn-primary">Encaminhar para providências</button></form></details>
+        {% endif %}
     </div>
 </div>
 {% endif %}
+
+{% include 'workflow_finalization.html' %}
 
 {% if can('unarchive') and (protocolo.arquivado_em or protocolo.status == 'ARQUIVADO') %}
 <div class="card mt-4" id="desarquivamento">

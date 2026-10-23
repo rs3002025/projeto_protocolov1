@@ -297,12 +297,24 @@ def accessible_protocol_or_404(protocolo_id):
 
 def can_operate_protocol(protocolo):
     """Tramitadores só alteram processos que ainda estão sob custódia do seu setor."""
+    from protocol_workflow import can_work, is_closed
+    if is_closed(protocolo):
+        return False
+    if protocolo.providencias and current_user.tipo == 'tramitador':
+        return any(can_work(p) for p in protocolo.providencias)
     if current_user.tipo != 'tramitador':
         return True
     return bool(current_user.lotacao_id and protocolo.setor_atual_id == current_user.lotacao_id)
 
 def protocol_location(protocolo):
     """Descreve a localização operacional sem antecipar a transferência de custódia."""
+    if protocolo.providencias:
+        abertas = [p for p in protocolo.providencias if not p.concluida_em]
+        if not abertas:
+            return 'Providências concluídas'
+        return '; '.join(dict.fromkeys(p.movimento_atual.setor_destino.nome +
+            (' (aguardando recebimento)' if not p.movimento_atual.recebido_em else '')
+            for p in abertas if p.movimento_atual))
     pendente = next((movimento for movimento in reversed(protocolo.movimentacoes)
                      if movimento.recebido_em is None), None)
     if pendente:
@@ -569,6 +581,8 @@ HISTORY_ACTION_LABELS = {
     'DESARQUIVAMENTO': 'Desarquivamento',
     'EXCLUSAO': 'Exclusão do protocolo',
     'ALTERACAO_STATUS': 'Alteração de situação',
+    'PROVIDENCIA_CONCLUIDA': 'Providência concluída',
+    'FINALIZACAO': 'Finalização',
     'ANEXO_ADICIONADO': 'Documento anexado',
     'NOVA_VERSAO_DOCUMENTO': 'Nova versão de documento',
 }
@@ -1675,16 +1689,17 @@ def logout():
 @app.route("/meus_protocolos")
 @login_required
 def meus_protocolos():
+    from protocol_workflow import my_protocol_condition
     page = request.args.get('page', 1, type=int)
     query = apply_protocol_filters(
-        accessible_protocols_query().filter_by(responsavel=current_user.login),
+        accessible_protocols_query().filter(my_protocol_condition()),
         request.args,
     )
     protocolos = query\
         .order_by(Protocolo.id.desc())\
         .paginate(page=page, per_page=10)
     return render_template(
-        'protocolos.html', protocolos=protocolos, title="Meus Protocolos",
+        'protocolos.html', protocolos=protocolos, title="Meus processos",
         list_endpoint='meus_protocolos',
         pagination_args=pagination_filter_args(request.args),
     )
@@ -2865,6 +2880,8 @@ def criar_protocolo():
 @app.route("/protocolo/<int:protocolo_id>")
 @login_required
 def detalhe_protocolo(protocolo_id):
+    from models import AcompanhamentoProtocolo
+    from protocol_workflow import can_receive, can_work
     protocolo = accessible_protocol_or_404(protocolo_id)
     anexo_form = AnexoForm()
     lotacoes = tenant_query(Lotacao).filter_by(ativo=True).order_by(Lotacao.nome).all()
@@ -2876,6 +2893,10 @@ def detalhe_protocolo(protocolo_id):
         (current_user.lotacao_id == pendente.setor_destino_id and
          (not pendente.destinatario_usuario_id or pendente.destinatario_usuario_id == current_user.id))))
     pode_encaminhar = can_operate_protocol(protocolo) and not pendente
+    if protocolo.providencias:
+        pode_receber = any(can_receive(p.movimento_atual) for p in protocolo.providencias
+                           if not p.concluida_em and p.movimento_atual)
+        pode_encaminhar = any(can_work(p) for p in protocolo.providencias)
     documentos = {}
     for anexo in sorted(protocolo.anexos, key=lambda item: (item.versao, item.id)):
         # Os anexos anteriores ao versionamento tinham todos a chave 'anexo'.
@@ -2887,7 +2908,8 @@ def detalhe_protocolo(protocolo_id):
             Usuario.login == protocolo.responsavel)).all()
     nomes_por_login = {u.login: u.nome_completo or u.nome for u in atores}
     nomes_por_id = {u.id: u.nome_completo or u.nome for u in atores}
-    return render_template('protocolo_detalhe.html', title=f"Protocolo {protocolo.numero}", protocolo=protocolo, anexo_form=anexo_form, lotacoes=lotacoes, usuarios_destino=usuarios_destino, movimentacao_pendente=pendente, pode_receber=pode_receber, pode_encaminhar=pode_encaminhar, documentos_atuais=list(documentos.values()), nomes_por_login=nomes_por_login, nomes_por_id=nomes_por_id, despacho_token=secrets.token_urlsafe(24))
+    acompanhando = tenant_query(AcompanhamentoProtocolo).filter_by(protocolo_id=protocolo.id, usuario_id=current_user.id).first() is not None
+    return render_template('protocolo_detalhe.html', title=f"Protocolo {protocolo.numero}", protocolo=protocolo, anexo_form=anexo_form, lotacoes=lotacoes, usuarios_destino=usuarios_destino, movimentacao_pendente=pendente, pode_receber=pode_receber, pode_encaminhar=pode_encaminhar, documentos_atuais=list(documentos.values()), nomes_por_login=nomes_por_login, nomes_por_id=nomes_por_id, despacho_token=secrets.token_urlsafe(24), can_receive=can_receive, can_work=can_work, acompanhando=acompanhando)
 
 
 @app.post('/protocolo/<int:protocolo_id>/solicitar-complemento')
@@ -3118,6 +3140,11 @@ def atualizar_protocolo_status():
     if protocolo.arquivado_em:
         return jsonify({'sucesso': False, 'mensagem': 'Processo arquivado é somente para consulta.'}), 409
 
+    if novo_status in ('FINALIZADO', 'CONCLUÍDO'):
+        return jsonify({'sucesso': False, 'mensagem': 'Use Finalizar processo nas ações administrativas.'}), 400
+    if novo_responsavel or any(not p.concluida_em for p in protocolo.providencias):
+        return jsonify({'sucesso': False, 'mensagem': 'Use o encaminhamento ou a conclusão de providências para atualizar o andamento.'}), 409
+
     # Atualiza o protocolo
     protocolo.status = novo_status
     if novo_responsavel:
@@ -3146,84 +3173,21 @@ def atualizar_protocolo_status():
 @app.post('/protocolo/<int:protocolo_id>/tramitar')
 @permission_required('route')
 def tramitar_protocolo(protocolo_id):
-    protocolo = accessible_protocols_query().filter(Protocolo.id == protocolo_id).with_for_update().first_or_404()
-    if len(request.form.get('observacao') or '') > 10000:
-        abort(400, description='A observação do encaminhamento deve ter até 10.000 caracteres.')
-    if protocolo.aguardando_recebimento_inicial:
-        abort(409, description='Receba o requerimento antes de tramitar.')
-    if not can_operate_protocol(protocolo):
-        abort(403)
-    setor_destino = tenant_get_or_404(Lotacao, request.form.get('setor_destino_id', type=int))
-    destinatario_id = request.form.get('destinatario_usuario_id', type=int)
-    destinatario = None
-    if destinatario_id:
-        destinatario = tenant_query(Usuario).filter_by(
-            id=destinatario_id, lotacao_id=setor_destino.id, status='ativo').filter(
-                Usuario.tipo.in_(['admin', 'protocolista', 'tramitador'])).first_or_404()
-    if protocolo.arquivado_em:
-        flash('Um processo arquivado não pode ser tramitado.', 'danger')
-        return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
-    if tenant_query(Movimentacao).filter_by(protocolo_id=protocolo.id, recebido_em=None).first():
-        flash('Já existe uma tramitação aguardando recebimento.', 'danger')
-        return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
-
-    movimento = Movimentacao(
-        tenant_id=current_tenant_id(),
-        protocolo_id=protocolo.id,
-        setor_origem_id=protocolo.setor_atual_id,
-        setor_destino_id=setor_destino.id,
-        destinatario_usuario_id=destinatario.id if destinatario else None,
-        enviado_por_id=current_user.id,
-        observacao=(request.form.get('observacao') or '').strip(),
-    )
-    protocolo.status = 'EM TRAMITAÇÃO'
-    db.session.add_all([movimento, HistoricoProtocolo(
-        tenant_id=current_tenant_id(),
-        protocolo_id=protocolo.id,
-        status=protocolo.status,
-        responsavel=current_user.login,
-        usuario_id=current_user.id,
-        acao='TRAMITACAO',
-        observacao=(f'Encaminhado para {setor_destino.nome}' +
-                    (f', aos cuidados de {destinatario.nome}' if destinatario else ', disponível a todos do setor') +
-                    f'. {movimento.observacao or ""}').strip(),
-    )])
-    db.session.commit()
-    flash(f'Processo encaminhado para {setor_destino.nome}' +
-          (f', aos cuidados de {destinatario.nome}.' if destinatario else ', disponível a todos do setor.'), 'success')
-    return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
+    from protocol_workflow import forward_protocol
+    return forward_protocol(protocolo_id)
 
 @app.post('/protocolo/<int:protocolo_id>/receber')
 @permission_required('route')
 def receber_protocolo(protocolo_id):
-    protocolo = accessible_protocols_query().filter(Protocolo.id == protocolo_id).with_for_update().first_or_404()
-    movimento = tenant_query(Movimentacao).filter_by(protocolo_id=protocolo.id, recebido_em=None).order_by(Movimentacao.id.desc()).first_or_404()
-    if current_user.tipo != 'admin' and (
-            current_user.lotacao_id != movimento.setor_destino_id or
-            (movimento.destinatario_usuario_id and movimento.destinatario_usuario_id != current_user.id)):
-        flash('O recebimento deve ser feito pelo setor destinatário.', 'danger')
-        return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
-    movimento.recebido_por_id = current_user.id
-    movimento.recebido_em = datetime.utcnow()
-    protocolo.setor_atual_id = movimento.setor_destino_id
-    protocolo.responsavel = current_user.login
-    protocolo.status = 'EM ANÁLISE'
-    db.session.add(HistoricoProtocolo(
-        tenant_id=current_tenant_id(), protocolo_id=protocolo.id,
-        status=protocolo.status, responsavel=current_user.login,
-        usuario_id=current_user.id, acao='RECEBIMENTO',
-        observacao=f'Recebido pelo setor {movimento.setor_destino.nome}.',
-    ))
-    db.session.commit()
-    flash('Processo recebido com sucesso.', 'success')
-    return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
+    from protocol_workflow import receive_protocol
+    return receive_protocol(protocolo_id)
 
 @app.post('/protocolo/<int:protocolo_id>/arquivar')
 @permission_required('archive')
 def arquivar_protocolo(protocolo_id):
     protocolo = accessible_protocols_query().filter(Protocolo.id == protocolo_id).with_for_update().first_or_404()
     pendente = tenant_query(Movimentacao).filter_by(protocolo_id=protocolo.id, recebido_em=None).first()
-    if pendente:
+    if pendente or any(not p.concluida_em for p in protocolo.providencias):
         flash('Receba ou regularize a tramitação pendente antes de arquivar.', 'warning')
         return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
     if protocolo.arquivado_em:
@@ -3569,6 +3533,8 @@ def dashboard_stats():
 
 from protocol_dispatches import register_dispatch_routes
 register_dispatch_routes(app, db)
+from protocol_workflow import register_workflow_routes
+register_workflow_routes(app)
 
 if __name__ == '__main__':
     # The port must be available. Railway provides the PORT env var.

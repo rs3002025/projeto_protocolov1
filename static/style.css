@@ -1032,3 +1032,4 @@ h1, .h1 { font-size: clamp(1.65rem, 2.6vw, 2.2rem); }
 
 
 
+.protocol-number.protocol-number-finalized { color: #14532d; background: #dcfce7; border-color: #86b99a; }
