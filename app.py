@@ -68,6 +68,7 @@ from models import (Organizacao, OrganizacaoSubdominioAlias, Usuario, Protocolo,
                     OrganizacaoCapacidadeEvento, EmissaoEletronica, db)
 from models import SolicitacaoComplemento
 from models import PortalSessao, PortalRecuperacao, PortalCadastro
+from protocol_status import PROTOCOL_STATUSES, canonical_status, filter_status, grouped_status_counts
 from models import AuditoriaEvento
 from datetime import timezone
 from zoneinfo import ZoneInfo
@@ -374,7 +375,7 @@ def apply_protocol_filters(query, args):
     if nome:
         query = query.filter(Protocolo.nome.ilike(f'%{nome}%'))
     if status:
-        query = query.filter(Protocolo.status == status)
+        query = filter_status(query, Protocolo.status, status)
     if data_inicio:
         query = query.filter(Protocolo.data_solicitacao >= data_inicio)
     if data_fim:
@@ -552,7 +553,6 @@ ROLE_LABELS = {
     'consulta': 'Somente consulta',
     'requerente': 'Servidor — Portal do Servidor',
 }
-PROTOCOL_STATUSES = ('PROTOCOLO GERADO', 'EM ANÁLISE', 'PENDENTE DE DOCUMENTO', 'FINALIZADO', 'CONCLUÍDO', 'EM TRAMITAÇÃO', 'ARQUIVADO')
 SUPPORT_STATUSES = ('ABERTO', 'EM ATENDIMENTO', 'AGUARDANDO USUÁRIO', 'RESOLVIDO', 'FECHADO')
 SUPPORT_CATEGORIES = ('ACESSO', 'PROTOCOLOS', 'DOCUMENTOS', 'RELATÓRIOS', 'CONFIGURAÇÃO', 'OUTRO')
 SUPPORT_PRIORITIES = ('BAIXA', 'NORMAL', 'ALTA', 'CRÍTICA')
@@ -583,7 +583,7 @@ HISTORY_ACTION_LABELS = {
     'EXCLUSAO': 'Exclusão do protocolo',
     'ALTERACAO_STATUS': 'Alteração de situação',
     'PROVIDENCIA_CONCLUIDA': 'Providência concluída',
-    'FINALIZACAO': 'Finalização',
+    'FINALIZACAO': 'Conclusão do processo',
     'ANEXO_ADICIONADO': 'Documento anexado',
     'NOVA_VERSAO_DOCUMENTO': 'Nova versão de documento',
 }
@@ -648,6 +648,8 @@ def permission_context():
     return {
         'can': lambda permission: current_user.is_authenticated and permission in ROLE_PERMISSIONS.get(current_user.tipo, set()),
         'protocol_location': protocol_location,
+        'protocol_statuses': PROTOCOL_STATUSES,
+        'canonical_status': canonical_status,
         'role_labels': ROLE_LABELS,
         'active_organization': organization,
         'branding_logo_url': logo_url,
@@ -3126,7 +3128,7 @@ def deletar_anexo(anexo_id):
 def atualizar_protocolo_status():
     data = request.get_json()
     protocolo_id = data.get('protocoloId')
-    novo_status = data.get('novoStatus')
+    novo_status = canonical_status(data.get('novoStatus'))
     novo_responsavel = data.get('novoResponsavel') # Pode ser nulo
     observacao = data.get('observacao')
 
@@ -3142,7 +3144,7 @@ def atualizar_protocolo_status():
         return jsonify({'sucesso': False, 'mensagem': 'Processo arquivado é somente para consulta.'}), 409
 
     if novo_status in ('FINALIZADO', 'CONCLUÍDO'):
-        return jsonify({'sucesso': False, 'mensagem': 'Use Finalizar processo nas ações administrativas.'}), 400
+        return jsonify({'sucesso': False, 'mensagem': 'Use Concluir processo nas ações administrativas.'}), 400
     if novo_responsavel or any(not p.concluida_em for p in protocolo.providencias):
         return jsonify({'sucesso': False, 'mensagem': 'Use o encaminhamento ou a conclusão de providências para atualizar o andamento.'}), 409
 
@@ -3260,7 +3262,7 @@ def backup_excel():
             p.tipo_requerimento, p.requer_ao,
             p.data_solicitacao.strftime('%Y-%m-%d') if p.data_solicitacao else '',
             p.prazo_em.strftime('%Y-%m-%d') if p.prazo_em else '',
-            p.observacoes, p.status, p.responsavel
+            p.observacoes, p.status_exibicao, p.responsavel
         ]
         sheet.append(row)
         for cell in sheet[sheet.max_row]:
@@ -3396,7 +3398,7 @@ def get_protocolo_api(protocolo_id):
         'requer_ao': protocolo.requer_ao,
         'data_solicitacao': protocolo.data_solicitacao.isoformat() if protocolo.data_solicitacao else None,
         'observacoes': protocolo.observacoes,
-        'status': protocolo.status,
+        'status': protocolo.status_exibicao,
         'responsavel': protocolo.responsavel,
         'localizacao_atual': protocol_location(protocolo),
         'consulta_token': protocolo.consulta_token,
@@ -3418,7 +3420,7 @@ def dashboard_stats():
         # --- Base Query Construction ---
         base_query = accessible_protocols_query()
         if status:
-            base_query = base_query.filter(Protocolo.status == status)
+            base_query = filter_status(base_query, Protocolo.status, status)
         if tipo:
             base_query = base_query.filter(Protocolo.tipo_requerimento == tipo)
         if lotacao:
@@ -3521,7 +3523,7 @@ def dashboard_stats():
             'totalFinalizados': total_finalizados,
             'topTipos': [{'tipo_requerimento': r.tipo_requerimento, 'total': r.total} for r in top_tipos],
             'todosTipos': [{'tipo_requerimento': r.tipo_requerimento, 'total': r.total} for r in todos_tipos],
-            'statusProtocolos': [{'status': r.status, 'total': r.total} for r in status_protocolos],
+            'statusProtocolos': grouped_status_counts(status_protocolos),
             'setorProtocolos': [{'setor': r.setor, 'total': r.total} for r in setor_protocolos],
             'evolucaoProtocolos': [{'intervalo': r.intervalo.isoformat() if hasattr(r.intervalo, 'isoformat') else str(r.intervalo), 'total': r.total} for r in evolucao_protocolos if r.intervalo is not None]
         }

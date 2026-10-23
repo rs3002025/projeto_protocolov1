@@ -14,7 +14,7 @@
     {% set pode_editar_acoes = can('edit') and not protocolo.arquivado_em and not protocolo.aguardando_recebimento_inicial %}
     {% if pode_editar_acoes or can('delete') %}
     <div class="dropdown"><button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">Outras ações</button><ul class="dropdown-menu dropdown-menu-end">
-    {% if current_user.tipo == 'admin' and protocolo.status not in ['FINALIZADO', 'CONCLUÍDO', 'ARQUIVADO'] and not protocolo.arquivado_em %}<li><button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#finalizar-processo">Finalizar processo</button></li>{% endif %}
+    {% if current_user.tipo == 'admin' and protocolo.status not in ['FINALIZADO', 'CONCLUÍDO', 'ARQUIVADO'] and not protocolo.arquivado_em %}<li><button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#finalizar-processo">Concluir processo</button></li>{% endif %}
     {% if pode_editar_acoes %}
       {% if not protocolo.emissao_eletronica %}<li><form method="post" target="_blank" action="{{ url_for('gerar_documento_versionado', protocolo_id=protocolo.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="nova_versao" value="1"><button type="submit" class="dropdown-item">Gerar nova versão do requerimento</button></form></li>{% endif %}
     {% if active_organization.emissao_eletronica_protocolista_enabled and (not protocolo.emissao_eletronica or protocolo.retificacao_pendente) and current_user.tipo in ['admin', 'protocolista'] %}<li><button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#modalAutenticarEmissao">Assinar requerimento</button></li>{% endif %}
@@ -258,7 +258,7 @@
 <section class="card mt-4" id="historico"><div class="card-header"><h2 class="h5 mb-0">Histórico do protocolo</h2></div><div class="card-body"><ol class="list-group protocol-timeline">
 {% for h in protocolo.historico|chronological %}{% set partes = history_parts(h) %}
 <li class="list-group-item protocol-timeline-item"><div class="history-entry-heading"><strong>{{ history_action_label(h.acao) }}</strong><time>{{ history_date_label(h) }}</time></div>
-{% if not history_is_imported(h) %}<p class="text-muted mb-1">{{ nomes_por_id.get(h.usuario_id, nomes_por_login.get(h.responsavel, h.responsavel or 'Sistema')) }} · {{ h.status }}</p>{% elif h.acao != 'IMPORTACAO_LEGADO' %}<p class="text-muted mb-1">Importado</p>{% endif %}
+{% if not history_is_imported(h) %}<p class="text-muted mb-1">{{ nomes_por_id.get(h.usuario_id, nomes_por_login.get(h.responsavel, h.responsavel or 'Sistema')) }} · {{ canonical_status(h.status) }}</p>{% elif h.acao != 'IMPORTACAO_LEGADO' %}<p class="text-muted mb-1">Importado</p>{% endif %}
 {% if partes.sistema %}<p class="mb-1">{{ partes.sistema }}</p>{% endif %}
 {% if partes.observacao %}<div class="history-user-observation"><span class="text-muted">{{ 'Observação do encaminhamento' if h.acao == 'TRAMITACAO' else 'Registro' }}</span><div>{{ history_observation_label(partes.observacao) }}</div></div>{% endif %}
 {% if h.acao == 'DESPACHO_REGISTRADO' %}<a href="#despachos">Consultar despachos</a>{% endif %}

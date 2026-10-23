@@ -212,7 +212,8 @@ class Protocolo(TenantMixin, db.Model):
 
     @property
     def status_exibicao(self):
-        return 'AGUARDANDO RECEBIMENTO' if self.aguardando_recebimento_inicial else self.status
+        from protocol_status import canonical_status
+        return 'AGUARDANDO RECEBIMENTO' if self.aguardando_recebimento_inicial else canonical_status(self.status)
 
     @property
     def envio_requerente(self):
