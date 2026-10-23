@@ -221,7 +221,8 @@ class WorkflowTests(unittest.TestCase):
         for label in ('Acompanhar processo', 'Concluir processo', 'Excluir protocolo', 'Participação 1', 'Participação 2', 'Receber participação'):
             self.assertIn(label, html)
         self.assertIn('data-forward-protocol', html)
-        self.assertIn('Encaminhamento coletivo (opcional)', html)
+        self.assertIn('Enviar para outros responsáveis em paralelo (opcional)', html)
+        self.assertIn('Encaminhamento a transferir', html)
         self.login('consulta'); html = self.client.get(f'/protocolo/{self.pid}').get_data(as_text=True)
         self.assertNotIn('id="excluir-processo"', html)
 
@@ -242,19 +243,119 @@ class WorkflowTests(unittest.TestCase):
             self.login(manager)
             html = self.client.get(f'/protocolo/{self.pid}').get_data(as_text=True)
             self.assertIn('data-forward-protocol', html)
-            self.assertIn('name="nova_providencia"', html)
+            self.assertNotIn('name="nova_providencia"', html)
             self.assertEqual(self.send(recipient, nova_providencia='1').status_code, 302)
         with app.app_context():
-            self.assertEqual(ProvidenciaProtocolo.query.count(), 3)
+            self.assertEqual(ProvidenciaProtocolo.query.count(), 1)
             self.assertEqual(Movimentacao.query.count(), 3)
             self.assertIsNone(db.session.get(Movimentacao, original_movement).recebido_em)
             self.assertIsNone(db.session.get(ProvidenciaProtocolo, original).concluida_em)
             self.assertEqual(HistoricoProtocolo.query.filter(
-                HistoricoProtocolo.observacao.startswith('Intervenção da equipe de protocolo.')).count(), 2)
+                HistoricoProtocolo.observacao.contains('Transferência administrativa do encaminhamento')).count(), 2)
+            from protocol_workflow import pending_movement_condition
+            self.assertEqual(Movimentacao.query.filter(pending_movement_condition()).count(), 1)
             self.assertTrue(verify_audit_chain(self.tenant)[0])
-        self.receive('alice')
+        self.login('alice')
+        self.assertEqual(self.post('receber', {'movimentacao_id': original_movement}).status_code, 409)
         self.assertEqual(self.send('carol', nova_providencia='1').status_code, 409)
         self.assertNotIn('data-forward-protocol', self.client.get(f'/protocolo/{self.pid}').get_data(as_text=True))
+        self.receive('bob')
+        self.login('admin')
+        self.assertEqual(self.post('finalizar').status_code, 302)
+        self.assertEqual(self.post('arquivar').status_code, 302)
+        with app.app_context(): self.assertIsNotNone(db.session.get(Protocolo, self.pid).arquivado_em)
+
+    def test_manual_sector_route_without_external_users_has_one_current_destination(self):
+        self.login('protocolista')
+        with app.app_context():
+            sectors = [Lotacao(tenant_id=self.tenant, nome=n) for n in ('SEDUC sem usuário', 'SESA sem usuário')]
+            db.session.add_all(sectors); db.session.commit()
+            sector_ids = [s.id for s in sectors]
+        for sector in sector_ids:
+            self.assertEqual(self.post('tramitar', {'setor_destino_id': sector,
+                'observacao': 'Resposta recebida fora do sistema; seguir ao próximo setor.'}).status_code, 302)
+        self.assertEqual(self.post('tramitar', {'setor_destino_id': self.sector,
+            'destinatario_usuario_id': self.ids['protocolista']}).status_code, 302)
+        with app.app_context():
+            from protocol_workflow import pending_movement_condition
+            self.assertEqual(ProvidenciaProtocolo.query.count(), 1)
+            self.assertEqual(Movimentacao.query.count(), 3)
+            self.assertEqual(Movimentacao.query.filter(pending_movement_condition()).count(), 1)
+            self.assertEqual(Movimentacao.query.filter(Movimentacao.recebido_em.is_not(None)).count(), 0)
+        self.assertEqual(self.post('receber').status_code, 302)
+        with app.app_context():
+            self.assertEqual(db.session.get(Protocolo, self.pid).responsavel, 'protocolista')
+            self.assertEqual(Movimentacao.query.filter(pending_movement_condition()).count(), 0)
+            self.assertTrue(verify_audit_chain(self.tenant)[0])
+
+    def test_manager_transfers_already_received_branch_without_adding_owner(self):
+        self.login('admin'); self.send('alice')
+        self.receive('alice')
+        aid, received_id = self.participation('alice')
+        self.login('protocolista')
+        self.assertEqual(self.send('carol', providencia_id=aid, observacao='Resposta do setor entregue à equipe.').status_code, 302)
+        with app.app_context():
+            from protocol_workflow import can_work
+            self.assertEqual(ProvidenciaProtocolo.query.count(), 1)
+            self.assertEqual(db.session.get(Movimentacao, received_id).recebido_por_id, self.ids['alice'])
+            self.assertEqual(db.session.get(ProvidenciaProtocolo, aid).movimento_atual.destinatario_usuario_id, self.ids['carol'])
+        self.login('alice')
+        self.assertEqual(self.send('bob', providencia_id=aid).status_code, 403)
+
+    def test_legacy_pending_movement_is_preserved_but_not_left_open(self):
+        self.login('admin')
+        with app.app_context():
+            old = Movimentacao(tenant_id=self.tenant, protocolo_id=self.pid, setor_destino_id=self.sector,
+                enviado_por_id=self.ids['admin'], destinatario_usuario_id=self.ids['alice'])
+            db.session.add(old); db.session.commit(); old_id = old.id
+        self.assertEqual(self.send('carol').status_code, 302)
+        with app.app_context():
+            from protocol_workflow import pending_movement_condition
+            self.assertEqual(ProvidenciaProtocolo.query.count(), 1)
+            old = db.session.get(Movimentacao, old_id)
+            self.assertIsNotNone(old.providencia_id)
+            self.assertIsNone(old.recebido_em)
+            self.assertEqual(Movimentacao.query.filter(pending_movement_condition()).count(), 1)
+            self.assertNotEqual(Movimentacao.query.filter(pending_movement_condition()).one().id, old_id)
+
+    def test_manager_must_select_one_parallel_branch_to_transfer(self):
+        self.login('admin'); self.send('alice', 'bob')
+        aid, old_id = self.participation('alice')
+        bid, bob_movement = self.participation('bob')
+        self.assertEqual(self.send('carol', nova_providencia='1').status_code, 409)
+        self.assertEqual(self.send('foreign', providencia_id=aid).status_code, 404)
+        self.assertEqual(self.send('carol', providencia_id=aid).status_code, 302)
+        with app.app_context():
+            self.assertEqual(ProvidenciaProtocolo.query.count(), 2)
+            self.assertEqual(db.session.get(ProvidenciaProtocolo, bid).movimento_atual.id, bob_movement)
+            self.assertNotEqual(db.session.get(ProvidenciaProtocolo, aid).movimento_atual.id, old_id)
+            self.assertIsNone(db.session.get(Movimentacao, old_id).recebido_em)
+
+    def test_explicit_parallel_tool_preserves_legacy_destination_too(self):
+        self.login('admin')
+        with app.app_context():
+            old = Movimentacao(tenant_id=self.tenant, protocolo_id=self.pid, setor_destino_id=self.sector,
+                enviado_por_id=self.ids['admin'], destinatario_usuario_id=self.ids['alice'])
+            db.session.add(old); db.session.commit(); old_id = old.id
+        self.assertEqual(self.send('bob', envio_coletivo='1').status_code, 302)
+        with app.app_context():
+            from protocol_workflow import pending_movement_condition
+            self.assertEqual(ProvidenciaProtocolo.query.count(), 2)
+            self.assertEqual(db.session.get(Movimentacao, old_id).providencia.movimento_atual.id, old_id)
+            self.assertEqual(Movimentacao.query.filter(pending_movement_condition()).count(), 2)
+
+    def test_only_explicit_parallel_tool_adds_another_active_responsibility(self):
+        self.login('admin'); self.send('alice')
+        aid, old_id = self.participation('alice')
+        token = 'parallel-explicit-fictitious-token'
+        for _ in range(2):
+            self.assertEqual(self.send('bob', envio_coletivo='1', envio_token=token).status_code, 302)
+        with app.app_context():
+            self.assertEqual(ProvidenciaProtocolo.query.count(), 2)
+            self.assertEqual(Movimentacao.query.count(), 2)
+            self.assertEqual(db.session.get(ProvidenciaProtocolo, aid).movimento_atual.id, old_id)
+        self.receive('alice')
+        self.assertEqual(self.send('carol', envio_coletivo='1').status_code, 409)
 
     def test_managers_cannot_bypass_closed_process(self):
         self.login('admin'); self.send('alice')

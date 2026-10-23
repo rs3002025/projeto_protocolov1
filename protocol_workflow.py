@@ -5,7 +5,8 @@ import re
 
 from flask import abort, flash, redirect, request, url_for
 from flask_login import current_user
-from sqlalchemy import exists, func, or_, select
+from sqlalchemy import and_, exists, func, or_, select
+from sqlalchemy.orm import aliased
 from werkzeug.exceptions import HTTPException
 
 from models import (db, Protocolo, Movimentacao, ProvidenciaProtocolo,
@@ -38,7 +39,26 @@ def workflow_feedback(view):
     return wrapped
 
 
+def pending_movement_condition():
+    """Somente o destino atual de uma participação ativa aguarda recebimento."""
+    other = aliased(Movimentacao)
+    latest = select(func.max(other.id)).where(
+        other.tenant_id == Movimentacao.tenant_id,
+        other.providencia_id == Movimentacao.providencia_id).correlate(Movimentacao).scalar_subquery()
+    legacy_latest = select(func.max(other.id)).where(
+        other.tenant_id == Movimentacao.tenant_id,
+        other.protocolo_id == Movimentacao.protocolo_id).correlate(Movimentacao).scalar_subquery()
+    return and_(Movimentacao.recebido_em.is_(None), or_(
+        and_(Movimentacao.providencia_id.is_not(None), Movimentacao.id == latest,
+             Movimentacao.providencia.has(ProvidenciaProtocolo.concluida_em.is_(None))),
+        and_(Movimentacao.providencia_id.is_(None), Movimentacao.id == legacy_latest,
+             ~Movimentacao.protocolo.has(Protocolo.providencias.any()))))
+
+
 def can_receive(movement):
+    if movement.providencia and (movement.providencia.concluida_em or
+            movement.providencia.movimento_atual.id != movement.id):
+        return False
     return bool(not movement.recebido_em and (current_user.tipo == 'admin' or (
         current_user.lotacao_id == movement.setor_destino_id and
         (not movement.destinatario_usuario_id or movement.destinatario_usuario_id == current_user.id))))
@@ -118,6 +138,8 @@ def forward_protocol(protocolo_id):
             return return_to(protocol)
     active = [p for p in protocol.providencias if not p.concluida_em]
     manager = current_user.tipo in ('admin', 'protocolista')
+    recipients = request.form.getlist('destinatarios_ids')
+    parallel = request.form.get('envio_coletivo') == '1' or len(recipients) > 1
     if len(active) > 1 and not manager:
         abort(409, description='Conclua sua participação. O encaminhamento volta a ficar disponível quando restar apenas um responsável.')
     note = (request.form.get('observacao') or '').strip()
@@ -128,12 +150,19 @@ def forward_protocol(protocolo_id):
     if raw_id:
         participation = tenant_query(ProvidenciaProtocolo).filter_by(
             protocolo_id=protocol.id, id=request.form.get('providencia_id', type=int)).first_or_404()
-        if not can_work(participation):
+        if participation.concluida_em:
+            abort(409, description='Esta participação já foi encerrada.')
+        if not manager and not can_work(participation):
             abort(403)
-    elif protocol.providencias:
-        # Iniciar novas participações é intervenção explícita do gestor do fluxo.
-        if current_user.tipo not in ('admin', 'protocolista') or request.form.get('nova_providencia') != '1':
+    elif active:
+        if request.form.get('envio_coletivo') == '1' and (manager or (len(active) == 1 and can_work(active[0]))):
+            pass  # A ferramenta paralela explícita preserva os destinos existentes.
+        elif manager and len(active) == 1:
+            participation = active[0]
+        elif not (manager and parallel):
             abort(409, description='Selecione a participação que deseja encaminhar.')
+    elif protocol.providencias and not manager:
+        abort(403)
     elif not can_operate_protocol(protocol):
         abort(403)
     if not manager and not protocol.providencias and tenant_query(Movimentacao).filter_by(
@@ -141,7 +170,6 @@ def forward_protocol(protocolo_id):
         abort(409, description='Receba o encaminhamento pendente antes de continuar.')
 
     # A lista nominal é opcional; o formulário comum de setor/pessoa permanece válido.
-    recipients = request.form.getlist('destinatarios_ids')
     if len(recipients) > 50 or len(recipients) != len(set(recipients)):
         abort(400, description='Informe até 50 destinatários distintos.')
     targets = []
@@ -166,9 +194,20 @@ def forward_protocol(protocolo_id):
                 Usuario.tipo.in_(['admin', 'protocolista', 'tramitador'])).first_or_404()
         targets.append((sector, user))
     # Valide todos os alvos antes de qualquer mutação: o envio é atômico.
-    origin = participation.movimento_atual.setor_destino_id if participation else protocol.setor_atual_id
+    legacy_origin = None
+    if not protocol.providencias:
+        legacy = tenant_query(Movimentacao).filter_by(protocolo_id=protocol.id).order_by(Movimentacao.id.desc()).first()
+        if legacy:
+            adopted = ProvidenciaProtocolo(tenant_id=protocol.tenant_id, protocolo=protocol)
+            db.session.add(adopted)
+            legacy.providencia = adopted
+            legacy_origin = legacy.setor_destino_id
+            if request.form.get('envio_coletivo') != '1':
+                participation = adopted
+    origin = participation.movimento_atual.setor_destino_id if participation else (protocol.setor_atual_id or legacy_origin)
     previous_holder = participation.movimento_atual.recebido_por if participation else None
-    intervention = manager and bool(protocol.providencias) and (not participation or len(active) > 1)
+    previous_movement = participation.movimento_atual if participation else None
+    intervention = manager and bool(previous_movement)
     for index, (sector, user) in enumerate(targets):
         item = participation if index == 0 and participation else ProvidenciaProtocolo(
             tenant_id=protocol.tenant_id, protocolo=protocol)
@@ -180,8 +219,9 @@ def forward_protocol(protocolo_id):
         protocol.status = 'PENDENTE DE DOCUMENTO' if protocol.complemento_pendente else 'EM TRAMITAÇÃO'
         target = f', aos cuidados de {user.nome_completo or user.nome}' if user else ', disponível a todos do setor'
         holder = f' Responsabilidade transferida de {previous_holder.nome_completo or previous_holder.nome}.' if previous_holder and index == 0 else ''
-        intervention_note = 'Intervenção da equipe de protocolo. ' if intervention else ''
-        event(protocol, 'TRAMITACAO', f'{intervention_note}Encaminhado para {sector.nome}{target}. {holder} {note}'.strip())
+        intervention_note = (f'Transferência administrativa do encaminhamento de {previous_movement.setor_destino.nome}. '
+                             if intervention and index == 0 else '')
+        event(protocol, 'TRAMITACAO', f'Encaminhado para {sector.nome}{target}. {intervention_note}{holder} {note}'.strip())
     db.session.flush()
     synchronize(protocol)
     db.session.commit()
@@ -195,7 +235,7 @@ def receive_protocol(protocolo_id):
     protocol = locked_protocol(protocolo_id)
     if is_closed(protocol):
         abort(409)
-    candidates = tenant_query(Movimentacao).filter_by(protocolo_id=protocol.id, recebido_em=None).all()
+    candidates = tenant_query(Movimentacao).filter_by(protocolo_id=protocol.id).filter(pending_movement_condition()).all()
     movement_id = request.form.get('movimentacao_id', type=int)
     if movement_id:
         candidates = [m for m in candidates if m.id == movement_id]
@@ -284,7 +324,7 @@ def register_workflow_routes(app):
         active = [p for p in protocol.providencias if not p.concluida_em]
         single = active[0] if len(active) == 1 else None
         if (any(not p.concluida_em for p in protocol.providencias) and single is None) or tenant_query(Movimentacao).filter_by(
-                protocolo_id=protocol.id, recebido_em=None).first() or tenant_query(SolicitacaoComplemento).filter_by(
+                protocolo_id=protocol.id).filter(pending_movement_condition()).first() or tenant_query(SolicitacaoComplemento).filter_by(
                 protocolo_id=protocol.id, status='PENDENTE').first():
             abort(409, description='Conclua as providências, os recebimentos e os complementos pendentes antes de concluir o processo.')
         result = (request.form.get('resultado') or '').strip()
