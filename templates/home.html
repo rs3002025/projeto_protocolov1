@@ -36,6 +36,7 @@
         <a href="{{ url_for('listar_protocolos', prazo='vencido') }}" class="attention-item is-critical"><strong id="attention-overdue">0</strong><span>Prazos vencidos</span></a>
         <a href="{{ url_for('listar_protocolos', prazo='proximos_7') }}" class="attention-item"><strong id="attention-next7">0</strong><span>Vencem em até 7 dias</span></a>
         <a href="{{ url_for('pendencias_recebimento') }}" class="attention-item"><strong>{{ pendencias_recebimento }}</strong><span>Pendentes de recebimento</span></a>
+        <a href="{{ url_for('listar_protocolos', status='RECEBIDO') }}" class="attention-item"><strong>{{ recebidos_para_analise }}</strong><span>Recebidos aguardando análise</span></a>
         <a href="{{ url_for('support_list', status='ABERTO') }}" class="attention-item"><strong>{{ chamados_pendentes }}</strong><span>Chamados em andamento</span></a>
       </div>
     </section>

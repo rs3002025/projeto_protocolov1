@@ -5,11 +5,11 @@ A situação é geral do processo. O recebimento, o responsável e a conclusão 
 | Situação | Quando é registrada |
 |---|---|
 | Protocolo gerado | Cadastro direto pela equipe de protocolo. O criador já responde pelo cadastro; não há recebimento separado de si próprio. |
-| Aguardando recebimento | Pedido enviado pelo Portal do Servidor, ainda não recebido pela equipe de protocolo. |
-| Recebido | Recebimento inicial pelo protocolista ou recebimento do encaminhamento. Não afirma que a análise começou. Nos encaminhamentos paralelos, os recebimentos ainda pendentes continuam visíveis. |
+| Aguardando recebimento | Entrada pelo Portal do Servidor quando a assinatura eletrônica do protocolista está habilitada, ainda aguardando a confirmação com PIN. |
+| Recebido | Sem assinatura eletrônica habilitada, a entrada pelo portal é recebida automaticamente pelo sistema. Com assinatura, resulta da confirmação do protocolista. Também é usado após o recebimento dos encaminhamentos ou dos documentos solicitados, sem afirmar que uma análise começou. |
 | Em tramitação | Novo encaminhamento para outro setor ou usuário. Se ainda há participações aguardando recebimento, a situação permanece assim até um responsável registrar o início do trabalho ou todos os encaminhamentos ativos serem recebidos. |
 | Em análise | Registrada explicitamente por quem pode atuar no processo. Também é a situação da retomada de análise pelo desarquivamento. Apenas receber, concluir uma participação ou incluir um despacho não inicia análise automaticamente. |
-| Pendente de documento | Registrada por quem está atuando no processo. O recebimento ou a conclusão de outra participação não apaga essa informação. A equipe atualiza a situação ao verificar os documentos. |
+| Pendente de documento | Registrada por quem está atuando no processo ou automaticamente ao solicitar complemento pelo portal. Outro recebimento/encaminhamento não apaga uma solicitação formal ainda pendente. Quando todas essas solicitações forem atendidas, volta a Recebido para conferência, ou Em tramitação se ainda houver destinatários aguardando recebimento. |
 | Concluído | Ação administrativa Concluir processo, após regularizar as pendências. Concluir uma participação isolada não conclui o processo. Finalizado é apenas o valor histórico compatível desta mesma situação. |
 | Arquivado | Ação própria de arquivamento. Não é oferecida como simples mudança de situação. |
 
@@ -19,10 +19,12 @@ O botão Atualizar status está na lista e na página do processo. Permite marca
 
 Receber, encaminhar, concluir e arquivar continuam sendo ações próprias: não é possível simular essas operações escolhendo um texto no campo de situação. Processos concluídos/arquivados não podem ser reabertos por esse campo.
 
-Um novo encaminhamento registra Em tramitação. Já receber ou concluir outra participação preserva Em análise ou Pendente de documento quando o responsável tiver registrado explicitamente uma dessas situações.
+Um novo encaminhamento registra Em tramitação, exceto se ainda há solicitação formal de documentos pendente no portal: nesse caso prevalece Pendente de documento. Receber ou concluir outra participação preserva Em análise ou Pendente de documento quando o responsável tiver registrado explicitamente uma dessas situações. A pendência documental deve ser regularizada antes de concluir ou arquivar o processo.
 
 ## Assinatura eletrônica
 
-Sem assinatura eletrônica habilitada, o protocolista recebe o pedido externo clicando em Receber requerimento, sem PIN. Com assinatura habilitada, a confirmação inclui o PIN. A configuração de assinatura não transforma o recebimento externo em automático.
+Sem assinatura eletrônica habilitada, o pedido externo entra automaticamente como Recebido e não exige clique ou PIN do protocolista. O evento identifica o Sistema, sem fabricar assinatura nem recebimento humano. O pedido fica sob a equipe de protocolo, com atalho Recebidos aguardando análise no painel. Ao iniciar a análise ou solicitar documentos, a pessoa que realiza a ação fica identificada como responsável quando ainda não há responsável individual nem participações.
 
-As alterações desta revisão não reclassificam retroativamente os registros importados.
+Com assinatura habilitada, permanece Aguardando recebimento até a confirmação do protocolista com PIN. Ligar a assinatura posteriormente não exige reassinar pedidos já recebidos. Desligá-la regulariza automaticamente os pedidos externos ainda aguardando recebimento, com histórico preservado e sem regravar os PDFs.
+
+Registros fechados, excluídos, já recebidos ou de outros tipos de abertura não são reclassificados pelo recebimento automático. O recebimento de um encaminhamento por outro setor/usuário continua sendo confirmado pelo destinatário: é uma operação distinta da entrada inicial pelo portal.

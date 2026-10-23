@@ -191,8 +191,18 @@ class Protocolo(TenantMixin, db.Model):
 
     @property
     def aguardando_recebimento_inicial(self):
+        from protocol_status import INITIAL_RECEIPT_ACTIONS
         return self.modalidade_abertura == 'remota_requerente' and not any(
-            evento.acao == 'RECEBIMENTO_PORTAL' for evento in self.historico)
+            evento.acao in INITIAL_RECEIPT_ACTIONS for evento in self.historico) and not (
+                self.excluido_em or self.arquivado_em or self.status in ('FINALIZADO', 'CONCLUÍDO', 'ARQUIVADO'))
+
+    @property
+    def recebido_automaticamente(self):
+        return any(h.acao == 'RECEBIMENTO_AUTOMATICO' for h in self.historico)
+
+    @property
+    def complemento_pendente(self):
+        return any(s.status == 'PENDENTE' for s in self.solicitacoes_complemento)
 
     @property
     def responsavel_exibicao(self):
@@ -208,6 +218,8 @@ class Protocolo(TenantMixin, db.Model):
             return '; '.join(dict.fromkeys(nomes))
         if self.providencias:
             return 'Providências concluídas'
+        if self.recebido_automaticamente and not self.responsavel:
+            return 'Equipe de protocolo'
         return 'Aguardando recebimento' if self.aguardando_recebimento_inicial else (self.responsavel or 'Não definido')
 
     @property

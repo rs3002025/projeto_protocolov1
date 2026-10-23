@@ -1615,8 +1615,13 @@ def test_portal_servidor_isola_login_e_abertura_em_nome_proprio():
         assert protocolo.modalidade_abertura == 'remota_requerente'
         assert protocolo.cpf == '01234567890' and protocolo.telefone == '88999999999'
         assert protocolo.endereco == 'Rua do teste' and protocolo.responsavel is None
-        assert protocolo.aguardando_recebimento_inicial
-        assert protocolo.status == 'AGUARDANDO RECEBIMENTO'
+        assert not protocolo.aguardando_recebimento_inicial
+        assert protocolo.status == 'RECEBIDO'
+        automatico = HistoricoProtocolo.query.filter_by(protocolo_id=protocolo.id, acao='RECEBIMENTO_AUTOMATICO').one()
+        assert automatico.usuario_id is None and automatico.responsavel == 'Sistema'
+        assert protocolo.responsavel_exibicao == 'Equipe de protocolo'
+        assert protocolo.emitido_por_usuario_id is None
+        assert len(protocolo.emissoes_eletronicas) == 1
         assert protocolo.emissao_eletronica.metodo == 'conta_individual'
         assert protocolo.emissao_eletronica.pdf_sha256 == hashlib.sha256(
             b'%PDF-1.7\nenvio remoto autenticado').hexdigest()
@@ -1681,11 +1686,11 @@ def test_portal_servidor_isola_login_e_abertura_em_nome_proprio():
     admin_client = app.test_client()
     login(admin_client, 'cliente-a')
     assert admin_client.post('/protocolos/atualizar', json={'protocoloId': protocolo_id,
-        'novoStatus': 'EM ANÁLISE'}).status_code == 409
-    assert admin_client.post(f'/protocolo/{protocolo_id}/receber-portal').status_code == 302
+        'novoStatus': 'EM ANÁLISE'}).status_code == 200
+    assert admin_client.post(f'/protocolo/{protocolo_id}/receber-portal').status_code == 409
     with app.app_context():
         recebido = db.session.get(Protocolo, protocolo_id)
-        assert recebido.status == 'RECEBIDO' and recebido.responsavel == 'admin'
+        assert recebido.status == 'EM ANÁLISE' and recebido.responsavel == 'admin'
         assert not recebido.aguardando_recebimento_inicial
         assert recebido.emissao_eletronica.pdf_sha256 == pdf_hash_original
     assert admin_client.post(f'/protocolo/{protocolo_id}/receber-portal').status_code == 409

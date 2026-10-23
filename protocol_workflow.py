@@ -94,7 +94,9 @@ def synchronize(protocol):
             protocol.setor_atual_id = movement.setor_destino_id
     # Receber não significa iniciar análise. Preserve a situação de trabalho
     # explicitamente registrada mesmo quando outra participação é recebida/concluída.
-    if protocol.status not in ('EM ANÁLISE', 'PENDENTE DE DOCUMENTO'):
+    if protocol.complemento_pendente:
+        protocol.status = 'PENDENTE DE DOCUMENTO'
+    elif protocol.status not in ('EM ANÁLISE', 'PENDENTE DE DOCUMENTO'):
         protocol.status = 'EM TRAMITAÇÃO' if any(
             p.movimento_atual and not p.movimento_atual.recebido_em for p in open_items) else 'RECEBIDO'
 
@@ -168,7 +170,7 @@ def forward_protocol(protocolo_id):
             providencia=item, setor_origem_id=origin, setor_destino_id=sector.id,
             destinatario_usuario_id=user.id if user else None, enviado_por_id=current_user.id, observacao=note, envio_token=token)
         db.session.add(movement)
-        protocol.status = 'EM TRAMITAÇÃO'
+        protocol.status = 'PENDENTE DE DOCUMENTO' if protocol.complemento_pendente else 'EM TRAMITAÇÃO'
         target = f', aos cuidados de {user.nome_completo or user.nome}' if user else ', disponível a todos do setor'
         holder = f' Responsabilidade transferida de {previous_holder.nome_completo or previous_holder.nome}.' if previous_holder and index == 0 else ''
         event(protocol, 'TRAMITACAO', f'Encaminhado para {sector.nome}{target}. {holder} {note}'.strip())
@@ -206,7 +208,7 @@ def receive_protocol(protocolo_id):
     else:
         protocol.setor_atual_id = movement.setor_destino_id
         protocol.responsavel = current_user.login
-        protocol.status = 'RECEBIDO'
+        protocol.status = 'PENDENTE DE DOCUMENTO' if protocol.complemento_pendente else 'RECEBIDO'
     target = f' (destinatário: {movement.destinatario_usuario.nome})' if movement.destinatario_usuario else ''
     event(protocol, 'RECEBIMENTO', f'Recebido por {current_user.nome_completo or current_user.nome}, setor {movement.setor_destino.nome}{target}.')
     db.session.commit()
@@ -265,6 +267,8 @@ def register_workflow_routes(app):
             return return_to(protocol)
         if is_closed(protocol) or protocol.aguardando_recebimento_inicial or protocol.retificacao_pendente:
             abort(409, description='Regularize o processo antes de concluir.')
+        if protocol.status == 'PENDENTE DE DOCUMENTO':
+            abort(409, description='Regularize a pendência de documentos antes de concluir o processo.')
         if any(not p.concluida_em for p in protocol.providencias) or tenant_query(Movimentacao).filter_by(
                 protocolo_id=protocol.id, recebido_em=None).first() or tenant_query(SolicitacaoComplemento).filter_by(
                 protocolo_id=protocol.id, status='PENDENTE').first():

@@ -68,7 +68,7 @@ from models import (Organizacao, OrganizacaoSubdominioAlias, Usuario, Protocolo,
                     OrganizacaoCapacidadeEvento, EmissaoEletronica, db)
 from models import SolicitacaoComplemento
 from models import PortalSessao, PortalRecuperacao, PortalCadastro
-from protocol_status import PROTOCOL_STATUSES, MANUAL_STATUSES, canonical_status, filter_status, grouped_status_counts
+from protocol_status import PROTOCOL_STATUSES, MANUAL_STATUSES, INITIAL_RECEIPT_ACTIONS, canonical_status, filter_status, grouped_status_counts
 from models import AuditoriaEvento
 from datetime import timezone
 from zoneinfo import ZoneInfo
@@ -336,6 +336,8 @@ def protocol_location(protocolo):
         destinatario = (f', aos cuidados de {pendente.destinatario_usuario.nome}'
                         if pendente.destinatario_usuario else '')
         return f'Em trânsito de {origem} para {destino}{destinatario} (aguardando recebimento)'
+    if protocolo.recebido_automaticamente and not protocolo.setor_atual and not protocolo.responsavel:
+        return 'Equipe de protocolo'
     return protocolo.setor_atual.nome if protocolo.setor_atual else 'Não definido'
 
 def pendencias_recebimento_query():
@@ -356,7 +358,8 @@ def pendencias_recebimento_inicial_query():
     query = tenant_query(Protocolo).filter(
         Protocolo.modalidade_abertura == 'remota_requerente',
         Protocolo.arquivado_em.is_(None),
-        ~Protocolo.historico.any(HistoricoProtocolo.acao == 'RECEBIMENTO_PORTAL'),
+        ~Protocolo.historico.any(HistoricoProtocolo.acao.in_(INITIAL_RECEIPT_ACTIONS)),
+        ~Protocolo.status.in_(['CONCLUÍDO', 'FINALIZADO', 'ARQUIVADO']),
     )
     if current_user.tipo not in ('admin', 'protocolista'):
         return query.filter(false())
@@ -583,6 +586,7 @@ HISTORY_ACTION_LABELS = {
     'COMPLEMENTO_ENVIADO': 'Documentação complementar enviada',
     'EMISSAO_AUTENTICADA': 'Requerimento autenticado',
     'RECEBIMENTO_PORTAL': 'Requerimento recebido',
+    'RECEBIMENTO_AUTOMATICO': 'Recebimento automático',
     'RECEBIMENTO_ASSINADO': 'Assinatura do responsável registrada',
     'RETIFICACAO_AUTENTICADA': 'Retificação assinada',
     'RETIFICACAO_CRIADA': 'Correção preparada',
@@ -822,7 +826,8 @@ def consulta_publica(consulta_token):
 def home():
     # This page will now be rendered with the dashboard structure,
     # and the data will be fetched client-side.
-    return render_template('home.html', title="Dashboard")
+    return render_template('home.html', title="Dashboard", recebidos_para_analise=
+        accessible_protocols_query().filter(Protocolo.status == 'RECEBIDO').count())
 
 
 @app.get('/suporte')
@@ -1534,6 +1539,8 @@ def portal_novo_protocolo():
         tenant_id=current_tenant_id(), protocolo_id=protocolo.id, status=protocolo.status,
         responsavel=current_user.login, usuario_id=current_user.id, acao='ENVIO_REMOTO',
         observacao='Requerimento enviado pelo próprio servidor em conta individual vinculada ao cadastro funcional.'))
+    from protocol_receipts import automatic_portal_receipt
+    automatic_portal_receipt(protocolo, active_organization())
     for index, (filename, data, mime_type) in enumerate(uploads, start=1):
         chave = f'anexo-inicial-{uuid.uuid4().hex[:12]}'
         storage_path, backend, digest, stored_data = store_attachment_bytes(
@@ -1593,7 +1600,10 @@ def portal_detalhe(protocolo_id):
 @app.post('/portal/protocolo/<int:protocolo_id>/complemento/<int:solicitacao_id>')
 @portal_required
 def portal_enviar_complemento(protocolo_id, solicitacao_id):
-    protocolo = accessible_protocol_or_404(protocolo_id)
+    from protocol_workflow import is_closed
+    protocolo = accessible_protocols_query().filter(Protocolo.id == protocolo_id).with_for_update().first_or_404()
+    if is_closed(protocolo):
+        abort(409, description='Este processo não está disponível para envio de documentos.')
     solicitacao = tenant_query(SolicitacaoComplemento).filter_by(
         id=solicitacao_id, protocolo_id=protocolo.id, status='PENDENTE').first_or_404()
     try:
@@ -1617,6 +1627,11 @@ def portal_enviar_complemento(protocolo_id, solicitacao_id):
     solicitacao.status = 'ATENDIDA'
     solicitacao.atendido_em = datetime.now().astimezone()
     solicitacao.atendido_por_id = current_user.id
+    if protocolo.status == 'PENDENTE DE DOCUMENTO' and not protocolo.complemento_pendente:
+        # O envio atende a solicitação, mas não inicia uma análise humana.
+        pendente = any(not p.concluida_em and p.movimento_atual and not p.movimento_atual.recebido_em
+                       for p in protocolo.providencias)
+        protocolo.status = 'EM TRAMITAÇÃO' if pendente else 'RECEBIDO'
     db.session.add(HistoricoProtocolo(
         tenant_id=current_tenant_id(), protocolo_id=protocolo.id, status=protocolo.status,
         responsavel=current_user.login, usuario_id=current_user.id,
@@ -1975,7 +1990,7 @@ def platform_set_subdomain(organization_id):
 @app.post('/plataforma/cliente/<int:organization_id>/capacidades')
 @platform_admin_required
 def platform_update_capabilities(organization_id):
-    organization = Organizacao.query.filter_by(id=organization_id).first_or_404()
+    organization = Organizacao.query.filter_by(id=organization_id).with_for_update().first_or_404()
     electronic_enabled = request.form.get('emissao_eletronica_protocolista_enabled') == 'on'
     remote_enabled = request.form.get('portal_servidor_remoto_enabled') == 'on'
     reason = (request.form.get('motivo') or '').strip()[:500] or None
@@ -1990,6 +2005,9 @@ def platform_update_capabilities(organization_id):
         nivel_garantia_assinatura='interno',
         motivo=reason,
     ))
+    if not electronic_enabled:
+        from protocol_receipts import receive_pending_without_signature
+        receive_pending_without_signature(organization)
     db.session.commit()
     flash(f'Capacidades de {organization.nome} atualizadas e auditadas.', 'success')
     return redirect(url_for('platform_organizations'))
@@ -2025,9 +2043,9 @@ def _register_portal_receipt(protocolo):
     protocolo.responsavel = current_user.login
     protocolo.emitido_por_usuario_id = current_user.id
     protocolo.setor_atual_id = current_user.lotacao_id
-    protocolo.status = 'RECEBIDO'
+    protocolo.status = 'PENDENTE DE DOCUMENTO' if protocolo.complemento_pendente else 'RECEBIDO'
     db.session.add(HistoricoProtocolo(tenant_id=current_tenant_id(),
-        protocolo_id=protocolo.id, status='RECEBIDO', responsavel=current_user.login,
+        protocolo_id=protocolo.id, status=protocolo.status, responsavel=current_user.login,
         usuario_id=current_user.id, acao='RECEBIMENTO_PORTAL',
         observacao='Requerimento externo recebido pela equipe de protocolo.'))
 
@@ -2042,9 +2060,10 @@ def receber_portal(protocolo_id):
         abort(409, description='Este requerimento não está aguardando recebimento inicial.')
     if active_organization().emissao_eletronica_protocolista_enabled:
         return autenticar_emissao_protocolo(protocolo_id)
-    _register_portal_receipt(protocolo)
+    from protocol_receipts import automatic_portal_receipt
+    automatic_portal_receipt(protocolo, active_organization())
     db.session.commit()
-    flash('Requerimento recebido. Você é o responsável pelo protocolo.', 'success')
+    flash('Requerimento recebido automaticamente para atendimento pela equipe de protocolo.', 'success')
     return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
 
 
@@ -2932,9 +2951,10 @@ def detalhe_protocolo(protocolo_id):
 @app.post('/protocolo/<int:protocolo_id>/solicitar-complemento')
 @permission_required('edit')
 def solicitar_complemento(protocolo_id):
-    protocolo = accessible_protocol_or_404(protocolo_id)
-    if protocolo.arquivado_em:
-        abort(409, description='Processos arquivados não podem receber solicitações.')
+    from protocol_workflow import is_closed
+    protocolo = accessible_protocols_query().filter(Protocolo.id == protocolo_id).with_for_update().first_or_404()
+    if is_closed(protocolo) or protocolo.aguardando_recebimento_inicial:
+        abort(409, description='Receba ou reabra o processo antes de solicitar documentos.')
     if protocolo.modalidade_abertura != 'remota_requerente' or not protocolo.requerente_servidor_id:
         flash('A complementação pelo portal está disponível para requerimentos enviados remotamente.', 'warning')
         return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
@@ -2946,6 +2966,10 @@ def solicitar_complemento(protocolo_id):
         tenant_id=current_tenant_id(), protocolo_id=protocolo.id,
         solicitado_por_id=current_user.id, motivo=motivo, status='PENDENTE')
     db.session.add(solicitacao)
+    protocolo.status = 'PENDENTE DE DOCUMENTO'
+    if protocolo.recebido_automaticamente and not protocolo.responsavel and not protocolo.providencias:
+        protocolo.responsavel = current_user.login
+        protocolo.setor_atual_id = current_user.lotacao_id
     db.session.flush()
     db.session.add(HistoricoProtocolo(
         tenant_id=current_tenant_id(), protocolo_id=protocolo.id, status=protocolo.status,
@@ -3168,6 +3192,8 @@ def atualizar_protocolo_status():
         return jsonify({'sucesso': False, 'mensagem': 'Use o encaminhamento para transferir a responsabilidade.'}), 409
     if novo_status not in MANUAL_STATUSES:
         return jsonify({'sucesso': False, 'mensagem': 'Recebimento e encaminhamento são registrados pelas ações próprias do processo.'}), 400
+    if protocolo.complemento_pendente and novo_status != 'PENDENTE DE DOCUMENTO':
+        return jsonify({'sucesso': False, 'mensagem': 'Há solicitação de documentos pendente de atendimento no portal.'}), 409
     if not can_update_protocol_status(protocolo):
         return jsonify({'sucesso': False, 'mensagem': 'Receba sua participação antes de atualizar a situação do processo.'}), 409
     if protocolo.status == novo_status:
@@ -3175,6 +3201,9 @@ def atualizar_protocolo_status():
 
     # Atualiza o protocolo
     protocolo.status = novo_status
+    if protocolo.recebido_automaticamente and not protocolo.responsavel and not protocolo.providencias:
+        protocolo.responsavel = current_user.login
+        protocolo.setor_atual_id = current_user.lotacao_id
     if novo_responsavel:
         protocolo.responsavel = novo_responsavel
 
@@ -3215,7 +3244,7 @@ def receber_protocolo(protocolo_id):
 def arquivar_protocolo(protocolo_id):
     protocolo = accessible_protocols_query().filter(Protocolo.id == protocolo_id).with_for_update().first_or_404()
     pendente = tenant_query(Movimentacao).filter_by(protocolo_id=protocolo.id, recebido_em=None).first()
-    if pendente or any(not p.concluida_em for p in protocolo.providencias):
+    if pendente or any(not p.concluida_em for p in protocolo.providencias) or protocolo.complemento_pendente or protocolo.status == 'PENDENTE DE DOCUMENTO':
         flash('Receba ou regularize a tramitação pendente antes de arquivar.', 'warning')
         return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
     if protocolo.arquivado_em:
@@ -3248,7 +3277,7 @@ def desarquivar_protocolo(protocolo_id):
         return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
     situacao_anterior = protocolo.status
     protocolo.arquivado_em = None
-    protocolo.status = 'EM ANÁLISE'
+    protocolo.status = 'PENDENTE DE DOCUMENTO' if protocolo.complemento_pendente else 'EM ANÁLISE'
     db.session.add(HistoricoProtocolo(
         tenant_id=current_tenant_id(), protocolo_id=protocolo.id,
         status=protocolo.status, responsavel=current_user.login,
