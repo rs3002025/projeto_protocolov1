@@ -9,9 +9,6 @@
   {% if pode_receber %}<form method="post" action="{{ url_for('receber_protocolo', protocolo_id=protocolo.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="movimentacao_id" value="{{ movimento.id }}"><button class="btn btn-success" type="submit">Receber protocolo</button></form>{% endif %}
 {% elif not pode_encaminhar %}<p class="text-muted mb-0">Processo disponível somente para consulta. O encaminhamento está disponível a quem estiver responsável pelo atendimento.</p>{% endif %}
 {% if pode_encaminhar %}
-  {% if not item or not item.movimento_atual.recebido_em %}
-    {% set item = none %}
-    {% if protocolo.providencias or movimentacao_pendente %}<p class="form-text mt-3">Intervenção da equipe de protocolo: o novo encaminhamento mantém os anteriores e não confirma recebimentos em nome de outra pessoa.</p>{% endif %}
-  {% endif %}
+  {% if item and current_user.tipo in ['admin', 'protocolista'] %}<p class="form-text mt-3">O encaminhamento atual será transferido para o novo destino, sem criar outro responsável em paralelo. Se o setor respondeu fora do sistema, registre a resposta na observação.</p>{% endif %}
   {% include 'workflow_forward_form.html' %}
 {% endif %}

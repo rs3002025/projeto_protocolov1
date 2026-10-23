@@ -102,17 +102,16 @@
         {% include 'workflow_participations.html' %}
         {% if pode_encaminhar %}
         <h3 class="h6 mt-4">Encaminhar protocolo</h3>
-        <p class="form-text">Intervenção da equipe de protocolo: os encaminhamentos existentes serão mantidos.</p>
+        <p class="form-text">Selecione qual encaminhamento será transferido. As outras participações não serão alteradas. Registre na observação uma resposta recebida fora do sistema, se houver.</p>
         {% set item = none %}{% include 'workflow_forward_form.html' %}
         {% endif %}
         {% else %}
         {% include 'workflow_single.html' %}
         {% endif %}
         {% if pode_encaminhar %}
-        <details class="mt-4"><summary>Encaminhamento coletivo (opcional)</summary>
-        <form class="mt-3" method="post" action="{{ url_for('tramitar_protocolo', protocolo_id=protocolo.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="envio_token" value="{{ tramitacao_token }}-multiplo"><input type="hidden" name="nova_providencia" value="1">
-        {% if participacoes_ativas|length == 1 and participacoes_ativas[0].movimento_atual.recebido_em %}<input type="hidden" name="providencia_id" value="{{ participacoes_ativas[0].id }}">{% endif %}
-        <p class="form-text">Cada destinatário receberá uma participação no mesmo processo. A conclusão de uma não encerra as demais.</p>
+        <details class="mt-4"><summary>Enviar para outros responsáveis em paralelo (opcional)</summary>
+        <form class="mt-3" method="post" action="{{ url_for('tramitar_protocolo', protocolo_id=protocolo.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="envio_token" value="{{ tramitacao_token }}-multiplo"><input type="hidden" name="envio_coletivo" value="1">
+        <p class="form-text">Somente esta opção cria responsabilidades simultâneas, mantendo os encaminhamentos atuais. Para apenas transferir o processo, use Encaminhar protocolo acima.</p>
         <label class="form-label" for="destinatarios-multiplos">Destinatários</label><select id="destinatarios-multiplos" class="form-select" name="destinatarios_ids" multiple size="6" required>{% for u in usuarios_destino %}<option value="{{ u.id }}">{{ u.nome_completo or u.nome }} — {{ u.lotacao.nome if u.lotacao else '' }}</option>{% endfor %}</select>
         <p class="form-text">No computador, use Ctrl ou Shift para selecionar mais de uma pessoa.</p><label class="form-label" for="observacao-multipla">Observação (opcional)</label><textarea id="observacao-multipla" class="form-control mb-3" name="observacao" rows="4" maxlength="10000"></textarea><button type="submit" class="btn btn-primary">Encaminhar para providências</button></form></details>
         {% endif %}

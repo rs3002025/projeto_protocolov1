@@ -341,8 +341,9 @@ def protocol_location(protocolo):
     return protocolo.setor_atual.nome if protocolo.setor_atual else 'Não definido'
 
 def pendencias_recebimento_query():
+    from protocol_workflow import pending_movement_condition
     query = tenant_query(Movimentacao).filter(
-        Movimentacao.recebido_em.is_(None),
+        pending_movement_condition(),
         Movimentacao.protocolo.has(Protocolo.excluido_em.is_(None)))
     if current_user.tipo == 'admin':
         return query
@@ -2928,13 +2929,13 @@ def criar_protocolo():
 @login_required
 def detalhe_protocolo(protocolo_id):
     from models import AcompanhamentoProtocolo
-    from protocol_workflow import can_receive, can_work
+    from protocol_workflow import can_receive, can_work, pending_movement_condition
     protocolo = accessible_protocol_or_404(protocolo_id)
     anexo_form = AnexoForm()
     lotacoes = tenant_query(Lotacao).filter_by(ativo=True).order_by(Lotacao.nome).all()
     usuarios_destino = tenant_query(Usuario).filter_by(status='ativo').filter(
         Usuario.lotacao_id.isnot(None), Usuario.tipo.in_(['admin', 'protocolista', 'tramitador'])).order_by(Usuario.nome).all()
-    pendente = tenant_query(Movimentacao).filter_by(protocolo_id=protocolo.id, recebido_em=None).order_by(Movimentacao.id.desc()).first()
+    pendente = tenant_query(Movimentacao).filter_by(protocolo_id=protocolo.id).filter(pending_movement_condition()).order_by(Movimentacao.id.desc()).first()
     pode_receber = bool(pendente and (
         current_user.tipo == 'admin' or
         (current_user.lotacao_id == pendente.setor_destino_id and
@@ -3269,8 +3270,9 @@ def receber_protocolo(protocolo_id):
 @app.post('/protocolo/<int:protocolo_id>/arquivar')
 @permission_required('archive')
 def arquivar_protocolo(protocolo_id):
+    from protocol_workflow import pending_movement_condition
     protocolo = accessible_protocols_query().filter(Protocolo.id == protocolo_id).with_for_update().first_or_404()
-    pendente = tenant_query(Movimentacao).filter_by(protocolo_id=protocolo.id, recebido_em=None).first()
+    pendente = tenant_query(Movimentacao).filter_by(protocolo_id=protocolo.id).filter(pending_movement_condition()).first()
     if pendente or any(not p.concluida_em for p in protocolo.providencias) or protocolo.complemento_pendente or protocolo.status == 'PENDENTE DE DOCUMENTO':
         flash('Receba ou regularize a tramitação pendente antes de arquivar.', 'warning')
         return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
