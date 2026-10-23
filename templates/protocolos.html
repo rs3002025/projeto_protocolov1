@@ -32,9 +32,8 @@
                     <div class="col-md-4">
                          <label class="form-label" for="filtro-status">Status</label><select id="filtro-status" name="status" class="form-select">
                             <option value="">Todos os Status</option>
-                             {% set statuses = ["PROTOCOLO GERADO", "EM ANÁLISE", "PENDENTE DE DOCUMENTO", "FINALIZADO", "CONCLUÍDO", "EM TRAMITAÇÃO", "ARQUIVADO"] %}
-                             {% for status in statuses %}
-                                 <option value="{{ status }}" {% if request.args.get('status') == status %}selected{% endif %}>{{ status }}</option>
+                             {% for status in protocol_statuses %}
+                                 <option value="{{ status }}" {% if canonical_status(request.args.get('status')) == status %}selected{% endif %}>{{ status }}</option>
                              {% endfor %}
                         </select>
                     </div>
@@ -84,7 +83,7 @@
             <tbody>
                 {% for protocolo in protocolos.items %}
                     <tr>
-                        <td><span class="protocol-number{% if protocolo.status == 'FINALIZADO' %} protocol-number-finalized{% endif %}">{{ protocolo.numero }}</span>{% if protocolo.status == 'FINALIZADO' %}<small class="d-block text-success">Finalizado</small>{% endif %}</td>
+                        <td><span class="protocol-number{% if protocolo.status in ['FINALIZADO', 'CONCLUÍDO'] %} protocol-number-finalized{% endif %}">{{ protocolo.numero }}</span>{% if protocolo.status in ['FINALIZADO', 'CONCLUÍDO'] %}<small class="d-block text-success">Concluído</small>{% endif %}</td>
                         <td>{{ protocolo.nome }}<div class="small text-muted">{{ 'Portal do Servidor' if protocolo.modalidade_abertura == 'remota_requerente' else 'Interno' }}</div></td>
                         <td>{{ protocolo.tipo_requerimento }}</td>
                         <td>{{ protocolo.data_solicitacao.strftime('%d/%m/%Y') if protocolo.data_solicitacao else 'Não informada' }}</td>

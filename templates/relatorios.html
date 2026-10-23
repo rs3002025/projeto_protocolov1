@@ -24,9 +24,8 @@
                          <label for="relatorio-status" class="form-label">Status</label>
                          <select id="relatorio-status" name="status" class="form-select">
                             <option value="">Todos os Status</option>
-                             {% set statuses = ["PROTOCOLO GERADO", "EM ANÁLISE", "PENDENTE DE DOCUMENTO", "FINALIZADO", "CONCLUÍDO", "EM TRAMITAÇÃO", "ARQUIVADO"] %}
-                             {% for status in statuses %}
-                                 <option value="{{ status }}" {% if request.args.get('status') == status %}selected{% endif %}>{{ status }}</option>
+                             {% for status in protocol_statuses %}
+                                 <option value="{{ status }}" {% if canonical_status(request.args.get('status')) == status %}selected{% endif %}>{{ status }}</option>
                              {% endfor %}
                         </select>
                     </div>
@@ -82,7 +81,7 @@
                         <td>{{ protocolo.tipo_requerimento }}</td>
                         <td>{{ protocolo.data_solicitacao.strftime('%d/%m/%Y') if protocolo.data_solicitacao else 'Não informada' }}</td>
                         <td>{{ protocolo.prazo_em.strftime('%d/%m/%Y') if protocolo.prazo_em else 'Não definido' }}</td>
-                        <td><span class="badge bg-info">{{ protocolo.status }}</span></td>
+                        <td><span class="badge bg-info">{{ protocolo.status_exibicao }}</span></td>
                         <td>{{ protocol_location(protocolo) }}</td>
                         <td>{{ protocolo.responsavel or 'Não definido' }}</td>
                         <td>

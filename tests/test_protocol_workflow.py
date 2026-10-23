@@ -96,12 +96,12 @@ class WorkflowTests(unittest.TestCase):
         bob, _ = self.participation('bob')
         self.assertEqual(self.post(f'providencia/{bob}/concluir').status_code, 302)
         with app.app_context():
-            self.assertNotEqual(db.session.get(Protocolo, self.pid).status, 'FINALIZADO')
+            self.assertNotIn(db.session.get(Protocolo, self.pid).status, ('FINALIZADO', 'CONCLUÍDO'))
         self.login('admin'); self.assertEqual(self.post('finalizar', {'resultado': 'Deferido.'}).status_code, 302)
         self.post('finalizar')
         with app.app_context():
             p = db.session.get(Protocolo, self.pid)
-            self.assertEqual(p.status, 'FINALIZADO'); self.assertEqual(p.resultado_final, 'Deferido.')
+            self.assertEqual(p.status, 'CONCLUÍDO'); self.assertEqual(p.resultado_final, 'Deferido.')
             self.assertEqual(HistoricoProtocolo.query.filter_by(acao='FINALIZACAO').count(), 1)
             self.assertTrue(verify_audit_chain(self.tenant)[0])
         self.assertEqual(self.send('carol', nova_providencia='1').status_code, 409)
@@ -173,7 +173,7 @@ class WorkflowTests(unittest.TestCase):
     def test_view_renders_new_actions_and_parallel_responsibilities(self):
         self.login('admin'); self.send('alice', 'carol')
         html = self.client.get(f'/protocolo/{self.pid}').get_data(as_text=True)
-        for label in ('Acompanhar processo', 'Finalizar processo', 'Excluir protocolo', 'Providência 1', 'Providência 2', 'Receber participação'):
+        for label in ('Acompanhar processo', 'Concluir processo', 'Excluir protocolo', 'Providência 1', 'Providência 2', 'Receber participação'):
             self.assertIn(label, html)
         self.login('consulta'); html = self.client.get(f'/protocolo/{self.pid}').get_data(as_text=True)
         self.assertNotIn('id="excluir-processo"', html)
@@ -248,6 +248,35 @@ class WorkflowTests(unittest.TestCase):
             self.assertIn('providencia_id', cols)
             self.assertEqual(db.session.get(Protocolo, self.pid).numero, '0001/2026')
             self.assertEqual(db.session.get(Usuario, self.ids['admin']).senha, 'not-a-real-credential')
+
+
+    def test_completion_aliases_share_filters_display_and_dashboard(self):
+        from datetime import date
+        self.login('admin')
+        with app.app_context():
+            legacy = db.session.get(Protocolo, self.pid)
+            legacy.status = 'FINALIZADO'
+            legacy.data_solicitacao = date.today()
+            canonical = Protocolo(tenant_id=self.tenant, numero='0002/2026',
+                nome='Outro fictício', status='CONCLUÍDO', data_solicitacao=date.today())
+            db.session.add(canonical); db.session.commit()
+            self.assertEqual(legacy.status_exibicao, 'CONCLUÍDO')
+        for value in ('FINALIZADO', 'CONCLUÍDO'):
+            with self.subTest(status=value):
+                html = self.client.get('/protocolos', query_string={'status': value}).get_data(as_text=True)
+                self.assertIn('0001/2026', html)
+                self.assertIn('0002/2026', html)
+                self.assertNotIn('value="FINALIZADO"', html)
+                stats = self.client.get('/protocolos/dashboard-stats', query_string={'status': value}).get_json()
+                self.assertEqual(stats['statusProtocolos'], [{'status': 'CONCLUÍDO', 'total': 2}])
+                self.assertEqual(stats['totalFinalizados'], 2)
+        html = self.client.get(f'/protocolo/{self.pid}').get_data(as_text=True)
+        self.assertIn('Processo concluído', html)
+        self.assertNotIn('href="#tramitacao"', html)
+        self.assertEqual(self.post('finalizar').status_code, 302)
+        with app.app_context():
+            self.assertEqual(db.session.get(Protocolo, self.pid).status, 'FINALIZADO')
+            self.assertEqual(HistoricoProtocolo.query.filter_by(acao='FINALIZACAO').count(), 0)
 
 
 if __name__ == '__main__': unittest.main()

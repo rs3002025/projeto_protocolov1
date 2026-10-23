@@ -232,7 +232,7 @@ def register_workflow_routes(app):
         owner = item.movimento_atual.recebido_por
         event(protocol, 'PROVIDENCIA_CONCLUIDA', f'Providência de {owner.nome_completo or owner.nome} concluída por {current_user.nome_completo or current_user.nome}. {result}'.strip())
         db.session.commit()
-        flash('Providência concluída. A finalização do processo é uma ação separada do administrador.', 'success')
+        flash('Providência concluída. Concluir o processo é uma ação separada do administrador.', 'success')
         return return_to(protocol)
 
     @app.post('/protocolo/<int:protocol_id>/acompanhar')
@@ -258,19 +258,19 @@ def register_workflow_routes(app):
     @workflow_feedback
     def finalizar_protocolo(protocol_id):
         protocol = locked_protocol(protocol_id)
-        if protocol.status == 'FINALIZADO':
+        if protocol.status in ('FINALIZADO', 'CONCLUÍDO'):
             return return_to(protocol)
         if is_closed(protocol) or protocol.aguardando_recebimento_inicial or protocol.retificacao_pendente:
-            abort(409, description='Regularize o processo antes de finalizar.')
+            abort(409, description='Regularize o processo antes de concluir.')
         if any(not p.concluida_em for p in protocol.providencias) or tenant_query(Movimentacao).filter_by(
                 protocolo_id=protocol.id, recebido_em=None).first() or tenant_query(SolicitacaoComplemento).filter_by(
                 protocolo_id=protocol.id, status='PENDENTE').first():
-            abort(409, description='Conclua as providências, os recebimentos e os complementos pendentes antes de finalizar.')
+            abort(409, description='Conclua as providências, os recebimentos e os complementos pendentes antes de concluir o processo.')
         result = (request.form.get('resultado') or '').strip()
         if len(result) > 10000 or '\x00' in result:
             abort(400)
-        protocol.status, protocol.finalizado_em, protocol.resultado_final = 'FINALIZADO', utc_now(), result
-        event(protocol, 'FINALIZACAO', result or 'Processo finalizado pelo administrador.')
+        protocol.status, protocol.finalizado_em, protocol.resultado_final = 'CONCLUÍDO', utc_now(), result
+        event(protocol, 'FINALIZACAO', result or 'Processo concluído pelo administrador.')
         db.session.commit()
-        flash('Processo finalizado.', 'success')
+        flash('Processo concluído.', 'success')
         return return_to(protocol)
