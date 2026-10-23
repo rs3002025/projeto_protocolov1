@@ -116,6 +116,9 @@ def forward_protocol(protocolo_id):
         if tenant_query(Movimentacao).filter_by(protocolo_id=protocol.id, enviado_por_id=current_user.id, envio_token=token).first():
             flash('Este encaminhamento já foi registrado.', 'info')
             return return_to(protocol)
+    active = [p for p in protocol.providencias if not p.concluida_em]
+    if len(active) > 1:
+        abort(409, description='Conclua sua participação. O encaminhamento volta a ficar disponível quando restar apenas um responsável.')
     note = (request.form.get('observacao') or '').strip()
     if len(note) > 10000 or '\x00' in note:
         abort(400)
@@ -231,6 +234,8 @@ def register_workflow_routes(app):
             abort(409)
         if not can_work(item):
             abort(403)
+        if sum(not p.concluida_em for p in protocol.providencias) <= 1:
+            abort(409, description='Você é o único responsável ativo. Encaminhe o protocolo ou solicite a conclusão do processo.')
         result = (request.form.get('resultado') or '').strip()
         if len(result) > 10000 or '\x00' in result:
             abort(400)
@@ -271,13 +276,21 @@ def register_workflow_routes(app):
             abort(409, description='Regularize o processo antes de concluir.')
         if protocol.status == 'PENDENTE DE DOCUMENTO':
             abort(409, description='Regularize a pendência de documentos antes de concluir o processo.')
-        if any(not p.concluida_em for p in protocol.providencias) or tenant_query(Movimentacao).filter_by(
+        # No fluxo individual, concluir o processo já encerra o único atendimento.
+        # O coletivo conserva a exigência de concluir cada responsabilidade.
+        active = [p for p in protocol.providencias if not p.concluida_em]
+        single = active[0] if len(active) == 1 else None
+        if (any(not p.concluida_em for p in protocol.providencias) and single is None) or tenant_query(Movimentacao).filter_by(
                 protocolo_id=protocol.id, recebido_em=None).first() or tenant_query(SolicitacaoComplemento).filter_by(
                 protocolo_id=protocol.id, status='PENDENTE').first():
             abort(409, description='Conclua as providências, os recebimentos e os complementos pendentes antes de concluir o processo.')
         result = (request.form.get('resultado') or '').strip()
         if len(result) > 10000 or '\x00' in result:
             abort(400)
+        if single and not single.concluida_em:
+            if not single.movimento_atual or not single.movimento_atual.recebido_em:
+                abort(409, description='Receba o encaminhamento antes de concluir o processo.')
+            single.concluida_em, single.concluida_por_id, single.resultado = utc_now(), current_user.id, result
         protocol.status, protocol.finalizado_em, protocol.resultado_final = 'CONCLUÍDO', utc_now(), result
         event(protocol, 'FINALIZACAO', result or 'Processo concluído pelo administrador.')
         db.session.commit()

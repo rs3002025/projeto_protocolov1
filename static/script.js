@@ -113,6 +113,18 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // --- Modal Logic ---
+    document.querySelectorAll('[data-forward-protocol]').forEach(form => {
+        const sector = form.querySelector('[name="setor_destino_id"]');
+        const person = form.querySelector('[name="destinatario_usuario_id"]');
+        const filter = () => {
+            person.value = '';
+            [...person.options].slice(1).forEach(option => {
+                option.hidden = option.disabled = option.dataset.setor !== sector.value;
+            });
+        };
+        sector.addEventListener('change', filter);
+        filter();
+    });
     // This will be expanded to handle all modals.
     // Example for the "Atualizar Status" modal
     const updateStatusModal = document.getElementById('modalAtualizarStatus');

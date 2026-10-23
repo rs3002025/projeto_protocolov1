@@ -83,6 +83,45 @@ class WorkflowTests(unittest.TestCase):
             self.assertEqual(db.session.get(Protocolo, self.pid).responsavel, 'carol')
             self.assertTrue(verify_audit_chain(self.tenant)[0])
 
+    def test_single_flow_stays_simple_and_admin_can_close_without_extra_step(self):
+        self.login('admin'); self.send('alice')
+        self.assertEqual(self.post('finalizar').status_code, 409)
+        self.receive('alice')
+        html = self.client.get(f'/protocolo/{self.pid}').get_data(as_text=True)
+        self.assertIn('data-forward-protocol', html)
+        self.assertIn('>Encaminhar protocolo</button>', html)
+        self.assertIn('>Atualizar status</button>', html)
+        self.assertNotIn('Encaminhar esta participação', html)
+        self.assertNotIn('Providência 1', html)
+        self.assertNotIn('Gerar nova versão do requerimento', html)
+        self.assertIn(self.post('finalizar').status_code, (302, 403))
+        with app.app_context():
+            self.assertNotEqual(db.session.get(Protocolo, self.pid).status, 'CONCLUÍDO')
+        self.login('admin')
+        self.assertEqual(self.post('finalizar', {'resultado': 'Deferido.'}).status_code, 302)
+        with app.app_context():
+            p = db.session.get(Protocolo, self.pid)
+            self.assertEqual(p.status, 'CONCLUÍDO')
+            self.assertIsNotNone(p.providencias[0].concluida_em)
+            self.assertEqual(p.providencias[0].concluida_por_id, self.ids['admin'])
+            self.assertTrue(verify_audit_chain(self.tenant)[0])
+
+    def test_edit_pdf_failure_rolls_back_data_and_preserves_previous_document(self):
+        from unittest.mock import patch
+        self.login('admin')
+        with patch('app.render_protocol_pdf', return_value=b'%PDF-1.7 fictitious old document'):
+            self.assertEqual(self.client.post(f'/protocolo/{self.pid}/documento/gerar').status_code, 200)
+        with app.app_context():
+            p = db.session.get(Protocolo, self.pid)
+            original = p.nome
+        with patch('app.render_protocol_pdf', side_effect=RuntimeError('Fictitious renderer failure')):
+            self.assertEqual(self.client.post(f'/protocolo/{self.pid}/editar', data={'nome': 'Nome corrigido fictício'}).status_code, 302)
+        with app.app_context():
+            self.assertEqual(db.session.get(Protocolo, self.pid).nome, original)
+            self.assertEqual(Anexo.query.filter_by(protocolo_id=self.pid, documento_chave='documento-protocolo').count(), 1)
+            self.assertEqual(HistoricoProtocolo.query.filter_by(acao='EDICAO').count(), 0)
+            self.assertTrue(verify_audit_chain(self.tenant)[0])
+
     def test_parallel_completion_is_not_administrative_finalization(self):
         self.login('protocolista'); self.assertEqual(self.send('alice', 'bob').status_code, 302)
         self.assertEqual(self.receive('alice').status_code, 302)
@@ -94,10 +133,12 @@ class WorkflowTests(unittest.TestCase):
         self.login('admin'); self.assertEqual(self.post('finalizar').status_code, 409)
         self.assertEqual(self.receive('bob').status_code, 302)
         bob, _ = self.participation('bob')
-        self.assertEqual(self.post(f'providencia/{bob}/concluir').status_code, 302)
+        self.assertEqual(self.post(f'providencia/{bob}/concluir').status_code, 409)
+        html = self.client.get(f'/protocolo/{self.pid}').get_data(as_text=True)
+        self.assertIn('data-forward-protocol', html)
+        self.assertNotIn('Concluir minha participação', html)
         with app.app_context():
             self.assertNotIn(db.session.get(Protocolo, self.pid).status, ('FINALIZADO', 'CONCLUÍDO'))
-            self.assertEqual(db.session.get(Protocolo, self.pid).status, 'AGUARDANDO CONCLUSÃO')
         self.login('admin'); self.assertEqual(self.post('finalizar', {'resultado': 'Deferido.'}).status_code, 302)
         self.post('finalizar')
         with app.app_context():
@@ -116,12 +157,15 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(self.post('receber', {'movimentacao_id': mid}).status_code, 403)
         self.assertEqual(self.post(f'providencia/{aid}/concluir').status_code, 403)
         self.receive('alice')
-        self.login('bob'); self.assertEqual(self.send('carol', providencia_id=aid).status_code, 403)
+        self.login('bob'); self.assertEqual(self.send('carol', providencia_id=aid).status_code, 409)
 
     def test_watching_is_per_user_idempotent_and_survives_transfer(self):
         self.login('protocolista')
         for _ in range(2): self.assertEqual(self.post('acompanhar', {'acompanhar': '1'}).status_code, 302)
         self.send('alice'); self.receive('alice')
+        html = self.client.get(f'/protocolo/{self.pid}').get_data(as_text=True)
+        self.assertIn('data-forward-protocol', html)
+        self.assertNotIn('Concluir minha participação', html)
         self.login('protocolista')
         self.assertIn('0001/2026', self.client.get('/meus_protocolos').get_data(as_text=True))
         self.post('acompanhar', {'acompanhar': '0'})
@@ -174,8 +218,10 @@ class WorkflowTests(unittest.TestCase):
     def test_view_renders_new_actions_and_parallel_responsibilities(self):
         self.login('admin'); self.send('alice', 'carol')
         html = self.client.get(f'/protocolo/{self.pid}').get_data(as_text=True)
-        for label in ('Acompanhar processo', 'Concluir processo', 'Excluir protocolo', 'Providência 1', 'Providência 2', 'Receber participação'):
+        for label in ('Acompanhar processo', 'Concluir processo', 'Excluir protocolo', 'Participação 1', 'Participação 2', 'Receber participação'):
             self.assertIn(label, html)
+        self.assertNotIn('data-forward-protocol', html)
+        self.assertNotIn('Encaminhamento coletivo (opcional)', html)
         self.login('consulta'); html = self.client.get(f'/protocolo/{self.pid}').get_data(as_text=True)
         self.assertNotIn('id="excluir-processo"', html)
 
@@ -189,13 +235,24 @@ class WorkflowTests(unittest.TestCase):
             self.assertEqual(Movimentacao.query.count(), 2)
             self.assertEqual(ProvidenciaProtocolo.query.count(), 2)
 
-    def test_parallel_transfer_does_not_remove_other_holder(self):
+    def test_collective_blocks_forward_until_only_one_active_holder_remains(self):
         self.login('protocolista'); self.send('alice', 'bob')
         self.receive('alice'); aid, _ = self.participation('alice')
         self.receive('bob')
-        self.login('alice'); self.assertEqual(self.send('carol', providencia_id=aid).status_code, 302)
+        self.login('alice')
+        html = self.client.get(f'/protocolo/{self.pid}').get_data(as_text=True)
+        self.assertIn('Concluir minha participação', html)
+        self.assertNotIn('data-forward-protocol', html)
+        self.assertEqual(self.send('carol', providencia_id=aid).status_code, 409)
+        with app.app_context(): self.assertEqual(Movimentacao.query.count(), 2)
         self.login('bob'); bid, _ = self.participation('bob')
         self.assertEqual(self.post(f'providencia/{bid}/concluir').status_code, 302)
+        self.login('alice')
+        html = self.client.get(f'/protocolo/{self.pid}').get_data(as_text=True)
+        self.assertIn('data-forward-protocol', html)
+        self.assertNotIn('Concluir minha participação', html)
+        self.assertEqual(self.post(f'providencia/{aid}/concluir').status_code, 409)
+        self.assertEqual(self.send('carol', providencia_id=aid).status_code, 302)
         self.assertEqual(self.receive('carol').status_code, 302)
         with app.app_context():
             self.assertEqual(ProvidenciaProtocolo.query.count(), 2)
@@ -289,7 +346,7 @@ class WorkflowTests(unittest.TestCase):
             self.assertEqual(db.session.get(Protocolo, self.pid).status, 'PENDENTE DE DOCUMENTO')
         self.login('alice')
         aid, _ = self.participation('alice')
-        self.send('bob', providencia_id=aid)
+        self.assertEqual(self.send('bob', providencia_id=aid).status_code, 302)
         with app.app_context():
             self.assertEqual(db.session.get(Protocolo, self.pid).status, 'EM TRAMITAÇÃO')
         self.assertEqual(self.update_status('EM ANÁLISE').status_code, 403)
@@ -324,10 +381,14 @@ class WorkflowTests(unittest.TestCase):
         self.receive('alice')
         self.assertEqual(self.update_status('EM ANÁLISE').status_code, 409)
         aid, _ = self.participation('alice')
-        self.send('bob', providencia_id=aid)
+        self.receive('carol')
+        cid, _ = self.participation('carol')
+        self.assertEqual(self.post(f'providencia/{cid}/concluir').status_code, 302)
+        self.login('alice')
+        self.assertEqual(self.send('bob', providencia_id=aid).status_code, 302)
         with app.app_context():
             self.assertEqual(db.session.get(Protocolo, self.pid).status, 'PENDENTE DE DOCUMENTO')
-        self.receive('carol')
+        self.receive('bob')
         with app.app_context():
             self.assertEqual(db.session.get(Protocolo, self.pid).status, 'PENDENTE DE DOCUMENTO')
         self.login('admin')
