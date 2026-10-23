@@ -21,6 +21,26 @@ class ImportPresentationTests(unittest.TestCase):
         self.assertEqual(history_parts(e)['observacao'],e.observacao)
         self.assertEqual(history_observation_label(e.observacao,e.acao),e.observacao)
 
+    def test_old_forwarding_phrases_are_hidden_without_changing_audit(self):
+        cases = [
+            ('Intervenção da equipe de protocolo. Encaminhado para SEAD, disponível a todos do setor.  deferido pela seduc', 'Encaminhado para SEAD.', 'deferido pela seduc'),
+            ('Encaminhado para SEAGRI, disponível a todos do setor. Transferência administrativa do encaminhamento de SEDUCTEC. resolvido', 'Encaminhado para SEAGRI.', 'resolvido'),
+            ('Encaminhado para SEFIN, aos cuidados de Maria. Transferência administrativa do encaminhamento de SEAD. Responsabilidade transferida de João. Parecer recebido.\nPróxima etapa.', 'Encaminhado para SEFIN — Maria.', 'Parecer recebido.\nPróxima etapa.'),
+            ('Encaminhado para SEAD, disponível a todos do setor.', 'Encaminhado para SEAD.', ''),
+        ]
+        for original, heading, note in cases:
+            with self.subTest(original=original):
+                e = SimpleNamespace(acao='TRAMITACAO', observacao=original)
+                self.assertEqual(history_parts(e), {'sistema': heading, 'observacao': note})
+                self.assertEqual(e.observacao, original)
+
+    def test_new_forwarding_keeps_user_text_verbatim(self):
+        note = 'Transferência administrativa do encaminhamento de exemplo.\nTexto disponível a todos do setor.\n\nOutro parágrafo.'
+        e = SimpleNamespace(acao='TRAMITACAO', observacao='Encaminhado para Sec. Educação — Maria A. Silva.\n\n' + note)
+        self.assertEqual(history_parts(e), {'sistema':'Encaminhado para Sec. Educação — Maria A. Silva.', 'observacao':note})
+        e = SimpleNamespace(acao='TRAMITACAO', observacao='Encaminhado para SEAD.')
+        self.assertEqual(history_parts(e), {'sistema':'Encaminhado para SEAD.', 'observacao':''})
+
     def test_source_date_has_no_fabricated_hour(self):
         e=SimpleNamespace(acao='TRAMITACAO_LEGADA',data_movimentacao=datetime(2026,1,5,3))
         self.assertEqual(history_date_label(e),'05/01/2026')

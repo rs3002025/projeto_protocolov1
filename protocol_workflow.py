@@ -205,9 +205,6 @@ def forward_protocol(protocolo_id):
             if request.form.get('envio_coletivo') != '1':
                 participation = adopted
     origin = participation.movimento_atual.setor_destino_id if participation else (protocol.setor_atual_id or legacy_origin)
-    previous_holder = participation.movimento_atual.recebido_por if participation else None
-    previous_movement = participation.movimento_atual if participation else None
-    intervention = manager and bool(previous_movement)
     for index, (sector, user) in enumerate(targets):
         item = participation if index == 0 and participation else ProvidenciaProtocolo(
             tenant_id=protocol.tenant_id, protocolo=protocol)
@@ -217,11 +214,9 @@ def forward_protocol(protocolo_id):
             destinatario_usuario_id=user.id if user else None, enviado_por_id=current_user.id, observacao=note, envio_token=token)
         db.session.add(movement)
         protocol.status = 'PENDENTE DE DOCUMENTO' if protocol.complemento_pendente else 'EM TRAMITAÇÃO'
-        target = f', aos cuidados de {user.nome_completo or user.nome}' if user else ', disponível a todos do setor'
-        holder = f' Responsabilidade transferida de {previous_holder.nome_completo or previous_holder.nome}.' if previous_holder and index == 0 else ''
-        intervention_note = (f'Transferência administrativa do encaminhamento de {previous_movement.setor_destino.nome}. '
-                             if intervention and index == 0 else '')
-        event(protocol, 'TRAMITACAO', f'Encaminhado para {sector.nome}{target}. {intervention_note}{holder} {note}'.strip())
+        target = f' — {user.nome_completo or user.nome}' if user else ''
+        description = f'Encaminhado para {sector.nome}{target}.'
+        event(protocol, 'TRAMITACAO', description + ('\n\n' + note if note else ''))
     db.session.flush()
     synchronize(protocol)
     db.session.commit()
