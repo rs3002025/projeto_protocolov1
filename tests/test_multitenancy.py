@@ -26,6 +26,7 @@ from models import EmissaoEletronica
 from models import SolicitacaoComplemento
 from models import PortalSessao, PortalRecuperacao
 from models import AuditoriaEvento
+from models import ProvidenciaProtocolo
 from app import verify_audit_chain, public_url, tenant_entry_url
 import re
 from urllib.parse import urlsplit
@@ -1095,12 +1096,16 @@ def test_arquivamento_exige_tramitacao_regularizada():
         juridico = Lotacao.query.filter_by(nome='Jurídico').one()
         protocolo_id, juridico_id = protocolo.id, juridico.id
         Movimentacao.query.filter_by(protocolo_id=protocolo_id).delete()
+        ProvidenciaProtocolo.query.filter_by(protocolo_id=protocolo_id).delete()
         db.session.commit()
     client.post(f'/protocolo/{protocolo_id}/tramitar', data={'setor_destino_id': juridico_id})
     client.post(f'/protocolo/{protocolo_id}/arquivar')
     with app.app_context():
         assert db.session.get(Protocolo, protocolo_id).arquivado_em is None
     client.post(f'/protocolo/{protocolo_id}/receber')
+    with app.app_context():
+        providencia_id = ProvidenciaProtocolo.query.filter_by(protocolo_id=protocolo_id).one().id
+    client.post(f'/protocolo/{protocolo_id}/providencia/{providencia_id}/concluir')
     client.post(f'/protocolo/{protocolo_id}/arquivar')
     with app.app_context():
         protocolo = db.session.get(Protocolo, protocolo_id)

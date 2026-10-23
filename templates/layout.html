@@ -8,7 +8,7 @@
     <!-- Bootstrap CSS -->
     <link href="{{ url_for('static', filename='vendor/bootstrap-5.1.3.min.css') }}" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous" rel="stylesheet">
     <!-- Custom CSS -->
-    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css', v='numero-acoes-20261023') }}">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css', v='providencias-20261023') }}">
     <!-- Chart.js -->
     <script src="{{ url_for('static', filename='vendor/chart-4.5.1.umd.js') }}" integrity="sha384-hfkuqrKeWFmnTMWN31VWyoe8xgdTADD11kgxmdpx2uyE6j5Az5uZq6u6AKYYmAOw" crossorigin="anonymous"></script>
     <!-- html2pdf.js and qrcode.js -->
@@ -56,7 +56,7 @@
                     <a href="{{ url_for('home') }}" class="nav-link {{ 'active' if request.endpoint == 'home' else '' }}">Visão geral</a>
                     {% if can('create') %}<a href="{{ url_for('criar_protocolo') }}" class="nav-link {{ 'active' if request.endpoint in ['criar_protocolo', 'editar_protocolo'] else '' }}">Novo protocolo</a>{% endif %}
                     <a href="{{ url_for('listar_protocolos') }}" class="nav-link {{ 'active' if request.endpoint in ['listar_protocolos', 'detalhe_protocolo'] else '' }}">Protocolos</a>
-                    <a href="{{ url_for('meus_protocolos') }}" class="nav-link {{ 'active' if request.endpoint == 'meus_protocolos' else '' }}">Meus protocolos</a>
+                    <a href="{{ url_for('meus_protocolos') }}" class="nav-link {{ 'active' if request.endpoint == 'meus_protocolos' else '' }}">Meus processos</a>
                     {% if can('route') %}<a href="{{ url_for('pendencias_recebimento') }}" class="nav-link {{ 'active' if request.endpoint == 'pendencias_recebimento' else '' }}">Recebimentos{% if pendencias_recebimento %} <span class="nav-count">{{ pendencias_recebimento }}</span>{% endif %}</a>{% endif %}
                     {% if can('reports') %}<a href="{{ url_for('relatorios') }}" class="nav-link {{ 'active' if request.endpoint == 'relatorios' else '' }}">Relatórios</a>{% endif %}
                     <a href="{{ url_for('support_list') }}" class="nav-link {{ 'active' if request.endpoint in ['support_list', 'support_detail'] else '' }}">Suporte{% if chamados_pendentes %} <span class="nav-count">{{ chamados_pendentes }}</span>{% endif %}</a>
@@ -223,8 +223,6 @@
                 <option selected>PROTOCOLO GERADO</option>
                 <option>EM ANÁLISE</option>
                 <option>PENDENTE DE DOCUMENTO</option>
-                <option>FINALIZADO</option>
-                <option>CONCLUÍDO</option>
               </select>
             </div>
             <div class="mb-3">

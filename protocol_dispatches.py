@@ -37,6 +37,10 @@ def register_dispatch_routes(app, db):
     from models import DespachoProtocolo, HistoricoProtocolo, Lotacao, Movimentacao, Protocolo
 
     def can_add_dispatch(protocolo):
+        if protocolo.providencias:
+            from protocol_workflow import is_closed
+            return bool(current_user.tipo in ('admin', 'protocolista', 'tramitador') and
+                        not is_closed(protocolo) and can_operate_protocol(protocolo))
         ultimo = max(protocolo.movimentacoes, key=lambda item: item.id or 0, default=None)
         nominal_alheio = bool(current_user.tipo == 'tramitador' and ultimo and
                               ultimo.setor_destino_id == current_user.lotacao_id and
