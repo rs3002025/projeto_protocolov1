@@ -97,6 +97,7 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(self.post(f'providencia/{bob}/concluir').status_code, 302)
         with app.app_context():
             self.assertNotIn(db.session.get(Protocolo, self.pid).status, ('FINALIZADO', 'CONCLUÍDO'))
+            self.assertEqual(db.session.get(Protocolo, self.pid).status, 'AGUARDANDO CONCLUSÃO')
         self.login('admin'); self.assertEqual(self.post('finalizar', {'resultado': 'Deferido.'}).status_code, 302)
         self.post('finalizar')
         with app.app_context():
@@ -299,7 +300,7 @@ class WorkflowTests(unittest.TestCase):
     def test_manual_status_cannot_simulate_actions_or_change_custody(self):
         self.login('admin')
         for status in ('PROTOCOLO GERADO', 'AGUARDANDO RECEBIMENTO', 'RECEBIDO',
-                       'EM TRAMITAÇÃO', 'CONCLUÍDO', 'FINALIZADO', 'ARQUIVADO'):
+                       'EM TRAMITAÇÃO', 'AGUARDANDO CONCLUSÃO', 'CONCLUÍDO', 'FINALIZADO', 'ARQUIVADO'):
             self.assertEqual(self.update_status(status).status_code, 400)
         self.assertEqual(self.update_status('PENDENTE DE DOCUMENTO', novoResponsavel='bob').status_code, 409)
         self.assertEqual(self.update_status('PENDENTE DE DOCUMENTO', observacao=['invalid']).status_code, 400)

@@ -223,7 +223,7 @@ window.fecharModal = function(modalId) {
 }
 
 window.popularFiltrosDashboard = function() {
-    const statusOptions = '<option value="">Todos os Status</option><option>PROTOCOLO GERADO</option><option>AGUARDANDO RECEBIMENTO</option><option>RECEBIDO</option><option>EM ANÁLISE</option><option>PENDENTE DE DOCUMENTO</option><option>CONCLUÍDO</option><option>EM TRAMITAÇÃO</option><option>ARQUIVADO</option>';
+    const statusOptions = '<option value="">Todos os Status</option><option>PROTOCOLO GERADO</option><option>AGUARDANDO RECEBIMENTO</option><option>RECEBIDO</option><option>EM ANÁLISE</option><option>PENDENTE DE DOCUMENTO</option><option>AGUARDANDO CONCLUSÃO</option><option>CONCLUÍDO</option><option>EM TRAMITAÇÃO</option><option>ARQUIVADO</option>';
     const statusSelect = document.getElementById('dashStatus');
     if (statusSelect) {
         statusSelect.innerHTML = statusOptions;

@@ -1631,7 +1631,12 @@ def portal_enviar_complemento(protocolo_id, solicitacao_id):
         # O envio atende a solicitação, mas não inicia uma análise humana.
         pendente = any(not p.concluida_em and p.movimento_atual and not p.movimento_atual.recebido_em
                        for p in protocolo.providencias)
-        protocolo.status = 'EM TRAMITAÇÃO' if pendente else 'RECEBIDO'
+        if pendente:
+            protocolo.status = 'EM TRAMITAÇÃO'
+        elif protocolo.providencias and all(p.concluida_em for p in protocolo.providencias):
+            protocolo.status = 'AGUARDANDO CONCLUSÃO'
+        else:
+            protocolo.status = 'RECEBIDO'
     db.session.add(HistoricoProtocolo(
         tenant_id=current_tenant_id(), protocolo_id=protocolo.id, status=protocolo.status,
         responsavel=current_user.login, usuario_id=current_user.id,

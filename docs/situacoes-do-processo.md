@@ -11,6 +11,7 @@ A situação é geral do processo. O recebimento, o responsável e a conclusão 
 | Em análise | Registrada explicitamente por quem pode atuar no processo. Também é a situação da retomada de análise pelo desarquivamento. Apenas receber, concluir uma participação ou incluir um despacho não inicia análise automaticamente. |
 | Pendente de documento | Registrada por quem está atuando no processo ou automaticamente ao solicitar complemento pelo portal. Outro recebimento/encaminhamento não apaga uma solicitação formal ainda pendente. Quando todas essas solicitações forem atendidas, volta a Recebido para conferência, ou Em tramitação se ainda houver destinatários aguardando recebimento. |
 | Concluído | Ação administrativa Concluir processo, após regularizar as pendências. Concluir uma participação isolada não conclui o processo. Finalizado é apenas o valor histórico compatível desta mesma situação. |
+| Aguardando conclusão | Todas as participações já foram concluídas, mas falta o encerramento administrativo do processo. Não volta a Recebido nem é concluído automaticamente. Uma pendência documental ainda aberta prevalece sobre essa situação. |
 | Arquivado | Ação própria de arquivamento. Não é oferecida como simples mudança de situação. |
 
 ## Atualização durante a tramitação
