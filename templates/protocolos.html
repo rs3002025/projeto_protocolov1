@@ -93,7 +93,7 @@
                         <td>{{ protocolo.responsavel_exibicao }}</td>
                         <td><div class="action-group action-group-visible">
                             <a href="{{ url_for('detalhe_protocolo', protocolo_id=protocolo.id) }}" class="btn btn-sm btn-primary">Abrir protocolo</a>
-                            {% if can('route') and not protocolo.aguardando_recebimento_inicial and not protocolo.providencias and protocolo.status not in ['FINALIZADO', 'CONCLUÍDO', 'ARQUIVADO'] %}<button type="button" class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#modalAtualizarStatus" data-protocolo-id="{{ protocolo.id }}">Atualizar status</button>{% endif %}
+                            {% if can_update_protocol_status(protocolo) %}<button type="button" class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#modalAtualizarStatus" data-protocolo-id="{{ protocolo.id }}" data-protocolo-status="{{ protocolo.status_exibicao }}">Atualizar status</button>{% endif %}
                             <a class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" href="{{ url_for('gerar_pdf_protocolo', protocolo_id=protocolo.id) }}">Requerimento</a>
                         </div>
                         </td>

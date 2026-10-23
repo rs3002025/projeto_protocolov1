@@ -68,7 +68,7 @@ from models import (Organizacao, OrganizacaoSubdominioAlias, Usuario, Protocolo,
                     OrganizacaoCapacidadeEvento, EmissaoEletronica, db)
 from models import SolicitacaoComplemento
 from models import PortalSessao, PortalRecuperacao, PortalCadastro
-from protocol_status import PROTOCOL_STATUSES, canonical_status, filter_status, grouped_status_counts
+from protocol_status import PROTOCOL_STATUSES, MANUAL_STATUSES, canonical_status, filter_status, grouped_status_counts
 from models import AuditoriaEvento
 from datetime import timezone
 from zoneinfo import ZoneInfo
@@ -306,6 +306,18 @@ def can_operate_protocol(protocolo):
     if current_user.tipo != 'tramitador':
         return True
     return bool(current_user.lotacao_id and protocolo.setor_atual_id == current_user.lotacao_id)
+
+def can_update_protocol_status(protocolo):
+    """Situação de trabalho é editável por quem pode atuar, sem simular recebimento."""
+    from protocol_workflow import can_work
+    if (not current_user.is_authenticated or 'route' not in ROLE_PERMISSIONS.get(current_user.tipo, set())
+            or protocolo.aguardando_recebimento_inicial or not can_operate_protocol(protocolo)):
+        return False
+    if protocolo.providencias:
+        abertas = [p for p in protocolo.providencias if not p.concluida_em]
+        return any(can_work(p) for p in abertas) if abertas else current_user.tipo in ('admin', 'protocolista')
+    return not any(m.recebido_em is None for m in protocolo.movimentacoes)
+
 
 def protocol_location(protocolo):
     """Descreve a localização operacional sem antecipar a transferência de custódia."""
@@ -650,6 +662,8 @@ def permission_context():
         'protocol_location': protocol_location,
         'protocol_statuses': PROTOCOL_STATUSES,
         'canonical_status': canonical_status,
+        'can_update_protocol_status': can_update_protocol_status,
+        'manual_protocol_statuses': MANUAL_STATUSES,
         'role_labels': ROLE_LABELS,
         'active_organization': organization,
         'branding_logo_url': logo_url,
@@ -3126,16 +3140,21 @@ def deletar_anexo(anexo_id):
 @app.route("/protocolos/atualizar", methods=['POST'])
 @permission_required('route')
 def atualizar_protocolo_status():
-    data = request.get_json()
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({'sucesso': False, 'mensagem': 'Informe os dados da atualização.'}), 400
     protocolo_id = data.get('protocoloId')
     novo_status = canonical_status(data.get('novoStatus'))
     novo_responsavel = data.get('novoResponsavel') # Pode ser nulo
-    observacao = data.get('observacao')
+    observacao = data.get('observacao') or ''
+    if not isinstance(observacao, str) or len(observacao) > 10000 or '\x00' in observacao:
+        return jsonify({'sucesso': False, 'mensagem': 'Observação inválida.'}), 400
+    observacao = observacao.strip()
 
     if not protocolo_id or novo_status not in PROTOCOL_STATUSES or novo_status in ('EM TRAMITAÇÃO', 'ARQUIVADO'):
         return jsonify({'sucesso': False, 'mensagem': 'Dados insuficientes.'}), 400
 
-    protocolo = accessible_protocol_or_404(protocolo_id)
+    protocolo = accessible_protocols_query().filter(Protocolo.id == protocolo_id).with_for_update().first_or_404()
     if protocolo.aguardando_recebimento_inicial:
         return jsonify({'sucesso': False, 'mensagem': 'Receba o requerimento antes de alterar a situação.'}), 409
     if not can_operate_protocol(protocolo):
@@ -3145,8 +3164,14 @@ def atualizar_protocolo_status():
 
     if novo_status in ('FINALIZADO', 'CONCLUÍDO'):
         return jsonify({'sucesso': False, 'mensagem': 'Use Concluir processo nas ações administrativas.'}), 400
-    if novo_responsavel or any(not p.concluida_em for p in protocolo.providencias):
-        return jsonify({'sucesso': False, 'mensagem': 'Use o encaminhamento ou a conclusão de providências para atualizar o andamento.'}), 409
+    if novo_responsavel:
+        return jsonify({'sucesso': False, 'mensagem': 'Use o encaminhamento para transferir a responsabilidade.'}), 409
+    if novo_status not in MANUAL_STATUSES:
+        return jsonify({'sucesso': False, 'mensagem': 'Recebimento e encaminhamento são registrados pelas ações próprias do processo.'}), 400
+    if not can_update_protocol_status(protocolo):
+        return jsonify({'sucesso': False, 'mensagem': 'Receba sua participação antes de atualizar a situação do processo.'}), 409
+    if protocolo.status == novo_status:
+        return jsonify({'sucesso': True, 'mensagem': 'O protocolo já está nesta situação.'})
 
     # Atualiza o protocolo
     protocolo.status = novo_status

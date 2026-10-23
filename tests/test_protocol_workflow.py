@@ -250,6 +250,68 @@ class WorkflowTests(unittest.TestCase):
             self.assertEqual(db.session.get(Usuario, self.ids['admin']).senha, 'not-a-real-credential')
 
 
+    def update_status(self, status, **extra):
+        return self.client.post('/protocolos/atualizar', json={
+            'protocoloId': self.pid, 'novoStatus': status, **extra})
+
+    def test_receive_does_not_start_analysis_and_owner_can_update_during_workflow(self):
+        self.login('admin'); self.send('alice')
+        with app.app_context():
+            self.assertEqual(db.session.get(Protocolo, self.pid).status, 'EM TRAMITAÇÃO')
+        self.assertEqual(self.update_status('EM ANÁLISE').status_code, 409)
+        self.receive('alice')
+        with app.app_context():
+            self.assertEqual(db.session.get(Protocolo, self.pid).status, 'RECEBIDO')
+        html = self.client.get(f'/protocolo/{self.pid}').get_data(as_text=True)
+        self.assertIn('>Atualizar status</button>', html)
+        self.assertEqual(self.update_status('EM ANÁLISE', observacao='Análise iniciada.').status_code, 200)
+        self.assertEqual(self.update_status('PENDENTE DE DOCUMENTO', observacao='Falta certidão.').status_code, 200)
+        with app.app_context():
+            p = db.session.get(Protocolo, self.pid)
+            self.assertEqual(p.status, 'PENDENTE DE DOCUMENTO')
+            self.assertEqual(p.responsavel, 'alice')
+            self.assertEqual(HistoricoProtocolo.query.filter_by(acao='ALTERACAO_STATUS').count(), 2)
+            self.assertTrue(verify_audit_chain(self.tenant)[0])
+        self.login('bob')
+        self.assertEqual(self.update_status('EM ANÁLISE').status_code, 403)
+
+    def test_parallel_receipts_and_completions_preserve_manual_work_status(self):
+        self.login('admin'); self.send('alice', 'carol')
+        self.receive('alice')
+        self.assertEqual(self.update_status('PENDENTE DE DOCUMENTO').status_code, 200)
+        self.receive('carol')
+        with app.app_context():
+            self.assertEqual(db.session.get(Protocolo, self.pid).status, 'PENDENTE DE DOCUMENTO')
+        cid, _ = self.participation('carol')
+        self.post(f'providencia/{cid}/concluir')
+        with app.app_context():
+            self.assertEqual(db.session.get(Protocolo, self.pid).status, 'PENDENTE DE DOCUMENTO')
+        self.login('alice')
+        aid, _ = self.participation('alice')
+        self.send('bob', providencia_id=aid)
+        with app.app_context():
+            self.assertEqual(db.session.get(Protocolo, self.pid).status, 'EM TRAMITAÇÃO')
+        self.assertEqual(self.update_status('EM ANÁLISE').status_code, 403)
+        self.receive('bob')
+        with app.app_context():
+            self.assertEqual(db.session.get(Protocolo, self.pid).status, 'RECEBIDO')
+
+    def test_manual_status_cannot_simulate_actions_or_change_custody(self):
+        self.login('admin')
+        for status in ('PROTOCOLO GERADO', 'AGUARDANDO RECEBIMENTO', 'RECEBIDO',
+                       'EM TRAMITAÇÃO', 'CONCLUÍDO', 'FINALIZADO', 'ARQUIVADO'):
+            self.assertEqual(self.update_status(status).status_code, 400)
+        self.assertEqual(self.update_status('PENDENTE DE DOCUMENTO', novoResponsavel='bob').status_code, 409)
+        self.assertEqual(self.update_status('PENDENTE DE DOCUMENTO', observacao=['invalid']).status_code, 400)
+        self.update_status('PENDENTE DE DOCUMENTO')
+        self.update_status('PENDENTE DE DOCUMENTO')
+        with app.app_context():
+            self.assertEqual(HistoricoProtocolo.query.filter_by(acao='ALTERACAO_STATUS').count(), 1)
+            p = db.session.get(Protocolo, self.pid)
+            p.status = 'CONCLUÍDO'; db.session.commit()
+        self.assertEqual(self.update_status('EM ANÁLISE').status_code, 403)
+        self.assertNotIn('>Atualizar status</button>', self.client.get(f'/protocolo/{self.pid}').get_data(as_text=True))
+
     def test_completion_aliases_share_filters_display_and_dashboard(self):
         from datetime import date
         self.login('admin')
