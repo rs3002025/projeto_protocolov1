@@ -1,0 +1,17 @@
+<details class="mt-4">
+  <summary class="btn btn-outline-primary">+ Adicionar encaminhamento</summary>
+  <form class="mt-3" method="post" data-additional-forward action="{{ url_for('tramitar_protocolo', protocolo_id=protocolo.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="envio_token" value="{{ tramitacao_token }}-adicional">
+    <input type="hidden" name="envio_coletivo" value="1">
+    <input type="hidden" name="destinos_formato" value="campos">
+    <p class="form-text">Inclui novos destinos e mantém os encaminhamentos atuais.</p>
+    <div data-destination-rows>{% include 'workflow_destination_fields.html' %}</div>
+    <template data-destination-template>{% include 'workflow_destination_fields.html' %}</template>
+    <div class="d-flex flex-wrap gap-2 mt-3">
+      <button type="button" class="btn btn-outline-primary" data-add-destination hidden>+ Adicionar destino</button>
+      <button type="submit" class="btn btn-primary">Confirmar encaminhamentos</button>
+    </div>
+    <p class="form-text mt-2 mb-0" data-destination-limit aria-live="polite"></p>
+  </form>
+</details>

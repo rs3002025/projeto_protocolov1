@@ -125,6 +125,55 @@ document.addEventListener('DOMContentLoaded', function () {
         sector.addEventListener('change', filter);
         filter();
     });
+    document.querySelectorAll('[data-additional-forward]').forEach(form => {
+        const rows = form.querySelector('[data-destination-rows]');
+        const template = form.querySelector('[data-destination-template]');
+        const add = form.querySelector('[data-add-destination]');
+        const notice = form.querySelector('[data-destination-limit]');
+        let sequence = 0;
+        const initialize = row => {
+            const number = ++sequence;
+            row.querySelectorAll('[data-destination-field]').forEach(field => {
+                field.id = `adicional-${number}-${field.dataset.destinationField}`;
+                row.querySelector(`[data-destination-label="${field.dataset.destinationField}"]`).htmlFor = field.id;
+            });
+            const sector = row.querySelector('[name="destinos_setores"]');
+            const person = row.querySelector('[name="destinos_usuarios"]');
+            const filter = () => {
+                person.value = '';
+                [...person.options].slice(1).forEach(option => {
+                    option.hidden = option.disabled = option.dataset.setor !== sector.value;
+                });
+            };
+            sector.addEventListener('change', filter);
+            filter();
+        };
+        const refresh = () => {
+            [...rows.children].forEach((row, index) => {
+                row.querySelector('[data-destination-title]').textContent = `Destino ${index + 1}`;
+                row.querySelector('[data-remove-destination]').hidden = rows.children.length === 1;
+            });
+            add.disabled = rows.children.length >= 50;
+            notice.textContent = add.disabled ? 'Limite de 50 destinos por envio.' : '';
+        };
+        [...rows.children].forEach(initialize);
+        add.hidden = false;
+        add.addEventListener('click', () => {
+            if (rows.children.length >= 50) return;
+            const row = template.content.firstElementChild.cloneNode(true);
+            rows.appendChild(row);
+            initialize(row);
+            refresh();
+            row.querySelector('select').focus();
+        });
+        rows.addEventListener('click', event => {
+            const remove = event.target.closest('[data-remove-destination]');
+            if (!remove || rows.children.length <= 1) return;
+            remove.closest('[data-destination-row]').remove();
+            refresh();
+        });
+        refresh();
+    });
     // This will be expanded to handle all modals.
     // Example for the "Atualizar Status" modal
     const updateStatusModal = document.getElementById('modalAtualizarStatus');

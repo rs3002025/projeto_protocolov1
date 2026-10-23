@@ -221,7 +221,9 @@ class WorkflowTests(unittest.TestCase):
         for label in ('Acompanhar processo', 'Concluir processo', 'Excluir protocolo', 'Participação 1', 'Participação 2', 'Receber participação'):
             self.assertIn(label, html)
         self.assertIn('data-forward-protocol', html)
-        self.assertIn('Enviar para outros responsáveis em paralelo (opcional)', html)
+        self.assertIn('+ Adicionar encaminhamento', html)
+        self.assertIn('data-additional-forward', html)
+        self.assertNotIn('id="destinatarios-multiplos"', html)
         self.assertIn('Encaminhamento a transferir', html)
         self.login('consulta'); html = self.client.get(f'/protocolo/{self.pid}').get_data(as_text=True)
         self.assertNotIn('id="excluir-processo"', html)
@@ -345,6 +347,63 @@ class WorkflowTests(unittest.TestCase):
             self.assertEqual(ProvidenciaProtocolo.query.count(), 2)
             self.assertEqual(db.session.get(Movimentacao, old_id).providencia.movimento_atual.id, old_id)
             self.assertEqual(Movimentacao.query.filter(pending_movement_condition()).count(), 2)
+
+    def test_additional_fields_keep_existing_destination_and_individual_notes(self):
+        self.login('admin'); self.send('alice')
+        aid, original = self.participation('alice')
+        with app.app_context(): other_sector = db.session.get(Usuario, self.ids['carol']).lotacao_id
+        data = {'envio_coletivo':'1', 'destinos_formato':'campos',
+            'destinos_setores':[str(self.sector), str(other_sector)],
+            'destinos_usuarios':['', str(self.ids['carol'])],
+            'destinos_observacoes':['Resposta para o setor.\nOutra linha.', 'Parecer individual.'],
+            'envio_token':'additional-fields-isolated-token'}
+        for _ in range(2): self.assertEqual(self.post('tramitar', data).status_code, 302)
+        with app.app_context():
+            moves = Movimentacao.query.order_by(Movimentacao.id).all()
+            self.assertEqual(len(moves), 3)
+            self.assertEqual(ProvidenciaProtocolo.query.count(), 3)
+            self.assertEqual(db.session.get(ProvidenciaProtocolo, aid).movimento_atual.id, original)
+            self.assertIsNone(moves[1].destinatario_usuario_id)
+            self.assertEqual(moves[2].destinatario_usuario_id, self.ids['carol'])
+            self.assertEqual([m.observacao for m in moves[1:]], data['destinos_observacoes'])
+            self.assertTrue(verify_audit_chain(self.tenant)[0])
+
+    def test_additional_fields_validate_all_destinations_before_writing(self):
+        self.login('admin'); self.send('alice')
+        with app.app_context():
+            foreign = Lotacao(tenant_id=self.foreign_tenant, nome='Setor de outro cliente')
+            db.session.add(foreign); db.session.commit(); foreign_id = foreign.id
+        base = {'envio_coletivo':'1', 'destinos_formato':'campos',
+            'destinos_setores':[str(self.sector)], 'destinos_usuarios':[''], 'destinos_observacoes':['Nota']}
+        cases = [
+            ({'destinos_setores':[str(self.sector), str(foreign_id)], 'destinos_usuarios':['',''], 'destinos_observacoes':['A','B']},404),
+            ({'destinos_usuarios':[str(self.ids['carol'])]},404),
+            ({'destinos_setores':[str(self.sector), '0'+str(self.sector)], 'destinos_usuarios':['',''], 'destinos_observacoes':['A','B']},400),
+            ({'destinos_usuarios':[]},400),
+            ({'destinos_observacoes':['x\x00y']},400),
+            ({'destinos_observacoes':['x'*10001]},400),
+            ({'envio_coletivo':'0'},400),
+            ({'destinatarios_ids':[str(self.ids['bob'])]},400),
+            ({'destinos_setores':[str(self.sector)]*51, 'destinos_usuarios':['']*51, 'destinos_observacoes':['']*51},400),
+        ]
+        for override, status in cases:
+            with self.subTest(override=list(override)):
+                self.assertEqual(self.post('tramitar', {**base, **override}).status_code, status)
+                with app.app_context():
+                    self.assertEqual(Movimentacao.query.count(), 1)
+                    self.assertEqual(ProvidenciaProtocolo.query.count(), 1)
+
+    def test_additional_fields_do_not_expand_worker_permissions(self):
+        self.login('admin'); self.send('alice'); self.receive('alice')
+        data = {'envio_coletivo':'1', 'destinos_formato':'campos', 'destinos_setores':[str(self.sector)],
+            'destinos_usuarios':[str(self.ids['bob'])], 'destinos_observacoes':['Solicito parecer.']}
+        self.assertEqual(self.post('tramitar', data).status_code, 302)
+        self.assertEqual(self.post('tramitar', data).status_code, 409)
+        self.login('consulta')
+        self.assertIn(self.post('tramitar', data).status_code, (302,403))
+        self.login('admin')
+        self.assertEqual(self.client.post(f'/protocolo/{self.foreign_pid}/tramitar', data=data).status_code, 404)
+        with app.app_context(): self.assertEqual(ProvidenciaProtocolo.query.count(), 2)
 
     def test_only_explicit_parallel_tool_adds_another_active_responsibility(self):
         self.login('admin'); self.send('alice')

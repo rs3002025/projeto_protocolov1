@@ -173,7 +173,30 @@ def forward_protocol(protocolo_id):
     if len(recipients) > 50 or len(recipients) != len(set(recipients)):
         abort(400, description='Informe até 50 destinatários distintos.')
     targets = []
-    if recipients:
+    if request.form.get('destinos_formato') == 'campos':
+        sectors = request.form.getlist('destinos_setores')
+        users = request.form.getlist('destinos_usuarios')
+        notes = request.form.getlist('destinos_observacoes')
+        if (request.form.get('envio_coletivo') != '1' or raw_id or recipients or
+                not 1 <= len(sectors) <= 50 or len(users) != len(sectors) or len(notes) != len(sectors)):
+            abort(400, description='Informe os campos completos de cada destino, até 50 destinos.')
+        seen = set()
+        for sector_id, user_id, destination_note in zip(sectors, users, notes):
+            destination_note = destination_note.strip()
+            if (not sector_id.isdecimal() or (user_id and not user_id.isdecimal()) or
+                    len(destination_note) > 10000 or '\x00' in destination_note):
+                abort(400)
+            key = (int(sector_id), int(user_id) if user_id else None)
+            if key in seen:
+                abort(400, description='O mesmo destino foi informado mais de uma vez.')
+            seen.add(key)
+            sector = tenant_query(Lotacao).filter_by(id=key[0], ativo=True).first_or_404()
+            user = None
+            if key[1] is not None:
+                user = tenant_query(Usuario).filter_by(id=key[1], status='ativo', lotacao_id=sector.id).filter(
+                    Usuario.tipo.in_(['admin', 'protocolista', 'tramitador'])).first_or_404()
+            targets.append((sector, user, destination_note))
+    elif recipients:
         if any(not value.isdecimal() for value in recipients):
             abort(400)
         if len(set(map(int, recipients))) != len(recipients):
@@ -183,7 +206,7 @@ def forward_protocol(protocolo_id):
                 Usuario.tipo.in_(['admin', 'protocolista', 'tramitador']),
                 Usuario.lotacao_id.is_not(None)).first_or_404()
             sector = tenant_query(Lotacao).filter_by(id=user.lotacao_id, ativo=True).first_or_404()
-            targets.append((sector, user))
+            targets.append((sector, user, note))
     else:
         sector = tenant_query(Lotacao).filter_by(id=request.form.get('setor_destino_id', type=int), ativo=True).first_or_404()
         raw_user = request.form.get('destinatario_usuario_id')
@@ -192,7 +215,7 @@ def forward_protocol(protocolo_id):
             user = tenant_query(Usuario).filter_by(id=request.form.get('destinatario_usuario_id', type=int),
                 status='ativo', lotacao_id=sector.id).filter(
                 Usuario.tipo.in_(['admin', 'protocolista', 'tramitador'])).first_or_404()
-        targets.append((sector, user))
+        targets.append((sector, user, note))
     # Valide todos os alvos antes de qualquer mutação: o envio é atômico.
     legacy_origin = None
     if not protocol.providencias:
@@ -205,18 +228,18 @@ def forward_protocol(protocolo_id):
             if request.form.get('envio_coletivo') != '1':
                 participation = adopted
     origin = participation.movimento_atual.setor_destino_id if participation else (protocol.setor_atual_id or legacy_origin)
-    for index, (sector, user) in enumerate(targets):
+    for index, (sector, user, destination_note) in enumerate(targets):
         item = participation if index == 0 and participation else ProvidenciaProtocolo(
             tenant_id=protocol.tenant_id, protocolo=protocol)
         db.session.add(item)
         movement = Movimentacao(tenant_id=protocol.tenant_id, protocolo_id=protocol.id,
             providencia=item, setor_origem_id=origin, setor_destino_id=sector.id,
-            destinatario_usuario_id=user.id if user else None, enviado_por_id=current_user.id, observacao=note, envio_token=token)
+            destinatario_usuario_id=user.id if user else None, enviado_por_id=current_user.id, observacao=destination_note, envio_token=token)
         db.session.add(movement)
         protocol.status = 'PENDENTE DE DOCUMENTO' if protocol.complemento_pendente else 'EM TRAMITAÇÃO'
         target = f' — {user.nome_completo or user.nome}' if user else ''
         description = f'Encaminhado para {sector.nome}{target}.'
-        event(protocol, 'TRAMITACAO', description + ('\n\n' + note if note else ''))
+        event(protocol, 'TRAMITACAO', description + ('\n\n' + destination_note if destination_note else ''))
     db.session.flush()
     synchronize(protocol)
     db.session.commit()
