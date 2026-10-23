@@ -11,14 +11,17 @@ header img { display: block; max-width: 240px; max-height: 70px; margin: 0 auto 
 .author-unit { font-size: 12pt; font-weight: bold; overflow-wrap: anywhere; }
 .author-sector { margin-top: 3px; font-size: 10pt; color: #52615c; overflow-wrap: anywhere; }
 h1 { background: #176b63; color: white; font-size: 15pt; text-align: center; padding: 12px; margin: 0 0 22px; }
-.text { white-space: pre-wrap; overflow-wrap: anywhere; word-wrap: break-word; orphans: 3; widows: 3; }
+.text { overflow-wrap: anywhere; word-wrap: break-word; orphans: 3; widows: 3; }
+.subject { font-size: 11pt; margin: 0 0 18px; overflow-wrap: anywhere; }
+{% include 'dispatch_rich_styles.html' %}
 .author { break-inside: avoid; page-break-inside: avoid; border-top: 1px solid #b8ccc6; padding-top: 14px; margin-top: 28px; }
 .author p { margin: 2px 0; }
 .footer { margin-top: 24px; padding-top: 10px; border-top: 1px solid #ddd; white-space: pre-line; font-size: 9pt; color: #52615c; }
 </style></head><body>
 <header>{% if pdf_logo_url %}<img src="{{ pdf_logo_url }}" alt="Logo">{% endif %}{% if despacho.autor_secretaria|default('') %}<div class="author-unit">{{ despacho.autor_secretaria }}</div>{% if despacho.autor_setor and despacho.autor_setor != despacho.autor_secretaria %}<div class="author-sector">{{ despacho.autor_setor }}</div>{% endif %}{% elif despacho.autor_setor %}<div class="author-unit">{{ despacho.autor_setor }}</div>{% endif %}</header>
 <h1>DESPACHO {{ '%03d'|format(despacho.numero) }} - PROTOCOLO {{ despacho.protocolo_numero }}</h1>
-<div class="text">{{ despacho.texto }}</div>
+{% if despacho.assunto|default('') %}<div class="subject"><strong>Assunto:</strong> {{ despacho.assunto }}</div>{% endif %}
+<div class="text rich-text">{{ dispatch_body(despacho) }}</div>
 <div class="author"><p><strong>{{ despacho.autor_nome }}</strong></p>{% if despacho.autor_setor %}<p>{{ despacho.autor_setor }}</p>{% endif %}<p>Registrado em {{ despacho.criado_em|brasilia('%d/%m/%Y às %H:%M:%S') }} (horário de Brasília).</p></div>
 {% if organizacao.rodape_documento %}<div class="footer">{{ organizacao.rodape_documento }}</div>{% endif %}
 </body></html>

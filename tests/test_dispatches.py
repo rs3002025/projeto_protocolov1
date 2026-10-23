@@ -61,7 +61,7 @@ class DispatchTests(unittest.TestCase):
             s.clear(); s['_user_id'] = self.users[role]; s['_fresh'] = True
 
     def post(self, text='Manifestação formal.\n\nSegundo parágrafo.', token='a' * 32, pid=None):
-        return self.client.post(f'/protocolo/{pid or self.pid}/despachos', data={'texto': text, 'envio_token': token})
+        return self.client.post(f'/protocolo/{pid or self.pid}/despachos', data={'assunto': 'Assunto de teste', 'texto': text, 'envio_token': token})
 
     def count(self):
         with app.app_context():
@@ -87,6 +87,51 @@ class DispatchTests(unittest.TestCase):
         self.login('admin'); self.post(); self.post()
         self.assertEqual(self.count(), 1)
         self.assertEqual(self.renderer.call_count, 1)
+
+    def test_subject_required_and_rich_text_snapshot(self):
+        import json
+        self.login('admin')
+        page=self.client.get(f'/protocolo/{self.pid}/despachos/novo')
+        self.assertEqual(page.status_code,200)
+        html=page.get_data(as_text=True)
+        self.assertIn('name="assunto"',html)
+        self.assertIn('dispatch-toolbar',html)
+        endpoint=f'/protocolo/{self.pid}/despachos'
+        for subject in ('', 'x'*251, 'x\x00y', 'x\ny'):
+            self.assertEqual(self.client.post(endpoint,data={'texto':'Texto','assunto':subject,'envio_token':'z'*32}).status_code,400)
+        rich=json.dumps({'ops':[{'insert':'Manifestação','attributes':{'bold':True}},{'insert':'\n','attributes':{'align':'justify'}}]})
+        self.assertEqual(self.client.post(endpoint,data={'assunto':'Análise do pedido','conteudo_delta':rich,'texto':'untrusted fallback','envio_token':'z'*32}).status_code,302)
+        with app.app_context():
+            d=DespachoProtocolo.query.one()
+            self.assertEqual(d.assunto,'Análise do pedido')
+            self.assertEqual(d.texto,'Manifestação')
+            self.assertIn('bold',d.conteudo_delta)
+        html=self.client.get(f'/protocolo/{self.pid}').get_data(as_text=True)
+        import re
+        opening=re.search(r'<details class="dispatch-document dispatch-collapsible"[^>]*>',html).group(0)
+        self.assertNotIn(' open',opening)
+        summary=html.split('<summary class="dispatch-summary">')[1].split('</summary>')[0]
+        self.assertIn('Análise do pedido',summary)
+        self.assertIn('Despacho 001',summary)
+        self.assertIn('Nome admin',summary)
+        self.assertNotIn('Manifestação',summary)
+        self.assertIn('<strong>Manifestação</strong>',html)
+        self.login('consulta')
+        self.assertIn(self.client.get(f'/protocolo/{self.pid}/despachos/novo').status_code,(302,403))
+        self.login('admin')
+        self.assertEqual(self.client.get(f'/protocolo/{self.foreign}/despachos/novo').status_code,404)
+
+    def test_rich_failure_preserves_subject_and_formatting(self):
+        import json
+        self.login('admin'); self.renderer.side_effect=RuntimeError('fictitious failure')
+        rich=json.dumps({'ops':[{'insert':'Conteúdo preservado','attributes':{'italic':True}},{'insert':'\n'}]})
+        result=self.client.post(f'/protocolo/{self.pid}/despachos',data={'assunto':'Assunto preservado','conteudo_delta':rich,'envio_token':'k'*32})
+        self.assertEqual(result.status_code,503)
+        html=result.get_data(as_text=True)
+        self.assertIn('Assunto preservado',html)
+        self.assertIn('Conteúdo preservado',html)
+        self.assertIn('italic',html)
+        self.assertEqual(self.count(),0)
 
     def delete_dispatch(self, did, **changes):
         data={'confirmar_exclusao': '1', 'motivo': 'Lançamento de teste'}
@@ -336,7 +381,7 @@ class DispatchTests(unittest.TestCase):
         self.assertNotIn('>Abrir requerimento<', documents)
         self.assertNotIn('>Arquivar processo<', routing)
         self.assertIn('data-bs-target="#modalArquivarProtocolo"', html)
-        self.assertIn('dispatch-document-header', html if self.count() else self._page_with_dispatch())
+        self.assertIn('dispatch-summary', html if self.count() else self._page_with_dispatch())
 
     def _page_with_dispatch(self):
         self.post()

@@ -8,6 +8,7 @@ from flask import abort, current_app, flash, redirect, render_template, request,
 from flask_login import current_user
 from sqlalchemy import func
 from werkzeug.utils import secure_filename
+from dispatch_rich_text import dispatch_body, normalize_delta
 
 MAX_DISPATCH_LENGTH = 100_000
 
@@ -23,7 +24,8 @@ def render_dispatch_pdf(despacho, organizacao):
         data = normalize_logo_png(io.BytesIO(organizacao.logo_data)).getvalue()
         logo = 'data:image/png;base64,' + base64.b64encode(data).decode('ascii')
     html = render_template('despacho_pdf.html', despacho=despacho,
-                           organizacao=organizacao, pdf_logo_url=logo)
+                           organizacao=organizacao, pdf_logo_url=logo,
+                           dispatch_body=dispatch_body)
 
     return HTML(string=html, url_fetcher=URLFetcher(
         allowed_protocols={'data'}, fail_on_errors=True)).write_pdf()
@@ -55,7 +57,18 @@ def register_dispatch_routes(app, db):
 
     @app.context_processor
     def dispatch_context():
-        return {'can_add_dispatch': can_add_dispatch}
+        return {'can_add_dispatch': can_add_dispatch, 'dispatch_body': dispatch_body}
+
+    @app.get('/protocolo/<int:protocolo_id>/despachos/novo')
+    @permission_required('route')
+    def novo_despacho(protocolo_id):
+        import secrets
+        protocolo = accessible_protocol_or_404(protocolo_id)
+        if not can_add_dispatch(protocolo):
+            abort(403)
+        return render_template('despacho_editor.html', protocolo=protocolo,
+                               assunto='', texto='', conteudo_delta='',
+                               envio_token=secrets.token_urlsafe(24), falha=False)
 
     @app.post('/protocolo/<int:protocolo_id>/despachos')
     @permission_required('route')
@@ -67,7 +80,16 @@ def register_dispatch_routes(app, db):
                   protocolo.aguardando_recebimento_inicial or
                   tenant_query(Movimentacao).filter_by(protocolo_id=protocolo.id, recebido_em=None).first()
                   else 403)
+        assunto = (request.form.get('assunto') or '').strip()
+        if not assunto or len(assunto) > 250 or any(ord(ch) < 32 for ch in assunto):
+            abort(400, description='Informe o assunto, com até 250 caracteres.')
+        conteudo_delta = (request.form.get('conteudo_delta') or '').strip()
         texto = (request.form.get('texto') or '').replace('\r\n', '\n').replace('\r', '\n').strip()
+        if conteudo_delta:
+            try:
+                conteudo_delta, texto = normalize_delta(conteudo_delta)
+            except ValueError as exc:
+                abort(400, description=str(exc))
         token = request.form.get('envio_token') or ''
         if not texto or len(texto) > MAX_DISPATCH_LENGTH or '\x00' in texto:
             abort(400, description='Informe o despacho, com até 100.000 caracteres.')
@@ -82,7 +104,8 @@ def register_dispatch_routes(app, db):
         setor = tenant_query(Lotacao).filter_by(id=current_user.lotacao_id).first() if current_user.lotacao_id else None
         despacho = DespachoProtocolo(
             tenant_id=current_tenant_id(), protocolo_id=protocolo.id, numero=numero,
-            protocolo_numero=protocolo.numero, texto=texto,
+            protocolo_numero=protocolo.numero, texto=texto, assunto=assunto,
+            conteudo_delta=conteudo_delta or None,
             autor_id=current_user.id, autor_nome=current_user.nome_completo or current_user.nome,
             autor_setor=setor.nome if setor else None,
             criado_em=datetime.now(timezone.utc), envio_token=token,
@@ -105,8 +128,9 @@ def register_dispatch_routes(app, db):
             db.session.rollback()
             current_app.logger.exception('Falha ao registrar despacho no protocolo %s.', protocolo.id)
             # Não perde o texto se o armazenamento ou a geração do PDF falhar.
-            return render_template('despacho_revisar.html', protocolo=protocolo,
-                                   texto=texto, envio_token=token), 503
+            return render_template('despacho_editor.html', protocolo=protocolo,
+                                   texto=texto, assunto=assunto, conteudo_delta=conteudo_delta,
+                                   envio_token=token, falha=True), 503
         flash('Despacho registrado.', 'success')
         return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id, _anchor='despachos'))
 

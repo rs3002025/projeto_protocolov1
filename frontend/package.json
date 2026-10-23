@@ -10,6 +10,7 @@
     "dompurify": "3.4.17",
     "html2pdf.js": "0.14.0",
     "jspdf": "4.2.1",
+    "quill": "2.0.2",
     "qrcodejs": "1.0.0"
   },
   "devDependencies": { "esbuild": "0.28.2" },

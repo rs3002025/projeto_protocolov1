@@ -173,20 +173,13 @@
 <section class="card mt-4 dispatch-section" id="despachos">
 {% set despachos_visiveis = protocolo.despachos|selectattr('excluido_em', 'none')|list %}
 <div class="card-header dispatch-section-header"><div><h2 class="h5 mb-1">Despachos</h2><span class="dispatch-count">{{ despachos_visiveis|length }} {{ 'registrado' if despachos_visiveis|length == 1 else 'registrados' }}</span></div>
-{% if can_add_dispatch(protocolo) %}<button class="btn btn-primary" type="button" data-dispatch-toggle aria-controls="novo-despacho" aria-expanded="false">+ Incluir despacho</button>{% endif %}</div>
+{% if can_add_dispatch(protocolo) %}<a class="btn btn-primary" href="{{ url_for('novo_despacho', protocolo_id=protocolo.id) }}">+ Incluir despacho</a>{% endif %}</div>
 <div class="card-body">
-{% if can_add_dispatch(protocolo) %}<div id="novo-despacho" class="dispatch-editor-panel mb-4" hidden>
-<div class="dispatch-editor-heading"><h3 class="h6 mb-0">Novo despacho</h3><button type="button" class="btn-close" data-dispatch-close aria-label="Fechar editor de despacho"></button></div>
-<form method="post" action="{{ url_for('adicionar_despacho', protocolo_id=protocolo.id) }}">
-<input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="envio_token" value="{{ despacho_token }}">
-<label class="form-label" for="texto-despacho">Texto do despacho</label><textarea class="form-control dispatch-textarea mb-2" id="texto-despacho" name="texto" rows="14" maxlength="100000" required aria-describedby="despacho-ajuda"></textarea>
-<p class="form-text" id="despacho-ajuda">Confira o texto antes de registrar. Seu nome, setor e data serão incluídos automaticamente no PDF.</p>
-<div class="dispatch-editor-actions"><button class="btn btn-primary" type="submit">Registrar despacho</button><button class="btn btn-outline-secondary" type="button" data-dispatch-close>Voltar</button></div>
-</form></div>{% endif %}
 <div class="dispatch-list">
-{% for despacho in despachos_visiveis %}<article class="dispatch-document" id="despacho-{{ despacho.id }}">
-<header class="dispatch-document-header"><div class="dispatch-document-title"><span class="dispatch-document-icon" aria-hidden="true"><svg width="21" height="24" viewBox="0 0 24 28" fill="none"><path d="M4 1h10l6 6v19H4zM14 1v7h6M8 13h8M8 17h8M8 21h5" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></span><div><h3 class="h6 mb-1">Despacho nº {{ despacho.numero }}</h3><strong class="dispatch-author">{{ despacho.autor_nome }}</strong>{% if despacho.autor_setor %}<span class="dispatch-sector">{{ despacho.autor_setor }}</span>{% endif %}</div></div><time class="dispatch-date">{{ despacho.criado_em|brasilia('%d/%m/%Y') }}<span>{{ despacho.criado_em|brasilia('%H:%M') }}</span></time></header>
-<div class="dispatch-document-body">{{ despacho.texto }}</div>
+{% for despacho in despachos_visiveis %}<details class="dispatch-document dispatch-collapsible" id="despacho-{{ despacho.id }}">
+<summary class="dispatch-summary"><strong>Despacho {{ '%03d'|format(despacho.numero) }}</strong><span class="dispatch-summary-subject">{{ despacho.assunto or 'Sem assunto informado' }}</span><span class="dispatch-summary-author">{{ despacho.autor_nome }}</span></summary>
+<div class="dispatch-open-meta">{% if despacho.autor_setor %}{{ despacho.autor_setor }} · {% endif %}{{ despacho.criado_em|brasilia('%d/%m/%Y às %H:%M') }}</div>
+<div class="dispatch-document-body rich-text">{{ dispatch_body(despacho) }}</div>
 <footer class="dispatch-document-footer d-flex flex-wrap gap-2 align-items-start"><a class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" download href="{{ url_for('baixar_despacho', protocolo_id=protocolo.id, despacho_id=despacho.id) }}">Baixar PDF do despacho</a>
 {% if can('delete') %}<details class="dispatch-delete"><summary class="btn btn-sm btn-outline-danger">Excluir despacho</summary>
 <form class="mt-2" method="post" action="{{ url_for('excluir_despacho', protocolo_id=protocolo.id, despacho_id=despacho.id) }}">
@@ -195,20 +188,10 @@
 <label class="d-block mb-2"><input type="checkbox" name="confirmar_exclusao" value="1" required> Confirmo a exclusão do despacho nº {{ despacho.numero }}.</label>
 <button class="btn btn-sm btn-danger" type="submit">Confirmar exclusão</button>
 </form></details>{% endif %}</footer>
-</article>
+</details>
 {% else %}<div class="dispatch-empty"><strong>Nenhum despacho registrado</strong><p class="mb-0">As manifestações formais deste protocolo aparecerão aqui.</p></div>{% endfor %}
 </div></div></section>
-<script>
-(() => {
-  const editor = document.getElementById('novo-despacho');
-  if (!editor) return;
-  const setOpen = open => { editor.hidden = !open; document.querySelectorAll('[data-dispatch-toggle]').forEach(button => button.setAttribute('aria-expanded', String(open))); };
-  document.querySelectorAll('[data-dispatch-toggle]').forEach(button => button.addEventListener('click', () => { setOpen(editor.hidden); if (!editor.hidden) editor.scrollIntoView({block:'start', behavior:'smooth'}); }));
-  document.querySelectorAll('[data-dispatch-close]').forEach(button => button.addEventListener('click', () => setOpen(false)));
-  document.querySelectorAll('a[href="#novo-despacho"]').forEach(link => link.addEventListener('click', () => setOpen(true)));
-  if (location.hash === '#novo-despacho') setOpen(true);
-})();
-</script>
+<style>{% include 'dispatch_rich_styles.html' %}</style>
 <div class="card mt-4" id="documentos">
     <div class="card-header">
         <h2 class="h5 mb-0">Documentos</h2>

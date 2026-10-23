@@ -44,7 +44,7 @@ with app.app_context():
         removed = {
             'protocolos': {'excluido_em', 'finalizado_em', 'resultado_final'},
             'movimentacoes': {'providencia_id', 'envio_token'},
-            'despachos_protocolos': {'excluido_em', 'excluido_por_id', 'motivo_exclusao'},
+            'despachos_protocolos': {'excluido_em', 'excluido_por_id', 'motivo_exclusao', 'assunto', 'conteudo_delta'},
         }
         with db.engine.begin() as connection:
             for table, columns in removed.items():
@@ -60,7 +60,7 @@ with app.app_context():
     bootstrap()
     bootstrap()  # Reiniciar o contêiner deve ser seguro.
     columns={c['name'] for c in inspect(db.engine).get_columns('despachos_protocolos')}
-    assert {'excluido_em','excluido_por_id','motivo_exclusao'} <= columns
+    assert {'excluido_em','excluido_por_id','motivo_exclusao','assunto','conteudo_delta'} <= columns
     for number, slug in ((1, 'prefeitura'), (2, 'outro-cliente')):
         protocol = db.session.get(Protocolo, number)
         assert protocol.tenant_id == number

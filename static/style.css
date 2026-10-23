@@ -1033,3 +1033,12 @@ h1, .h1 { font-size: clamp(1.65rem, 2.6vw, 2.2rem); }
 
 
 .protocol-number.protocol-number-finalized { color: #14532d; background: #dcfce7; border-color: #86b99a; }
+.dispatch-summary { display: grid; grid-template-columns: 140px minmax(0,1fr) minmax(140px,25%) 18px; gap: 1rem; align-items: center; padding: 1.1rem 1.25rem; cursor: pointer; color: var(--ink-950); list-style: none; }
+.dispatch-summary::-webkit-details-marker { display: none; }
+.dispatch-summary::after { content: '+'; font-size: 1.3rem; text-align: center; }
+.dispatch-collapsible[open] > .dispatch-summary::after { content: '−'; }
+.dispatch-collapsible[open] > .dispatch-summary { background: #f3f9f6; border-bottom: 1px solid var(--line); }
+.dispatch-summary-subject { font-weight: 600; overflow-wrap: anywhere; }
+.dispatch-summary-author { color: var(--ink-500); overflow-wrap: anywhere; }
+.dispatch-open-meta { padding: 1rem 1.5rem 0; font-size: .85rem; color: var(--ink-500); }
+@media(max-width:650px) { .dispatch-summary { grid-template-columns: 1fr 18px; gap: .35rem .6rem; } .dispatch-summary::after { grid-column: 2; grid-row: 1 / 4; } .dispatch-summary-subject,.dispatch-summary-author { grid-column: 1; } }

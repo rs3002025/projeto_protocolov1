@@ -34,6 +34,20 @@
     "sha256": "c541ef06327885a8415bca8df6071e14189b4855336def4f36db54bde8484f36",
     "integrity": "sha384-3zSEDfvllQohrq0PHL1fOXJuC/jSOO34H46t6UQfobFOmxE5BpjjaIJY5F2/bMnU"
   },
+  "quill-2.0.2.js": {
+    "package": "quill",
+    "version": "2.0.2",
+    "bytes": 209340,
+    "sha256": "e6aeee50e3a5afcf08a39621424de581872807f3f7fb9030ab595fd2b45aefe6",
+    "integrity": "sha384-hcxmSutM10NL6iGBAA0LStIhy+kWJxfrhqWVMRuABZH5Vqztexq2nBz/Xnfllly9"
+  },
+  "quill-2.0.2.snow.css": {
+    "package": "quill",
+    "version": "2.0.2",
+    "bytes": 24606,
+    "sha256": "6005ac521f488a6adec4f1ac36e8ee8bd4985aa9ebd14ad7084270f1b64282d7",
+    "integrity": "sha384-VvSC4PGxeMkOaAmyuDGZECjY2dkqdO/IdBYBUK+BCYNc3WIvRxHLUzQ5OSgUaMA7"
+  },
   "html2pdf-0.14.0.bundle.min.js": {
     "package": "html2pdf.js",
     "version": "0.14.0",

@@ -18,7 +18,7 @@ def test_dashboard_pdf_keeps_charts_within_printable_page():
 
 def test_local_browser_assets_have_matching_integrity():
     manifest = json.loads((ROOT / 'static/vendor/manifest.json').read_text())
-    assert len(manifest) == 6
+    assert len(manifest) == 8
     for name, info in manifest.items():
         data = (ROOT / 'static/vendor' / name).read_bytes()
         assert len(data) == info['bytes']
