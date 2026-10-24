@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 
 from flask import abort, current_app, render_template, request, send_file
 from pypdf import PdfReader, PdfWriter
+from sqlalchemy.orm import defer
 from werkzeug.utils import secure_filename
 
 MAX_FILES = 200
@@ -77,10 +78,12 @@ def assemble_process(protocol, organization):
     from models import Anexo, DespachoProtocolo, HistoricoProtocolo, Usuario
 
     tenant = current_tenant_id()
-    attachments = tenant_query(Anexo).filter_by(protocolo_id=protocol.id).order_by(Anexo.id).all()
+    attachments = tenant_query(Anexo).filter_by(protocolo_id=protocol.id).options(
+        defer(Anexo.file_data)).order_by(Anexo.id).all()
     dispatches = tenant_query(DespachoProtocolo).filter_by(
-        protocolo_id=protocol.id, excluido_em=None).order_by(DespachoProtocolo.numero).all()
-    if len(attachments) + len(dispatches) > MAX_FILES:
+        protocolo_id=protocol.id, excluido_em=None).options(defer(DespachoProtocolo.file_data)).order_by(DespachoProtocolo.numero).all()
+    current = current_attachments(attachments)
+    if len(current) + len(dispatches) + 1 > MAX_FILES:
         raise ExportLimit('O processo ultrapassa o limite de 200 arquivos por exportação.')
     history = tenant_query(HistoricoProtocolo).filter_by(protocolo_id=protocol.id).limit(10001).all()
     if len(history) > 10000:
@@ -144,16 +147,9 @@ def assemble_process(protocol, organization):
         add_document(f'Despacho {dispatch.numero:03d} - {dispatch.assunto or "Sem assunto"}',
             read(dispatch), 'application/pdf',
             f'originais/despachos/{index:03d}-{secure_filename(dispatch.file_name) or "despacho.pdf"}')
-    current = current_attachments(attachments)
     for index, attachment in enumerate(current, 1):
         add_document(f'Anexo {index:03d} - {attachment.file_name}', read(attachment), attachment.mime_type,
             f'originais/anexos/{index:03d}-{secure_filename(attachment.file_name) or "arquivo"}')
-    current_ids = {a.id for a in current}
-    if request_doc:
-        current_ids.add(request_doc.id)
-    for item in attachments:
-        if item.id not in current_ids:
-            originals.append((f'originais/anteriores/{item.id:06d}-{secure_filename(item.file_name) or "arquivo"}', read(item)))
     index_rows = [title for title, _ in content]
     cover = render_section('processo_exportacao.html', section='cover', contents=index_rows,
                            dispatch_count=len(dispatches), attachment_count=len(current), **context)
@@ -199,7 +195,7 @@ def register_export_routes(app):
                     'PROCESSO COMPLETO\n\nO PDF reúne capa, pedido, tramitação, despachos e anexos compatíveis. '
                     'O índice e os marcadores do PDF ajudam na navegação.\n\n'
                     'Planilhas, arquivos interativos, protegidos ou não compatíveis estão na pasta originais. '
-                    'Arquivos substituídos ficam em originais/anteriores.\n\n'
+                    'O pacote inclui os documentos atuais; versões substituídas permanecem preservadas no sistema.\n\n'
                     'O PDF compilado é uma cópia para leitura. Para conferir assinaturas digitais, use os arquivos '
                     'originais, preservados sem alteração. O pacote retrata a situação no momento do download.\n')
         output.seek(0)
