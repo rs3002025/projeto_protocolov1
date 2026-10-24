@@ -41,8 +41,10 @@ def build_workbench(args):
     manager = current_user.tipo in ('admin', 'protocolista')
     can_route = manager or current_user.tipo == 'tramitador'
     scope = args.get('escopo') or ('equipe' if manager or not can_route else 'meu')
-    if scope not in ('meu', 'equipe'):
+    if scope not in ('meu', 'equipe', 'acompanhando'):
         abort(400, description='Visão do painel inválida.')
+    if scope == 'acompanhando' and not manager:
+        abort(403)
     if scope == 'equipe' and not manager and can_route:
         abort(403)
     queue = args.get('fila') or 'prioridades'
@@ -88,6 +90,8 @@ def build_workbench(args):
         Protocolo.setor_atual_id == current_user.lotacao_id,
         ~Protocolo.movimentacoes.any(Movimentacao.recebido_em.is_(None))) if can_route and current_user.lotacao_id else false()
     work = base.filter(or_(mine, personal_receipt, sector_legacy)) if scope == 'meu' else base
+    if scope == 'acompanhando':
+        work = base.filter(watching)
     if scope == 'meu':
         receipt = personal_receipt
     overdue = Protocolo.prazo_em < today
@@ -97,7 +101,7 @@ def build_workbench(args):
     queues = {
         'prioridades': ('Todos em aberto', work),
         'receber': ('Para receber', work.filter(receipt)),
-        'comigo': ('Sob minha responsabilidade', base.filter(mine)),
+        'comigo': ('Sob minha responsabilidade', work.filter(mine)),
         'analisar': ('Recebidos para análise', work.filter(Protocolo.status == 'RECEBIDO', ~documents)),
         'documentos': ('Aguardando documentos', work.filter(documents)),
         'acompanhar': ('Em acompanhamento', base.filter(watching)),
@@ -110,9 +114,10 @@ def build_workbench(args):
     if queue not in queues or (queue == 'receber' and not can_route):
         abort(400, description='Fila do painel inválida.')
     counts = {key: query.count() for key, (_, query) in queues.items()}
-    tab_keys = ['prioridades'] + (['receber', 'analisar', 'comigo'] if can_route else []) + ['documentos']
-    if current_user.tipo in ('admin', 'protocolista'):
-        tab_keys.append('acompanhar')
+    tab_keys = ['prioridades'] + (['receber', 'analisar'] if can_route else [])
+    if can_route and scope != 'acompanhando':
+        tab_keys.append('comigo')
+    tab_keys.append('documentos')
     if current_user.tipo == 'admin':
         tab_keys.append('concluir')
     queue_url = lambda key, **extra: url_for('home', escopo=scope, fila=key, **extra) + '#fila-de-trabalho'
@@ -143,7 +148,9 @@ def build_workbench(args):
         due_label = ('Sem prazo definido' if days is None else 'Vence hoje' if days == 0 else
                      f"Vencido há {abs(days)} {'dia' if days == -1 else 'dias'}" if days < 0 else f"Vence em {days} {'dia' if days == 1 else 'dias'}")
         action, anchor = 'Ver processo', ''
-        if protocol.id in receiving_ids:
+        if scope == 'acompanhando':
+            action, anchor = 'Ver processo', ''
+        elif protocol.id in receiving_ids:
             action, anchor = 'Conferir recebimento', '#tramitacao'
         elif can_route:
             action = 'Continuar atendimento'
@@ -178,7 +185,15 @@ def build_workbench(args):
         cards = [card for card in cards if card['key'] != 'receber']
     for card in cards:
         card['url'] = queue_url(card['key'])
-    if counts['receber'] and can_route:
+    if scope == 'acompanhando':
+        focus = {'title':'Acompanhe o andamento',
+                 'text':f"Processos em aberto marcados por você: {counts['prioridades']}.",
+                 'url':queue_url('prioridades'), 'action':'Ver acompanhamentos'}
+        if counts['atrasados']:
+            focus.update(title='Confira os prazos dos acompanhamentos',
+                         text=f"Processos acompanhados com prazo vencido: {counts['atrasados']}.",
+                         url=queue_url('atrasados'), action='Conferir prazos')
+    elif counts['receber'] and can_route:
         focus = {'title': 'Comece pelos recebimentos', 'text': f"Aguardando conferência de recebimento nesta visão: {counts['receber']}.", 'url':queue_url('receber'), 'action':'Ver recebimentos'}
     elif counts['atrasados']:
         focus = {'title':'Os prazos merecem atenção', 'text': f"Processos em aberto com prazo vencido: {counts['atrasados']}.", 'url':queue_url('atrasados'), 'action':'Conferir prazos'}
@@ -188,7 +203,9 @@ def build_workbench(args):
         focus = {'title':'Seu próximo passo está aqui', 'text':'Consulte a fila, acompanhe os prazos e continue de onde parou.', 'url':queue_url('prioridades'), 'action':'Ir para a fila'}
     activity_scope = accessible_protocols_query()
     if scope == 'meu':
-        activity_scope = activity_scope.filter(or_(mine, personal_receipt, watching, sector_legacy))
+        activity_scope = activity_scope.filter(or_(mine, personal_receipt, sector_legacy))
+    elif scope == 'acompanhando':
+        activity_scope = activity_scope.filter(watching)
     activity = tenant_query(HistoricoProtocolo).filter(
         HistoricoProtocolo.protocolo_id.in_(activity_scope.with_entities(Protocolo.id).statement),
         HistoricoProtocolo.acao.in_(['CRIACAO','TRAMITACAO','RECEBIMENTO','DESPACHO_REGISTRADO',
