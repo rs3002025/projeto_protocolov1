@@ -109,11 +109,7 @@
         {% include 'workflow_single.html' %}
         {% endif %}
         {% if pode_encaminhar %}
-        <details class="mt-4"><summary>Enviar para outros responsáveis em paralelo (opcional)</summary>
-        <form class="mt-3" method="post" action="{{ url_for('tramitar_protocolo', protocolo_id=protocolo.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="envio_token" value="{{ tramitacao_token }}-multiplo"><input type="hidden" name="envio_coletivo" value="1">
-        <p class="form-text">Somente esta opção cria responsabilidades simultâneas, mantendo os encaminhamentos atuais. Para apenas transferir o processo, use Encaminhar protocolo acima.</p>
-        <label class="form-label" for="destinatarios-multiplos">Destinatários</label><select id="destinatarios-multiplos" class="form-select" name="destinatarios_ids" multiple size="6" required>{% for u in usuarios_destino %}<option value="{{ u.id }}">{{ u.nome_completo or u.nome }} — {{ u.lotacao.nome if u.lotacao else '' }}</option>{% endfor %}</select>
-        <p class="form-text">No computador, use Ctrl ou Shift para selecionar mais de uma pessoa.</p><label class="form-label" for="observacao-multipla">Observação (opcional)</label><textarea id="observacao-multipla" class="form-control mb-3" name="observacao" rows="4" maxlength="10000"></textarea><button type="submit" class="btn btn-primary">Encaminhar para providências</button></form></details>
+        {% include 'workflow_additional_form.html' %}
         {% endif %}
     </div>
 </div>

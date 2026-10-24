@@ -1,0 +1,18 @@
+<fieldset class="border rounded p-3 mb-3" data-destination-row>
+  <legend class="float-none w-auto fs-6 fw-semibold px-1" data-destination-title>Destino 1</legend>
+  <div class="row g-3">
+    <div class="col-md-6">
+      <label class="form-label" for="adicional-1-setor" data-destination-label="setor">Setor destinatário</label>
+      <select class="form-select" id="adicional-1-setor" name="destinos_setores" data-destination-field="setor" required><option value="">Selecione o setor destinatário</option>{% for setor in lotacoes %}<option value="{{ setor.id }}">{{ setor.nome }}</option>{% endfor %}</select>
+    </div>
+    <div class="col-md-6">
+      <label class="form-label" for="adicional-1-usuario" data-destination-label="usuario">Usuário destinatário (opcional)</label>
+      <select class="form-select" id="adicional-1-usuario" name="destinos_usuarios" data-destination-field="usuario"><option value="">Qualquer usuário do setor</option>{% for u in usuarios_destino %}<option value="{{ u.id }}" data-setor="{{ u.lotacao_id }}">{{ u.nome_completo or u.nome }}</option>{% endfor %}</select>
+    </div>
+    <div class="col-12">
+      <label class="form-label" for="adicional-1-observacao" data-destination-label="observacao">Observação do encaminhamento (opcional)</label>
+      <textarea class="form-control" id="adicional-1-observacao" name="destinos_observacoes" data-destination-field="observacao" rows="4" maxlength="10000"></textarea>
+    </div>
+    <div class="col-12"><button type="button" class="btn btn-sm btn-outline-danger" data-remove-destination hidden>Remover destino</button></div>
+  </div>
+</fieldset>
