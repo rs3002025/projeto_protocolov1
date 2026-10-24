@@ -192,7 +192,10 @@ def build_workbench(args):
     activity = tenant_query(HistoricoProtocolo).filter(
         HistoricoProtocolo.protocolo_id.in_(activity_scope.with_entities(Protocolo.id).statement),
         HistoricoProtocolo.acao.in_(['CRIACAO','TRAMITACAO','RECEBIMENTO','DESPACHO_REGISTRADO',
-                                  'COMPLEMENTO_SOLICITADO','COMPLEMENTO_ENVIADO','FINALIZACAO'])
+                                  'COMPLEMENTO_SOLICITADO','COMPLEMENTO_ENVIADO','FINALIZACAO',
+                                  'ENVIO_REMOTO','RECEBIMENTO_PORTAL','RECEBIMENTO_AUTOMATICO',
+                                  'RECEBIMENTO_ASSINADO','ALTERACAO_STATUS','PROVIDENCIA_CONCLUIDA',
+                                  'ARQUIVAMENTO','DESARQUIVAMENTO','ANEXO_ADICIONADO','DESPACHO_EXCLUIDO'])
     ).options(joinedload(HistoricoProtocolo.protocolo)).order_by(
         HistoricoProtocolo.data_movimentacao.desc(), HistoricoProtocolo.id.desc()).limit(4).all()
     return dict(today=today, manager=manager, can_route=can_route, scope=scope, queue=queue,
