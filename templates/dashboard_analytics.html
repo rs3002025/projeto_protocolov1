@@ -1,0 +1,28 @@
+<details class="wb-analytics" data-dashboard-analytics>
+<summary><span class="wb-analytics-icon">{{ icon('chart') }}</span><span><strong>Explorar indicadores</strong><small>Volumes, tipos de requerimento e evolução do acervo</small></span><span class="wb-disclosure">+</span></summary>
+<div id="dashboard" class="dashboard-screen wb-analytics-body">
+  <div class="wb-section-heading"><div><h2>Indicadores do acervo</h2><p>Os filtros abaixo se aplicam apenas a esta análise, não às filas de trabalho acima.</p></div>
+    {% if can('reports') %}<div class="dashboard-actions"><button class="btn btn-outline-primary" onclick="abrirModalImpressao()">Personalizar impressão</button></div>{% endif %}
+  </div>
+  <div class="filtros" aria-label="Filtros dos indicadores">
+    <div><label class="form-label" for="dashDataInicio">Data inicial do pedido</label><input type="date" id="dashDataInicio" class="form-control"></div>
+    <div><label class="form-label" for="dashDataFim">Data final do pedido</label><input type="date" id="dashDataFim" class="form-control"></div>
+    <div><label class="form-label" for="dashStatus">Situação</label><select id="dashStatus" class="form-select"><option value="">Todas</option></select></div>
+    <div><label class="form-label" for="dashTipo">Tipo de requerimento</label><select id="dashTipo" class="form-select"><option value="">Todos</option></select></div>
+    <div><label class="form-label" for="dashLotacao">Setor atual</label><select id="dashLotacao" class="form-select"><option value="">Todos</option></select></div>
+    <button class="btn btn-primary align-self-end" onclick="carregarDashboard()">Aplicar filtros</button>
+  </div>
+  <p id="dashboard-analysis-error" class="alert alert-danger" role="alert" hidden>Não foi possível carregar os indicadores. Tente aplicar os filtros novamente.</p>
+  <div class="dashboard-cards">
+    <a class="stat-card stat-card-link" id="card-novos" href="{{ url_for('listar_protocolos') }}"><div class="stat-value" id="stat-novos">—</div><div class="stat-label" id="stat-novos-label">Novos nos últimos 7 dias</div></a>
+    <a class="stat-card stat-card-link" id="card-pendentes" href="{{ url_for('listar_protocolos',prazo='vencido') }}"><div class="stat-value" id="stat-pendentes">—</div><div class="stat-label">Prazos vencidos no recorte</div></a>
+    <a class="stat-card stat-card-link" id="card-finalizados" href="{{ url_for('listar_protocolos',status='CONCLUÍDO') }}"><div class="stat-value" id="stat-finalizados">—</div><div class="stat-label">Pedidos do recorte já concluídos</div></a>
+  </div>
+  <div class="dashboard-charts-grid">
+    <div class="chart-container"><div class="chart-header"><h3 class="h5">Tipos mais solicitados</h3></div><canvas id="tiposChart" aria-label="Tipos mais solicitados"></canvas></div>
+    <div class="chart-container"><div class="chart-header"><h3 class="h5" id="pieChartTitle">Distribuição dos pedidos</h3><select id="pieChartDataType" class="form-select form-select-sm" aria-label="Distribuir pedidos por" onchange="carregarDashboard()"><option value="status">Situação</option><option value="tipo">Tipo de requerimento</option></select></div><canvas id="statusChart" aria-label="Distribuição dos pedidos"></canvas></div>
+    <div class="chart-container full-width"><div class="chart-header"><h3 class="h5" id="evolucaoChartTitle">Evolução de novos pedidos</h3><div class="chart-filters"><select id="evolucaoPeriodo" class="form-select form-select-sm" aria-label="Período da evolução" onchange="carregarDashboard()"><option value="7d">Últimos 7 dias</option><option value="30d" selected>Últimos 30 dias</option><option value="month">Mês atual</option><option value="all">Todo o acervo</option></select><select id="evolucaoAgrupamento" class="form-select form-select-sm" aria-label="Agrupamento da evolução" onchange="carregarDashboard()"><option value="day">Por dia</option><option value="month">Por mês</option></select></div></div><canvas id="evolucaoChart" aria-label="Evolução de novos pedidos"></canvas></div>
+    <div class="chart-container full-width"><div class="chart-header"><h3 class="h5">Distribuição por setor atual</h3></div><p class="form-text">Um processo pode estar em mais de um setor. As quantidades por setor não devem ser somadas como total de processos.</p><div class="table-responsive"><table class="table table-sm"><thead><tr><th>Setor atual</th><th>Processos</th></tr></thead><tbody id="setoresStats"><tr><td colspan="2">Abra os indicadores para carregar.</td></tr></tbody></table></div></div>
+  </div>
+</div>
+</details>

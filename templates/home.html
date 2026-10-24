@@ -1,90 +1,42 @@
-{% extends "layout.html" %}
+{% extends 'layout.html' %}
+{% from 'workbench_icons.html' import icon %}
+{% block page_styles %}<link rel="stylesheet" href="{{ url_for('static',filename='workbench.css',v='20261024') }}">{% endblock %}
 {% block content %}
-<div id="dashboard" class="dashboard-screen">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-      <div><h1 class="page-header mb-1">Visão geral</h1><p class="text-muted mb-0">Acompanhe volumes, prazos e distribuição dos protocolos.</p></div>
-      <div class="dashboard-actions">
-        <button class="btn btn-info" onclick="imprimirDashboard()">Impressão rápida</button>
-        <button class="btn btn-outline-primary" onclick="abrirModalImpressao()">Personalizar impressão</button>
-      </div>
-    </div>
-    <div class="filtros" aria-label="Filtros do painel">
-        <div><label class="form-label" for="dashDataInicio">Data inicial</label><input type="date" id="dashDataInicio" class="form-control"></div>
-        <div><label class="form-label" for="dashDataFim">Data final</label><input type="date" id="dashDataFim" class="form-control"></div>
-        <div><label class="form-label" for="dashStatus">Status</label><select id="dashStatus" class="form-select"><option value="">Todos os status</option></select></div>
-        <div><label class="form-label" for="dashTipo">Tipo</label><select id="dashTipo" class="form-select"><option value="">Todos os tipos</option></select></div>
-        <div><label class="form-label" for="dashLotacao">Lotação</label><select id="dashLotacao" class="form-select"><option value="">Todas as lotações</option></select></div>
-        <button class="btn btn-primary align-self-end" onclick="carregarDashboard()">Aplicar filtros</button>
-    </div>
-    <div class="dashboard-cards">
-        <a class="stat-card stat-card-link" id="card-novos" href="{{ url_for('listar_protocolos') }}">
-            <div class="stat-value" id="stat-novos">0</div>
-            <div class="stat-label" id="stat-novos-label">Novos na Semana</div>
-        </a>
-        <a class="stat-card stat-card-link" id="card-pendentes" href="{{ url_for('listar_protocolos', prazo='vencido') }}">
-            <div class="stat-value" id="stat-pendentes">0</div>
-            <div class="stat-label">Prazos vencidos</div>
-        </a>
-        <a class="stat-card stat-card-link" id="card-finalizados" href="{{ url_for('listar_protocolos', status='CONCLUÍDO') }}">
-            <div class="stat-value" id="stat-finalizados">0</div>
-            <div class="stat-label">Concluídos no período</div>
-        </a>
-    </div>
-    <section class="attention-panel" aria-labelledby="attention-title">
-      <div class="attention-heading"><div><h2 id="attention-title" class="h5 mb-1">Exige sua atenção</h2><p class="text-muted mb-0">Atalhos para situações que podem precisar de ação.</p></div></div>
-      <div class="attention-grid">
-        <a href="{{ url_for('listar_protocolos', prazo='vencido') }}" class="attention-item is-critical"><strong id="attention-overdue">0</strong><span>Prazos vencidos</span></a>
-        <a href="{{ url_for('listar_protocolos', prazo='proximos_7') }}" class="attention-item"><strong id="attention-next7">0</strong><span>Vencem em até 7 dias</span></a>
-        <a href="{{ url_for('pendencias_recebimento') }}" class="attention-item"><strong>{{ pendencias_recebimento }}</strong><span>Pendentes de recebimento</span></a>
-        <a href="{{ url_for('listar_protocolos', status='RECEBIDO') }}" class="attention-item"><strong>{{ recebidos_para_analise }}</strong><span>Recebidos aguardando análise</span></a>
-        <a href="{{ url_for('support_list', status='ABERTO') }}" class="attention-item"><strong>{{ chamados_pendentes }}</strong><span>Chamados em andamento</span></a>
-      </div>
+{% set wb = workbench %}
+<div class="workbench">
+  <header class="wb-welcome">
+    <div><span class="wb-eyebrow">PAINEL DE TRABALHO</span><h1>Olá, {{ wb.name }}<span class="wb-heading-dot">.</span></h1><p>O que precisa acontecer, em um só lugar.</p></div>
+    <div class="wb-welcome-actions"><span class="wb-date">{{ icon('calendar') }} {{ wb.today.strftime('%d/%m/%Y') }} <small>Brasília</small></span>{% if can('create') %}<a class="btn btn-primary" href="{{ url_for('criar_protocolo') }}">{{ icon('plus') }} Novo protocolo</a>{% endif %}</div>
+  </header>
+  <div class="wb-toolbar">
+    {% if wb.manager %}<nav class="wb-scope" aria-label="Abrangência do painel"><a href="{{ url_for('home',escopo='equipe') }}" {% if wb.scope=='equipe' %}aria-current="page"{% endif %}>Visão da equipe</a><a href="{{ url_for('home',escopo='meu') }}" {% if wb.scope=='meu' %}aria-current="page"{% endif %}>Minha fila</a></nav>{% else %}<span class="wb-scope-label">{{ 'Seu atendimento' if wb.can_route else 'Visão de consulta' }}</span>{% endif %}
+    <form action="{{ url_for('listar_protocolos') }}" method="get" class="wb-search" role="search">{{ icon('search') }}<label class="visually-hidden" for="wb-number">Buscar protocolo pelo número</label><input id="wb-number" name="numero" placeholder="Buscar pelo número do protocolo" maxlength="50"><button type="submit">Buscar</button></form>
+  </div>
+  <section class="wb-metrics" aria-label="Resumo da visão selecionada">
+    {% for card in wb.cards %}<a class="wb-metric wb-{{ card.tone }}" href="{{ card.url }}"><div class="wb-metric-top"><span>{{ card.label }}</span><span class="wb-metric-icon">{{ icon('clock' if card.key=='atrasados' else 'file' if card.key=='documentos' else 'inbox') }}</span></div><strong>{{ '{:,}'.format(card.count).replace(',','.') }}</strong><div class="wb-metric-bottom"><small>{{ card.hint }}</small>{{ icon('arrow') }}</div></a>{% endfor %}
+  </section>
+  <section class="wb-focus" aria-label="Próximo passo sugerido"><span class="wb-focus-icon">{{ icon('check') }}</span><div><strong>{{ wb.focus.title }}</strong><p>{{ wb.focus.text }}</p></div><a href="{{ wb.focus.url }}">{{ wb.focus.action }} {{ icon('arrow') }}</a></section>
+  <div class="wb-columns">
+    <section class="wb-panel wb-queue" id="fila-de-trabalho" aria-labelledby="wb-queue-title">
+      <div class="wb-section-heading"><div><span class="wb-eyebrow">ORGANIZE O ATENDIMENTO</span><h2 id="wb-queue-title">{{ 'Fila da equipe' if wb.scope=='equipe' else 'Sua fila de trabalho' }}</h2><p>{{ 'Processos em aberto da equipe, respeitando seu acesso.' if wb.scope=='equipe' else 'Seu atendimento e recebimentos destinados a você ou ao seu setor.' }}</p></div><a class="wb-subtle-link" href="{{ url_for('meus_protocolos') }}">Meus processos {{ icon('arrow') }}</a></div>
+      <nav class="wb-tabs" aria-label="Filas de trabalho">{% for tab in wb.tabs %}<a href="{{ tab.url }}" {% if wb.queue==tab.key %}aria-current="page"{% endif %}>{{ tab.label }}<span>{{ tab.count }}</span></a>{% endfor %}</nav>
+      <div class="wb-list-heading"><strong>{{ wb.queue_title }}</strong><span>{{ wb.pagination.total }} {{ 'processo' if wb.pagination.total==1 else 'processos' }}</span></div>
+      {% if wb.rows %}<div class="wb-table-wrap"><table class="wb-table"><thead><tr><th>Processo / requerente</th><th>Situação / destino</th><th>Prazo</th><th><span class="visually-hidden">Próximo passo</span></th></tr></thead><tbody>
+      {% for row in wb.rows %}{% set p=row.protocol %}<tr><td><a class="wb-number" href="{{ row.url }}">{{ p.numero }}</a><strong class="wb-requester">{{ p.nome }}</strong><small class="wb-type" title="{{ p.tipo_requerimento or '' }}">{{ p.tipo_requerimento or 'Tipo não informado' }}</small></td><td><span class="wb-status">{{ p.status_exibicao|capitalize }}</span><small class="wb-location" title="{{ row.location }}">{{ row.location }}</small></td><td><span class="wb-due {{ 'wb-due-' + row.urgency if row.urgency else '' }}">{{ row.due_label }}</span>{% if p.prazo_em %}<small class="wb-due-date">{{ p.prazo_em.strftime('%d/%m/%Y') }}</small>{% endif %}</td><td><a class="wb-row-action" href="{{ row.url }}">{{ row.action }} {{ icon('arrow') }}</a></td></tr>{% endfor %}
+      </tbody></table></div>
+      <div class="wb-pagination"><span>{{ wb.pagination.first }}–{{ wb.pagination.last }} de {{ wb.pagination.total }}</span><nav aria-label="Páginas da fila">{% if wb.previous_url %}<a href="{{ wb.previous_url }}">← Anterior</a>{% endif %}{% if wb.next_url %}<a href="{{ wb.next_url }}">Próxima →</a>{% endif %}</nav></div>
+      {% else %}<div class="wb-empty">{{ icon('check') }}<h3>Nenhum processo nesta fila</h3><p>Não há itens para este recorte. Escolha outra fila para continuar acompanhando o trabalho.</p><a href="{{ url_for('listar_protocolos') }}">Consultar protocolos {{ icon('arrow') }}</a></div>{% endif %}
     </section>
-    <div class="dashboard-charts-grid">
-      <div class="chart-container">
-          <div class="chart-header">
-            <h2 class="h5">Tipos mais solicitados</h2>
-          </div>
-          <canvas id="tiposChart"></canvas>
-      </div>
-      <div class="chart-container">
-        <div class="chart-header">
-            <h2 class="h5" id="pieChartTitle">Protocolos por status</h2>
-            <div class="chart-filters">
-                <select id="pieChartDataType" class="form-select form-select-sm" aria-label="Dados exibidos no gráfico de distribuição" onchange="carregarDashboard()">
-                    <option value="status" selected>Por Status</option>
-                    <option value="tipo">Por Tipo de Requerimento</option>
-                </select>
-            </div>
-        </div>
-        <canvas id="statusChart"></canvas>
-      </div>
-      <div class="chart-container full-width">
-        <div class="chart-header">
-            <h2 class="h5" id="evolucaoChartTitle">Evolução de novos protocolos</h2>
-            <div class="chart-filters">
-                <select id="evolucaoPeriodo" class="form-select form-select-sm" aria-label="Período do gráfico de evolução" onchange="carregarDashboard()">
-                    <option value="7d">Últimos 7 dias</option>
-                    <option value="30d" selected>Últimos 30 dias</option>
-                    <option value="month">Mês Atual</option>
-                    <option value="all">Desde o início</option>
-                </select>
-                <select id="evolucaoAgrupamento" class="form-select form-select-sm" aria-label="Agrupamento do gráfico de evolução" onchange="carregarDashboard()">
-                    <option value="day" selected>Agrupar por Dia</option>
-                    <option value="month">Agrupar por Mês</option>
-                </select>
-            </div>
-        </div>
-        <canvas id="evolucaoChart"></canvas>
-      </div>
-      <div class="chart-container full-width">
-        <div class="chart-header"><h2 class="h5">Protocolos por setor atual</h2></div>
-        <div class="table-responsive">
-          <table class="table table-sm"><thead><tr><th>Setor atual</th><th>Quantidade</th></tr></thead>
-            <tbody id="setoresStats"><tr><td colspan="2">Carregando...</td></tr></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+    <aside class="wb-sidebar" aria-label="Prazos e situação da fila">
+      <section class="wb-panel wb-deadlines"><div class="wb-sidebar-heading"><span class="wb-sidebar-icon">{{ icon('calendar') }}</span><div><h2>Próximos prazos</h2><p>De hoje aos próximos 7 dias</p></div></div>
+        {% for p in wb.deadlines %}<a class="wb-deadline" href="{{ url_for('detalhe_protocolo',protocolo_id=p.id) }}"><time datetime="{{ p.prazo_em.isoformat() }}">{{ p.prazo_em.strftime('%d') }}<small>{{ p.prazo_em.strftime('/%m') }}</small></time><span><strong>{{ p.numero }}</strong><small>{{ p.nome }}</small>{% if p.prazo_em==wb.today %}<em>Vence hoje</em>{% endif %}</span>{{ icon('arrow') }}</a>{% else %}<div class="wb-quiet-empty">Nenhum prazo previsto nos próximos 7 dias para esta visão.</div>{% endfor %}
+        <a class="wb-panel-footer" href="{{ wb.soon_url }}">Ver prazos da semana {{ icon('arrow') }}</a><a class="wb-undated" href="{{ wb.undated_url }}">{{ wb.counts.sem_prazo }} {{ 'processo' if wb.counts.sem_prazo==1 else 'processos' }} sem prazo definido</a>
+      </section>
+      <section class="wb-panel wb-distribution"><div class="wb-sidebar-heading"><span class="wb-sidebar-icon">{{ icon('chart') }}</span><div><h2>Situação nesta visão</h2><p>Cada processo contado uma vez</p></div></div>{% for item in wb.distribution %}<div class="wb-distribution-row"><div><span>{{ item.label }}</span><strong>{{ item.count }}</strong></div><div class="wb-bar"><span style="width:{{ item.percent }}%"></span></div></div>{% else %}<p class="wb-quiet-empty">A distribuição aparecerá quando houver processos em aberto.</p>{% endfor %}</section>
+    </aside>
+  </div>
+  <section class="wb-panel wb-activity" aria-labelledby="wb-activity-title"><div class="wb-section-heading"><div><h2 id="wb-activity-title">Últimas atualizações</h2><p>Movimentações recentes dos processos desta visão.</p></div></div><div class="wb-activity-grid">{% for event in wb.activity %}<a href="{{ url_for('detalhe_protocolo',protocolo_id=event.protocolo_id) }}#historico"><span class="wb-activity-dot"></span><span><strong>{{ event.protocolo.numero }}</strong><small>{{ history_action_label(event.acao) }}</small><time>{{ event.data_movimentacao|brasilia('%d/%m às %H:%M') }}</time></span>{{ icon('arrow') }}</a>{% else %}<p class="wb-quiet-empty">As próximas movimentações aparecerão aqui. Nenhuma atualização registrada nesta visão.</p>{% endfor %}</div></section>
+  {% include 'dashboard_analytics.html' %}
+  <p class="wb-footnote">Atualizado ao abrir a página · Horário de Brasília · {{ 'Visão da equipe' if wb.scope=='equipe' else 'Visão pessoal' }}. Acompanhamento não altera a responsabilidade pelo processo.</p>
 </div>
 {% endblock %}
