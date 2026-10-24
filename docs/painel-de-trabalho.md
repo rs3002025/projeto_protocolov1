@@ -9,10 +9,10 @@ O painel priorizava filtros, impressão e gráficos antes da rotina. Não oferec
 ## Nova organização
 
 - Cabeçalho pessoal, busca por número e criação de protocolo conforme permissão.
-- Visão da equipe ou Minha fila para gestores. Tramitadores veem seu atendimento, recebimentos nominais ou compartilhados do setor e casos legados em que já podem atuar. Consulta permanece somente leitura.
+- Equipe, Minha fila e Acompanhando para administradores e protocolistas. A terceira visão filtra os processos em aberto marcados para acompanhamento e aplica esse recorte aos cartões, prazos, situação e últimas atualizações. Acompanhar não concede responsabilidade nem altera permissões. Tramitadores veem seu atendimento, recebimentos nominais ou compartilhados do setor e casos legados em que já podem atuar. Consulta permanece somente leitura.
 - Cartões da visão selecionada: processos em aberto, para receber, prazos vencidos e documentos pendentes. Cartões abrem a fila correspondente; cada processo conta uma vez, independentemente do número de participações.
 - Fila paginada com requerente, número, situação, localização atual, prazo e acesso ao atendimento. Recebimento não é executado por um link do painel.
-- Filas separadas para recebimentos, pedidos recebidos aguardando análise, responsabilidade pessoal, pendências documentais, acompanhamento e conclusão administrativa. Acompanhamento não é responsabilidade; participações antigas ou concluídas não geram pendências atuais.
+- Filas separadas para recebimentos, pedidos recebidos aguardando análise, responsabilidade pessoal, pendências documentais e conclusão administrativa. Acompanhamento tem sua própria visão no seletor principal; participações antigas ou concluídas não geram pendências atuais.
 - Prazos de hoje aos próximos sete dias, com acesso ao processo e consulta dos casos sem prazo definido. Datas calculadas em Brasília. Processos concluídos, arquivados e excluídos não entram nas filas ativas.
 - Últimas atualizações dos processos acessíveis, sem alegar leitura/não leitura nem exibir observações privadas.
 - Indicadores do acervo em área recolhida, carregada apenas ao abrir. Filtros analíticos não modificam a fila operacional e isso é explicado na tela. Impressão personalizada preservada para perfis com relatórios.

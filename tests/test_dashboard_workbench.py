@@ -71,6 +71,58 @@ class WorkbenchTests(TestCase):
         wb, _ = self.view('?fila=receber')
         self.assertEqual(wb['counts']['receber'], 1)
 
+    def test_following_scope_has_own_counters_deadlines_and_activity_for_managers(self):
+        today = date(2026,10,24)
+        for user in ('admin', 'protocolista'):
+            self.login(user)
+            self.post('acompanhar', {'acompanhar':'1'})
+        with app.app_context():
+            p = db.session.get(Protocolo,self.pid)
+            p.prazo_em=today+timedelta(days=1)
+            db.session.add_all([
+                Protocolo(tenant_id=self.tenant,numero='NAO-ACOMPANHADO',nome='Outro atendimento',
+                          status='EM ANÁLISE',prazo_em=today-timedelta(days=1)),
+                AcompanhamentoProtocolo(tenant_id=self.foreign_tenant,protocolo_id=self.foreign_pid,
+                                        usuario_id=self.ids['admin']),
+                HistoricoProtocolo(tenant_id=self.tenant,protocolo_id=self.pid,acao='ALTERACAO_STATUS',
+                                   status=p.status,observacao='Observação privada não deve aparecer'),
+            ]); db.session.commit()
+        for user in ('admin','protocolista'):
+            self.login(user)
+            with patch('dashboard_workbench.today_brasilia',return_value=today):
+                wb,html=self.view('?escopo=acompanhando')
+            self.assertEqual(wb['counts']['prioridades'],1)
+            self.assertEqual(wb['counts']['atrasados'],0)
+            self.assertEqual(wb['counts']['prazos'],1)
+            self.assertEqual([p.id for p in wb['deadlines']],[self.pid])
+            self.assertTrue(wb['activity'])
+            self.assertTrue(all(e.protocolo_id==self.pid for e in wb['activity']))
+            self.assertEqual(wb['rows'][0]['action'],'Ver processo')
+            self.assertIn('Processos que você acompanha',html)
+            self.assertIn('escopo=acompanhando&amp;fila=prazos',html)
+            self.assertNotIn('Observação privada não deve aparecer',html)
+            self.assertNotIn('Outro atendimento',html)
+            self.assertNotIn('Outro cliente',html)
+            self.assertNotIn('acompanhar',[tab['key'] for tab in wb['tabs']])
+        for user in ('alice','consulta'):
+            self.login(user)
+            self.assertEqual(self.client.get('/home?escopo=acompanhando').status_code,403)
+
+    def test_following_scope_does_not_turn_following_into_ownership_or_show_closed_items(self):
+        self.login('admin'); self.send('alice')
+        self.post('acompanhar',{'acompanhar':'1'})
+        wb,_=self.view('?escopo=acompanhando')
+        self.assertEqual(wb['counts']['prioridades'],1)
+        self.assertEqual(wb['counts']['comigo'],0)
+        wb,_=self.view('?escopo=meu')
+        self.assertEqual(wb['counts']['prioridades'],0)
+        self.assertEqual(wb['activity'],[])
+        with app.app_context():
+            db.session.get(Protocolo,self.pid).status='CONCLUÍDO'; db.session.commit()
+        wb,_=self.view('?escopo=acompanhando')
+        self.assertEqual(wb['counts']['prioridades'],0)
+        self.assertEqual(wb['rows'],[])
+
     def test_deadlines_use_brasilia_date_and_never_include_closed_records(self):
         self.login('admin')
         today = date(2026,10,24)
