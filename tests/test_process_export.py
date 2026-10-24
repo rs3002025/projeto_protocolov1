@@ -51,6 +51,8 @@ class ProcessExportTests(TestCase):
         self.attachment('relatorio.pdf','relatorio',pdf_bytes(600))
         with app.app_context():
             data=pdf_bytes(500)
+            # Um arquivo substituído indisponível não pode impedir a cópia atual.
+            db.session.get(Anexo,old_id).file_data=None
             db.session.add(DespachoProtocolo(tenant_id=self.tenant,protocolo_id=self.pid,numero=1,
                 protocolo_numero='0001/2026',texto='Despacho fictício',assunto='Análise',
                 autor_id=self.ids['admin'],autor_nome='Administrador fictício',criado_em=datetime.now(timezone.utc),
@@ -65,7 +67,8 @@ class ProcessExportTests(TestCase):
             names=package.namelist()
             self.assertTrue(all(not n.startswith('/') and '..' not in n.split('/') for n in names))
             self.assertEqual(package.read('originais/01-pedido.pdf'),pdf_bytes())
-            self.assertEqual(package.read(f'originais/anteriores/{old_id:06d}-planilha.xlsx'),previous)
+            self.assertFalse(any(n.startswith('originais/anteriores/') for n in names))
+            self.assertFalse(any(package.read(n)==previous for n in names))
             self.assertTrue(any(package.read(n)==current for n in names if n.startswith('originais/anexos/')))
             reader=PdfReader(io.BytesIO(package.read('processo-0001_2026.pdf')))
             self.assertEqual([int(p.mediabox.width) for p in reader.pages],[200,400,300,500,350,600])

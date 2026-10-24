@@ -3,8 +3,9 @@
 ## Entregue nesta revisão
 
 1. Download do processo com capa, índice e marcadores navegáveis, pedido preservado, tramitação cronológica, despachos ativos e anexos atuais compatíveis. O download não cria outra versão nem altera o estado do processo.
-2. Pacote ZIP com o PDF de leitura e os originais. Documentos substituídos permanecem em pasta separada. Planilhas, documentos interativos, protegidos ou sem conversão têm folha de referência no PDF e permanecem íntegros no ZIP. Assinaturas digitais devem ser verificadas no original, não no PDF compilado. A autenticação eletrônica existente não é refeita.
+2. Pacote ZIP com o PDF de leitura e os originais da documentação atual. Versões substituídas permanecem preservadas no sistema e não são duplicadas no pacote. Planilhas, documentos interativos, protegidos ou sem conversão têm folha de referência no PDF e permanecem íntegros no ZIP. Assinaturas digitais devem ser verificadas no original, não no PDF compilado. A autenticação eletrônica existente não é refeita.
 3. Relatórios com totais de todos os resultados filtrados, filtro de setor atual que considera encaminhamentos paralelos, identificação das datas como datas do pedido e responsável apresentado conforme a tramitação. A paginação conserva filtros, inclusive o setor.
+4. Apresentação simplificada dos eventos antigos de geração do requerimento e inclusão de anexos, sem nomes técnicos de versões ou chaves internas. O registro original da auditoria permanece intacto.
 
 ## Oportunidades priorizadas
 

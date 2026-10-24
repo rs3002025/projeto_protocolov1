@@ -610,6 +610,7 @@ HISTORY_ACTION_LABELS = {
     'PROVIDENCIA_CONCLUIDA': 'Providência concluída',
     'FINALIZACAO': 'Conclusão do processo',
     'ANEXO_ADICIONADO': 'Documento anexado',
+    'DOCUMENTO_GERADO': 'Requerimento disponibilizado',
     'NOVA_VERSAO_DOCUMENTO': 'Nova versão de documento',
 }
 EMISSION_STATUS_LABELS = {'VALIDA': 'Válida', 'RETIFICADA': 'Retificada', 'SUBSTITUIDA': 'Anterior', 'CANCELADA': 'Cancelada'}
@@ -639,6 +640,13 @@ def history_parts(event):
     value = event.observacao or ''
     if event.acao == 'IMPORTACAO_LEGADO':
         return {'sistema': '', 'observacao': ''}
+    if event.acao == 'DOCUMENTO_GERADO':
+        return {'sistema': 'Requerimento disponibilizado.', 'observacao': ''}
+    if event.acao in ('ANEXO_ADICIONADO', 'NOVA_VERSAO_DOCUMENTO'):
+        match = re.fullmatch(r'(.+?)\s+[—-]\s+versão\s+\d+\.\s+Documento\s+[\w-]+\.?', value, re.S)
+        if match:
+            label = 'Documento substituído' if event.acao == 'NOVA_VERSAO_DOCUMENTO' else 'Documento anexado'
+            return {'sistema': f'{label}: {match.group(1)}.', 'observacao': ''}
     if event.acao == 'TRAMITACAO':
         # Novos eventos separam destino e texto livre sem interpretar seu conteúdo.
         heading, separator, note = value.partition('\n\n')
