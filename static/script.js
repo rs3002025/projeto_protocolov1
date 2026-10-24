@@ -150,7 +150,7 @@ document.addEventListener('DOMContentLoaded', function () {
         };
         const refresh = () => {
             [...rows.children].forEach((row, index) => {
-                row.querySelector('[data-destination-title]').textContent = `Destino ${index + 1}`;
+                row.querySelector('[data-destination-title]').textContent = `Destino ${index + 2}`;
                 row.querySelector('[data-remove-destination]').hidden = rows.children.length === 1;
             });
             add.disabled = rows.children.length >= 50;

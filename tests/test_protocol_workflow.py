@@ -223,6 +223,7 @@ class WorkflowTests(unittest.TestCase):
         self.assertIn('data-forward-protocol', html)
         self.assertIn('+ Adicionar encaminhamento', html)
         self.assertIn('data-additional-forward', html)
+        self.assertIn('data-destination-title>Destino 2</legend>', html)
         self.assertNotIn('id="destinatarios-multiplos"', html)
         self.assertIn('Encaminhamento a transferir', html)
         self.login('consulta'); html = self.client.get(f'/protocolo/{self.pid}').get_data(as_text=True)
