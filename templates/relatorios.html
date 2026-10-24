@@ -1,12 +1,16 @@
 {% extends "layout.html" %}
 {% block content %}
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1>Relatórios e Pesquisa</h1>
+        <h1>Relatórios</h1>
         <div>
             <a href="{{ url_for('backup_excel', **request.args) }}" class="btn btn-info">Exportar para Excel</a>
         </div>
     </div>
 
+    <p class="text-muted">Pesquise o acervo, confira os totais do resultado e exporte os registros para Excel. As datas se referem ao pedido.</p>
+    <section class="row row-cols-2 row-cols-md-5 g-3 mb-4" aria-label="Resumo do resultado filtrado">
+      {% for label,key in [('Processos encontrados','total'),('Em aberto','abertos'),('Com prazo vencido','vencidos'),('Concluídos','concluidos'),('Arquivados','arquivados')] %}<div class="col"><div class="card h-100"><div class="card-body"><span class="text-muted small">{{ label }}</span><strong class="d-block fs-3">{{ resumo[key] }}</strong></div></div></div>{% endfor %}
+    </section><p class="form-text">Totais de todos os registros que atendem aos filtros, incluindo as demais páginas. Prazos vencidos consideram apenas processos em aberto.</p>
     <!-- Search Form -->
     <div class="card mb-4">
         <div class="card-body">
@@ -30,11 +34,11 @@
                         </select>
                     </div>
                     <div class="col-md-3">
-                        <label for="data_inicio" class="form-label">Data Início</label>
+                        <label for="data_inicio" class="form-label">Data inicial do pedido</label>
                         <input id="data_inicio" type="date" name="data_inicio" class="form-control" value="{{ request.args.get('data_inicio', '') }}">
                     </div>
                     <div class="col-md-3">
-                        <label for="data_fim" class="form-label">Data Fim</label>
+                        <label for="data_fim" class="form-label">Data final do pedido</label>
                         <input id="data_fim" type="date" name="data_fim" class="form-control" value="{{ request.args.get('data_fim', '') }}">
                     </div>
                     <div class="col-md-3">
@@ -50,6 +54,9 @@
                             <option value="proximos_7" {% if request.args.get('prazo') == 'proximos_7' %}selected{% endif %}>Vence nos próximos 7 dias</option>
                             <option value="sem_prazo" {% if request.args.get('prazo') == 'sem_prazo' %}selected{% endif %}>Sem prazo definido</option>
                         </select>
+                    </div>
+                    <div class="col-md-3 align-self-end">
+                        <label for="setor-atual-relatorio" class="form-label">Setor atual</label><select id="setor-atual-relatorio" name="setor_atual" class="form-select"><option value="">Todos os setores</option>{% for setor in setores_relatorio %}<option value="{{ setor.nome }}" {% if request.args.get('setor_atual')==setor.nome %}selected{% endif %}>{{ setor.nome }}</option>{% endfor %}</select>
                     </div>
                     <div class="col-md-3 align-self-end">
                         <button type="submit" class="btn btn-primary w-100">Pesquisar</button>
@@ -83,9 +90,9 @@
                         <td>{{ protocolo.prazo_em.strftime('%d/%m/%Y') if protocolo.prazo_em else 'Não definido' }}</td>
                         <td><span class="badge bg-info">{{ protocolo.status_exibicao }}</span></td>
                         <td>{{ protocol_location(protocolo) }}</td>
-                        <td>{{ protocolo.responsavel or 'Não definido' }}</td>
+                        <td>{{ protocolo.responsavel_exibicao }}</td>
                         <td>
-                             <a href="{{ url_for('detalhe_protocolo', protocolo_id=protocolo.id) }}" class="btn btn-sm btn-outline-primary">Detalhes</a>
+                             <a href="{{ url_for('detalhe_protocolo', protocolo_id=protocolo.id) }}" class="btn btn-sm btn-outline-primary">Abrir processo</a>
                         </td>
                     </tr>
                 {% else %}
@@ -109,7 +116,7 @@
             {% for page_num in protocolos.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
                 {% if page_num %}
                     {% if protocolos.page == page_num %}
-                        <li class="page-item active"><a class="page-link" href="{{ url_for('relatorios', page=page_num, **request.args) }}">{{ page_num }}</a></li>
+                        <li class="page-item active"><a class="page-link" href="{{ url_for('relatorios', page=page_num, **pagination_args) }}">{{ page_num }}</a></li>
                     {% else %}
                         <li class="page-item"><a class="page-link" href="{{ url_for('relatorios', page=page_num, **pagination_args) }}">{{ page_num }}</a></li>
                     {% endif %}

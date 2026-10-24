@@ -2040,8 +2040,19 @@ def relatorios():
     # to match the original app's structure.
     page = request.args.get('page', 1, type=int)
     query = apply_protocol_filters(accessible_protocols_query(), request.args)
+    from dashboard_workbench import today_brasilia
+    from sqlalchemy import case
+    active = and_(Protocolo.arquivado_em.is_(None), or_(Protocolo.status.is_(None),
+        ~Protocolo.status.in_(['FINALIZADO', 'CONCLUÍDO', 'ARQUIVADO'])))
+    conditions = [active, and_(active, Protocolo.prazo_em < today_brasilia()),
+                  Protocolo.status.in_(['FINALIZADO','CONCLUÍDO']),
+                  or_(Protocolo.status=='ARQUIVADO', Protocolo.arquivado_em.isnot(None))]
+    totals = query.with_entities(func.count(Protocolo.id), *[
+        func.coalesce(func.sum(case((condition,1),else_=0)),0) for condition in conditions]).one()
+    resumo = dict(zip(('total','abertos','vencidos','concluidos','arquivados'), totals))
     protocolos = query.order_by(Protocolo.id.desc()).paginate(page=page, per_page=10)
     return render_template('relatorios.html', protocolos=protocolos, title="Relatórios",
+                           resumo=resumo, setores_relatorio=tenant_query(Lotacao).order_by(Lotacao.nome).all(),
                            pagination_args=pagination_filter_args(request.args))
 
 # --- Rotas de Configuração (Admin) ---
@@ -3660,6 +3671,8 @@ def dashboard_stats():
 
 from protocol_dispatches import register_dispatch_routes
 register_dispatch_routes(app, db)
+from protocol_export import register_export_routes
+register_export_routes(app)
 from protocol_workflow import register_workflow_routes
 register_workflow_routes(app)
 

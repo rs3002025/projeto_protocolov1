@@ -47,7 +47,7 @@ def test_container_uses_fixed_image_and_complete_lock():
     assert '-r requirements.lock' in (ROOT / 'requirements.txt').read_text()
     pins = [line for line in (ROOT / 'requirements.lock').read_text().splitlines()
             if line and not line.startswith('#')]
-    assert len(pins) == 45
+    assert len(pins) == 46
     assert all('==' in line and '>=' not in line for line in pins)
     hashed = (ROOT / 'requirements-hashes.lock').read_text()
     assert all(pin + ' \\' in hashed for pin in pins)
