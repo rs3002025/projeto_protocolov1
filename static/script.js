@@ -86,8 +86,16 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // --- Dashboard Logic ---
     if (document.querySelector('.dashboard-screen')) {
-        popularFiltrosDashboard();
-        carregarDashboard();
+        const analytics = document.querySelector('[data-dashboard-analytics]');
+        let loaded = false;
+        const initialize = () => {
+            if (loaded || (analytics && !analytics.open)) return;
+            loaded = true;
+            popularFiltrosDashboard();
+            carregarDashboard();
+        };
+        if (analytics) analytics.addEventListener('toggle', initialize);
+        initialize();
     }
 
     // --- Protocol Form Logic ---
@@ -269,6 +277,7 @@ function initializeProtocolReview() {
 let tiposChartInstance = null;
 let statusChartInstance = null;
 let evolucaoChartInstance = null;
+let dashboardRequestSerial = 0;
 
 window.fecharModal = function(modalId) {
     const modalElement = document.getElementById(modalId);
@@ -296,6 +305,9 @@ window.popularFiltrosDashboard = function() {
 };
 
 window.carregarDashboard = async function() {
+    const requestId = ++dashboardRequestSerial;
+    const analysisError = document.getElementById('dashboard-analysis-error');
+    if (analysisError) analysisError.hidden = true;
     const params = new URLSearchParams({
         dataInicio: document.getElementById('dashDataInicio').value,
         dataFim: document.getElementById('dashDataFim').value,
@@ -313,6 +325,18 @@ window.carregarDashboard = async function() {
             throw new Error(err.error || 'Erro ao buscar dados do dashboard');
         }
         const stats = await res.json();
+        if (requestId !== dashboardRequestSerial) return;
+
+        const filterLinks = {data_inicio:params.get('dataInicio'), data_fim:params.get('dataFim'),
+            status:params.get('status'), tipo:params.get('tipo'), tipo_exato:'1', setor_atual:params.get('lotacao')};
+        const cardLink = extra => {
+            const linkParams = new URLSearchParams();
+            Object.entries({...filterLinks,...extra}).forEach(([key,value]) => {if(value) linkParams.set(key,value);});
+            return `/protocolos?${linkParams}`;
+        };
+        document.getElementById('card-novos').href = cardLink({data_inicio:params.get('dataInicio') || stats.novosDesde, data_fim:params.get('dataFim') || stats.novosAte});
+        document.getElementById('card-pendentes').href = cardLink({prazo:'vencido'});
+        document.getElementById('card-finalizados').href = cardLink({status:'CONCLUÍDO'});
 
         // 1. Update Cards
         document.getElementById('stat-novos').textContent = stats.novosNoPeriodo || 0;
@@ -322,7 +346,7 @@ window.carregarDashboard = async function() {
         const attentionNext7 = document.getElementById('attention-next7');
         if (attentionOverdue) attentionOverdue.textContent = stats.pendentesAntigos || 0;
         if (attentionNext7) attentionNext7.textContent = stats.vencemProximos7 || 0;
-        document.getElementById('stat-novos-label').textContent = (document.getElementById('dashDataInicio').value || document.getElementById('dashDataFim').value) ? 'Novos no Período' : 'Novos na Semana';
+        document.getElementById('stat-novos-label').textContent = (document.getElementById('dashDataInicio').value || document.getElementById('dashDataFim').value) ? 'Novos no período' : 'Novos nos últimos 7 dias';
         const setoresBody = document.getElementById('setoresStats');
         setoresBody.textContent = '';
         if (!stats.setorProtocolos.length) {
@@ -346,7 +370,7 @@ window.carregarDashboard = async function() {
                 datasets: [{
                     label: 'Total',
                     data: stats.topTipos.map(item => item.total),
-                    backgroundColor: ['#4CAF50', '#8BC34A', '#CDDC39', '#FFEB3B', '#FFC107'],
+                    backgroundColor: ['#267c70', '#5d9b8d', '#89b4a3', '#accabe', '#cedfd6'],
                     borderColor: '#fff',
                     borderWidth: 1
                 }]
@@ -374,16 +398,16 @@ window.carregarDashboard = async function() {
         document.getElementById('pieChartTitle').textContent = pieChartTitle;
 
         statusChartInstance = new Chart(statusCtx, {
-            type: 'pie',
+            type: 'doughnut',
             data: {
                 labels: pieChartLabels,
                 datasets: [{
                     label: 'Total',
                     data: pieChartData,
-                    backgroundColor: ['#2196F3', '#FF9800', '#4CAF50', '#F44336', '#9C27B0', '#673AB7', '#009688', '#FF5722', '#795548', '#607D8B'],
+                    backgroundColor: ['#267c70', '#6e9baa', '#c9a75e', '#8fb6a1', '#95a5a0', '#b8d2bf', '#94a5bf', '#d1bca2'],
                 }]
             },
-            options: { responsive: true, plugins: { legend: { position: 'right' } } }
+            options: { responsive: true, cutout:'62%', plugins: { legend: { position: 'bottom' } } }
         });
 
         // 4. Evolution Chart (Line Chart)
@@ -412,8 +436,8 @@ window.carregarDashboard = async function() {
                     label: 'Novos Protocolos',
                     data: stats.evolucaoProtocolos.map(item => item.total),
                     fill: true,
-                    borderColor: '#4CAF50',
-                    backgroundColor: 'rgba(76, 175, 80, 0.2)',
+                    borderColor: '#267c70',
+                    backgroundColor: 'rgba(38, 124, 112, 0.10)',
                     tension: 0.2
                 }]
             },
@@ -421,8 +445,9 @@ window.carregarDashboard = async function() {
         });
 
     } catch (err) {
+        if (requestId !== dashboardRequestSerial) return;
         console.error("Erro ao carregar dados do dashboard:", err);
-        alert("Não foi possível carregar os dados do dashboard: " + err.message);
+        if (analysisError) analysisError.hidden = false;
     }
 };
 
@@ -471,6 +496,11 @@ window.gerarImpressaoPersonalizada = async function() {
     }, {});
 
     // Build filters HTML
+    const printEscape = value => {
+        const element = document.createElement('span');
+        element.textContent = String(value);
+        return element.innerHTML;
+    };
     let filtrosHtml = '';
     const dataInicio = document.getElementById('dashDataInicio').value;
     const dataFim = document.getElementById('dashDataFim').value;
@@ -480,16 +510,16 @@ window.gerarImpressaoPersonalizada = async function() {
 
     if (dataInicio) filtrosHtml += `<strong>Data de Início:</strong> ${new Date(dataInicio+'T00:00:00').toLocaleDateString('pt-BR')} | `;
     if (dataFim) filtrosHtml += `<strong>Data Final:</strong> ${new Date(dataFim+'T00:00:00').toLocaleDateString('pt-BR')} | `;
-    if (status) filtrosHtml += `<strong>Status:</strong> ${status} | `;
-    if (tipo) filtrosHtml += `<strong>Tipo:</strong> ${tipo} | `;
-    if (lotacao) filtrosHtml += `<strong>Lotação:</strong> ${lotacao} | `;
+    if (status) filtrosHtml += `<strong>Status:</strong> ${printEscape(status)} | `;
+    if (tipo) filtrosHtml += `<strong>Tipo:</strong> ${printEscape(tipo)} | `;
+    if (lotacao) filtrosHtml += `<strong>Setor atual:</strong> ${printEscape(lotacao)} | `;
     if (filtrosHtml) filtrosHtml = filtrosHtml.slice(0, -3); // Remove last " | "
 
     let html = `
         <div style="text-align: center; margin-bottom: 5px; padding-bottom: 5px; border-bottom: 1px solid #ccc;">
             <img src="${document.body.dataset.brandingLogoUrl || '/static/img/logo-sysprot.svg'}" alt="Logo" style="height: 45px; margin-bottom: 5px;">
             <h3 style="margin: 0; font-size: 1.1em;">Relatório de Desempenho - Dashboard</h3>
-            <p style="font-size: 0.7em; color: #555; margin: 2px 0 0 0;">Gerado em: ${new Date().toLocaleString('pt-BR')}</p>
+            <p style="font-size: 0.7em; color: #555; margin: 2px 0 0 0;">Gerado em: ${new Date().toLocaleString('pt-BR', {timeZone:'America/Sao_Paulo'})} (Brasília)</p>
         </div>
         <div style="font-size: 0.7em; padding: 5px; margin-bottom: 10px; background-color: #f5f5f5; border-radius: 4px; text-align: center;">
             ${filtrosHtml ? filtrosHtml : 'Nenhum filtro principal aplicado.'}
