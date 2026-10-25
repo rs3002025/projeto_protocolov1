@@ -3,9 +3,12 @@
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h1>Relatórios</h1>
         <div>
+            <a href="{{ url_for('relatorio_gestao') }}" class="btn btn-outline-primary">Indicadores de gestão</a>
+            <a href="{{ url_for('modelos_despacho') }}" class="btn btn-outline-primary">Modelos de despacho</a>
             <a href="{{ url_for('backup_excel', **request.args) }}" class="btn btn-info">Exportar para Excel</a>
         </div>
     </div>
+    <section class="card card-body mb-4" aria-label="Pesquisas salvas"><h2 class="h6">Suas pesquisas salvas</h2><p class="form-text">Os filtros salvos são pessoais e só abrem dados deste cliente.</p><div class="d-flex flex-wrap gap-2 mb-3">{% for item in pesquisas_salvas %}<div class="d-flex gap-1"><a class="btn btn-sm btn-outline-primary" href="{{ item.url }}">{{ item.nome }}</a><form method="post" action="{{ url_for('remover_pesquisa',pesquisa_id=item.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm btn-outline-secondary" type="submit" aria-label="Remover pesquisa {{ item.nome }}">×</button></form></div>{% else %}<span class="text-muted">Nenhuma pesquisa salva.</span>{% endfor %}</div><details><summary>Salvar os filtros atuais</summary><form class="d-flex gap-2 mt-3" method="post" action="{{ url_for('salvar_pesquisa') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% for field in ['numero','nome','status','data_inicio','data_fim','tipo','prazo','setor_atual','tipo_exato'] %}{% if request.args.get(field) %}<input type="hidden" name="{{ field }}" value="{{ request.args[field] }}">{% endif %}{% endfor %}<label class="visually-hidden" for="nome-pesquisa">Nome da pesquisa</label><input class="form-control" id="nome-pesquisa" name="nome_pesquisa" maxlength="80" placeholder="Ex.: SEFIN - prazos vencidos" required><button class="btn btn-primary" type="submit">Salvar/atualizar</button></form></details></section>
 
     <p class="text-muted">Pesquise o acervo, confira os totais do resultado e exporte os registros para Excel. As datas se referem ao pedido.</p>
     <section class="row row-cols-2 row-cols-md-5 g-3 mb-4" aria-label="Resumo do resultado filtrado">

@@ -2044,6 +2044,7 @@ def platform_update_capabilities(organization_id):
 @app.route("/relatorios")
 @permission_required('reports')
 def relatorios():
+    from productivity import saved_searches
     # This route essentially does the same as listar_protocolos but renders a different template
     # to match the original app's structure.
     page = request.args.get('page', 1, type=int)
@@ -2061,6 +2062,7 @@ def relatorios():
     protocolos = query.order_by(Protocolo.id.desc()).paginate(page=page, per_page=10)
     return render_template('relatorios.html', protocolos=protocolos, title="Relatórios",
                            resumo=resumo, setores_relatorio=tenant_query(Lotacao).order_by(Lotacao.nome).all(),
+                           pesquisas_salvas=saved_searches(),
                            pagination_args=pagination_filter_args(request.args))
 
 # --- Rotas de Configuração (Admin) ---
@@ -3681,6 +3683,12 @@ from protocol_dispatches import register_dispatch_routes
 register_dispatch_routes(app, db)
 from protocol_export import register_export_routes
 register_export_routes(app)
+from productivity import register_productivity_routes
+register_productivity_routes(app, db)
+from management_reports import register_management_routes
+register_management_routes(app)
+from document_recovery import register_recovery_routes
+register_recovery_routes(app, db)
 from protocol_workflow import register_workflow_routes
 register_workflow_routes(app)
 
