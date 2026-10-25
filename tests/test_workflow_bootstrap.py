@@ -57,8 +57,13 @@ with app.app_context():
             connection.execute(text('DROP TABLE acompanhamentos_protocolos'))
             connection.execute(text('DROP TABLE providencias_protocolos'))
 
+    with db.engine.begin() as connection:
+        connection.execute(text('DROP INDEX ix_emissoes_eletronicas_protocolo_id'))
+        connection.execute(text('CREATE UNIQUE INDEX ix_emissoes_eletronicas_protocolo_id ON emissoes_eletronicas (protocolo_id)'))
     bootstrap()
     bootstrap()  # Reiniciar o contêiner deve ser seguro.
+    emission_indexes = inspect(db.engine).get_indexes('emissoes_eletronicas')
+    assert not next(i for i in emission_indexes if i['name'] == 'ix_emissoes_eletronicas_protocolo_id')['unique']
     columns={c['name'] for c in inspect(db.engine).get_columns('despachos_protocolos')}
     assert {'excluido_em','excluido_por_id','motivo_exclusao','assunto','conteudo_delta'} <= columns
     for number, slug in ((1, 'prefeitura'), (2, 'outro-cliente')):
