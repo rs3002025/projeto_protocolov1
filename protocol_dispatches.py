@@ -63,11 +63,18 @@ def register_dispatch_routes(app, db):
     @permission_required('route')
     def novo_despacho(protocolo_id):
         import secrets
+        from models import ModeloDespacho
         protocolo = accessible_protocol_or_404(protocolo_id)
         if not can_add_dispatch(protocolo):
             abort(403)
+        models=tenant_query(ModeloDespacho).filter_by(ativo=True).order_by(ModeloDespacho.nome).all()
+        selected=None
+        if request.args.get('modelo_id'):
+            if not request.args['modelo_id'].isdecimal(): abort(400)
+            selected=tenant_query(ModeloDespacho).filter_by(id=int(request.args['modelo_id']),ativo=True).first_or_404()
         return render_template('despacho_editor.html', protocolo=protocolo,
-                               assunto='', texto='', conteudo_delta='',
+                               assunto=selected.assunto if selected else '', texto=selected.texto if selected else '',
+                               conteudo_delta=selected.conteudo_delta or '' if selected else '', modelos=models,
                                envio_token=secrets.token_urlsafe(24), falha=False)
 
     @app.post('/protocolo/<int:protocolo_id>/despachos')

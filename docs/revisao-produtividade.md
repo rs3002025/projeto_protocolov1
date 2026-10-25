@@ -9,6 +9,8 @@
 
 ## Oportunidades priorizadas
 
+Atualização: os relatórios gerenciais, pesquisas salvas, alertas no painel e modelos de despacho foram implementados no visual. A exportação em segundo plano permanece como evolução futura para processos volumosos.
+
 | Prioridade | Melhoria | Utilidade e condição para implementação |
 |---|---|---|
 | Alta | Relatório de permanência por setor | Identificar onde os processos ficam parados, calculando tempo de envio e recebimento por participação. Separar espera de recebimento de tempo de atendimento. Registros importados sem hora não devem gerar precisão fictícia. |
@@ -18,7 +20,7 @@
 | Média | Modelos de despacho por cliente | Reutilizar estrutura e formatação, exigindo revisão do autor antes de registrar. Não gerar despacho automaticamente nem alterar autoria. |
 | Média | Exportação em segundo plano para processos volumosos | Fila de tarefas e armazenamento temporário privado com expiração. Útil quando o volume superar a geração síncrona atual; requer worker e monitoramento, não apenas um botão. |
 
-Não há necessidade de acrescentar serviços de IA, novos bancos ou mensageria para os ajustes entregues. As oportunidades acima são propostas, não funções já implementadas.
+Não há necessidade de acrescentar serviços de IA, novos bancos ou mensageria para os ajustes entregues. Os detalhes das funções implementadas e os critérios das métricas estão em produtividade-gestao.md.
 
 ## Limites e critérios do download
 

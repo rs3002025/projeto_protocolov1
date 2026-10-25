@@ -108,6 +108,37 @@ class Usuario(TenantMixin, db.Model, UserMixin):
             (self.organizacao is not None and self.organizacao.ativo))
 
 
+class PesquisaSalva(TenantMixin, db.Model):
+    __tablename__ = 'pesquisas_salvas'
+    __table_args__ = (db.UniqueConstraint('tenant_id','usuario_id','nome',name='uq_pesquisa_pessoal'),)
+    id = db.Column(ID_TYPE, primary_key=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False, index=True)
+    nome = db.Column(db.String(80), nullable=False)
+    filtros = db.Column(db.Text, nullable=False)
+    ativo = db.Column(db.Boolean, nullable=False, default=True)
+
+
+class PreferenciaAlerta(TenantMixin, db.Model):
+    __tablename__ = 'preferencias_alerta'
+    __table_args__ = (db.UniqueConstraint('tenant_id','usuario_id',name='uq_alerta_pessoal'),)
+    id = db.Column(ID_TYPE, primary_key=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False, index=True)
+    ativo = db.Column(db.Boolean, nullable=False, default=True)
+    antecedencia_dias = db.Column(db.Integer, nullable=False, default=3)
+
+
+class ModeloDespacho(TenantMixin, db.Model):
+    __tablename__ = 'modelos_despacho'
+    id = db.Column(ID_TYPE, primary_key=True)
+    nome = db.Column(db.String(100), nullable=False)
+    assunto = db.Column(db.String(250), nullable=False)
+    texto = db.Column(db.Text, nullable=False)
+    conteudo_delta = db.Column(db.Text)
+    ativo = db.Column(db.Boolean, nullable=False, default=True)
+    atualizado_por_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)
+    atualizado_em = db.Column(db.TIMESTAMP(timezone=True), nullable=False, server_default=db.func.now())
+
+
 class PortalSessao(TenantMixin, db.Model):
     __tablename__ = 'portal_sessoes'
     id = db.Column(ID_TYPE, primary_key=True)

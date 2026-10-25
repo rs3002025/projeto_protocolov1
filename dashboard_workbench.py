@@ -96,6 +96,9 @@ def build_workbench(args):
         receipt = personal_receipt
     overdue = Protocolo.prazo_em < today
     soon = and_(Protocolo.prazo_em >= today, Protocolo.prazo_em <= today + timedelta(days=7))
+    from productivity import alert_preference
+    alerts=alert_preference()
+    alert_due=Protocolo.prazo_em <= today+timedelta(days=alerts['dias'])
     documents = or_(Protocolo.status == 'PENDENTE DE DOCUMENTO', Protocolo.solicitacoes_complemento.any(
         SolicitacaoComplemento.status == 'PENDENTE'))
     queues = {
@@ -108,6 +111,7 @@ def build_workbench(args):
         'atrasados': ('Prazos vencidos', work.filter(overdue)),
         'prazos': ('Próximos 7 dias', work.filter(soon)),
         'sem_prazo': ('Sem prazo definido', work.filter(Protocolo.prazo_em.is_(None))),
+        'alertas': ('Alertas de prazo', work.filter(alert_due)),
     }
     if current_user.tipo == 'admin':
         queues['concluir'] = ('Aguardando conclusão', work.filter(Protocolo.status == 'AGUARDANDO CONCLUSÃO'))
@@ -218,6 +222,7 @@ def build_workbench(args):
     return dict(today=today, manager=manager, can_route=can_route, scope=scope, queue=queue,
                 queue_title=queues[queue][0], tabs=tabs, counts=counts, cards=cards, focus=focus,
                 rows=rows, pagination=pagination, deadlines=deadlines, distribution=distribution, activity=activity,
+                alerts=alerts, alert_url=queue_url('alertas'),
                 next_url=queue_url(queue,pagina=pagination.next_num) if pagination.has_next else None,
                 previous_url=queue_url(queue,pagina=pagination.prev_num) if pagination.has_prev else None,
                 soon_url=queue_url('prazos'), undated_url=queue_url('sem_prazo'),
