@@ -205,6 +205,8 @@ def bootstrap():
 
             if 'emissoes_eletronicas' in existing_tables:
                 connection.execute(text('UPDATE emissoes_eletronicas SET versao = 1 WHERE versao IS NULL'))
+                from emission_schema import upgrade_emission_protocol_index
+                upgrade_emission_protocol_index(connection)
 
             if db.engine.dialect.name == 'postgresql':
                 if 'anexos' in existing_tables:
