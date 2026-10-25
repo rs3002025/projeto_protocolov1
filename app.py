@@ -383,6 +383,7 @@ def apply_protocol_filters(query, args):
     data_inicio = parse_iso_date(args.get('data_inicio'), 'Data inicial')
     data_fim = parse_iso_date(args.get('data_fim'), 'Data final')
     tipo = (args.get('tipo') or '').strip()
+    setor_atual = (args.get('setor_atual') or '').strip()
     prazo = (args.get('prazo') or '').strip()
     if data_inicio and data_fim and data_inicio > data_fim:
         abort(400, description='A data inicial não pode ser posterior à data final.')
@@ -397,8 +398,15 @@ def apply_protocol_filters(query, args):
     if data_fim:
         query = query.filter(Protocolo.data_solicitacao <= data_fim)
     if tipo:
-        query = query.filter(Protocolo.tipo_requerimento.ilike(f'%{tipo}%'))
-    hoje = datetime.now().date()
+        query = query.filter(Protocolo.tipo_requerimento == tipo) if args.get('tipo_exato') == '1' else query.filter(Protocolo.tipo_requerimento.ilike(f'%{tipo}%'))
+    if setor_atual:
+        from dashboard_workbench import current_locations
+        locations = current_locations(current_tenant_id())
+        query = query.filter(Protocolo.id.in_(select(locations.c.protocolo_id).join(
+            Lotacao, locations.c.setor_id == Lotacao.id).where(
+                Lotacao.tenant_id == current_tenant_id(), Lotacao.nome == setor_atual).correlate(None)))
+    from dashboard_workbench import today_brasilia
+    hoje = today_brasilia()
     ativos = ~Protocolo.status.in_(['FINALIZADO', 'CONCLUÍDO', 'ARQUIVADO'])
     if prazo == 'vencido':
         query = query.filter(Protocolo.prazo_em < hoje, ativos)
@@ -602,6 +610,7 @@ HISTORY_ACTION_LABELS = {
     'PROVIDENCIA_CONCLUIDA': 'Providência concluída',
     'FINALIZACAO': 'Conclusão do processo',
     'ANEXO_ADICIONADO': 'Documento anexado',
+    'DOCUMENTO_GERADO': 'Requerimento disponibilizado',
     'NOVA_VERSAO_DOCUMENTO': 'Nova versão de documento',
 }
 EMISSION_STATUS_LABELS = {'VALIDA': 'Válida', 'RETIFICADA': 'Retificada', 'SUBSTITUIDA': 'Anterior', 'CANCELADA': 'Cancelada'}
@@ -631,6 +640,13 @@ def history_parts(event):
     value = event.observacao or ''
     if event.acao == 'IMPORTACAO_LEGADO':
         return {'sistema': '', 'observacao': ''}
+    if event.acao == 'DOCUMENTO_GERADO':
+        return {'sistema': 'Requerimento disponibilizado.', 'observacao': ''}
+    if event.acao in ('ANEXO_ADICIONADO', 'NOVA_VERSAO_DOCUMENTO'):
+        match = re.fullmatch(r'(.+?)\s+[—-]\s+versão\s+\d+\.\s+Documento\s+[\w-]+\.?', value, re.S)
+        if match:
+            label = 'Documento substituído' if event.acao == 'NOVA_VERSAO_DOCUMENTO' else 'Documento anexado'
+            return {'sistema': f'{label}: {match.group(1)}.', 'observacao': ''}
     if event.acao == 'TRAMITACAO':
         # Novos eventos separam destino e texto livre sem interpretar seu conteúdo.
         heading, separator, note = value.partition('\n\n')
@@ -834,10 +850,8 @@ def consulta_publica(consulta_token):
 @app.route("/home")
 @login_required
 def home():
-    # This page will now be rendered with the dashboard structure,
-    # and the data will be fetched client-side.
-    return render_template('home.html', title="Dashboard", recebidos_para_analise=
-        accessible_protocols_query().filter(Protocolo.status == 'RECEBIDO').count())
+    from dashboard_workbench import build_workbench
+    return render_template('home.html', title='Painel de trabalho', workbench=build_workbench(request.args))
 
 
 @app.get('/suporte')
@@ -2030,12 +2044,25 @@ def platform_update_capabilities(organization_id):
 @app.route("/relatorios")
 @permission_required('reports')
 def relatorios():
+    from productivity import saved_searches
     # This route essentially does the same as listar_protocolos but renders a different template
     # to match the original app's structure.
     page = request.args.get('page', 1, type=int)
     query = apply_protocol_filters(accessible_protocols_query(), request.args)
+    from dashboard_workbench import today_brasilia
+    from sqlalchemy import case
+    active = and_(Protocolo.arquivado_em.is_(None), or_(Protocolo.status.is_(None),
+        ~Protocolo.status.in_(['FINALIZADO', 'CONCLUÍDO', 'ARQUIVADO'])))
+    conditions = [active, and_(active, Protocolo.prazo_em < today_brasilia()),
+                  Protocolo.status.in_(['FINALIZADO','CONCLUÍDO']),
+                  or_(Protocolo.status=='ARQUIVADO', Protocolo.arquivado_em.isnot(None))]
+    totals = query.with_entities(func.count(Protocolo.id), *[
+        func.coalesce(func.sum(case((condition,1),else_=0)),0) for condition in conditions]).one()
+    resumo = dict(zip(('total','abertos','vencidos','concluidos','arquivados'), totals))
     protocolos = query.order_by(Protocolo.id.desc()).paginate(page=page, per_page=10)
     return render_template('relatorios.html', protocolos=protocolos, title="Relatórios",
+                           resumo=resumo, setores_relatorio=tenant_query(Lotacao).order_by(Lotacao.nome).all(),
+                           pesquisas_salvas=saved_searches(),
                            pagination_args=pagination_filter_args(request.args))
 
 # --- Rotas de Configuração (Admin) ---
@@ -3499,7 +3526,9 @@ def get_protocolo_api(protocolo_id):
 @app.route('/protocolos/dashboard-stats')
 @login_required
 def dashboard_stats():
+    from werkzeug.exceptions import HTTPException
     try:
+        from dashboard_workbench import current_locations, today_brasilia
         # --- Filter Parsing ---
         data_inicio_str = request.args.get('dataInicio')
         data_fim_str = request.args.get('dataFim')
@@ -3508,6 +3537,13 @@ def dashboard_stats():
         lotacao = request.args.get('lotacao')
         evolucao_periodo = request.args.get('evolucaoPeriodo', '30d')
         evolucao_agrupamento = request.args.get('evolucaoAgrupamento', 'day')
+        start = parse_iso_date(data_inicio_str, 'Data inicial')
+        end = parse_iso_date(data_fim_str, 'Data final')
+        if start and end and start > end:
+            abort(400, description='A data inicial não pode ser posterior à final.')
+        if evolucao_periodo not in ('7d','30d','month','all') or evolucao_agrupamento not in ('day','month'):
+            abort(400, description='Período ou agrupamento inválido.')
+        locations = current_locations(current_tenant_id())
 
         # --- Base Query Construction ---
         base_query = accessible_protocols_query()
@@ -3516,8 +3552,9 @@ def dashboard_stats():
         if tipo:
             base_query = base_query.filter(Protocolo.tipo_requerimento == tipo)
         if lotacao:
-            base_query = base_query.join(Lotacao, Protocolo.setor_atual_id == Lotacao.id).filter(
-                Lotacao.tenant_id == current_tenant_id(), Lotacao.nome == lotacao)
+            base_query = base_query.filter(Protocolo.id.in_(select(locations.c.protocolo_id).join(
+                Lotacao, locations.c.setor_id == Lotacao.id).where(
+                    Lotacao.tenant_id == current_tenant_id(), Lotacao.nome == lotacao).correlate(None)))
 
         # --- Period-Filtered Query ---
         period_query = base_query
@@ -3531,25 +3568,30 @@ def dashboard_stats():
         if data_inicio_str:
              novos_query = novos_query.filter(Protocolo.data_solicitacao >= datetime.strptime(data_inicio_str, '%Y-%m-%d').date())
         else: # Default to last 7 days if no start date
-             novos_query = novos_query.filter(Protocolo.data_solicitacao >= (datetime.now().date() - timedelta(days=7)))
+             novos_query = novos_query.filter(Protocolo.data_solicitacao >= (today_brasilia() - timedelta(days=6)))
         if data_fim_str:
              novos_query = novos_query.filter(Protocolo.data_solicitacao <= datetime.strptime(data_fim_str, '%Y-%m-%d').date())
+        else:
+             novos_query = novos_query.filter(Protocolo.data_solicitacao <= today_brasilia())
 
         novos_no_periodo = novos_query.count()
 
         # --- Prazos vencidos (Card) ---
         encerrados = ['FINALIZADO', 'CONCLUÍDO', 'ARQUIVADO']
-        pendentes_antigos = base_query.filter(
-            Protocolo.prazo_em != None, Protocolo.prazo_em < datetime.now().date(),
+        pendentes_antigos = period_query.filter(
+            Protocolo.arquivado_em.is_(None),
+            Protocolo.prazo_em != None, Protocolo.prazo_em < today_brasilia(),
             ~Protocolo.status.in_(encerrados)).count()
 
-        hoje = datetime.now().date()
-        vencem_proximos_7 = base_query.filter(
+        hoje = today_brasilia()
+        vencem_proximos_7 = period_query.filter(
+            Protocolo.arquivado_em.is_(None),
             Protocolo.prazo_em != None,
             Protocolo.prazo_em >= hoje,
             Protocolo.prazo_em <= hoje + timedelta(days=7),
             ~Protocolo.status.in_(encerrados)).count()
-        sem_prazo = base_query.filter(
+        sem_prazo = period_query.filter(
+            Protocolo.arquivado_em.is_(None),
             Protocolo.prazo_em == None,
             ~Protocolo.status.in_(encerrados)).count()
 
@@ -3573,28 +3615,35 @@ def dashboard_stats():
             func.count(Protocolo.id).label('total')
         ).filter(Protocolo.status != None, Protocolo.status != '').group_by(Protocolo.status).all()
 
-        setor_query = period_query if lotacao else period_query.outerjoin(
-            Lotacao, Protocolo.setor_atual_id == Lotacao.id)
+        setor_query = period_query.join(locations, Protocolo.id == locations.c.protocolo_id).outerjoin(
+            Lotacao, locations.c.setor_id == Lotacao.id)
+        if lotacao:
+            setor_query = setor_query.filter(Lotacao.nome == lotacao)
         setor_protocolos = setor_query.with_entities(
             func.coalesce(Lotacao.nome, 'Não definido').label('setor'),
-            func.count(Protocolo.id).label('total')
-        ).group_by(Lotacao.nome).order_by(func.count(Protocolo.id).desc()).all()
+            func.count(func.distinct(Protocolo.id)).label('total')
+        ).group_by(Lotacao.nome).order_by(func.count(func.distinct(Protocolo.id)).desc()).all()
 
         # --- Evolução (Line Chart) ---
         evolucao_query = base_query.filter(Protocolo.data_solicitacao != None)
-        today = datetime.now().date()
+        today = today_brasilia()
         is_sqlite = db.session.get_bind().dialect.name == 'sqlite'
         if evolucao_periodo == '7d':
-            evolucao_query = evolucao_query.filter(Protocolo.data_solicitacao >= (today - timedelta(days=7)))
+            evolucao_query = evolucao_query.filter(Protocolo.data_solicitacao >= (today - timedelta(days=6)))
         elif evolucao_periodo == 'month':
             if is_sqlite:
                 evolucao_query = evolucao_query.filter(func.strftime('%Y-%m', Protocolo.data_solicitacao) == today.strftime('%Y-%m'))
             else:
                 evolucao_query = evolucao_query.filter(func.date_trunc('month', Protocolo.data_solicitacao) == func.date_trunc('month', today))
         elif evolucao_periodo == 'all':
-             evolucao_query = evolucao_query.filter(Protocolo.data_solicitacao >= '2025-01-01')
+             pass
         else: # 30d default
-            evolucao_query = evolucao_query.filter(Protocolo.data_solicitacao >= (today - timedelta(days=30)))
+            evolucao_query = evolucao_query.filter(Protocolo.data_solicitacao >= (today - timedelta(days=29)))
+        if start:
+            evolucao_query = evolucao_query.filter(Protocolo.data_solicitacao >= start)
+        if end:
+            evolucao_query = evolucao_query.filter(Protocolo.data_solicitacao <= end)
+        evolucao_query = evolucao_query.filter(Protocolo.data_solicitacao <= today)
 
         if is_sqlite:
             group_by_logic = func.strftime('%Y-%m-01', Protocolo.data_solicitacao) if evolucao_agrupamento == 'month' else func.strftime('%Y-%m-%d', Protocolo.data_solicitacao)
@@ -3608,6 +3657,8 @@ def dashboard_stats():
 
         # --- JSON Response Assembly ---
         stats = {
+            'novosDesde': (start or today - timedelta(days=6)).isoformat(),
+            'novosAte': (end or today).isoformat(),
             'novosNoPeriodo': novos_no_periodo,
             'pendentesAntigos': pendentes_antigos or 0,
             'vencemProximos7': vencem_proximos_7 or 0,
@@ -3621,6 +3672,8 @@ def dashboard_stats():
         }
         return jsonify(stats)
 
+    except HTTPException:
+        raise
     except Exception as e:
         import traceback
         app.logger.error(f"ERROR in dashboard_stats: {e}\n{traceback.format_exc()}")
@@ -3628,6 +3681,14 @@ def dashboard_stats():
 
 from protocol_dispatches import register_dispatch_routes
 register_dispatch_routes(app, db)
+from protocol_export import register_export_routes
+register_export_routes(app)
+from productivity import register_productivity_routes
+register_productivity_routes(app, db)
+from management_reports import register_management_routes
+register_management_routes(app)
+from document_recovery import register_recovery_routes
+register_recovery_routes(app, db)
 from protocol_workflow import register_workflow_routes
 register_workflow_routes(app)
 

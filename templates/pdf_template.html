@@ -47,7 +47,7 @@
 <body>
     <div class="doc-container">
         <div class="pdf-header">
-            <div class="logo-pdf"><img src="{{ pdf_logo_url }}" alt="Logo da organização"></div>
+            <div class="logo-pdf">{% if pdf_logo_url %}<img src="{{ pdf_logo_url }}" alt="Logo da organização">{% endif %}</div>
             <div class="qr-group">
               <div class="consulta-qr"><img src="{{ qr_code_url }}" alt="QR Code para consulta do andamento">Acompanhe o andamento<br>com sua matrícula</div>
               {% if emissao %}<div class="consulta-qr"><img src="{{ qr_validacao_url }}" alt="QR Code para validar a autenticidade">Valide a autenticidade<br>{{ emissao.codigo_publico }}</div>{% endif %}

@@ -21,6 +21,15 @@ class ImportPresentationTests(unittest.TestCase):
         self.assertEqual(history_parts(e)['observacao'],e.observacao)
         self.assertEqual(history_observation_label(e.observacao,e.acao),e.observacao)
 
+    def test_old_document_events_hide_internal_keys_without_rewriting_audit(self):
+        cases=[('DOCUMENTO_GERADO','protocolo_0001-2026_v8.pdf — versão 8.','Requerimento disponibilizado.'),
+               ('ANEXO_ADICIONADO','atestado.pdf — versão 1. Documento internal-document-key.','Documento anexado: atestado.pdf.'),
+               ('NOVA_VERSAO_DOCUMENTO','planilha.xlsx — versão 2. Documento internal-document-key.','Documento substituído: planilha.xlsx.')]
+        for action,original,label in cases:
+            event=SimpleNamespace(acao=action,observacao=original)
+            self.assertEqual(history_parts(event),{'sistema':label,'observacao':''})
+            self.assertEqual(event.observacao,original)
+
     def test_old_forwarding_phrases_are_hidden_without_changing_audit(self):
         cases = [
             ('Intervenção da equipe de protocolo. Encaminhado para SEAD, disponível a todos do setor.  deferido pela seduc', 'Encaminhado para SEAD.', 'deferido pela seduc'),

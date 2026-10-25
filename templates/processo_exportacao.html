@@ -1,0 +1,23 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Processo {{ protocolo.numero }}</title>
+<style>
+@page{size:A4;margin:20mm 18mm 20mm;@bottom-left{content:'Processo administrativo';font:8pt sans-serif;color:#667b77}@bottom-right{content:counter(page);font:8pt sans-serif;color:#667b77}}
+body{font:10.5pt 'DejaVu Sans',sans-serif;color:#213b38;line-height:1.55}header{text-align:center;border-bottom:2px solid #176d63;padding-bottom:7mm;margin-bottom:9mm}header img{max-width:65mm;max-height:25mm}header strong{display:block;font-size:12pt;margin-top:3mm}h1{font-size:24pt;line-height:1.25;color:#176d63}h2{font-size:16pt;color:#176d63;margin:0 0 6mm}h3{font-size:11pt;margin:0}p{margin:2mm 0 5mm}.cover-title{margin:22mm 0 12mm}.eyebrow{font-size:9pt;letter-spacing:2px;color:#6b807a}.number{font-size:26pt;font-weight:bold}.summary{border:1px solid #d8e5df;border-left:4px solid #176d63;padding:6mm;margin:10mm 0}.summary p{margin:0 0 3mm}.muted{font-size:9pt;color:#60756e}.index{break-before:page}.index li{padding:2mm 0;border-bottom:1px solid #e1eae5;overflow-wrap:anywhere}.event{margin:0 0 7mm;padding:0 0 5mm 5mm;border-left:2px solid #a7c8bb;break-inside:auto}.event-heading{break-after:avoid}.note{white-space:pre-wrap;overflow-wrap:anywhere;margin-top:3mm}.tag{font-size:9pt;color:#61766f}.notice{border:1px solid #d8e5df;background:#f4f8f6;padding:5mm;overflow-wrap:anywhere}a{color:inherit}
+.number,h1,h2,h3{overflow-wrap:anywhere}
+</style></head><body>
+<header>{% if pdf_logo_url %}<img src="{{ pdf_logo_url }}" alt="">{% endif %}<strong>{{ organizacao.orgao or organizacao.nome }}</strong>{% if organizacao.municipio %}<span>{{ organizacao.municipio }}</span>{% endif %}</header>
+{% if section=='cover' %}
+<div class="cover-title"><span class="eyebrow">PROCESSO ADMINISTRATIVO</span><h1>Protocolo</h1><div class="number">{{ protocolo.numero }}</div></div>
+<div class="summary"><p><strong>Requerente</strong><br>{{ protocolo.nome or 'Não informado' }}</p><p><strong>Tipo de requerimento</strong><br>{{ protocolo.tipo_requerimento or 'Não informado' }}</p><p><strong>Data do pedido:</strong> {{ protocolo.data_solicitacao.strftime('%d/%m/%Y') if protocolo.data_solicitacao else 'Não informada' }}</p><p><strong>Situação:</strong> {{ protocolo.status_exibicao }}</p><p><strong>Localização:</strong> {{ protocol_location(protocolo) }}</p></div>
+<p>{{ dispatch_count }} {{ 'despacho' if dispatch_count==1 else 'despachos' }} · {{ attachment_count }} {{ 'anexo atual' if attachment_count==1 else 'anexos atuais' }}</p>
+{% if protocolo.emissao_eletronica and protocolo.emissao_eletronica.status=='CANCELADA' %}<p><strong>A emissão do requerimento está cancelada.</strong></p>{% endif %}
+{% if protocolo.retificacao_pendente %}<p>Há uma correção do requerimento aguardando assinatura.</p>{% endif %}
+<p class="muted">Reunido em {{ generated_at|brasilia('%d/%m/%Y às %H:%M') }}. Cópia do processo na data de emissão.</p>
+<section class="index"><h2>Índice do processo</h2><ol>{% for title in contents %}<li>{{ title }}</li>{% endfor %}</ol><p class="muted">Use os marcadores do leitor de PDF para ir diretamente a cada seção. Arquivos que não podem ser incorporados têm uma folha de referência e estão disponíveis no pacote completo.</p></section>
+{% elif section=='history' %}
+<h2>Tramitação do protocolo {{ protocolo.numero }}</h2><p class="muted">Histórico de tramitação em ordem cronológica.</p>
+{% for event in timeline %}<article class="event"><div class="event-heading"><h3>{{ event.title }}</h3><div class="tag">{{ event.date }} · {{ event.actor }}{% if event.status %} · {{ canonical_status(event.status) }}{% endif %}</div></div>{% if event.system %}<p class="note">{{ event.system }}</p>{% endif %}{% if event.note %}<div class="note">{{ event.note }}</div>{% endif %}</article>{% else %}<p>Nenhuma movimentação registrada.</p>{% endfor %}
+{% if protocolo.resultado_final %}<h3>Resultado do processo</h3><p class="note">{{ protocolo.resultado_final }}</p>{% endif %}
+{% elif section=='original' %}
+<h2>{{ document_title }}</h2><div class="notice"><p>Este arquivo foi preservado no formato original no pacote completo.</p><p>Local: <strong>{{ original_path }}</strong></p><p>Para consultá-lo, use a opção <strong>Pacote completo (ZIP)</strong> e abra o arquivo com o aplicativo correspondente.</p></div><p class="muted">O formato do arquivo, a proteção ou os recursos interativos impedem sua incorporação como página estática neste PDF.</p>
+{% endif %}
+</body></html>

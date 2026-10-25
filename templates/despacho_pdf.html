@@ -22,6 +22,6 @@ h1 { background: #176b63; color: white; font-size: 15pt; text-align: center; pad
 <h1>DESPACHO {{ '%03d'|format(despacho.numero) }} - PROTOCOLO {{ despacho.protocolo_numero }}</h1>
 {% if despacho.assunto|default('') %}<div class="subject"><strong>Assunto:</strong> {{ despacho.assunto }}</div>{% endif %}
 <div class="text rich-text">{{ dispatch_body(despacho) }}</div>
-<div class="author"><p><strong>{{ despacho.autor_nome }}</strong></p>{% if despacho.autor_setor %}<p>{{ despacho.autor_setor }}</p>{% endif %}<p>Registrado em {{ despacho.criado_em|brasilia('%d/%m/%Y às %H:%M:%S') }} (horário de Brasília).</p></div>
+<div class="author"><p><strong>{{ despacho.autor_nome }}</strong></p>{% if despacho.autor_setor %}<p>{{ despacho.autor_setor }}</p>{% endif %}<p>Registrado em {{ despacho.criado_em|brasilia('%d/%m/%Y às %H:%M:%S') }}.</p></div>
 {% if organizacao.rodape_documento %}<div class="footer">{{ organizacao.rodape_documento }}</div>{% endif %}
 </body></html>
