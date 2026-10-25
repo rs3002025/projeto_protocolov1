@@ -190,21 +190,21 @@ def build_workbench(args):
     for card in cards:
         card['url'] = queue_url(card['key'])
     if scope == 'acompanhando':
-        focus = {'title':'Acompanhe o andamento',
+        focus = {'title':'Processos acompanhados',
                  'text':f"Processos em aberto marcados por você: {counts['prioridades']}.",
                  'url':queue_url('prioridades'), 'action':'Ver acompanhamentos'}
         if counts['atrasados']:
-            focus.update(title='Confira os prazos dos acompanhamentos',
+            focus.update(title='Acompanhamentos com prazo vencido',
                          text=f"Processos acompanhados com prazo vencido: {counts['atrasados']}.",
                          url=queue_url('atrasados'), action='Conferir prazos')
     elif counts['receber'] and can_route:
-        focus = {'title': 'Comece pelos recebimentos', 'text': f"Aguardando conferência de recebimento nesta visão: {counts['receber']}.", 'url':queue_url('receber'), 'action':'Ver recebimentos'}
+        focus = {'title': 'Recebimentos pendentes', 'text': f"Aguardando recebimento: {counts['receber']}.", 'url':queue_url('receber'), 'action':'Ver recebimentos'}
     elif counts['atrasados']:
-        focus = {'title':'Os prazos merecem atenção', 'text': f"Processos em aberto com prazo vencido: {counts['atrasados']}.", 'url':queue_url('atrasados'), 'action':'Conferir prazos'}
+        focus = {'title':'Prazos vencidos', 'text': f"Processos em aberto com prazo vencido: {counts['atrasados']}.", 'url':queue_url('atrasados'), 'action':'Conferir prazos'}
     elif counts['analisar'] and can_route:
-        focus = {'title':'Há pedidos prontos para conferência', 'text': f"Recebidos e aguardando o início da análise: {counts['analisar']}.", 'url':queue_url('analisar'), 'action':'Ver pedidos recebidos'}
+        focus = {'title':'Processos aguardando análise', 'text': f"Recebidos e aguardando análise: {counts['analisar']}.", 'url':queue_url('analisar'), 'action':'Ver pedidos recebidos'}
     else:
-        focus = {'title':'Seu próximo passo está aqui', 'text':'Consulte a fila, acompanhe os prazos e continue de onde parou.', 'url':queue_url('prioridades'), 'action':'Ir para a fila'}
+        focus = {'title':'Processos em aberto', 'text':f"Total na fila: {counts['prioridades']}.", 'url':queue_url('prioridades'), 'action':'Consultar fila'}
     activity_scope = accessible_protocols_query()
     if scope == 'meu':
         activity_scope = activity_scope.filter(or_(mine, personal_receipt, sector_legacy))

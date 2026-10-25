@@ -519,7 +519,7 @@ window.gerarImpressaoPersonalizada = async function() {
         <div style="text-align: center; margin-bottom: 5px; padding-bottom: 5px; border-bottom: 1px solid #ccc;">
             <img src="${document.body.dataset.brandingLogoUrl || '/static/img/logo-sysprot.svg'}" alt="Logo" style="height: 45px; margin-bottom: 5px;">
             <h3 style="margin: 0; font-size: 1.1em;">Relatório de Desempenho - Dashboard</h3>
-            <p style="font-size: 0.7em; color: #555; margin: 2px 0 0 0;">Gerado em: ${new Date().toLocaleString('pt-BR', {timeZone:'America/Sao_Paulo'})} (Brasília)</p>
+            <p style="font-size: 0.7em; color: #555; margin: 2px 0 0 0;">Gerado em: ${new Date().toLocaleString('pt-BR', {timeZone:'America/Sao_Paulo'})}</p>
         </div>
         <div style="font-size: 0.7em; padding: 5px; margin-bottom: 10px; background-color: #f5f5f5; border-radius: 4px; text-align: center;">
             ${filtrosHtml ? filtrosHtml : 'Nenhum filtro principal aplicado.'}
