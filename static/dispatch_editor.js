@@ -37,6 +37,7 @@
   };
   editor.on('text-change', () => { dirty = true; synchronize(); });
   document.getElementById('dispatch-subject').addEventListener('input', () => { dirty = true; });
+  document.getElementById('nome-modelo')?.addEventListener('input', () => { dirty = true; });
   form.addEventListener('submit', event => {
     synchronize();
     const error = document.getElementById('dispatch-error');

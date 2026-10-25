@@ -5,6 +5,7 @@ DEFAULT_ORGANIZATION_SLUG (por padrão, ``prefeitura``).
 """
 import os
 import secrets
+from functools import wraps
 
 from sqlalchemy import inspect, text
 
@@ -18,6 +19,7 @@ TENANT_TABLES = (
     'chamados_suporte', 'mensagens_suporte', 'solicitacoes_complemento',
     'despachos_protocolos',
     'providencias_protocolos', 'acompanhamentos_protocolos',
+    'pesquisas_salvas', 'preferencias_alerta', 'modelos_despacho',
 )
 
 SCHEMA_COLUMNS = {
@@ -106,6 +108,24 @@ SCHEMA_COLUMNS = {
 }
 
 
+def serialize_bootstrap(function):
+    @wraps(function)
+    def wrapped(*args, **kwargs):
+        with app.app_context():
+            if db.engine.dialect.name != 'postgresql':
+                return function(*args, **kwargs)
+            # A mesma conexão mantém o bloqueio durante toda a atualização,
+            # mesmo quando o bootstrap confirma transações em outras conexões.
+            with db.engine.connect() as connection:
+                connection.execute(text('SELECT pg_advisory_lock(736402410)'))
+                try:
+                    return function(*args, **kwargs)
+                finally:
+                    connection.execute(text('SELECT pg_advisory_unlock(736402410)'))
+    return wrapped
+
+
+@serialize_bootstrap
 def bootstrap():
     slug = os.getenv('DEFAULT_ORGANIZATION_SLUG', 'prefeitura').strip().lower()
     nome = os.getenv('DEFAULT_ORGANIZATION_NAME', 'Prefeitura').strip()
@@ -185,6 +205,8 @@ def bootstrap():
 
             if 'emissoes_eletronicas' in existing_tables:
                 connection.execute(text('UPDATE emissoes_eletronicas SET versao = 1 WHERE versao IS NULL'))
+                from emission_schema import upgrade_emission_protocol_index
+                upgrade_emission_protocol_index(connection)
 
             if db.engine.dialect.name == 'postgresql':
                 if 'anexos' in existing_tables:

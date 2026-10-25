@@ -1,0 +1,7 @@
+{% extends 'layout.html' %}{% block content %}
+<a class="btn btn-outline-secondary mb-3" href="{{ url_for('configuracoes') }}">← Configurações</a><h1>Recuperar documento original</h1>
+<p class="text-muted">Selecione o arquivo original do backup. A integridade será verificada antes da recuperação.</p>
+<form class="card card-body mb-4" method="get"><label class="form-label" for="recuperar-numero">Número do protocolo</label><div class="d-flex gap-2"><input class="form-control" id="recuperar-numero" name="numero" value="{{ numero }}" maxlength="120" required placeholder="Ex.: 0001/2026"><button class="btn btn-primary" type="submit">Localizar documentos</button></div></form>
+{% if numero and not protocolo %}<div class="alert alert-info">Protocolo não encontrado neste cliente.</div>{% endif %}
+{% for item in documentos %}<article class="card mb-3"><div class="card-body"><h2 class="h6">{{ item.file_name }}</h2><p class="text-muted">Protocolo {{ protocolo.numero }} · {{ item.file_size }} bytes</p><form method="post" action="{{ url_for('restaurar_documento_original',anexo_id=item.id) }}" enctype="multipart/form-data"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label class="form-label" for="original-{{ item.id }}">Cópia original do backup</label><input class="form-control mb-3" id="original-{{ item.id }}" type="file" name="original" required><button class="btn btn-outline-primary" type="submit">Validar e recuperar original</button></form></div></article>{% endfor %}
+{% endblock %}
