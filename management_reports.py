@@ -120,12 +120,12 @@ def register_management_routes(app):
             sheet.append([name,row['enviados'],row['recebidos'],row['pendentes'],row['redirecionados'],row['espera_media'],
                 row['base_espera'],row['atendimento_medio'],row['base_atendimento'],row['sem_marco']])
         notes=workbook.create_sheet('Critérios')
-        for note in ('Horário de Brasília. Espera: envio até recebimento. Atendimento: recebimento até saída ou encerramento.',
+        for note in ('Espera: envio até recebimento. Atendimento: recebimento até saída ou encerramento.',
                      'Médias setoriais consideram somente intervalos completos, sem durações negativas.',
                      'Cada encaminhamento conta separadamente, inclusive participações paralelas do mesmo processo.',
                      'Encaminhamentos selecionados pela data de envio; pendências são a situação atual desses encaminhamentos.',
-                     'Conclusões usam a data registrada no sistema; não inferem o dia histórico a partir da situação.',
-                     f"Encerrados sem data de conclusão em todo o acervo acessível: {report['sem_data_conclusao']}.",
+                     'Conclusões por período consideram a data de conclusão registrada.',
+                     f"Processos encerrados sem data de conclusão: {report['sem_data_conclusao']}.",
                      f"Média até a conclusão: {report['media_dias']} dias corridos; base: {report['base_media']} processos."):
             notes.append([note])
         for sheet in workbook:
