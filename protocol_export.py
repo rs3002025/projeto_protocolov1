@@ -74,7 +74,7 @@ def readable_pdf(data, mime):
 def assemble_process(protocol, organization):
     from app import (read_attachment_bytes, tenant_query, current_tenant_id, public_url,
                      chronological, history_parts, HISTORY_ACTION_LABELS, history_date_label,
-                     history_observation_label)
+                     history_observation_label, history_visible, history_actor_label)
     from models import Anexo, DespachoProtocolo, HistoricoProtocolo, Usuario
 
     tenant = current_tenant_id()
@@ -93,9 +93,11 @@ def assemble_process(protocol, organization):
     names = {u.id: u.nome_completo or u.nome for u in actors}
     timeline = []
     for item in chronological(history):
+        if not history_visible(item):
+            continue
         parts = history_parts(item)
         timeline.append(dict(title=HISTORY_ACTION_LABELS.get(item.acao, 'Atualização'),
-            date=history_date_label(item), actor=names.get(item.usuario_id, item.responsavel or 'Sistema'),
+            date=history_date_label(item), actor=history_actor_label(item, names),
             status=item.status, system=parts['sistema'],
             note=history_observation_label(parts['observacao']) if parts['observacao'] else ''))
     context = dict(protocolo=protocol, organizacao=organization, pdf_logo_url=logo_data(organization),

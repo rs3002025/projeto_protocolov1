@@ -229,9 +229,9 @@
 {% endif %}
 
 <section class="card mt-4" id="historico"><div class="card-header"><h2 class="h5 mb-0">Histórico do protocolo</h2></div><div class="card-body"><ol class="list-group protocol-timeline">
-{% for h in protocolo.historico|chronological %}{% set partes = history_parts(h) %}
+{% for h in protocolo.historico|chronological if history_visible(h) %}{% set partes = history_parts(h) %}
 <li class="list-group-item protocol-timeline-item"><div class="history-entry-heading"><strong>{{ history_action_label(h.acao) }}</strong><time>{{ history_date_label(h) }}</time></div>
-{% if not history_is_imported(h) %}<p class="text-muted mb-1">{{ nomes_por_id.get(h.usuario_id, nomes_por_login.get(h.responsavel, h.responsavel or 'Sistema')) }} · {{ canonical_status(h.status) }}</p>{% elif h.acao != 'IMPORTACAO_LEGADO' %}<p class="text-muted mb-1">Importado</p>{% endif %}
+{% set autor = history_actor_label(h, nomes_por_id, nomes_por_login) %}{% if autor %}<p class="text-muted mb-1">{{ autor }} · {{ canonical_status(h.status) }}</p>{% endif %}
 {% if partes.sistema %}<p class="mb-1">{{ partes.sistema }}</p>{% endif %}
 {% if partes.observacao %}<div class="history-user-observation"><span class="text-muted">{{ 'Observação' if h.acao == 'TRAMITACAO' else 'Registro' }}</span><div>{{ history_observation_label(partes.observacao) }}</div></div>{% endif %}
 {% if h.acao == 'DESPACHO_REGISTRADO' %}<a href="#despachos">Consultar despachos</a>{% endif %}
