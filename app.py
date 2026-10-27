@@ -635,9 +635,39 @@ def history_observation_label(observation, action=None):
     return observation or 'Sem observação.'
 
 
+def history_is_regularization(event):
+    """Reconhece os eventos administrativos da carga, sem alterar a auditoria."""
+    return (getattr(event, 'responsavel', '') or '').strip() == 'Regularização do acervo'
+
+
+def history_visible(event):
+    # O estado do processo já aparece no resumo; esta justificativa é da carga.
+    if history_is_regularization(event) and event.acao == 'ATUALIZACAO' and re.fullmatch(
+            r'Autoria do cadastro atribuída a .+ conforme acervo\.', (event.observacao or '').strip()):
+        return False
+    return not (history_is_regularization(event) and event.acao == 'ALTERACAO_STATUS' and
+                re.fullmatch(r'Em tramitação: sem conclusão definida no acervo de \d{4}\.',
+                             (event.observacao or '').strip()))
+
+
+def history_actor_label(event, names=None, logins=None):
+    if history_is_regularization(event) or event.acao in LEGACY_HISTORY_ACTIONS or event.acao == 'IMPORTACAO_LEGADO':
+        return ''
+    responsible = getattr(event, 'responsavel', None)
+    return (names or {}).get(getattr(event, 'usuario_id', None),
+                            (logins or {}).get(responsible, responsible or 'Sistema'))
+
+
 def history_parts(event):
     """Separa a apresentação sem reescrever eventos auditados existentes."""
     value = event.observacao or ''
+    if history_is_regularization(event):
+        if event.acao == 'RECEBIMENTO':
+            match = re.fullmatch(r'Recebimento registrado em nome de (.+?), conforme regularização do acervo\.', value)
+            if match:
+                return {'sistema': f'Recebido por {match.group(1)}.', 'observacao': ''}
+        if event.acao == 'TRAMITACAO':
+            value = re.sub(r'\s*Conforme relatório de expedientes\.\s*$', '', value).rstrip()
     if event.acao == 'IMPORTACAO_LEGADO':
         return {'sistema': '', 'observacao': ''}
     if event.acao == 'DOCUMENTO_GERADO':
@@ -704,6 +734,8 @@ def permission_context():
         'emission_status_label': lambda status: EMISSION_STATUS_LABELS.get(status, status.title()),
         'history_observation_label': history_observation_label,
         'history_parts': history_parts,
+        'history_visible': history_visible,
+        'history_actor_label': history_actor_label,
         'history_date_label': history_date_label,
         'history_is_imported': lambda event: event.acao in LEGACY_HISTORY_ACTIONS or event.acao == 'IMPORTACAO_LEGADO',
     }
