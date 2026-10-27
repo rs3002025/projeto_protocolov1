@@ -41,7 +41,7 @@
   </dl>
   <h2>Andamentos</h2>
   <ol>
-    {% for item in historico %}
+    {% for item in historico if history_visible(item) %}
       <li><strong>{{ history_action_label(item.acao) }}</strong> {% if not history_is_imported(item) %}— {{ canonical_status(item.status) }}{% endif %}<br><small>{{ history_date_label(item) }}</small></li>
     {% else %}
       <li>Nenhum andamento registrado.</li>
