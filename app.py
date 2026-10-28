@@ -3439,6 +3439,10 @@ def desarquivar_protocolo(protocolo_id):
         return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
     situacao_anterior = protocolo.status
     protocolo.arquivado_em = None
+    # A conclusão anterior permanece no histórico. O processo reaberto não
+    # pode continuar contado como concluído nos indicadores atuais.
+    protocolo.finalizado_em = None
+    protocolo.resultado_final = None
     protocolo.status = 'PENDENTE DE DOCUMENTO' if protocolo.complemento_pendente else 'EM ANÁLISE'
     db.session.add(HistoricoProtocolo(
         tenant_id=current_tenant_id(), protocolo_id=protocolo.id,
@@ -3793,6 +3797,7 @@ if __name__ == '__main__':
     # The port must be available. Railway provides the PORT env var.
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=True)
+
 
 
 

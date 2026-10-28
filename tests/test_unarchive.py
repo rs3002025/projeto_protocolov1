@@ -87,6 +87,25 @@ class UnarchiveTests(unittest.TestCase):
         with app.app_context():
             self.assertEqual(db.session.get(Protocolo, self.pid).status, "EM ANÁLISE")
 
+    def test_reopening_clears_current_conclusion_but_preserves_history(self):
+        self.login('admin')
+        with app.app_context():
+            p = db.session.get(Protocolo, self.pid)
+            p.finalizado_em = datetime(2026, 1, 1)
+            p.resultado_final = 'Conclusão anterior.'
+            db.session.add(HistoricoProtocolo(tenant_id=self.tenant, protocolo_id=self.pid,
+                status='CONCLUÍDO', acao='FINALIZACAO', responsavel='admin',
+                observacao='Conclusão anterior.'))
+            db.session.commit()
+        self.assertEqual(self.post().status_code, 302)
+        with app.app_context():
+            p = db.session.get(Protocolo, self.pid)
+            self.assertIsNone(p.finalizado_em)
+            self.assertIsNone(p.resultado_final)
+            self.assertEqual(HistoricoProtocolo.query.filter_by(protocolo_id=self.pid,
+                acao='FINALIZACAO').one().observacao, 'Conclusão anterior.')
+            self.assertTrue(verify_audit_chain(self.tenant)[0])
+
     def test_global_admin_with_selected_client(self):
         self.login("global")
         self.assertEqual(self.post().status_code, 302)
@@ -152,3 +171,4 @@ class UnarchiveTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

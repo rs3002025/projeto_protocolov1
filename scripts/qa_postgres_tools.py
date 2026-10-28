@@ -208,6 +208,7 @@ try:
     request(admin,'post',f'{path}/arquivar',302)
     request(admin,'post',f'{path}/desarquivar',302,data={'justificativa':'Retomar validação fictícia.'})
     check(row(Protocolo,id=pid)['status']=='EM ANÁLISE','Desarquivamento retorna para análise')
+    check(row(Protocolo,id=pid)['finalizado_em'] is None and row(Protocolo,id=pid)['resultado_final'] is None,'Processo reaberto deixa de ter conclusão vigente')
 
     package=request(admin,'get',f'{path}/processo/baixar?formato=zip')
     archive=zipfile.ZipFile(io.BytesIO(package.data));names=archive.namelist()
