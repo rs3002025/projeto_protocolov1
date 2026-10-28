@@ -198,7 +198,15 @@ def expects_json_response():
 def csrf_failure(error):
     if expects_json_response():
         return jsonify(sucesso=False, mensagem='A validação de segurança expirou ou é inválida. Atualize a página e tente novamente.'), 400
-    return error.get_response()
+    arguments = request.view_args or {}
+    protocol_id = arguments.get('protocolo_id') or arguments.get('protocol_id')
+    if protocol_id:
+        return_url = url_for('detalhe_protocolo', protocolo_id=protocol_id)
+    elif request.url_rule and 'GET' in request.url_rule.methods:
+        return_url = url_for(request.endpoint, **arguments)
+    else:
+        return_url = url_for('home')
+    return render_template('csrf_error.html', title='Atualize a página', return_url=return_url), 400
 
 
 @app.errorhandler(HTTPException)

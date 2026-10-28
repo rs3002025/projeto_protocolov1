@@ -1,0 +1,11 @@
+{% extends "layout.html" %}
+{% block content %}
+<section class="card mx-auto" style="max-width: 640px" aria-labelledby="expired-title">
+  <div class="card-body p-4">
+    <h1 id="expired-title" class="h3">Atualize a página</h1>
+    <p role="alert">Por segurança, este formulário precisa ser atualizado antes do envio. Nenhuma alteração foi realizada.</p>
+    <p>Volte à página, confira os dados e tente novamente.</p>
+    <a class="btn btn-primary" href="{{ return_url }}">Voltar ao formulário</a>
+  </div>
+</section>
+{% endblock %}
