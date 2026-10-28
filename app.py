@@ -777,7 +777,7 @@ def permission_required(permission):
         @login_required
         def wrapped(*args, **kwargs):
             if permission not in ROLE_PERMISSIONS.get(current_user.tipo, set()):
-                if request.is_json:
+                if expects_json_response():
                     return jsonify({'erro': 'Acesso negado.'}), 403
                 flash('Acesso negado.', 'danger')
                 return redirect(url_for('home'))

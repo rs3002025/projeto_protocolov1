@@ -29,6 +29,8 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y libpango-1.0-0 libpangoft2-1.0-0
       - run: pip install -r requirements.txt pytest
       - run: python -m pytest tests -q --junitxml=results.xml
+        env:
+          RUN_PDF_QA: '1'
       - run: python scripts/qa_postgres_status.py
         env:
           QA_DATABASE_URL: postgresql+psycopg://qa:disposable-ci-password@localhost:5432/muniprot_qa
