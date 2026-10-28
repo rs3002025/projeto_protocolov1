@@ -214,7 +214,8 @@ try:
     check(any(n.endswith('qa-v2.txt') for n in names) and not any(n.endswith('/qa.txt') for n in names),'Pacote inclui apenas anexo atual')
     check(any('despachos/' in n for n in names),'Pacote inclui despacho original')
     check(len(PdfReader(io.BytesIO(archive.read(next(n for n in names if n.startswith('processo-'))))).pages)>=5,'Processo completo tem capa, pedido, histórico e documentos')
-    request(viewer,'post',f'{path}/despachos/{dispatch["id"]}/excluir',403,data={'motivo':'Teste inválido','confirmar_exclusao':'1'})
+    denied=request(viewer,'post',f'{path}/despachos/{dispatch["id"]}/excluir',302,data={'motivo':'Teste inválido','confirmar_exclusao':'1'})
+    check(denied.location.endswith('/home') and row(DespachoProtocolo,id=dispatch['id'])['excluido_em'] is None,'Consulta é redirecionada sem excluir despacho')
     request(admin,'post',f'{path}/despachos/{dispatch["id"]}/excluir',302,data={'motivo':'Despacho fictício de validação','confirmar_exclusao':'1'})
     request(admin,'get',f'{path}/despachos/{dispatch["id"]}/pdf',404)
 
