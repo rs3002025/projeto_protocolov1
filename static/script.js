@@ -54,7 +54,7 @@ function initializeLoginForm() {
                 return;
             }
             const page = new DOMParser().parseFromString(await response.text(), 'text/html');
-            const error = page.querySelector('.alert-danger');
+            const error = page.querySelector('.alert-danger:not([hidden]), [role="alert"]:not([hidden])');
             throw new Error(response.status >= 500
                 ? 'O serviço está temporariamente indisponível. Tente novamente.'
                 : error?.textContent.trim() || 'Não foi possível entrar. Confira o login e a senha e tente novamente.');
