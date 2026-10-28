@@ -4,7 +4,8 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_bcrypt import Bcrypt
 from dotenv import load_dotenv
-from flask_wtf.csrf import CSRFProtect
+from flask_wtf.csrf import CSRFProtect, CSRFError
+from werkzeug.exceptions import HTTPException
 
 # Load environment variables from .env file
 load_dotenv()
@@ -75,6 +76,13 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import event, select
 from sqlalchemy.orm import Session
 import json
+
+@app.template_filter('request_attachments')
+def request_attachments(attachments):
+    # Lista operacional atual; PDFs já preservados/assinados não são reescritos.
+    from protocol_export import request_attachments as select_request_attachments
+    return select_request_attachments(attachments)
+
 
 @app.template_filter('brasilia')
 def format_brasilia(value, fmt='%d/%m/%Y %H:%M'):
@@ -180,8 +188,50 @@ def enforce_tenant_host():
     return None
 
 
+def expects_json_response():
+    return request.is_json or request.path.startswith('/api/') or (
+        request.accept_mimetypes.best == 'application/json')
+
+
+@app.errorhandler(CSRFError)
+def csrf_failure(error):
+    if expects_json_response():
+        return jsonify(sucesso=False, mensagem='A validação de segurança expirou ou é inválida. Atualize a página e tente novamente.'), 400
+    arguments = request.view_args or {}
+    protocol_id = arguments.get('protocolo_id') or arguments.get('protocol_id')
+    portal = (request.endpoint or '').startswith('portal_')
+    if protocol_id:
+        endpoint = 'portal_detalhe' if portal else 'detalhe_protocolo'
+        return_url = url_for(endpoint, protocolo_id=protocol_id)
+    elif request.url_rule and 'GET' in request.url_rule.methods:
+        return_url = url_for(request.endpoint, **arguments)
+    elif request.endpoint == 'portal_encerrar_sessao':
+        return_url = url_for('portal_sessoes')
+    else:
+        return_url = url_for('portal_home' if portal else 'home')
+    return render_template('csrf_error.html', title='Atualize a página', return_url=return_url), 400
+
+
+@app.errorhandler(HTTPException)
+def http_failure(error):
+    if not expects_json_response():
+        return error.get_response()
+    messages = {400: 'Dados inválidos. Confira os campos informados.',
+                401: 'Sua sessão expirou. Entre novamente para continuar.',
+                403: 'Você não tem permissão para esta operação.',
+                404: 'Registro não encontrado ou indisponível para seu acesso.',
+                405: 'Operação não permitida neste endereço.',
+                500: 'Não foi possível concluir a operação. Tente novamente.'}
+    response = error.get_response()
+    response.data = json.dumps({'sucesso': False, 'mensagem': messages.get(error.code, 'Não foi possível concluir a operação.')})
+    response.content_type = 'application/json'
+    return response
+
+
 @login_manager.unauthorized_handler
 def unauthorized():
+    if expects_json_response():
+        return jsonify(sucesso=False, mensagem='Sua sessão expirou. Entre novamente para continuar.'), 401
     organization = host_organization()
     if organization:
         if request.path.startswith('/portal'):
@@ -746,7 +796,7 @@ def permission_required(permission):
         @login_required
         def wrapped(*args, **kwargs):
             if permission not in ROLE_PERMISSIONS.get(current_user.tipo, set()):
-                if request.is_json:
+                if expects_json_response():
                     return jsonify({'erro': 'Acesso negado.'}), 403
                 flash('Acesso negado.', 'danger')
                 return redirect(url_for('home'))
@@ -2550,24 +2600,35 @@ def admin_toggle_user_status(user_id):
 @login_required
 @admin_required
 def admin_create_list_item(item_type):
+    Model = {'lotacao': Lotacao, 'tipo': TipoRequerimento}.get(item_type)
+    if Model is None:
+        abort(404)
     form = AdminListItemForm()
-    if form.validate_on_submit():
-        Model = None
-        if item_type == 'lotacao':
-            Model = Lotacao
-        elif item_type == 'tipo':
-            Model = TipoRequerimento
+    name = (form.nome.data or '').strip()
+    label = 'tipo de requerimento' if item_type == 'tipo' else 'setor/lotação'
+    if not form.validate_on_submit() or not name or len(name) > 180 or any(ord(c) < 32 for c in name):
+        flash('Informe um nome válido, com até 180 caracteres.', 'warning')
+        return redirect(url_for('configuracoes', _anchor='listas'))
+    try:
+        # Impede que dois envios simultâneos criem o mesmo cadastro no cliente.
+        db.session.query(Organizacao.id).filter_by(id=current_tenant_id()).with_for_update().one()
+        existing = tenant_query(Model).filter(func.lower(Model.nome) == name.lower()).first()
+        if existing:
+            detail = ' Reative o cadastro existente na lista.' if not existing.ativo else ''
+            flash(f'Já existe um {label} com esse nome.' + detail, 'warning')
+            return redirect(url_for('configuracoes', _anchor='listas'))
+        new_item = Model(tenant_id=current_tenant_id(), nome=name, ativo=True)
+        db.session.add(new_item)
+        db.session.flush()
+        _admin_audit('ITEM_CRIADO', f'{item_type}: item {new_item.id} criado.')
+        db.session.commit()
+        flash(f'{label.capitalize()} adicionado com sucesso!', 'success')
+    except SQLAlchemyError:
+        db.session.rollback()
+        app.logger.exception('Falha ao cadastrar item de lista do cliente.')
+        flash('Não foi possível adicionar o cadastro. Atualize a página e confira se ele já existe.', 'danger')
+    return redirect(url_for('configuracoes', _anchor='listas'))
 
-        if Model:
-            new_item = Model(tenant_id=current_tenant_id(), nome=form.nome.data, ativo=True)
-            db.session.add(new_item)
-            db.session.flush()
-            _admin_audit('ITEM_CRIADO', f'{item_type}: item {new_item.id} criado.')
-            db.session.commit()
-            flash(f'{item_type.capitalize()} adicionado com sucesso!', 'success')
-    else:
-        flash('Erro ao adicionar item.', 'danger')
-    return redirect(url_for('configuracoes'))
 
 @app.route("/admin/item/<string:item_type>/<int:item_id>/status", methods=['POST'])
 @login_required
@@ -3263,7 +3324,14 @@ def atualizar_protocolo_status():
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
         return jsonify({'sucesso': False, 'mensagem': 'Informe os dados da atualização.'}), 400
-    protocolo_id = data.get('protocoloId')
+    raw_id = data.get('protocoloId')
+    if isinstance(raw_id, bool) or not isinstance(raw_id, (str, int)) or not re.fullmatch(r'[0-9]{1,10}', str(raw_id)):
+        return jsonify(sucesso=False, mensagem='Identificador do protocolo inválido.'), 400
+    protocolo_id = int(raw_id)
+    if not 0 < protocolo_id <= 2147483647:
+        return jsonify(sucesso=False, mensagem='Identificador do protocolo inválido.'), 400
+    if not isinstance(data.get('novoStatus'), str):
+        return jsonify(sucesso=False, mensagem='Informe uma situação válida.'), 400
     novo_status = canonical_status(data.get('novoStatus'))
     novo_responsavel = data.get('novoResponsavel') # Pode ser nulo
     observacao = data.get('observacao') or ''
@@ -3374,6 +3442,10 @@ def desarquivar_protocolo(protocolo_id):
         return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
     situacao_anterior = protocolo.status
     protocolo.arquivado_em = None
+    # A conclusão anterior permanece no histórico. O processo reaberto não
+    # pode continuar contado como concluído nos indicadores atuais.
+    protocolo.finalizado_em = None
+    protocolo.resultado_final = None
     protocolo.status = 'PENDENTE DE DOCUMENTO' if protocolo.complemento_pendente else 'EM ANÁLISE'
     db.session.add(HistoricoProtocolo(
         tenant_id=current_tenant_id(), protocolo_id=protocolo.id,
@@ -3728,6 +3800,7 @@ if __name__ == '__main__':
     # The port must be available. Railway provides the PORT env var.
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=True)
+
 
 
 

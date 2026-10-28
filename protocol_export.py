@@ -45,6 +45,12 @@ def current_attachments(attachments):
     return sorted(selected.values(), key=lambda a: a.id)
 
 
+def request_attachments(attachments):
+    """Versões atuais anexadas ao envio, sem documentos de complementação."""
+    return [item for item in current_attachments(attachments)
+            if not item.solicitacao_complemento_id]
+
+
 def readable_pdf(data, mime):
     """Só importa páginas estáticas; arquivos interativos ficam no pacote original."""
     if mime == 'application/pdf' or data[:5] == b'%PDF-':

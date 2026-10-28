@@ -21,7 +21,8 @@
             {% endif %}
         {% endwith %}
 
-        <form method="POST" action="">
+        <form method="POST" action="" data-login-form>
+            <div class="alert alert-danger" role="alert" aria-live="polite" tabindex="-1" data-login-feedback hidden></div>
             {{ form.hidden_tag() }}
             {% if form.organizacao is defined %}
             <div class="form-floating mb-3">

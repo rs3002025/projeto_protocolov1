@@ -1,0 +1,2 @@
+# Preservar bytes auditados e hashes SRI também nos checkouts Windows.
+static/vendor/* -text
