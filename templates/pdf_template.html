@@ -89,7 +89,7 @@
                 <p class="paragrafo-pdf">Nenhuma observação.</p>
             {% endif %}
         </div>
-        {% set anexos_integrantes = protocolo.anexos|rejectattr('documento_chave', 'equalto', 'protocolo-autenticado')|rejectattr('solicitacao_complemento_id')|list %}
+        {% set anexos_integrantes = protocolo.anexos|request_attachments %}
         {% if anexos_integrantes %}<div class="section-title-pdf">DOCUMENTOS ANEXADOS AO ENVIO</div><div style="font-size:9px; margin-top:8px">{% for anexo in anexos_integrantes %}<div style="margin-bottom:5px"><strong>{{ anexo.file_name }}</strong> — {{ (anexo.file_size / 1024)|round(1) }} KB</div>{% endfor %}</div>{% endif %}
         <div class="fechamento-pdf">
             <div class="assinaturas-container">
