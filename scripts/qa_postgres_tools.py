@@ -170,7 +170,7 @@ try:
 
     request(admin,'post',f'{path}/tramitar',302,data={'setor_destino_id':str(sector_ids[0]),'destinatario_usuario_id':str(users['alice']['id'])})
     move=row(Movimentacao,protocolo_id=pid,recebido_em=None)
-    request(bob,'post',f'{path}/receber',403,data={'movimentacao_id':str(move['id'])})
+    request(bob,'post',f'{path}/receber',404,data={'movimentacao_id':str(move['id'])})
     request(alice,'post',f'{path}/receber',302,data={'movimentacao_id':str(move['id'])})
     request(alice,'post','/protocolos/atualizar',json={'protocoloId':str(pid),'novoStatus':'EM ANÁLISE'})
     request(alice,'post',f'{path}/tramitar',302,data={'providencia_id':str(move['providencia_id']),
