@@ -178,7 +178,7 @@ try:
     request(alice,'post','/protocolos/atualizar',403,json={'protocoloId':str(pid),'novoStatus':'PENDENTE DE DOCUMENTO'})
     move=row(Movimentacao,protocolo_id=pid,recebido_em=None)
     request(bob,'post',f'{path}/receber',302,data={'movimentacao_id':str(move['id'])})
-    request(admin,'post',f'{path}/tramitar',302,data={'envio_coletivo':'1',
+    request(admin,'post',f'{path}/tramitar',302,data={'envio_coletivo':'1','destinos_formato':'campos',
         'destinos_setores':[str(sector_ids[0]),str(sector_ids[2])],
         'destinos_usuarios':[str(users['alice']['id']),str(users['carol']['id'])],
         'destinos_observacoes':['QA primeiro adicional','QA segundo adicional']})
