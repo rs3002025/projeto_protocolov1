@@ -77,6 +77,14 @@ from sqlalchemy import event, select
 from sqlalchemy.orm import Session
 import json
 
+@app.template_filter('request_attachments')
+def request_attachments(attachments):
+    # Lista operacional atual; PDFs já preservados/assinados não são reescritos.
+    from protocol_export import current_attachments
+    return [item for item in current_attachments(attachments)
+            if not item.solicitacao_complemento_id]
+
+
 @app.template_filter('brasilia')
 def format_brasilia(value, fmt='%d/%m/%Y %H:%M'):
     """Persistência em UTC; apresentação no horário de Brasília."""
