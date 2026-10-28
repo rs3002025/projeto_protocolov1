@@ -125,6 +125,28 @@ def serialize_bootstrap(function):
     return wrapped
 
 
+def align_server_sequence(connection):
+    """Avança a sequência após cargas com IDs explícitos, sem reduzir valores."""
+    if connection.dialect.name != 'postgresql':
+        return
+    # Bloqueia gravações durante a comparação. Nenhum registro é alterado.
+    connection.execute(text('LOCK TABLE servidores IN SHARE ROW EXCLUSIVE MODE'))
+    connection.execute(text("""
+        DO $$
+        DECLARE sequence_name text; maximum_id bigint; sequence_value bigint;
+        BEGIN
+            sequence_name := pg_get_serial_sequence('servidores', 'id');
+            IF sequence_name IS NOT NULL THEN
+                SELECT MAX(id) INTO maximum_id FROM servidores;
+                sequence_value := pg_sequence_last_value(sequence_name::regclass);
+                IF maximum_id IS NOT NULL AND maximum_id > COALESCE(sequence_value, 0) THEN
+                    PERFORM setval(sequence_name::regclass, maximum_id, true);
+                END IF;
+            END IF;
+        END $$;
+    """))
+
+
 @serialize_bootstrap
 def bootstrap():
     slug = os.getenv('DEFAULT_ORGANIZATION_SLUG', 'prefeitura').strip().lower()
@@ -133,6 +155,8 @@ def bootstrap():
     with app.app_context():
         # Cria tabelas novas e, em bancos vazios, todo o esquema completo.
         db.create_all()
+        with db.engine.begin() as connection:
+            align_server_sequence(connection)
         # Em bancos existentes, o modelo Organizacao já referencia os campos
         # de identidade. Eles precisam existir antes da primeira consulta ORM.
         inspector = inspect(db.engine)
