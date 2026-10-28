@@ -80,9 +80,8 @@ import json
 @app.template_filter('request_attachments')
 def request_attachments(attachments):
     # Lista operacional atual; PDFs já preservados/assinados não são reescritos.
-    from protocol_export import current_attachments
-    return [item for item in current_attachments(attachments)
-            if not item.solicitacao_complemento_id]
+    from protocol_export import request_attachments as select_request_attachments
+    return select_request_attachments(attachments)
 
 
 @app.template_filter('brasilia')
@@ -200,12 +199,16 @@ def csrf_failure(error):
         return jsonify(sucesso=False, mensagem='A validação de segurança expirou ou é inválida. Atualize a página e tente novamente.'), 400
     arguments = request.view_args or {}
     protocol_id = arguments.get('protocolo_id') or arguments.get('protocol_id')
+    portal = (request.endpoint or '').startswith('portal_')
     if protocol_id:
-        return_url = url_for('detalhe_protocolo', protocolo_id=protocol_id)
+        endpoint = 'portal_detalhe' if portal else 'detalhe_protocolo'
+        return_url = url_for(endpoint, protocolo_id=protocol_id)
     elif request.url_rule and 'GET' in request.url_rule.methods:
         return_url = url_for(request.endpoint, **arguments)
+    elif request.endpoint == 'portal_encerrar_sessao':
+        return_url = url_for('portal_sessoes')
     else:
-        return_url = url_for('home')
+        return_url = url_for('portal_home' if portal else 'home')
     return render_template('csrf_error.html', title='Atualize a página', return_url=return_url), 400
 
 
