@@ -28,7 +28,52 @@ async function readJsonResponse(response) {
     return result;
 }
 
+// Login exibe a falha na própria tela e sempre encerra o indicador de envio.
+function initializeLoginForm() {
+    const form = document.querySelector('[data-login-form]');
+    if (!form) return;
+    const feedback = form.querySelector('[data-login-feedback]');
+    const button = form.querySelector('[type="submit"]');
+    form.addEventListener('submit', async event => {
+        event.preventDefault();
+        if (button.disabled) return;
+        const data = new FormData(form);
+        button.disabled = true;
+        button.setAttribute('aria-busy', 'true');
+        button.classList.add('is-submitting');
+        feedback.hidden = true;
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 20000);
+        try {
+            const response = await fetch(form.action, {method:'POST', body:data,
+                credentials:'same-origin', signal:controller.signal});
+            if (response.redirected && response.ok) {
+                const destination = new URL(response.url, window.location.href);
+                if (destination.origin !== window.location.origin) throw new Error('Não foi possível concluir o acesso.');
+                window.location.assign(destination.href);
+                return;
+            }
+            const page = new DOMParser().parseFromString(await response.text(), 'text/html');
+            const error = page.querySelector('.alert-danger');
+            throw new Error(response.status >= 500
+                ? 'O serviço está temporariamente indisponível. Tente novamente.'
+                : error?.textContent.trim() || 'Não foi possível entrar. Confira o login e a senha e tente novamente.');
+        } catch (error) {
+            feedback.textContent = error.name === 'AbortError'
+                ? 'O acesso demorou a responder. Verifique sua conexão e tente novamente.' : error.message;
+            feedback.hidden = false;
+            feedback.focus();
+        } finally {
+            clearTimeout(timer);
+            button.disabled = false;
+            button.removeAttribute('aria-busy');
+            button.classList.remove('is-submitting');
+        }
+    });
+}
+
 document.addEventListener('DOMContentLoaded', function () {
+    initializeLoginForm();
 
     // Navegação responsiva e acessível.
     const mainHeader = document.querySelector('.main-header');
@@ -64,6 +109,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Informa visualmente o envio de formulários e evita duplo clique acidental.
     document.querySelectorAll('form').forEach(form => {
+        if (form.matches('[data-login-form]')) return;
         form.addEventListener('submit', (event) => {
             const confirmation = event.submitter?.dataset.confirm || form.dataset.confirm;
             if (confirmation && !window.confirm(confirmation)) {
@@ -832,29 +878,24 @@ async function populateDatalist(apiUrl, elementId) {
     }
 }
 
+let matriculaRequestSerial = 0;
 async function fetchServidorByMatricula() {
-    const matriculaInput = document.getElementById('matricula');
-    const matricula = matriculaInput.value.trim();
-
-    if (!matricula) {
-        preencherCamposServidor(null); // Limpa os campos se a matrícula for removida
-        return;
-    }
-
+    const input = document.getElementById('matricula');
+    const matricula = input.value.trim();
+    const serial = ++matriculaRequestSerial;
+    if (!matricula) return;
+    const fields = ['nome','cargo','unidade','cpf','rg','endereco','bairro','municipio','cep','telefone','lotacao'];
+    const initial = fields.map(id => document.getElementById(id)?.value);
     try {
-        // Usa a rota correta da API definida em app.py
         const response = await fetch(`/api/servidor/${encodeURIComponent(matricula)}`);
+        // Uma matrícula ausente não deve apagar o preenchimento manual.
+        if (response.status === 404) return;
         const servidor = await readJsonResponse(response);
-
-        if (response.ok) {
-            preencherCamposServidor(servidor);
-        } else {
-            console.warn(servidor.error || 'Servidor não encontrado');
-            preencherCamposServidor(null); // Limpa os campos se não encontrar
-        }
+        if (serial !== matriculaRequestSerial || input.value.trim() !== matricula ||
+            fields.some((id,index) => document.getElementById(id)?.value !== initial[index])) return;
+        preencherCamposServidor(servidor);
     } catch (error) {
-        console.error('Erro ao buscar servidor por matrícula:', error);
-        preencherCamposServidor(null); // Limpa os campos em caso de erro de rede
+        console.error('Não foi possível consultar a matrícula:', error);
     }
 }
 
