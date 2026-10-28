@@ -34,6 +34,9 @@ jobs:
       - run: python scripts/qa_postgres_status.py
         env:
           QA_DATABASE_URL: postgresql+psycopg://qa:disposable-ci-password@localhost:5432/muniprot_qa
+      - run: python scripts/qa_postgres_tools.py
+        env:
+          QA_DATABASE_URL: postgresql+psycopg://qa:disposable-ci-password@localhost:5432/muniprot_qa
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -42,4 +45,6 @@ jobs:
         if: always()
         with:
           name: resultados-funcionais
-          path: results.xml
+          path: |
+            results.xml
+            qa-postgres-tools.json

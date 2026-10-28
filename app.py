@@ -2597,24 +2597,35 @@ def admin_toggle_user_status(user_id):
 @login_required
 @admin_required
 def admin_create_list_item(item_type):
+    Model = {'lotacao': Lotacao, 'tipo': TipoRequerimento}.get(item_type)
+    if Model is None:
+        abort(404)
     form = AdminListItemForm()
-    if form.validate_on_submit():
-        Model = None
-        if item_type == 'lotacao':
-            Model = Lotacao
-        elif item_type == 'tipo':
-            Model = TipoRequerimento
+    name = (form.nome.data or '').strip()
+    label = 'tipo de requerimento' if item_type == 'tipo' else 'setor/lotação'
+    if not form.validate_on_submit() or not name or len(name) > 180 or any(ord(c) < 32 for c in name):
+        flash('Informe um nome válido, com até 180 caracteres.', 'warning')
+        return redirect(url_for('configuracoes', _anchor='listas'))
+    try:
+        # Impede que dois envios simultâneos criem o mesmo cadastro no cliente.
+        db.session.query(Organizacao.id).filter_by(id=current_tenant_id()).with_for_update().one()
+        existing = tenant_query(Model).filter(func.lower(Model.nome) == name.lower()).first()
+        if existing:
+            detail = ' Reative o cadastro existente na lista.' if not existing.ativo else ''
+            flash(f'Já existe um {label} com esse nome.' + detail, 'warning')
+            return redirect(url_for('configuracoes', _anchor='listas'))
+        new_item = Model(tenant_id=current_tenant_id(), nome=name, ativo=True)
+        db.session.add(new_item)
+        db.session.flush()
+        _admin_audit('ITEM_CRIADO', f'{item_type}: item {new_item.id} criado.')
+        db.session.commit()
+        flash(f'{label.capitalize()} adicionado com sucesso!', 'success')
+    except SQLAlchemyError:
+        db.session.rollback()
+        app.logger.exception('Falha ao cadastrar item de lista do cliente.')
+        flash('Não foi possível adicionar o cadastro. Atualize a página e confira se ele já existe.', 'danger')
+    return redirect(url_for('configuracoes', _anchor='listas'))
 
-        if Model:
-            new_item = Model(tenant_id=current_tenant_id(), nome=form.nome.data, ativo=True)
-            db.session.add(new_item)
-            db.session.flush()
-            _admin_audit('ITEM_CRIADO', f'{item_type}: item {new_item.id} criado.')
-            db.session.commit()
-            flash(f'{item_type.capitalize()} adicionado com sucesso!', 'success')
-    else:
-        flash('Erro ao adicionar item.', 'danger')
-    return redirect(url_for('configuracoes'))
 
 @app.route("/admin/item/<string:item_type>/<int:item_id>/status", methods=['POST'])
 @login_required
