@@ -4,7 +4,8 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_bcrypt import Bcrypt
 from dotenv import load_dotenv
-from flask_wtf.csrf import CSRFProtect
+from flask_wtf.csrf import CSRFProtect, CSRFError
+from werkzeug.exceptions import HTTPException
 
 # Load environment variables from .env file
 load_dotenv()
@@ -180,8 +181,38 @@ def enforce_tenant_host():
     return None
 
 
+def expects_json_response():
+    return request.is_json or request.path.startswith('/api/') or (
+        request.accept_mimetypes.best == 'application/json')
+
+
+@app.errorhandler(CSRFError)
+def csrf_failure(error):
+    if expects_json_response():
+        return jsonify(sucesso=False, mensagem='A validação de segurança expirou ou é inválida. Atualize a página e tente novamente.'), 400
+    return error.get_response()
+
+
+@app.errorhandler(HTTPException)
+def http_failure(error):
+    if not expects_json_response():
+        return error.get_response()
+    messages = {400: 'Dados inválidos. Confira os campos informados.',
+                401: 'Sua sessão expirou. Entre novamente para continuar.',
+                403: 'Você não tem permissão para esta operação.',
+                404: 'Registro não encontrado ou indisponível para seu acesso.',
+                405: 'Operação não permitida neste endereço.',
+                500: 'Não foi possível concluir a operação. Tente novamente.'}
+    response = error.get_response()
+    response.data = json.dumps({'sucesso': False, 'mensagem': messages.get(error.code, 'Não foi possível concluir a operação.')})
+    response.content_type = 'application/json'
+    return response
+
+
 @login_manager.unauthorized_handler
 def unauthorized():
+    if expects_json_response():
+        return jsonify(sucesso=False, mensagem='Sua sessão expirou. Entre novamente para continuar.'), 401
     organization = host_organization()
     if organization:
         if request.path.startswith('/portal'):
@@ -3263,7 +3294,14 @@ def atualizar_protocolo_status():
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
         return jsonify({'sucesso': False, 'mensagem': 'Informe os dados da atualização.'}), 400
-    protocolo_id = data.get('protocoloId')
+    raw_id = data.get('protocoloId')
+    if isinstance(raw_id, bool) or not isinstance(raw_id, (str, int)) or not re.fullmatch(r'[0-9]{1,10}', str(raw_id)):
+        return jsonify(sucesso=False, mensagem='Identificador do protocolo inválido.'), 400
+    protocolo_id = int(raw_id)
+    if not 0 < protocolo_id <= 2147483647:
+        return jsonify(sucesso=False, mensagem='Identificador do protocolo inválido.'), 400
+    if not isinstance(data.get('novoStatus'), str):
+        return jsonify(sucesso=False, mensagem='Informe uma situação válida.'), 400
     novo_status = canonical_status(data.get('novoStatus'))
     novo_responsavel = data.get('novoResponsavel') # Pode ser nulo
     observacao = data.get('observacao') or ''

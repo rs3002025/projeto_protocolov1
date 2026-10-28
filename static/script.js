@@ -5,8 +5,27 @@ function csrfFetch(url, options = {}) {
     const headers = new Headers(options.headers || {});
     if (new URL(url, window.location.href).origin === window.location.origin) {
         headers.set('X-CSRFToken', document.querySelector('meta[name="csrf-token"]').content);
+        headers.set('Accept', 'application/json');
     }
     return fetch(url, { ...options, headers });
+}
+
+// Falhas de sessão, segurança e servidor devem ser legíveis em qualquer consulta.
+async function readJsonResponse(response) {
+    const type = response.headers.get('content-type') || '';
+    if (response.redirected || !type.toLowerCase().includes('application/json')) {
+        throw new Error(response.redirected || response.status === 401
+            ? 'Sua sessão expirou. Entre novamente para continuar.'
+            : 'Não foi possível concluir a operação. Atualize a página e tente novamente.');
+    }
+    let result;
+    try { result = await response.json(); }
+    catch (_) { throw new Error('O servidor enviou uma resposta inválida. Tente novamente.'); }
+    if (!response.ok) {
+        throw new Error(result.mensagem || result.erro || result.error ||
+            'Não foi possível concluir a operação. Tente novamente.');
+    }
+    return result;
 }
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -211,7 +230,7 @@ document.addEventListener('DOMContentLoaded', function () {
             userSelect.innerHTML = '<option>Carregando...</option>';
             try {
                 const response = await fetch('/api/usuarios');
-                const users = await response.json();
+                const users = await readJsonResponse(response);
                 userSelect.innerHTML = '';
                 users.forEach(user => {
                     const option = new Option(`${user.nome} (${user.login})`, user.login);
@@ -321,10 +340,10 @@ window.carregarDashboard = async function() {
     try {
         const res = await fetch(`/protocolos/dashboard-stats?${params.toString()}`);
         if (!res.ok) {
-            const err = await res.json();
+            const err = await readJsonResponse(res);
             throw new Error(err.error || 'Erro ao buscar dados do dashboard');
         }
-        const stats = await res.json();
+        const stats = await readJsonResponse(res);
         if (requestId !== dashboardRequestSerial) return;
 
         const filterLinks = {data_inicio:params.get('dataInicio'), data_fim:params.get('dataFim'),
@@ -652,7 +671,7 @@ window.confirmarEncaminhamento = async function() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
-        const result = await response.json();
+        const result = await readJsonResponse(response);
         if (result.sucesso) {
             alert('Protocolo encaminhado com sucesso!');
             // Fecha o modal e recarrega a página para ver a mudança
@@ -701,7 +720,7 @@ window.confirmarAtualizacaoStatus = async function() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
-        const result = await response.json();
+        const result = await readJsonResponse(response);
         if (result.sucesso) {
             alert('Status do protocolo atualizado com sucesso!');
             const modal = bootstrap.Modal.getInstance(document.getElementById('modalAtualizarStatus'));
@@ -771,7 +790,7 @@ async function populateDropdown(apiUrl, elementId, selectedValue = null) {
     try {
         const response = await fetch(apiUrl);
         if (!response.ok) throw new Error(`Network response was not ok for ${apiUrl}`);
-        const data = await response.json();
+        const data = await readJsonResponse(response);
 
         // Clear existing options except for the placeholder
         select.innerHTML = '<option value="">Selecione...</option>';
@@ -802,7 +821,7 @@ async function populateDatalist(apiUrl, elementId) {
     try {
         const response = await fetch(apiUrl);
         if (!response.ok) throw new Error(`Network response was not ok for ${apiUrl}`);
-        const values = await response.json();
+        const values = await readJsonResponse(response);
         datalist.replaceChildren(...values.map(value => {
             const option = document.createElement('option');
             option.value = value;
@@ -825,7 +844,7 @@ async function fetchServidorByMatricula() {
     try {
         // Usa a rota correta da API definida em app.py
         const response = await fetch(`/api/servidor/${encodeURIComponent(matricula)}`);
-        const servidor = await response.json();
+        const servidor = await readJsonResponse(response);
 
         if (response.ok) {
             preencherCamposServidor(servidor);
@@ -856,7 +875,7 @@ async function fetchCep() {
         if (!response.ok) {
             throw new Error('Erro na resposta da API do ViaCEP');
         }
-        const data = await response.json();
+        const data = await readJsonResponse(response);
 
         if (data.erro) {
             console.warn('CEP não encontrado!');
@@ -940,7 +959,7 @@ async function searchServidorByName() {
     }
     try {
         const response = await fetch(`/api/servidores/search?nome=${encodeURIComponent(searchTerm)}`);
-        const servidores = await response.json();
+        const servidores = await readJsonResponse(response);
         resultadosDiv.innerHTML = ''; // Clear previous results
         if (servidores.error) {
             const erro = document.createElement('p');
@@ -1006,7 +1025,7 @@ window.previsualizarPDF = async function(id = null, isFromForm = false) {
       try {
           const res = await fetch(`/api/protocolo/${id}`);
           if (!res.ok) { alert("Protocolo não encontrado"); return; }
-          protocolo = await res.json();
+          protocolo = await readJsonResponse(res);
       } catch (err) {
           console.error('Erro ao buscar protocolo:', err);
           alert('Erro ao buscar dados do protocolo.');
@@ -1097,7 +1116,7 @@ async function gerarNumeroProtocolo() {
     try {
         const res = await fetch(`/protocolos/ultimoNumero/${anoAtual}`);
         if (!res.ok) throw new Error('Failed to fetch last protocol number');
-        const data = await res.json();
+        const data = await readJsonResponse(res);
         document.getElementById('numeroProtocolo').value = `${String((data.ultimo || 0) + 1).padStart(4, '0')}/${anoAtual}`;
     } catch (error) {
         console.error("Erro ao gerar número:", error);

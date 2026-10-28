@@ -1,0 +1,43 @@
+name: Regressão funcional e PostgreSQL
+on:
+  pull_request:
+    branches: [development, main]
+  push:
+    branches: [development]
+permissions:
+  contents: read
+jobs:
+  functional:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: muniprot_qa
+          POSTGRES_USER: qa
+          POSTGRES_PASSWORD: disposable-ci-password
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 10s
+          --health-timeout 5s --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: sudo apt-get update && sudo apt-get install -y libpango-1.0-0 libpangoft2-1.0-0
+      - run: pip install -r requirements.txt pytest
+      - run: python -m pytest tests -q --junitxml=results.xml
+      - run: python scripts/qa_postgres_status.py
+        env:
+          QA_DATABASE_URL: postgresql+psycopg://qa:disposable-ci-password@localhost:5432/muniprot_qa
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/json-response.test.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: resultados-funcionais
+          path: results.xml
