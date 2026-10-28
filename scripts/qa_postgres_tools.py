@@ -25,6 +25,8 @@ from models import (Organizacao,Usuario,Lotacao,TipoRequerimento,Servidor,Protoc
 from openpyxl import Workbook,load_workbook
 from pypdf import PdfReader
 from PIL import Image
+from bootstrap_db import align_server_sequence
+from sqlalchemy import text
 
 app.config.update(TESTING=True,WTF_CSRF_ENABLED=False)
 passed=[]
@@ -88,6 +90,16 @@ with app.app_context():
     foreign_protocol=Protocolo(tenant_id=other,numero='0001/2026',nome='Exclusivo do outro cliente',status='RECEBIDO')
     db.session.add(foreign_protocol);db.session.commit()
     foreign_id=foreign_protocol.id
+    # Reproduz a carga histórica com identificadores explícitos e sequência atrasada.
+    db.session.add(Servidor(id=50000,tenant_id=tenant,matricula='QA-LEGADO',nome='Legado fictício'))
+    db.session.commit()
+    with db.engine.begin() as connection:
+        align_server_sequence(connection)
+        first=connection.execute(text("SELECT pg_sequence_last_value(pg_get_serial_sequence('servidores','id')::regclass)")).scalar_one()
+        check(first>=50000,'Carga histórica: sequência avança além dos IDs existentes')
+        connection.execute(text("SELECT setval(pg_get_serial_sequence('servidores','id'),60000,true)"))
+        align_server_sequence(connection)
+        check(connection.execute(text("SELECT pg_sequence_last_value(pg_get_serial_sequence('servidores','id')::regclass)")).scalar_one()==60000,'Sequência adiantada nunca é reduzida')
 
 try:
   with patch('app.public_url',side_effect=fixture_asset_url), patch('app.bucket_client',return_value=None):
@@ -170,6 +182,7 @@ try:
 
     request(admin,'post',f'{path}/tramitar',302,data={'setor_destino_id':str(sector_ids[0]),'destinatario_usuario_id':str(users['alice']['id'])})
     move=row(Movimentacao,protocolo_id=pid,recebido_em=None)
+    # Quem ainda não participa não pode nem descobrir este protocolo.
     request(bob,'post',f'{path}/receber',404,data={'movimentacao_id':str(move['id'])})
     request(alice,'post',f'{path}/receber',302,data={'movimentacao_id':str(move['id'])})
     request(alice,'post','/protocolos/atualizar',json={'protocoloId':str(pid),'novoStatus':'EM ANÁLISE'})
@@ -227,3 +240,4 @@ try:
 finally:
   with app.app_context():
     db.session.remove();db.drop_all();db.engine.dispose()
+
