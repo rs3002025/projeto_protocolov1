@@ -26,7 +26,8 @@ def test_timeline_oldest_first_and_tie_by_id():
     assert [e.id for e in chronological(events)] == [1,2,3]
     for name in ['protocolo_detalhe.html','portal_detalhe.html']:
         source=Path(app.root_path,'templates',name).read_text(encoding='utf-8')
-        assert 'protocolo.historico|chronological' in source
+        history_source = 'historico' if name == 'portal_detalhe.html' else 'protocolo.historico'
+        assert history_source + '|chronological' in source
 
 def test_download_fill_import_and_prefill_all_fields_is_tenant_scoped():
     client=app.test_client(); base.login(client,'cliente-a')

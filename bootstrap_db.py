@@ -34,6 +34,8 @@ SCHEMA_COLUMNS = {
         'rodape_documento': 'TEXT',
         'emissao_eletronica_protocolista_enabled': 'BOOLEAN DEFAULT FALSE NOT NULL',
         'portal_servidor_remoto_enabled': 'BOOLEAN DEFAULT FALSE NOT NULL',
+        'consulta_publica_tramitacao_enabled': 'BOOLEAN DEFAULT TRUE NOT NULL',
+        'portal_tramitacao_enabled': 'BOOLEAN DEFAULT TRUE NOT NULL',
         'nivel_garantia_assinatura': "VARCHAR(20) DEFAULT 'interno' NOT NULL",
     },
     'usuarios': {

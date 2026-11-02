@@ -39,6 +39,7 @@
                             <span class="user-copy"><strong>{{ current_user.nome or current_user.login }}</strong><small>{{ current_user.tipo|replace('_', ' ')|title }}</small></span>
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userMenuButton">
+                            <li><a class="dropdown-item" href="{{ url_for('minha_conta') }}">Minha conta</a></li>
                             {% if can('manage') %}<li><a class="dropdown-item" href="{{ url_for('configuracoes') }}">Configurações</a></li>
                             <li><hr class="dropdown-divider"></li>{% endif %}
                             <li>
