@@ -34,6 +34,7 @@ class Organizacao(db.Model):
     rodape_documento = db.Column(db.Text)
     emissao_eletronica_protocolista_enabled = db.Column(db.Boolean, nullable=False, default=False)
     portal_servidor_remoto_enabled = db.Column(db.Boolean, nullable=False, default=False)
+    autorizacao_protocolos_enabled = db.Column(db.Boolean, nullable=False, default=False)
     consulta_publica_tramitacao_enabled = db.Column(db.Boolean, nullable=False, default=True)
     portal_tramitacao_enabled = db.Column(db.Boolean, nullable=False, default=True)
     nivel_garantia_assinatura = db.Column(db.String(20), nullable=False, default='interno')
@@ -58,6 +59,7 @@ class OrganizacaoCapacidadeEvento(db.Model):
     emissao_eletronica_protocolista_enabled = db.Column(db.Boolean, nullable=False)
     portal_servidor_remoto_enabled = db.Column(db.Boolean, nullable=False)
     nivel_garantia_assinatura = db.Column(db.String(20), nullable=False)
+    autorizacao_protocolos_enabled = db.Column(db.Boolean, nullable=False, default=False)
     motivo = db.Column(db.String(500))
     criado_em = db.Column(db.TIMESTAMP(timezone=True), server_default=db.func.now(), nullable=False)
 
@@ -82,6 +84,7 @@ class Usuario(TenantMixin, db.Model, UserMixin):
     login = db.Column(db.Text, nullable=False)
     senha = db.Column(db.Text, nullable=False)
     tipo = db.Column(db.Text, nullable=False)
+    pode_autorizar = db.Column(db.Boolean, nullable=False, default=False)
     is_platform_admin = db.Column(db.Boolean, nullable=False, default=False)
     email = db.Column(db.Text)
     telefone = db.Column(db.String(30))
@@ -255,9 +258,18 @@ class Protocolo(TenantMixin, db.Model):
             return 'Equipe de protocolo'
         return 'Aguardando recebimento' if self.aguardando_recebimento_inicial else (self.responsavel or 'Não definido')
 
+    autorizacoes = db.relationship('AutorizacaoProtocolo', back_populates='protocolo',
+                                    lazy='selectin', order_by='AutorizacaoProtocolo.id')
+
+    @property
+    def autorizacao_pendente(self):
+        return next((a for a in self.autorizacoes if a.status == 'PENDENTE'), None)
+
     @property
     def status_exibicao(self):
         from protocol_status import canonical_status
+        if self.autorizacao_pendente:
+            return 'AGUARDANDO AUTORIZAÇÃO'
         return 'AGUARDANDO RECEBIMENTO' if self.aguardando_recebimento_inicial else canonical_status(self.status)
 
     @property
@@ -569,3 +581,32 @@ class MensagemSuporte(TenantMixin, db.Model):
 
 
 
+
+
+class AutorizacaoProtocolo(TenantMixin, db.Model):
+    __tablename__ = 'autorizacoes_protocolos'
+    __table_args__ = (
+        db.UniqueConstraint('tenant_id', 'envio_token', name='uq_autorizacao_envio'),
+        db.Index('uq_autorizacao_pendente', 'tenant_id', 'protocolo_id', unique=True,
+                 postgresql_where=db.text("status = 'PENDENTE'"),
+                 sqlite_where=db.text("status = 'PENDENTE'")),
+        db.CheckConstraint("status IN ('PENDENTE','AUTORIZADO','NAO_AUTORIZADO')", name='ck_autorizacao_status'),
+    )
+    id = db.Column(db.Integer, primary_key=True)
+    protocolo_id = db.Column(db.Integer, db.ForeignKey('protocolos.id'), nullable=False, index=True)
+    solicitado_por_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)
+    autorizador_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False, index=True)
+    envio_token = db.Column(db.String(80), nullable=False)
+    status = db.Column(db.String(20), nullable=False, default='PENDENTE', index=True)
+    solicitado_em = db.Column(db.TIMESTAMP(timezone=True), nullable=False, server_default=db.func.now())
+    decidido_em = db.Column(db.TIMESTAMP(timezone=True))
+    decidido_por_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'))
+    decisor_nome = db.Column(db.String(180))
+    decisor_login = db.Column(db.String(180))
+    decisor_setor = db.Column(db.Text)
+    resumo = db.Column(db.Text, nullable=False)
+    documento_id = db.Column(db.Integer, db.ForeignKey('anexos.id'))
+    protocolo = db.relationship('Protocolo', back_populates='autorizacoes')
+    solicitado_por = db.relationship('Usuario', foreign_keys=[solicitado_por_id])
+    autorizador = db.relationship('Usuario', foreign_keys=[autorizador_id])
+    documento = db.relationship('Anexo', foreign_keys=[documento_id])

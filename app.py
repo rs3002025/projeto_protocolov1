@@ -317,10 +317,19 @@ def accessible_protocols_query():
         if not current_user.servidor_id:
             return query.filter(false())
         return query.filter(Protocolo.requerente_servidor_id == current_user.servidor_id)
+    from models import AutorizacaoProtocolo
+    from protocol_authorizations import eligible, enabled
+    assigned_authorizations = exists().where(
+        AutorizacaoProtocolo.tenant_id == current_tenant_id(),
+        AutorizacaoProtocolo.protocolo_id == Protocolo.id,
+        AutorizacaoProtocolo.autorizador_id == current_user.id)
+    authorizer_access = bool(eligible(current_user) and enabled())
+    if current_user.tipo == 'autorizador':
+        return query.filter(assigned_authorizations if authorizer_access else false())
     if current_user.tipo != 'tramitador':
         return query
     if not current_user.lotacao_id:
-        return query.filter(false())
+        return query.filter(assigned_authorizations if authorizer_access else false())
     participacao = exists().where(
         Movimentacao.tenant_id == current_tenant_id(),
         Movimentacao.protocolo_id == Protocolo.id,
@@ -341,7 +350,8 @@ def accessible_protocols_query():
         Movimentacao.destinatario_usuario_id.is_not(None),
         Movimentacao.destinatario_usuario_id != current_user.id)
     return query.filter(or_(and_(Protocolo.setor_atual_id == current_user.lotacao_id,
-                                ~destino_nominal_alheio), participacao))
+                                ~destino_nominal_alheio), participacao,
+        assigned_authorizations if authorizer_access else false()))
 
 def accessible_protocol_or_404(protocolo_id):
     return accessible_protocols_query().filter(Protocolo.id == protocolo_id).first_or_404()
@@ -349,7 +359,7 @@ def accessible_protocol_or_404(protocolo_id):
 def can_operate_protocol(protocolo):
     """Tramitadores só alteram processos que ainda estão sob custódia do seu setor."""
     from protocol_workflow import can_work, is_closed
-    if is_closed(protocolo):
+    if is_closed(protocolo) or protocolo.autorizacao_pendente or current_user.tipo == 'autorizador':
         return False
     if protocolo.providencias and current_user.tipo == 'tramitador':
         return any(can_work(p) for p in protocolo.providencias)
@@ -617,6 +627,7 @@ ROLE_PERMISSIONS = {
     # Atua somente no fluxo: recebe, encaminha e responde processos do seu setor/usuário.
     'tramitador': {'view', 'route'},
     'consulta': {'view'},
+    'autorizador': {'view'},
     # Acesso exclusivo ao Portal do Servidor; não concede acesso ao backoffice.
     'requerente': set(),
 }
@@ -625,12 +636,16 @@ ROLE_LABELS = {
     'protocolista': 'Protocolista',
     'tramitador': 'Tramitação e respostas',
     'consulta': 'Somente consulta',
+    'autorizador': 'Autorizador',
     'requerente': 'Servidor — Portal do Servidor',
 }
 SUPPORT_STATUSES = ('ABERTO', 'EM ATENDIMENTO', 'AGUARDANDO USUÁRIO', 'RESOLVIDO', 'FECHADO')
 SUPPORT_CATEGORIES = ('ACESSO', 'PROTOCOLOS', 'DOCUMENTOS', 'RELATÓRIOS', 'CONFIGURAÇÃO', 'OUTRO')
 SUPPORT_PRIORITIES = ('BAIXA', 'NORMAL', 'ALTA', 'CRÍTICA')
 HISTORY_ACTION_LABELS = {
+    'AUTORIZACAO_SOLICITADA': 'Autorização solicitada',
+    'AUTORIZACAO_DECIDIDA': 'Decisão da autorização',
+    'AUTORIZACAO_DOCUMENTO_ANEXADO': 'Documento anexado pelo autorizador',
     'IMPORTACAO_LEGADO': 'Importado',
     'REGISTRO_LEGADO': 'Registro original',
     'TRAMITACAO_LEGADA': 'Encaminhamento',
@@ -795,7 +810,9 @@ def permission_required(permission):
         @wraps(view)
         @login_required
         def wrapped(*args, **kwargs):
-            if permission not in ROLE_PERMISSIONS.get(current_user.tipo, set()):
+            from protocol_authorizations import dispatch_exception
+            if (permission not in ROLE_PERMISSIONS.get(current_user.tipo, set())
+                    and not (permission == 'route' and dispatch_exception())):
                 if expects_json_response():
                     return jsonify({'erro': 'Acesso negado.'}), 403
                 flash('Acesso negado.', 'danger')
@@ -2142,13 +2159,20 @@ def platform_update_capabilities(organization_id):
     organization = Organizacao.query.filter_by(id=organization_id).with_for_update().first_or_404()
     electronic_enabled = request.form.get('emissao_eletronica_protocolista_enabled') == 'on'
     remote_enabled = request.form.get('portal_servidor_remoto_enabled') == 'on'
+    authorization_enabled = request.form.get('autorizacao_protocolos_enabled') == 'on'
+    from models import AutorizacaoProtocolo
+    if not authorization_enabled and AutorizacaoProtocolo.query.filter_by(
+            tenant_id=organization.id, status='PENDENTE').first():
+        abort(409, description='Conclua as autorizações pendentes antes de desativar esta função.')
     reason = (request.form.get('motivo') or '').strip()[:500] or None
 
+    organization.autorizacao_protocolos_enabled = authorization_enabled
     organization.emissao_eletronica_protocolista_enabled = electronic_enabled
     organization.portal_servidor_remoto_enabled = remote_enabled
     db.session.add(OrganizacaoCapacidadeEvento(
         organizacao_id=organization.id,
         alterado_por_id=current_user.id,
+        autorizacao_protocolos_enabled=authorization_enabled,
         emissao_eletronica_protocolista_enabled=electronic_enabled,
         portal_servidor_remoto_enabled=remote_enabled,
         nivel_garantia_assinatura='interno',
@@ -2448,6 +2472,10 @@ def admin_update_logo():
 @login_required
 @admin_required
 def admin_create_user():
+    organization = Organizacao.query.filter_by(id=current_tenant_id()).with_for_update().one()
+    wants_authorizer = request.form.get('pode_autorizar') == 'on' or request.form.get('tipo') == 'autorizador'
+    if wants_authorizer and not organization.autorizacao_protocolos_enabled:
+        abort(400, description='A função de autorização deve ser habilitada para este cliente pelo administrador geral.')
     form = AdminUserCreationForm()
     lotacoes = tenant_query(Lotacao).filter_by(ativo=True).order_by(Lotacao.nome).all()
     form.lotacao_id.choices = [(0, 'Sem setor definido')] + [(item.id, item.nome) for item in lotacoes]
@@ -2474,6 +2502,7 @@ def admin_create_user():
             nome=form.nome_completo.data.split(' ')[0],
             tipo=form.tipo.data,
             status='ativo',
+            pode_autorizar=wants_authorizer and form.tipo.data != 'requerente',
             deve_trocar_senha=form.tipo.data != 'requerente',
             lotacao_id=form.lotacao_id.data or None,
             servidor_id=servidor_id,
@@ -2591,6 +2620,7 @@ def admin_importar_servidores():
 @login_required
 @admin_required
 def admin_update_user(user_id):
+    organization = Organizacao.query.filter_by(id=current_tenant_id()).with_for_update().one()
     user = tenant_get_or_404(Usuario, user_id)
     if user.is_platform_admin:
         abort(404)
@@ -2618,6 +2648,20 @@ def admin_update_user(user_id):
     if user.id == current_user.id and tipo != 'admin':
         flash('O administrador conectado não pode remover o próprio perfil administrativo.', 'warning')
         return redirect(url_for('configuracoes'))
+    from protocol_authorizations import pending_for_user
+    wants_authorizer = tipo == 'autorizador' or request.form.get('pode_autorizar') == 'on'
+    if not organization.autorizacao_protocolos_enabled and wants_authorizer and not (user.pode_autorizar or user.tipo == 'autorizador'):
+        abort(400, description='A função de autorização não está habilitada neste cliente.')
+    if not organization.autorizacao_protocolos_enabled and tipo != 'requerente':
+        wants_authorizer = user.pode_autorizar or tipo == 'autorizador'
+    if tipo == 'requerente':
+        wants_authorizer = False
+    if not wants_authorizer and pending_for_user(user.id):
+        abort(409, description='Conclua as autorizações pendentes antes de remover esta função.')
+    authorization_before = user.pode_autorizar or user.tipo == 'autorizador'
+    user.pode_autorizar = wants_authorizer
+    if bool(authorization_before) != bool(wants_authorizer):
+        _admin_audit('AUTORIZADOR_CONFIGURADO', f'Conta {user.id}: função de autorizador alterada para {wants_authorizer}.')
     perfil_anterior, setor_anterior, vinculo_anterior = user.tipo, user.lotacao_id, user.servidor_id
     user.nome_completo = nome
     user.nome = nome.split()[0]
@@ -2634,6 +2678,7 @@ def admin_update_user(user_id):
 @login_required
 @admin_required
 def admin_toggle_user_status(user_id):
+    Organizacao.query.filter_by(id=current_tenant_id()).with_for_update().one()
     user = tenant_get_or_404(Usuario, user_id)
     if user.is_platform_admin:
         abort(404)
@@ -2646,6 +2691,9 @@ def admin_toggle_user_status(user_id):
         if admins_ativos <= 1:
             flash('A organização deve manter ao menos um administrador ativo.', 'warning')
             return redirect(url_for('configuracoes'))
+    from protocol_authorizations import pending_for_user
+    if novo_status == 'inativo' and pending_for_user(user.id):
+        abort(409, description='Conclua as autorizações pendentes antes de desativar este usuário.')
     user.status = novo_status
     _admin_audit('USUARIO_STATUS', f'Conta {user.id}: status alterado para {novo_status}.')
     db.session.commit()
@@ -3133,6 +3181,8 @@ def detalhe_protocolo(protocolo_id):
         pode_encaminhar = len(ativas) == 1 and can_work(ativas[0])
     if current_user.tipo in ('admin', 'protocolista'):
         pode_encaminhar = not protocolo.aguardando_recebimento_inicial and not protocolo.arquivado_em and protocolo.status not in ('FINALIZADO', 'CONCLUÍDO', 'ARQUIVADO')
+    if protocolo.autorizacao_pendente:
+        pode_receber = pode_encaminhar = False
     documentos = {}
     for anexo in sorted(protocolo.anexos, key=lambda item: (item.versao, item.id)):
         # Os anexos anteriores ao versionamento tinham todos a chave 'anexo'.
@@ -3307,6 +3357,8 @@ def adicionar_anexo(protocolo_id):
             if not documento_id.isdecimal():
                 return 'Documento inválido.', 400
             anterior = tenant_query(Anexo).filter_by(id=int(documento_id), protocolo_id=protocolo.id).first_or_404()
+            if anterior.documento_chave.startswith('autorizacao-decisao-'):
+                abort(409, description='O documento da decisão deve ser preservado.')
             if anterior.documento_chave in ('documento-protocolo', 'protocolo-autenticado'):
                 return 'Corrija o requerimento por Editar protocolo ou Retificar; não substitua o documento gerado por um anexo.', 409
             if anterior.documento_chave == 'anexo':
@@ -3869,3 +3921,6 @@ if __name__ == '__main__':
 
 
 
+
+from protocol_authorizations import register_authorization_routes
+register_authorization_routes(app)

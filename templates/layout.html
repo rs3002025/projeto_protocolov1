@@ -55,6 +55,8 @@
             <div class="header-bottom-row" id="mainNavigation">
                 <nav class="main-nav" aria-label="Navegação principal">
                     {% if current_user.is_platform_admin %}<a href="{{ url_for('platform_organizations') }}" class="nav-link {{ 'active' if request.endpoint == 'platform_organizations' else '' }}">Clientes</a>{% endif %}
+                    {% if is_authorizer %}<a href="{{ url_for('auth_list') }}" class="nav-link">Autorizações{% if authorization_pending_count %} <span class="nav-count">{{ authorization_pending_count }}</span>{% endif %}</a>{% endif %}
+                    {% if current_user.tipo != 'autorizador' %}
                     <a href="{{ url_for('home') }}" class="nav-link {{ 'active' if request.endpoint == 'home' else '' }}">Visão geral</a>
                     {% if can('create') %}<a href="{{ url_for('criar_protocolo') }}" class="nav-link {{ 'active' if request.endpoint in ['criar_protocolo', 'editar_protocolo'] else '' }}">Novo protocolo</a>{% endif %}
                     <a href="{{ url_for('listar_protocolos') }}" class="nav-link {{ 'active' if request.endpoint in ['listar_protocolos', 'detalhe_protocolo'] else '' }}">Protocolos</a>
@@ -62,6 +64,7 @@
                     {% if can('route') %}<a href="{{ url_for('pendencias_recebimento') }}" class="nav-link {{ 'active' if request.endpoint == 'pendencias_recebimento' else '' }}">Recebimentos{% if pendencias_recebimento %} <span class="nav-count">{{ pendencias_recebimento }}</span>{% endif %}</a>{% endif %}
                     {% if can('reports') %}<a href="{{ url_for('relatorios') }}" class="nav-link {{ 'active' if request.endpoint == 'relatorios' else '' }}">Relatórios</a>{% endif %}
                     <a href="{{ url_for('support_list') }}" class="nav-link {{ 'active' if request.endpoint in ['support_list', 'support_detail'] else '' }}">Suporte{% if chamados_pendentes %} <span class="nav-count">{{ chamados_pendentes }}</span>{% endif %}</a>
+                {% endif %}
                 </nav>
             </div>
         </div>

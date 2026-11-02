@@ -17,13 +17,14 @@ TENANT_TABLES = (
     'usuarios', 'protocolos', 'anexos', 'historico_protocolos', 'lotacoes',
     'servidores', 'tipos_requerimento', 'emails_sistema', 'movimentacoes',
     'chamados_suporte', 'mensagens_suporte', 'solicitacoes_complemento',
-    'despachos_protocolos',
+    'despachos_protocolos', 'autorizacoes_protocolos',
     'providencias_protocolos', 'acompanhamentos_protocolos',
     'pesquisas_salvas', 'preferencias_alerta', 'modelos_despacho',
 )
 
 SCHEMA_COLUMNS = {
     'organizacoes': {
+        'autorizacao_protocolos_enabled': 'BOOLEAN DEFAULT FALSE NOT NULL',
         'subdominio': 'VARCHAR(63)',
         'logo_data': 'BLOB',
         'logo_mime_type': 'VARCHAR(80)',
@@ -38,7 +39,11 @@ SCHEMA_COLUMNS = {
         'portal_tramitacao_enabled': 'BOOLEAN DEFAULT TRUE NOT NULL',
         'nivel_garantia_assinatura': "VARCHAR(20) DEFAULT 'interno' NOT NULL",
     },
+    'organizacao_capacidade_eventos': {
+        'autorizacao_protocolos_enabled': 'BOOLEAN DEFAULT FALSE NOT NULL',
+    },
     'usuarios': {
+        'pode_autorizar': 'BOOLEAN DEFAULT FALSE NOT NULL',
         'lotacao_id': 'BIGINT',
         'is_platform_admin': 'BOOLEAN DEFAULT FALSE NOT NULL',
         'servidor_id': 'BIGINT',
