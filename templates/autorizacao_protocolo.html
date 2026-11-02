@@ -1,19 +1,14 @@
 {% if authorization_enabled %}
-<section class="card mb-3" id="autorizacao"><div class="card-body">
-<h2 class="h5">Autorização do protocolo</h2>
 {% if aguardando_autorizacao %}
-<div class="alert alert-warning mb-2"><strong>Aguardando autorização de {{ aguardando_autorizacao.autorizador.nome_completo or aguardando_autorizacao.autorizador.nome }}.</strong> O protocolo permanece com seu responsável e fica bloqueado até a decisão.</div>
-<a class="btn btn-outline-primary" href="{{ url_for('auth_detail', request_id=aguardando_autorizacao.id) }}">{{ 'Analisar autorização' if authorization_assigned(protocolo) else 'Ver solicitação' }}</a>
-{% elif can_request_authorization(protocolo) %}
-{% if authorization_people %}
-<form method="post" action="{{ url_for('auth_request', protocolo_id=protocolo.id) }}" class="d-flex flex-wrap align-items-end gap-2">
+<p class="small text-muted mb-3">Aguardando autorização de <strong>{{ aguardando_autorizacao.autorizador.nome_completo or aguardando_autorizacao.autorizador.nome }}</strong>. <a href="{{ url_for('auth_detail', request_id=aguardando_autorizacao.id) }}">{{ 'Analisar' if authorization_assigned(protocolo) else 'Consultar solicitação' }}</a></p>
+{% elif pode_solicitar_autorizacao %}
+<div class="modal fade" id="modalSolicitarAutorizacao" tabindex="-1" aria-labelledby="tituloSolicitarAutorizacao" aria-hidden="true"><div class="modal-dialog"><div class="modal-content">
+<div class="modal-header"><h2 class="modal-title h5" id="tituloSolicitarAutorizacao">Solicitar autorização</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
+{% if authorization_people %}<form method="post" action="{{ url_for('auth_request', protocolo_id=protocolo.id) }}">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="envio_token" value="{{ authorization_token }}">
-<div class="flex-grow-1"><label class="form-label" for="autorizador">Enviar para</label><select class="form-select" name="autorizador_id" id="autorizador" required><option value="">Selecione o autorizador</option>{% for pessoa in authorization_people %}<option value="{{ pessoa.id }}">{{ pessoa.nome_completo or pessoa.nome }}</option>{% endfor %}</select></div>
-<button class="btn btn-primary" type="submit">Solicitar autorização</button></form>
-{% else %}<p class="text-muted mb-0">É necessário cadastrar um usuário ativo com a função de autorizador neste cliente.</p>{% endif %}
+<div class="modal-body"><label class="form-label" for="autorizador">Autorizador</label><select class="form-select" name="autorizador_id" id="autorizador" required><option value="">Selecione</option>{% for pessoa in authorization_people %}<option value="{{ pessoa.id }}">{{ pessoa.nome_completo or pessoa.nome }}</option>{% endfor %}</select></div>
+<div class="modal-footer"><button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancelar</button><button class="btn btn-primary" type="submit">Solicitar autorização</button></div></form>
+{% else %}<div class="modal-body">Nenhum autorizador disponível. Solicite ao administrador do cliente a definição de um autorizador.</div>{% endif %}
+</div></div></div>
 {% endif %}
-{% for a in protocolo.autorizacoes|reverse if a.status != 'PENDENTE' %}
-<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 border-top pt-2 mt-3"><div><strong>{{ 'Autorizado' if a.status == 'AUTORIZADO' else 'Não autorizado' }}</strong> por {{ a.decisor_nome }} — {{ a.decidido_em|brasilia('%d/%m/%Y às %H:%M') }}</div><a class="btn btn-sm btn-outline-primary" href="{{ url_for('auth_pdf', request_id=a.id) }}">Baixar decisão</a></div>
-{% endfor %}
-</div></section>
 {% endif %}

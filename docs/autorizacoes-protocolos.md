@@ -4,7 +4,7 @@ A capacidade começa desativada e é habilitada pelo administrador geral em **Cl
 
 Com a capacidade habilitada, o administrador do cliente pode criar uma conta com perfil **Autorizador** ou marcar **Autorizador** em um usuário interno existente. O perfil dedicado tem sua própria fila e só consulta os processos que lhe foram atribuídos. A função adicional preserva as demais atribuições do usuário.
 
-No protocolo, o responsável seleciona o autorizador e aciona **Solicitar autorização**. Não há descrição nem justificativa adicional. A solicitação guarda um resumo do protocolo e a identificação dos anexos disponíveis no envio. O responsável e o setor do protocolo não são alterados.
+Em **Outras ações → Solicitar autorização**, o responsável seleciona o autorizador em um modal. Não há painel permanente para essa função. Não há descrição nem justificativa adicional. A solicitação guarda um resumo do protocolo e a identificação dos anexos disponíveis no envio. O responsável e o setor do protocolo não são alterados.
 
 Enquanto há uma autorização pendente, o servidor bloqueia alterações, encaminhamentos, recebimentos, conclusão, arquivamento, exclusão e substituição de documentos, inclusive quando solicitados por links antigos ou APIs. Consulta, downloads e acompanhamento pessoal permanecem disponíveis. O autorizador selecionado pode acrescentar um despacho pelo editor existente e anexar documentos próprios à análise, sem modificar o requerimento original.
 

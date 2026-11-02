@@ -194,6 +194,7 @@ def test_pdf_real_content_has_both_decision_labels_author_and_local_date():
                 decisor_nome='Pessoa Autorizadora',decisor_login='secretario',decisor_setor='Gabinete',decidido_em=datetime(2026,11,2,18,30,tzinfo=timezone.utc))
             pdf=render_authorization_pdf(a,db.session.get(Organizacao,1))
             text=' '.join(p.extract_text() for p in PdfReader(io.BytesIO(pdf)).pages)
+            text = ' '.join(text.split())
             assert label in text and '1234/2026' in text and 'Pessoa Autorizadora' in text
             assert '02/11/2026 às 15:30:00' in text
 
@@ -260,3 +261,15 @@ def test_recipient_validation_and_inactive_authorizer_do_not_lock_protocol():
         r=c.post(f'/protocolo/{pid}/solicitar-autorizacao',data={'autorizador_id':recipient,'envio_token':'validacao-destino-12345678901234'})
         assert r.status_code==400
     with app.app_context(): assert not db.session.get(Protocolo,pid).autorizacao_pendente
+
+
+def test_request_is_in_existing_actions_menu_and_form_is_only_in_modal():
+    pid,_=ids();body=client().get(f'/protocolo/{pid}').get_data(as_text=True)
+    assert 'Autorização do protocolo</h2>' not in body
+    assert 'data-bs-target="#modalSolicitarAutorizacao"' in body
+    assert 'class="modal fade" id="modalSolicitarAutorizacao"' in body
+    menu=body.split('>Outras ações</button>',1)[1].split('</ul>',1)[0]
+    assert 'Solicitar autorização' in menu
+    modal=body.split('id="modalSolicitarAutorizacao"',1)[1].split('</form>',1)[0]
+    assert 'name="autorizador_id"' in modal
+    assert 'textarea' not in modal

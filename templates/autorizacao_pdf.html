@@ -1,7 +1,32 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Decisão de autorização — {{ resumo.numero }}</title>
-<style>@page{size:A4;margin:18mm 18mm 20mm;@bottom-left{content:'Muniprot — Autorização';font:9pt sans-serif;color:#555}@bottom-right{content:counter(page) ' / ' counter(pages);font:9pt sans-serif;color:#555}}body{font:11pt/1.6 'Liberation Sans',sans-serif;color:#172522}header{text-align:center;border-bottom:2px solid #176b63;padding-bottom:14px;margin-bottom:22px}header img{max-width:240px;max-height:70px}h1{background:#176b63;color:white;font-size:15pt;text-align:center;padding:12px}.text{white-space:pre-wrap;overflow-wrap:anywhere}.identity{border-top:1px solid #b8ccc6;padding-top:14px;margin-top:28px;break-inside:avoid}.footer{margin-top:24px;font-size:9pt;white-space:pre-line}</style></head><body>
-<header>{% if pdf_logo_url %}<img src="{{ pdf_logo_url }}" alt="Logo"><br>{% endif %}<strong>{{ organizacao.nome }}</strong>{% if organizacao.orgao %}<br>{{ organizacao.orgao }}{% endif %}</header>
-<h1>DECISÃO DE AUTORIZAÇÃO</h1><p><strong>Protocolo:</strong> {{ resumo.numero }}<br><strong>Requerente:</strong> {{ resumo.requerente }}<br><strong>Tipo de requerimento:</strong> {{ resumo.tipo or 'Não informado' }}<br><strong>Solicitação de autorização:</strong> {{ autorizacao.id }}</p>
-<p class="text">{{ 'AUTORIZO o prosseguimento do protocolo acima identificado.' if autorizacao.status == 'AUTORIZADO' else 'NÃO AUTORIZO o prosseguimento do protocolo acima identificado.' }}</p>
-<div class="identity"><strong>{{ autorizacao.decisor_nome }}</strong><br>Usuário: {{ autorizacao.decisor_login }}{% if autorizacao.decisor_setor %}<br>{{ autorizacao.decisor_setor }}{% endif %}<br>Decisão registrada em {{ autorizacao.decidido_em|brasilia('%d/%m/%Y às %H:%M:%S') }}.</div>
-<p>Documento gerado automaticamente pelo sistema a partir da decisão registrada pelo autorizador.</p>{% if organizacao.rodape_documento %}<div class="footer">{{ organizacao.rodape_documento }}</div>{% endif %}</body></html>
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><title>Despacho — Protocolo {{ resumo.numero }}</title>
+<style>
+@page {size:A4; margin:24mm 25mm 23mm;
+ @bottom-left {content:'Protocolo {{ resumo.numero }}'; font:8pt 'Liberation Sans',sans-serif; color:#67716f;}
+ @bottom-right {content:counter(page); font:8pt 'Liberation Sans',sans-serif; color:#67716f;}
+}
+body {margin:0; color:#202a27; font:12pt/1.75 'Liberation Serif',serif;}
+header {text-align:center; border-bottom:.6pt solid #aebbb5; padding-bottom:6mm; margin-bottom:13mm; font-family:'Liberation Sans',sans-serif;}
+header img {display:block; max-width:48mm; max-height:19mm; margin:0 auto 4mm;}
+.institution {font-size:11pt; font-weight:700; letter-spacing:.3pt;}
+.office {font-size:9pt; color:#58655f; margin-top:1mm;}
+h1 {font:700 17pt 'Liberation Serif',serif; text-align:center; letter-spacing:2pt; margin:0 0 12mm;}
+.reference {border-left:2pt solid #315a49; padding:2mm 0 2mm 4mm; margin-bottom:12mm; font:10pt/1.6 'Liberation Sans',sans-serif;}
+.reference strong {font-weight:700;}
+.decision {font-size:14pt; line-height:1.9; text-align:justify; margin:0 0 7mm; orphans:3; widows:3; overflow-wrap:anywhere;}
+.decision strong {font-weight:700;}
+.direction {margin:0 0 18mm; font-size:12pt;}
+.signature {break-inside:avoid; text-align:center; margin-top:17mm;}
+.signature .name {display:inline-block; min-width:85mm; padding-top:4mm; border-top:.6pt solid #9aa9a1; font:700 11pt 'Liberation Sans',sans-serif; overflow-wrap:anywhere;}
+.signature .sector {font:9pt/1.5 'Liberation Sans',sans-serif; color:#58655f; margin-top:1mm;}
+.signature .date {font:8.5pt/1.6 'Liberation Sans',sans-serif; color:#58655f; margin-top:3mm;}
+.footer {font:8pt/1.5 'Liberation Sans',sans-serif; color:#67716f; margin-top:14mm; text-align:center; white-space:pre-line;}
+</style></head><body>
+<header>{% if pdf_logo_url %}<img src="{{ pdf_logo_url }}" alt="">{% endif %}<div class="institution">{{ organizacao.nome }}</div>{% if organizacao.orgao and organizacao.orgao|lower != organizacao.nome|lower %}<div class="office">{{ organizacao.orgao }}</div>{% endif %}</header>
+<h1>DESPACHO</h1>
+<div class="reference"><strong>Protocolo nº {{ resumo.numero }}</strong>{% if resumo.tipo %}<br>{{ resumo.tipo }}{% endif %}</div>
+<p class="decision"><strong>{{ 'AUTORIZO' if autorizacao.status == 'AUTORIZADO' else 'NÃO AUTORIZO' }}</strong> o atendimento do pedido constante do Protocolo nº <strong>{{ resumo.numero }}</strong>, de interesse de <strong>{{ resumo.requerente }}</strong>.</p>
+<p class="direction">À unidade responsável, para ciência e adoção das providências cabíveis.</p>
+<div class="signature"><div class="name">{{ autorizacao.decisor_nome }}</div>{% if autorizacao.decisor_setor %}<div class="sector">{{ autorizacao.decisor_setor }}</div>{% endif %}<div class="date">{{ autorizacao.decidido_em|brasilia('%d/%m/%Y às %H:%M:%S') }}</div></div>
+{% if organizacao.rodape_documento %}<div class="footer">{{ organizacao.rodape_documento }}</div>{% endif %}
+</body></html>
