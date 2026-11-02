@@ -196,6 +196,8 @@ def test_pdf_real_content_has_both_decision_labels_author_and_local_date():
             text=' '.join(p.extract_text() for p in PdfReader(io.BytesIO(pdf)).pages)
             text = ' '.join(text.split())
             assert label in text and '1234/2026' in text and 'Pessoa Autorizadora' in text
+            assert 'o prosseguimento do Protocolo' in text
+            assert 'atendimento do pedido' not in text
             assert '02/11/2026 às 15:30:00' in text
 
 

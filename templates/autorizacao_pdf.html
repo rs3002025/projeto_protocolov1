@@ -25,7 +25,7 @@ h1 {font:700 17pt 'Liberation Serif',serif; text-align:center; letter-spacing:2p
 <header>{% if pdf_logo_url %}<img src="{{ pdf_logo_url }}" alt="">{% endif %}<div class="institution">{{ organizacao.nome }}</div>{% if organizacao.orgao and organizacao.orgao|lower != organizacao.nome|lower %}<div class="office">{{ organizacao.orgao }}</div>{% endif %}</header>
 <h1>DESPACHO</h1>
 <div class="reference"><strong>Protocolo nº {{ resumo.numero }}</strong>{% if resumo.tipo %}<br>{{ resumo.tipo }}{% endif %}</div>
-<p class="decision"><strong>{{ 'AUTORIZO' if autorizacao.status == 'AUTORIZADO' else 'NÃO AUTORIZO' }}</strong> o atendimento do pedido constante do Protocolo nº <strong>{{ resumo.numero }}</strong>, de interesse de <strong>{{ resumo.requerente }}</strong>.</p>
+<p class="decision"><strong>{{ 'AUTORIZO' if autorizacao.status == 'AUTORIZADO' else 'NÃO AUTORIZO' }}</strong> o prosseguimento do Protocolo nº <strong>{{ resumo.numero }}</strong>, de interesse de <strong>{{ resumo.requerente }}</strong>.</p>
 <p class="direction">À unidade responsável, para ciência e adoção das providências cabíveis.</p>
 <div class="signature"><div class="name">{{ autorizacao.decisor_nome }}</div>{% if autorizacao.decisor_setor %}<div class="sector">{{ autorizacao.decisor_setor }}</div>{% endif %}<div class="date">{{ autorizacao.decidido_em|brasilia('%d/%m/%Y às %H:%M:%S') }}</div></div>
 {% if organizacao.rodape_documento %}<div class="footer">{{ organizacao.rodape_documento }}</div>{% endif %}
