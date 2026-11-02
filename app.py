@@ -1089,12 +1089,15 @@ def tenant_login(slug):
             if tentativa:
                 db.session.delete(tentativa)
                 db.session.commit()
-            login_user(user, remember=form.remember.data)
+            login_user(user, remember=form.remember.data and not user.deve_trocar_senha)
             session['auth_surface'] = 'backoffice'
             destination = safe_local_redirect(request.args.get('next'))
             if user.is_platform_admin:
                 session.pop('active_tenant_id', None)
                 destination = url_for('platform_organizations')
+            if user.deve_trocar_senha:
+                flash('Defina sua senha pessoal para concluir o primeiro acesso.', 'info')
+                return redirect(url_for('trocar_senha_inicial'))
             flash('Login bem-sucedido!', 'success')
             return redirect(destination or url_for('home'))
         if not tentativa:
@@ -1798,7 +1801,7 @@ def login():
             if tentativa:
                 db.session.delete(tentativa)
                 db.session.commit()
-            login_user(user, remember=form.remember.data)
+            login_user(user, remember=form.remember.data and not user.deve_trocar_senha)
             session['auth_surface'] = 'backoffice'
             next_page = request.args.get('next')
             flash('Login bem-sucedido!', 'success')
@@ -1806,6 +1809,8 @@ def login():
             if user.is_platform_admin:
                 session.pop('active_tenant_id', None)
                 destination = url_for('platform_organizations')
+            if user.deve_trocar_senha:
+                return redirect(url_for('trocar_senha_inicial'))
             return redirect(destination or url_for('home'))
         else:
             if not tentativa:
@@ -1940,17 +1945,33 @@ def trocar_senha_inicial():
     if request.method == 'POST':
         atual = request.form.get('senha_atual') or ''
         nova = request.form.get('senha_nova') or ''
+        # bcrypt rejeita entradas acima de 72 bytes, inclusive com caracteres multibyte.
+        if len(nova.encode('utf-8')) > 72:
+            flash('Escolha uma senha mais curta e tente novamente.', 'danger')
+            return render_template('trocar_senha_inicial.html')
         if (not bcrypt.check_password_hash(current_user.senha, atual)
                 or not _strong_password(nova) or nova != request.form.get('confirmar_senha')
                 or bcrypt.check_password_hash(current_user.senha, nova)):
             flash('Confira a senha atual e escolha uma nova senha com pelo menos 8 caracteres.', 'danger')
         else:
+            user_id = current_user.id
             current_user.senha = bcrypt.generate_password_hash(nova).decode('utf-8')
             current_user.deve_trocar_senha = False
-            db.session.commit()
+            try:
+                db.session.commit()
+            except SQLAlchemyError as error:
+                db.session.rollback()
+                app.logger.error('Falha ao salvar troca de senha inicial: usuario_id=%s erro=%s',
+                                 user_id, type(error).__name__)
+                flash('Não foi possível salvar a nova senha. Tente novamente. '
+                      'A troca continua obrigatória antes de usar o sistema.', 'danger')
+                return render_template('trocar_senha_inicial.html'), 503
             login_user(current_user._get_current_object(), remember=False)
-            flash('Senha alterada. Agora configure seu PIN pessoal de emissão.', 'success')
-            return redirect(url_for('configurar_pin'))
+            if current_user.tipo in {'admin', 'protocolista'}:
+                flash('Senha alterada. Agora configure seu PIN pessoal de emissão.', 'success')
+                return redirect(url_for('configurar_pin'))
+            flash('Senha alterada com sucesso.', 'success')
+            return redirect(url_for('home'))
     return render_template('trocar_senha_inicial.html')
 
 
