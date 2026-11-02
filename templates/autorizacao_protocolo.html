@@ -1,0 +1,14 @@
+{% if authorization_enabled %}
+{% if aguardando_autorizacao %}
+<p class="small text-muted mb-3">Aguardando autorização de <strong>{{ aguardando_autorizacao.autorizador.nome_completo or aguardando_autorizacao.autorizador.nome }}</strong>. <a href="{{ url_for('auth_detail', request_id=aguardando_autorizacao.id) }}">{{ 'Analisar' if authorization_assigned(protocolo) else 'Consultar solicitação' }}</a></p>
+{% elif pode_solicitar_autorizacao %}
+<div class="modal fade" id="modalSolicitarAutorizacao" tabindex="-1" aria-labelledby="tituloSolicitarAutorizacao" aria-hidden="true"><div class="modal-dialog"><div class="modal-content">
+<div class="modal-header"><h2 class="modal-title h5" id="tituloSolicitarAutorizacao">Solicitar autorização</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
+{% if authorization_people %}<form method="post" action="{{ url_for('auth_request', protocolo_id=protocolo.id) }}">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="envio_token" value="{{ authorization_token }}">
+<div class="modal-body"><label class="form-label" for="autorizador">Autorizador</label><select class="form-select" name="autorizador_id" id="autorizador" required><option value="">Selecione</option>{% for pessoa in authorization_people %}<option value="{{ pessoa.id }}">{{ pessoa.nome_completo or pessoa.nome }}</option>{% endfor %}</select></div>
+<div class="modal-footer"><button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancelar</button><button class="btn btn-primary" type="submit">Solicitar autorização</button></div></form>
+{% else %}<div class="modal-body">Nenhum autorizador disponível. Solicite ao administrador do cliente a definição de um autorizador.</div>{% endif %}
+</div></div></div>
+{% endif %}
+{% endif %}
