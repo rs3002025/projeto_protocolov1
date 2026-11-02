@@ -900,9 +900,10 @@ def consulta_publica(consulta_token):
         if consulta_autorizada:
             if tentativa:
                 db.session.delete(tentativa)
-            historico = HistoricoProtocolo.query.filter_by(
-                tenant_id=organizacao.id, protocolo_id=protocolo.id
-            ).order_by(HistoricoProtocolo.data_movimentacao.asc(), HistoricoProtocolo.id.asc()).all()
+            if organizacao.consulta_publica_tramitacao_enabled:
+                historico = HistoricoProtocolo.query.filter_by(
+                    tenant_id=organizacao.id, protocolo_id=protocolo.id
+                ).order_by(HistoricoProtocolo.data_movimentacao.asc(), HistoricoProtocolo.id.asc()).all()
             db.session.commit()
         else:
             janela = timedelta(minutes=15)
@@ -1700,7 +1701,11 @@ def portal_novo_protocolo():
 @portal_required
 def portal_detalhe(protocolo_id):
     protocolo = accessible_protocol_or_404(protocolo_id)
-    return render_template('portal_detalhe.html', protocolo=protocolo, organizacao=active_organization())
+    organizacao = active_organization()
+    historico = protocolo.historico if organizacao.portal_tramitacao_enabled else []
+    anexos = [a for a in protocolo.anexos if portal_attachment_visible(a)]
+    return render_template('portal_detalhe.html', protocolo=protocolo, organizacao=organizacao,
+                           historico=historico, anexos=anexos)
 
 
 @app.post('/portal/protocolo/<int:protocolo_id>/complemento/<int:solicitacao_id>')
@@ -1932,12 +1937,37 @@ def exigir_troca_senha_inicial():
     return None
 
 
+@app.route('/minha-conta', methods=['GET', 'POST'])
+@login_required
+def minha_conta():
+    if current_user.tipo == 'requerente':
+        return redirect(url_for('portal_meus_dados'))
+    if request.method == 'POST':
+        fields = {name: (request.form.get(name) or '').strip() for name in
+                  ('nome_completo', 'email', 'telefone', 'endereco')}
+        limits = {'nome_completo': 180, 'email': 180, 'telefone': 30, 'endereco': 500}
+        invalid = (not fields['nome_completo'] or any(len(fields[k]) > limit for k, limit in limits.items())
+                   or any(ord(c) < 32 for k in ('nome_completo', 'email', 'telefone') for c in fields[k])
+                   or (fields['email'] and not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', fields['email'])))
+        if invalid:
+            flash('Confira o nome, o e-mail e os limites dos campos. Nenhum dado foi alterado.', 'danger')
+        else:
+            for field, value in fields.items():
+                setattr(current_user, field, value or None)
+            _admin_audit('CONTA_ATUALIZADA', f'Conta {current_user.id}: dados básicos atualizados pelo próprio usuário.')
+            db.session.commit()
+            flash('Seus dados foram atualizados.', 'success')
+            return redirect(url_for('minha_conta'))
+    return render_template('minha_conta.html', title='Minha conta')
+
+
 @app.route('/minha-conta/trocar-senha', methods=['GET', 'POST'])
 @login_required
 def trocar_senha_inicial():
     if current_user.tipo == 'requerente':
         abort(403)
     if request.method == 'POST':
+        troca_inicial = current_user.deve_trocar_senha
         atual = request.form.get('senha_atual') or ''
         nova = request.form.get('senha_nova') or ''
         if (not bcrypt.check_password_hash(current_user.senha, atual)
@@ -1947,10 +1977,18 @@ def trocar_senha_inicial():
         else:
             current_user.senha = bcrypt.generate_password_hash(nova).decode('utf-8')
             current_user.deve_trocar_senha = False
+            if current_tenant_id():
+                _admin_audit('SENHA_ALTERADA', f'Conta {current_user.id}: senha alterada pelo próprio usuário.')
             db.session.commit()
             login_user(current_user._get_current_object(), remember=False)
-            flash('Senha alterada. Agora configure seu PIN pessoal de emissão.', 'success')
-            return redirect(url_for('configurar_pin'))
+            organizacao = active_organization()
+            if (troca_inicial and current_user.tipo in {'admin', 'protocolista'}
+                    and organizacao and organizacao.emissao_eletronica_protocolista_enabled
+                    and not current_user.pin_hash):
+                flash('Senha alterada. Agora configure seu PIN pessoal de emissão.', 'success')
+                return redirect(url_for('configurar_pin'))
+            flash('Senha alterada com sucesso.', 'success')
+            return redirect(url_for('home' if troca_inicial else 'minha_conta'))
     return render_template('trocar_senha_inicial.html')
 
 
@@ -2335,6 +2373,24 @@ def configuracoes():
                            users=users, lotacoes=lotacoes, tipos=tipos,
                            user_form=user_form, lotacao_form=lotacao_form, tipo_form=tipo_form,
                             branding_form=branding_form, organizacao=active_organization(), servidores=servidores)
+
+@app.post('/admin/visibilidade-servidor')
+@login_required
+@admin_required
+def admin_update_visibility():
+    fields = ('consulta_publica_tramitacao_enabled', 'portal_tramitacao_enabled')
+    values = {field: request.form.get(field) for field in fields}
+    if any(value not in {'status', 'tramitacao'} for value in values.values()):
+        abort(400, description='Selecione uma opção válida para cada canal de consulta.')
+    organization = Organizacao.query.filter_by(id=current_tenant_id()).with_for_update().first_or_404()
+    for field, value in values.items():
+        setattr(organization, field, value == 'tramitacao')
+    _admin_audit('VISIBILIDADE_SERVIDOR_ATUALIZADA',
+                 'Visibilidade externa: QR Code=' + values[fields[0]] + '; portal=' + values[fields[1]] + '.')
+    db.session.commit()
+    flash('Visibilidade das consultas atualizada.', 'success')
+    return redirect(url_for('configuracoes', _anchor='visibilidade'))
+
 
 @app.post('/admin/identidade/logo')
 @login_required
@@ -3293,11 +3349,20 @@ def adicionar_anexo(protocolo_id):
 
     return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo_id))
 
+def portal_attachment_visible(anexo):
+    if current_user.tipo != 'requerente' or active_organization().portal_tramitacao_enabled:
+        return True
+    return anexo.enviado_por_id == current_user.id or anexo.documento_chave in {
+        'protocolo-autenticado', 'documento-protocolo'}
+
+
 @app.route("/anexo/<int:anexo_id>/download")
 @login_required
 def baixar_anexo(anexo_id):
     anexo = tenant_get_or_404(Anexo, anexo_id)
     accessible_protocol_or_404(anexo.protocolo_id)
+    if not portal_attachment_visible(anexo):
+        abort(404)
     try:
         file_data = read_attachment_bytes(anexo)
     except Exception:

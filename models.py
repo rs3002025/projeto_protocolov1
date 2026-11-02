@@ -34,6 +34,8 @@ class Organizacao(db.Model):
     rodape_documento = db.Column(db.Text)
     emissao_eletronica_protocolista_enabled = db.Column(db.Boolean, nullable=False, default=False)
     portal_servidor_remoto_enabled = db.Column(db.Boolean, nullable=False, default=False)
+    consulta_publica_tramitacao_enabled = db.Column(db.Boolean, nullable=False, default=True)
+    portal_tramitacao_enabled = db.Column(db.Boolean, nullable=False, default=True)
     nivel_garantia_assinatura = db.Column(db.String(20), nullable=False, default='interno')
 
 

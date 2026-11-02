@@ -42,6 +42,7 @@ with app.app_context():
     if os.environ['SCHEMA_FIXTURE'] == 'legacy':
         # Reproduz tabelas anteriores à mudança, preservando suas linhas.
         removed = {
+            'organizacoes': {'consulta_publica_tramitacao_enabled', 'portal_tramitacao_enabled'},
             'protocolos': {'excluido_em', 'finalizado_em', 'resultado_final'},
             'movimentacoes': {'providencia_id', 'envio_token'},
             'despachos_protocolos': {'excluido_em', 'excluido_por_id', 'motivo_exclusao', 'assunto', 'conteudo_delta'},
@@ -62,6 +63,15 @@ with app.app_context():
         connection.execute(text('CREATE UNIQUE INDEX ix_emissoes_eletronicas_protocolo_id ON emissoes_eletronicas (protocolo_id)'))
     bootstrap()
     bootstrap()  # Reiniciar o contêiner deve ser seguro.
+    for org in Organizacao.query.all():
+        assert org.consulta_publica_tramitacao_enabled is True
+        assert org.portal_tramitacao_enabled is True
+    org.consulta_publica_tramitacao_enabled = False
+    org.portal_tramitacao_enabled = False
+    db.session.commit()
+    bootstrap()
+    assert org.consulta_publica_tramitacao_enabled is False
+    assert org.portal_tramitacao_enabled is False
     emission_indexes = inspect(db.engine).get_indexes('emissoes_eletronicas')
     assert not next(i for i in emission_indexes if i['name'] == 'ix_emissoes_eletronicas_protocolo_id')['unique']
     columns={c['name'] for c in inspect(db.engine).get_columns('despachos_protocolos')}

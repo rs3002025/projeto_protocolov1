@@ -1,0 +1,16 @@
+{% extends 'layout.html' %}
+{% block content %}
+<div class="container py-4" style="max-width:800px">
+<h1 class="h3">Minha conta</h1>
+<p class="text-muted">Atualize seus dados de contato e gerencie sua senha.</p>
+<div class="card mb-4"><div class="card-body">
+<p><strong>Login:</strong> {{ current_user.login }} · <strong>Perfil:</strong> {{ current_user.tipo|title }}</p>
+<form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+{% for field,label,limit in [('nome_completo','Nome completo',180),('email','E-mail',180),('telefone','Telefone',30),('endereco','Endereço',500)] %}
+<div class="mb-3"><label class="form-label" for="conta-{{ field }}">{{ label }}</label><input class="form-control" id="conta-{{ field }}" name="{{ field }}" maxlength="{{ limit }}" type="{{ 'email' if field == 'email' else 'text' }}" value="{{ current_user|attr(field) or '' }}" {% if field == 'nome_completo' %}required{% endif %}></div>
+{% endfor %}<button class="btn btn-primary">Salvar meus dados</button></form>
+</div></div>
+<div class="card"><div class="card-body"><h2 class="h5">Segurança</h2><a class="btn btn-outline-primary" href="{{ url_for('trocar_senha_inicial') }}">Alterar minha senha</a>
+{% if current_user.tipo in ['admin','protocolista'] %}<a class="btn btn-outline-secondary" href="{{ url_for('configurar_pin') }}">Gerenciar PIN pessoal</a>{% endif %}
+</div></div></div>
+{% endblock %}
