@@ -117,7 +117,7 @@ def register_dispatch_routes(app, db):
             protocolo_numero=protocolo.numero, texto=texto, assunto=assunto,
             conteudo_delta=conteudo_delta or None,
             autor_id=current_user.id, autor_nome=current_user.nome_completo or current_user.nome,
-            autor_setor=setor.nome if setor else None,
+            autor_setor=setor.nome if setor else None, autor_cargo=current_user.cargo,
             criado_em=datetime.now(timezone.utc), envio_token=token,
             file_name=secure_filename(f'despacho-{protocolo.numero}-{numero}.pdf'))
         try:
@@ -169,6 +169,8 @@ def register_dispatch_routes(app, db):
             Protocolo.id == protocolo_id).with_for_update().first_or_404()
         despacho = tenant_query(DespachoProtocolo).filter_by(
             id=despacho_id, protocolo_id=protocolo.id, excluido_em=None).first_or_404()
+        if despacho.autorizacao:
+            abort(409, description='O despacho de uma decisão de autorização deve ser preservado.')
         motivo = (request.form.get('motivo') or '').strip()
         if request.form.get('confirmar_exclusao') != '1' or len(motivo) > 2000 or '\x00' in motivo:
             abort(400, description='Confirme a exclusão do despacho. O motivo pode ter até 2.000 caracteres.')

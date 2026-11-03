@@ -866,10 +866,11 @@ h1, .h1 { font-size: clamp(1.65rem, 2.6vw, 2.2rem); }
 .protocol-list-table th:nth-child(6) { min-width: 145px; }
 .protocol-list-table th:nth-child(7) { min-width: 160px; }
 .protocol-list-table th:nth-child(8) { min-width: 125px; }
-.protocol-list-table th:last-child { width: 165px; }
+.protocol-list-table th:last-child, .protocol-list-table td:last-child { width: 180px; min-width: 180px; }
 .protocol-list-table .badge { white-space: normal; line-height: 1.4; max-width: 100%; }
 .protocol-list-table .action-group { flex-direction: column; align-items: stretch; white-space: normal; }
-.protocol-list-table .btn { white-space: normal; overflow-wrap: anywhere; }
+.protocol-list-table .btn { white-space: nowrap; overflow-wrap: normal; word-break: normal; flex-shrink: 0; }
+.protocol-list-table .action-group { min-width: 148px; }
 .detail-page-header { flex-direction: row; flex-wrap: wrap; align-items: flex-start; }
 .detail-identity { flex: 1 1 13rem; min-width: 0; overflow-wrap: anywhere; }
 .detail-actions { flex: 0 0 auto; width: auto; max-width: 100%; margin-left: auto; justify-content: flex-end; white-space: normal; }
@@ -962,7 +963,7 @@ h1, .h1 { font-size: clamp(1.65rem, 2.6vw, 2.2rem); }
        rolagem horizontal no celular. */
     .app-container .row { margin-right: 0; margin-left: 0; }
     .pagination { flex-wrap: wrap; justify-content: center; width: 100%; }
-    .responsive-table { min-width: 0; width: 100%; table-layout: fixed; }
+    .responsive-table:not(.protocol-list-table) { min-width: 0; width: 100%; table-layout: fixed; }
 }
 
 /* Deve permanecer por último: neutraliza regras móveis legadas. */
@@ -1042,3 +1043,10 @@ h1, .h1 { font-size: clamp(1.65rem, 2.6vw, 2.2rem); }
 .dispatch-summary-author { color: var(--ink-500); overflow-wrap: anywhere; }
 .dispatch-open-meta { padding: 1rem 1.5rem 0; font-size: .85rem; color: var(--ink-500); }
 @media(max-width:650px) { .dispatch-summary { grid-template-columns: 1fr 18px; gap: .35rem .6rem; } .dispatch-summary::after { grid-column: 2; grid-row: 1 / 4; } .dispatch-summary-subject,.dispatch-summary-author { grid-column: 1; } }
+
+@media (max-width: 600px) {
+    .protocol-list-table.responsive-table td:last-child { width: 100%; min-width: 0; display: block; }
+    .protocol-list-table.responsive-table td:last-child::before { display: block; margin-bottom: .5rem; }
+    .protocol-list-table.responsive-table .action-group { flex-direction: row; flex-wrap: wrap; min-width: 0; }
+    .protocol-list-table.responsive-table .btn { width: auto; max-width: 100%; }
+}
