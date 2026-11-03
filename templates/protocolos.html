@@ -85,7 +85,7 @@
                     <tr>
                         <td><span class="protocol-number{% if protocolo.status in ['FINALIZADO', 'CONCLUÍDO'] %} protocol-number-finalized{% endif %}">{{ protocolo.numero }}</span>{% if protocolo.status in ['FINALIZADO', 'CONCLUÍDO'] %}<small class="d-block text-success">Concluído</small>{% endif %}</td>
                         <td>{{ protocolo.nome }}<div class="small text-muted">{{ 'Portal do Servidor' if protocolo.modalidade_abertura == 'remota_requerente' else 'Interno' }}</div></td>
-                        <td>{{ protocolo.tipo_requerimento }}</td>
+                        <td>{{ protocolo.tipo_requerimento or 'Não informado' }}</td>
                         <td>{{ protocolo.data_solicitacao.strftime('%d/%m/%Y') if protocolo.data_solicitacao else 'Não informada' }}</td>
                         <td>{{ protocolo.prazo_em.strftime('%d/%m/%Y') if protocolo.prazo_em else 'Não definido' }}</td>
                         <td><span class="badge bg-info">{{ protocolo.status_exibicao }}</span></td>

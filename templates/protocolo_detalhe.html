@@ -205,7 +205,7 @@
                     </span>
                     <div class="d-flex flex-wrap gap-2 align-items-start">
                         <a href="{{ url_for('baixar_anexo', anexo_id=anexo.id) }}" class="btn btn-sm btn-outline-primary">Download</a>
-                        {% if anexo in documentos_atuais and not aguardando_autorizacao and can('edit') and not protocolo.arquivado_em and (not protocolo.emissao_eletronica or protocolo.retificacao_pendente) %}
+                        {% if anexo in documentos_atuais and not anexo.documento_chave.startswith('autorizacao-decisao-') and not aguardando_autorizacao and can('edit') and not protocolo.arquivado_em and (not protocolo.emissao_eletronica or protocolo.retificacao_pendente) %}
                         <details><summary class="btn btn-sm btn-outline-secondary">Substituir</summary>
                         <form class="mt-2" action="{{ url_for('adicionar_anexo', protocolo_id=protocolo.id) }}" method="post" enctype="multipart/form-data">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="documento_id" value="{{ anexo.id }}">

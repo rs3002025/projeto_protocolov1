@@ -66,3 +66,9 @@ test('consulta de matrícula não apaga dados por ausência, falha ou resposta a
   task=scope.fetchServidorByMatricula(); resolveFetch({status:200,json:async()=>({nome:'Nome confirmado'})});
   await task; assert.equal(fills,1);
 });
+
+test('data do protocolo usa Brasília durante a virada do dia em UTC',()=>{
+  assert.equal(context.todayInBrasilia(new Date('2026-11-03T01:00:00Z')),'2026-11-02');
+  assert.equal(context.todayInBrasilia(new Date('2026-11-03T03:00:00Z')),'2026-11-03');
+  assert.equal(context.todayInBrasilia(new Date('2027-01-01T01:00:00Z')),'2026-12-31');
+});

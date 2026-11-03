@@ -1103,7 +1103,7 @@ def tenant_login(slug):
         ).first()
         if (user and user.tipo != 'requerente'
                 and not (user.is_platform_admin and host_organization())
-                and bcrypt.check_password_hash(user.senha, form.senha.data)):
+                and _password_matches(user.senha, form.senha.data)):
             if tentativa:
                 db.session.delete(tentativa)
                 db.session.commit()
@@ -1266,7 +1266,7 @@ def portal_login(slug):
             tentativa.bloqueado_ate = None
         user = Usuario.query.filter_by(tenant_id=organizacao.id, login=form.login.data,
                                        tipo='requerente', status='ativo').first()
-        if user and user.servidor_id and bcrypt.check_password_hash(user.senha, form.senha.data):
+        if user and user.servidor_id and _password_matches(user.senha, form.senha.data):
             if tentativa:
                 db.session.delete(tentativa)
                 db.session.commit()
@@ -1318,13 +1318,24 @@ def _identity_text(value):
     return ' '.join(''.join(c for c in normalized if not unicodedata.combining(c)).split())
 
 
+def _password_matches(hashed, value):
+    # bcrypt 5 rejeita entradas maiores que 72 bytes. Uma tentativa inválida
+    # deve falhar como credencial incorreta, sem gerar erro na tela.
+    if not isinstance(value, str) or len(value.encode('utf-8')) > 72:
+        return False
+    try:
+        return bcrypt.check_password_hash(hashed, value)
+    except (TypeError, ValueError):
+        return False
+
+
 def _strong_password(value):
-    return 8 <= len(value) <= 128 and value.strip() == value and value.casefold() not in {
+    return 8 <= len(value) <= 128 and len(value.encode('utf-8')) <= 72 and value.strip() == value and value.casefold() not in {
         '123456789012', 'admin12345678', 'password123456', 'senha12345678'}
 
 
 def _portal_password_valid(value):
-    return (8 <= len(value) <= 128 and value.strip() == value
+    return (8 <= len(value) <= 128 and len(value.encode('utf-8')) <= 72 and value.strip() == value
             and any(char.islower() for char in value)
             and any(char.isupper() for char in value)
             and any(char.isdigit() for char in value))
@@ -1342,7 +1353,7 @@ def _confirmar_pin_usuario(user, pin):
     now = _portal_now()
     if user.pin_bloqueado_ate and _as_aware(user.pin_bloqueado_ate) > now:
         return False
-    if not user.pin_hash or not re.fullmatch(r'\d{6}', pin or '') or not bcrypt.check_password_hash(user.pin_hash, pin):
+    if not user.pin_hash or not re.fullmatch(r'\d{6}', pin or '') or not _password_matches(user.pin_hash, pin):
         user.pin_erros = (user.pin_erros or 0) + 1
         if user.pin_erros >= 5:
             user.pin_bloqueado_ate = now + timedelta(minutes=30)
@@ -1817,7 +1828,7 @@ def login():
             login=form.login.data,
             status='ativo'
         ).first()
-        if user and user.tipo != 'requerente' and bcrypt.check_password_hash(user.senha, form.senha.data):
+        if user and user.tipo != 'requerente' and _password_matches(user.senha, form.senha.data):
             if tentativa:
                 db.session.delete(tentativa)
                 db.session.commit()
@@ -1986,10 +1997,12 @@ def trocar_senha_inicial():
         atual = request.form.get('senha_atual') or ''
         nova = request.form.get('senha_nova') or ''
         valid_password = _portal_password_valid(nova) if current_user.tipo == 'requerente' else _strong_password(nova)
-        if (not bcrypt.check_password_hash(current_user.senha, atual)
+        if (not _password_matches(current_user.senha, atual)
                 or nova == 'muni1234' or not valid_password or nova != request.form.get('confirmar_senha')
-                or bcrypt.check_password_hash(current_user.senha, nova)):
-            flash('Confira a senha atual e escolha uma nova senha com pelo menos 8 caracteres.', 'danger')
+                or _password_matches(current_user.senha, nova)):
+            message = ('Senha longa demais. Escolha uma senha mais curta.' if len(nova.encode('utf-8')) > 72
+                       else 'Confira a senha atual e escolha uma nova senha com pelo menos 8 caracteres.')
+            flash(message, 'danger')
         else:
             current_user.senha = bcrypt.generate_password_hash(nova).decode('utf-8')
             current_user.deve_trocar_senha = False
@@ -2022,7 +2035,7 @@ def configurar_pin():
         initial = not current_user.pin_hash
         if not re.fullmatch(r'\d{6}', pin):
             flash('O PIN deve conter exatamente seis números.', 'danger')
-        elif initial and not bcrypt.check_password_hash(current_user.senha, password):
+        elif initial and not _password_matches(current_user.senha, password):
             flash('Senha incorreta.', 'danger')
         elif not initial and (current_user.pin_redefinicao_erros >= 5 or
                               not current_user.pin_redefinicao_hash or
@@ -2964,7 +2977,7 @@ def cancelar_emissao_protocolo(protocolo_id):
         abort(409, description='Conclua ou descarte a retificação pendente antes do cancelamento.')
     senha = request.form.get('senha') or ''
     motivo = (request.form.get('motivo') or '').strip()
-    if not senha or not bcrypt.check_password_hash(current_user.senha, senha):
+    if not senha or not _password_matches(current_user.senha, senha):
         flash('Senha inválida. A emissão não foi cancelada.', 'danger')
         return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
     if len(motivo) < 10:
