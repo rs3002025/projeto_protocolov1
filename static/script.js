@@ -72,12 +72,34 @@ function initializeLoginForm() {
     });
 }
 
+function todayInBrasilia(now = new Date()) {
+    return new Intl.DateTimeFormat('sv-SE', {
+        timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit'
+    }).format(now);
+}
+
 document.addEventListener('DOMContentLoaded', function () {
     initializeLoginForm();
 
     // Navegação responsiva e acessível.
     const mainHeader = document.querySelector('.main-header');
     const mobileToggle = document.querySelector('.mobile-nav-toggle');
+    const settingsNav = document.querySelector('.settings-nav');
+    if (mainHeader && settingsNav) {
+        const updateSettingsOffsets = () => {
+            const headerHeight = Math.ceil(mainHeader.getBoundingClientRect().height);
+            const navHeight = Math.ceil(settingsNav.getBoundingClientRect().height);
+            document.documentElement.style.setProperty('--settings-nav-top', `${headerHeight + 8}px`);
+            document.documentElement.style.setProperty('--settings-section-offset', `${headerHeight + navHeight + 24}px`);
+        };
+        updateSettingsOffsets();
+        window.addEventListener('resize', updateSettingsOffsets);
+        if (typeof ResizeObserver === 'function') {
+            const observer = new ResizeObserver(updateSettingsOffsets);
+            observer.observe(mainHeader);
+            observer.observe(settingsNav);
+        }
+    }
     if (mainHeader && mobileToggle) {
         const setMenuState = (open) => {
             mainHeader.classList.toggle('nav-open', open);
@@ -819,7 +841,7 @@ function initializeProtocolForm() {
     // Only set the current date if we are not in edit mode.
     const dataSolicitacaoInput = document.getElementById('dataSolicitacao');
     if (!dataSolicitacaoInput.value) {
-        dataSolicitacaoInput.value = new Date().toISOString().split('T')[0];
+        dataSolicitacaoInput.value = todayInBrasilia();
     }
 }
 
