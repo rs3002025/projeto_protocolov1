@@ -99,7 +99,7 @@ class HistoricalMetricsTests(TestCase):
             p=db.session.get(Protocolo,self.pid);p.data_solicitacao=date(2026,10,1)
             p.status='CONCLUÍDO';p.finalizado_em=datetime(2026,10,2,3)
             db.session.add(HistoricoProtocolo(tenant_id=self.tenant,protocolo_id=p.id,
-                acao='CONCLUSAO_LEGADA',data_movimentacao=p.finalizado_em))
+                acao='ARQUIVAMENTO_LEGADO',data_movimentacao=p.finalizado_em))
             db.session.add(Movimentacao(tenant_id=self.tenant,protocolo_id=p.id,
                 setor_destino_id=self.sector,enviado_por_id=self.ids['admin'],
                 enviado_em=datetime(2026,10,1,10),recebido_em=datetime(2026,10,1,12),recebido_por_id=self.ids['admin']))

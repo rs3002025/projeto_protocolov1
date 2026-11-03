@@ -42,4 +42,4 @@ def movement_date_precision():
 
 def completion_day_only():
     return tuple_(Protocolo.tenant_id, Protocolo.id, Protocolo.finalizado_em).in_(
-        historical_marks(['CONCLUSAO_LEGADA']))
+        historical_marks(['CONCLUSAO_LEGADA', 'ARQUIVAMENTO_LEGADO']))
