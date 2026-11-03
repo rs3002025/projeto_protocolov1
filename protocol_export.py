@@ -48,7 +48,7 @@ def current_attachments(attachments):
 def request_attachments(attachments):
     """Versões atuais anexadas ao envio, sem documentos de complementação."""
     return [item for item in current_attachments(attachments)
-            if not item.solicitacao_complemento_id]
+            if not item.solicitacao_complemento_id and not item.documento_chave.startswith('autorizacao-')]
 
 
 def readable_pdf(data, mime):

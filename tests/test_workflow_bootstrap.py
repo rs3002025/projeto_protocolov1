@@ -42,7 +42,9 @@ with app.app_context():
     if os.environ['SCHEMA_FIXTURE'] == 'legacy':
         # Reproduz tabelas anteriores à mudança, preservando suas linhas.
         removed = {
-            'organizacoes': {'consulta_publica_tramitacao_enabled', 'portal_tramitacao_enabled'},
+            'organizacoes': {'consulta_publica_tramitacao_enabled', 'portal_tramitacao_enabled', 'autorizacao_protocolos_enabled'},
+            'usuarios': {'pode_autorizar'},
+            'organizacao_capacidade_eventos': {'autorizacao_protocolos_enabled'},
             'protocolos': {'excluido_em', 'finalizado_em', 'resultado_final'},
             'movimentacoes': {'providencia_id', 'envio_token'},
             'despachos_protocolos': {'excluido_em', 'excluido_por_id', 'motivo_exclusao', 'assunto', 'conteudo_delta'},
@@ -55,6 +57,7 @@ with app.app_context():
                 connection.execute(text(f'CREATE TABLE {table}_legacy AS SELECT {keep} FROM {table}'))
                 connection.execute(text(f'DROP TABLE {table}'))
                 connection.execute(text(f'ALTER TABLE {table}_legacy RENAME TO {table}'))
+            connection.execute(text('DROP TABLE autorizacoes_protocolos'))
             connection.execute(text('DROP TABLE acompanhamentos_protocolos'))
             connection.execute(text('DROP TABLE providencias_protocolos'))
 
@@ -63,13 +66,21 @@ with app.app_context():
         connection.execute(text('CREATE UNIQUE INDEX ix_emissoes_eletronicas_protocolo_id ON emissoes_eletronicas (protocolo_id)'))
     bootstrap()
     bootstrap()  # Reiniciar o contêiner deve ser seguro.
+    assert 'autorizacoes_protocolos' in inspect(db.engine).get_table_names()
+    assert all(not u.pode_autorizar for u in Usuario.query.all())
     for org in Organizacao.query.all():
+        assert org.autorizacao_protocolos_enabled is False
         assert org.consulta_publica_tramitacao_enabled is True
         assert org.portal_tramitacao_enabled is True
+    org.autorizacao_protocolos_enabled = True
+    user = Usuario.query.first()
+    user.pode_autorizar = True
     org.consulta_publica_tramitacao_enabled = False
     org.portal_tramitacao_enabled = False
     db.session.commit()
     bootstrap()
+    assert org.autorizacao_protocolos_enabled is True
+    assert user.pode_autorizar is True
     assert org.consulta_publica_tramitacao_enabled is False
     assert org.portal_tramitacao_enabled is False
     emission_indexes = inspect(db.engine).get_indexes('emissoes_eletronicas')

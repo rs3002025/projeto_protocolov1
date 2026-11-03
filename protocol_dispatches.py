@@ -39,6 +39,9 @@ def register_dispatch_routes(app, db):
     from models import DespachoProtocolo, HistoricoProtocolo, Lotacao, Movimentacao, Protocolo
 
     def can_add_dispatch(protocolo):
+        from protocol_authorizations import assigned
+        if protocolo.autorizacao_pendente:
+            return assigned(protocolo)
         if protocolo.providencias:
             from protocol_workflow import is_closed
             return bool(current_user.tipo in ('admin', 'protocolista', 'tramitador') and

@@ -1,6 +1,8 @@
 {% extends "layout.html" %}
 {% block content %}
 {% set tramitacao_token = despacho_token %}
+{% set aguardando_autorizacao = protocolo.autorizacao_pendente %}
+{% set pode_solicitar_autorizacao = authorization_enabled and can_request_authorization(protocolo) %}
 <a href="{{ url_for('listar_protocolos') }}" class="btn btn-outline-secondary btn-back">← Voltar aos protocolos</a>
 <div class="detail-page-header mb-3">
   <div class="detail-identity"><h1 class="protocol-number detail-protocol-number mb-1">Protocolo {{ protocolo.numero }}</h1><p class="text-muted mb-0">{{ protocolo.nome or 'Requerente não informado' }}</p></div>
@@ -8,13 +10,14 @@
     {% if current_user.tipo in ['admin', 'protocolista'] %}<form method="post" action="{{ url_for('acompanhar_protocolo', protocol_id=protocolo.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="acompanhar" value="{{ '0' if acompanhando else '1' }}"><button class="btn btn-outline-primary" type="submit" aria-pressed="{{ 'true' if acompanhando else 'false' }}">{{ 'Deixar de acompanhar' if acompanhando else 'Acompanhar processo' }}</button></form>{% endif %}
     {% if protocolo.aguardando_recebimento_inicial and current_user.tipo in ['admin', 'protocolista'] %}
     <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalReceberRequerimento">Receber requerimento</button>
-    {% elif can('route') and pode_receber %}<a class="btn btn-primary" href="#tramitacao">Receber protocolo</a>
-    {% elif can('route') and pode_encaminhar and not protocolo.arquivado_em and protocolo.status != 'ARQUIVADO' %}<a class="btn btn-primary" href="#tramitacao">Encaminhar protocolo</a>{% endif %}
+    {% elif not aguardando_autorizacao and can('route') and pode_receber %}<a class="btn btn-primary" href="#tramitacao">Receber protocolo</a>
+    {% elif not aguardando_autorizacao and can('route') and pode_encaminhar and not protocolo.arquivado_em and protocolo.status != 'ARQUIVADO' %}<a class="btn btn-primary" href="#tramitacao">Encaminhar protocolo</a>{% endif %}
     <a class="btn btn-outline-primary" target="_blank" rel="noopener" href="{{ url_for('gerar_pdf_protocolo', protocolo_id=protocolo.id) }}">Abrir requerimento</a>
     {% if can('view') %}<button class="btn btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#modalBaixarProcesso">Baixar processo</button>{% endif %}
     {% set pode_editar_acoes = can('edit') and not protocolo.arquivado_em and not protocolo.aguardando_recebimento_inicial %}
-    {% if pode_editar_acoes or can('delete') %}
+    {% if not aguardando_autorizacao and (pode_editar_acoes or can('delete') or pode_solicitar_autorizacao) %}
     <div class="dropdown"><button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">Outras ações</button><ul class="dropdown-menu dropdown-menu-end">
+    {% if pode_solicitar_autorizacao %}<li><button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#modalSolicitarAutorizacao">Solicitar autorização</button></li>{% endif %}
     {% if current_user.tipo == 'admin' and protocolo.status not in ['FINALIZADO', 'CONCLUÍDO', 'ARQUIVADO'] and not protocolo.arquivado_em and not protocolo.aguardando_recebimento_inicial %}<li><button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#finalizar-processo">Concluir processo</button></li>{% endif %}
     {% if pode_editar_acoes %}
     {% if active_organization.emissao_eletronica_protocolista_enabled and (not protocolo.emissao_eletronica or protocolo.retificacao_pendente) and current_user.tipo in ['admin', 'protocolista'] %}<li><button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#modalAutenticarEmissao">Assinar requerimento</button></li>{% endif %}
@@ -26,6 +29,7 @@
     </ul></div>{% endif %}
   </div>
 </div>
+{% include 'autorizacao_protocolo.html' %}
 {% if can('view') %}
 <div class="modal fade" id="modalBaixarProcesso" tabindex="-1" aria-labelledby="baixar-processo-titulo" aria-hidden="true"><div class="modal-dialog"><div class="modal-content">
 <div class="modal-header"><h2 class="modal-title h5" id="baixar-processo-titulo">Baixar processo {{ protocolo.numero }}</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
@@ -172,7 +176,7 @@
         {% set requerimentos_gerados = protocolo.anexos|selectattr('documento_chave', 'equalto', 'documento-protocolo')|sort(attribute='versao', reverse=true)|list %}
         {% if requerimentos_gerados and not protocolo.emissoes_eletronicas %}<details class="mb-4 document-history"><summary>Histórico do requerimento</summary><ul class="list-group">{% for doc in requerimentos_gerados %}<li class="list-group-item d-flex justify-content-between align-items-center gap-3"><span>{{ 'Requerimento atual' if loop.first else 'Requerimento anterior' }}<small class="d-block">Registrado em {{ doc.created_at|brasilia('%d/%m/%Y às %H:%M') }}</small></span><a class="btn btn-sm btn-outline-primary" href="{{ url_for('baixar_anexo', anexo_id=doc.id) }}">Baixar</a></li>{% endfor %}</ul></details>{% endif %}
         <div class="mb-3">
-            {% if can('edit') and not protocolo.arquivado_em and (not protocolo.emissao_eletronica or protocolo.retificacao_pendente) %}
+            {% if not aguardando_autorizacao and can('edit') and not protocolo.arquivado_em and (not protocolo.emissao_eletronica or protocolo.retificacao_pendente) %}
             <details class="mb-3"><summary>Adicionar documento</summary>
             <form action="{{ url_for('adicionar_anexo', protocolo_id=protocolo.id) }}" method="POST" enctype="multipart/form-data">
                 {{ anexo_form.hidden_tag() }}
@@ -201,7 +205,7 @@
                     </span>
                     <div class="d-flex flex-wrap gap-2 align-items-start">
                         <a href="{{ url_for('baixar_anexo', anexo_id=anexo.id) }}" class="btn btn-sm btn-outline-primary">Download</a>
-                        {% if anexo in documentos_atuais and can('edit') and not protocolo.arquivado_em and (not protocolo.emissao_eletronica or protocolo.retificacao_pendente) %}
+                        {% if anexo in documentos_atuais and not aguardando_autorizacao and can('edit') and not protocolo.arquivado_em and (not protocolo.emissao_eletronica or protocolo.retificacao_pendente) %}
                         <details><summary class="btn btn-sm btn-outline-secondary">Substituir</summary>
                         <form class="mt-2" action="{{ url_for('adicionar_anexo', protocolo_id=protocolo.id) }}" method="post" enctype="multipart/form-data">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="documento_id" value="{{ anexo.id }}">
@@ -224,7 +228,7 @@
 {% if protocolo.modalidade_abertura == 'remota_requerente' %}
 <div class="card mb-4"><div class="card-header"><h2 class="h5 mb-0">Complementação pelo requerente</h2></div><div class="card-body">
   {% for solicitacao in protocolo.solicitacoes_complemento|reverse %}<div class="alert alert-{{ 'warning' if solicitacao.status == 'PENDENTE' else 'success' }}"><strong>#{{ solicitacao.id }} · {{ solicitacao.status }}</strong> — {{ solicitacao.motivo }}<small class="d-block">Solicitada por {{ solicitacao.solicitado_por.nome }} em {{ solicitacao.criado_em|brasilia('%d/%m/%Y %H:%M') }}{% if solicitacao.atendido_em %}; atendida em {{ solicitacao.atendido_em|brasilia('%d/%m/%Y %H:%M') }} com {{ solicitacao.anexos|length }} arquivo(s){% endif %}.</small></div>{% endfor %}
-  {% if can('edit') and not protocolo.arquivado_em %}<form method="POST" action="{{ url_for('solicitar_complemento', protocolo_id=protocolo.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label class="form-label" for="motivo-complemento">Solicitar documento ou informação complementar</label><textarea class="form-control mb-2" id="motivo-complemento" name="motivo" minlength="10" required placeholder="Descreva objetivamente o que o requerente deve enviar."></textarea><button class="btn btn-primary" type="submit">Enviar solicitação ao portal</button></form>{% endif %}
+  {% if not aguardando_autorizacao and can('edit') and not protocolo.arquivado_em %}<form method="POST" action="{{ url_for('solicitar_complemento', protocolo_id=protocolo.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label class="form-label" for="motivo-complemento">Solicitar documento ou informação complementar</label><textarea class="form-control mb-2" id="motivo-complemento" name="motivo" minlength="10" required placeholder="Descreva objetivamente o que o requerente deve enviar."></textarea><button class="btn btn-primary" type="submit">Enviar solicitação ao portal</button></form>{% endif %}
 </div></div>
 {% endif %}
 

@@ -56,6 +56,8 @@ def pending_movement_condition():
 
 
 def can_receive(movement):
+    if movement.protocolo.autorizacao_pendente:
+        return False
     if movement.providencia and (movement.providencia.concluida_em or
             movement.providencia.movimento_atual.id != movement.id):
         return False
@@ -66,7 +68,8 @@ def can_receive(movement):
 
 def can_work(participation):
     movement = participation.movimento_atual
-    return bool(not participation.concluida_em and movement and movement.recebido_em and (
+    return bool(not participation.protocolo.autorizacao_pendente and not participation.concluida_em
+                and movement and movement.recebido_em and (
         current_user.tipo in ('admin', 'protocolista') or movement.recebido_por_id == current_user.id))
 
 

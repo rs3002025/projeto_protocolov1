@@ -89,6 +89,7 @@ class AdminUserCreationForm(FlaskForm):
     tipo = SelectField('Perfil', choices=[
         ('requerente', 'Servidor — Portal do Servidor'),
         ('consulta', 'Somente consulta'),
+        ('autorizador', 'Autorizador'),
         ('tramitador', 'Tramitação e respostas'),
         ('protocolista', 'Protocolista'),
         ('admin', 'Administrador do cliente'),
