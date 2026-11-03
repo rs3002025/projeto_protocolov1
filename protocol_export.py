@@ -81,14 +81,17 @@ def assemble_process(protocol, organization):
     from app import (read_attachment_bytes, tenant_query, current_tenant_id, public_url,
                      chronological, history_parts, HISTORY_ACTION_LABELS, history_date_label,
                      history_observation_label, history_visible, history_actor_label)
-    from models import Anexo, DespachoProtocolo, HistoricoProtocolo, Usuario
+    from models import Anexo, DespachoProtocolo, HistoricoProtocolo, Usuario, AutorizacaoProtocolo
 
     tenant = current_tenant_id()
     attachments = tenant_query(Anexo).filter_by(protocolo_id=protocol.id).options(
         defer(Anexo.file_data)).order_by(Anexo.id).all()
     dispatches = tenant_query(DespachoProtocolo).filter_by(
         protocolo_id=protocol.id, excluido_em=None).options(defer(DespachoProtocolo.file_data)).order_by(DespachoProtocolo.numero).all()
-    current = current_attachments(attachments)
+    decision_documents = {a.documento_id for a in tenant_query(AutorizacaoProtocolo).filter(
+        AutorizacaoProtocolo.protocolo_id == protocol.id,
+        AutorizacaoProtocolo.despacho_id.in_([d.id for d in dispatches])).all()}
+    current = [a for a in current_attachments(attachments) if a.id not in decision_documents]
     if len(current) + len(dispatches) + 1 > MAX_FILES:
         raise ExportLimit('O processo ultrapassa o limite de 200 arquivos por exportação.')
     history = tenant_query(HistoricoProtocolo).filter_by(protocolo_id=protocol.id).limit(10001).all()

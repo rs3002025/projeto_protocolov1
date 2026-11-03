@@ -10,7 +10,7 @@ Enquanto há uma autorização pendente, o servidor bloqueia alterações, encam
 
 Em **Autorizações**, cada autorizador encontra sua fila com paginação e filtros de situação. Ao abrir uma solicitação, vê requerente, resumo do pedido, requerimento, anexos e despachos. Pode escolher **Autorizar** ou **Não autorizar** sem preencher qualquer outro campo. Despachos e anexos são opcionais.
 
-As duas decisões geram um PDF com identidade visual do cliente, número do protocolo, requerente, decisão, identificação do usuário, setor quando existente, data e hora de Brasília. O PDF é armazenado com hash de integridade e permanece disponível para o responsável e para o autorizador. A decisão e seu documento não são sobrescritos; pedidos posteriores criam novos registros. O documento é um registro da decisão no sistema, seguindo o mecanismo documental dos despachos, sem declarar assinatura eletrônica adicional.
+As duas decisões registram um despacho numerado na lista de **Despachos**, usando o mesmo template, layout e gerador dos despachos manuais. O cargo opcional do usuário é preservado no registro e exibido abaixo do nome, inclusive nos despachos manuais. Alterações posteriores no cadastro não alteram documentos anteriores. As duas decisões geram um PDF com identidade visual do cliente, número do protocolo, requerente, decisão, identificação do usuário, setor quando existente, data e hora de Brasília. O PDF é armazenado com hash de integridade e permanece disponível para o responsável e para o autorizador. A decisão e seu documento não são sobrescritos; pedidos posteriores criam novos registros. O documento é um registro da decisão no sistema, seguindo o mecanismo documental dos despachos, sem declarar assinatura eletrônica adicional.
 
 O desbloqueio e a decisão são gravados na mesma transação do documento e do histórico auditado. Se a geração ou o armazenamento do PDF falhar, a solicitação continua pendente e o processo segue bloqueado, permitindo nova tentativa. Envios repetidos e decisões concorrentes não geram documentos ou eventos duplicados. Existe também um índice único parcial para impedir duas solicitações pendentes para o mesmo protocolo.
 
@@ -29,3 +29,15 @@ O bootstrap acrescenta a capacidade às organizações e a seu histórico de cap
 `tests/test_authorizations.py` verifica os dois resultados, custódia, bloqueio das operações, acesso nominal, papéis, habilitação por cliente, CSRF, arquivos, documento real e recuperação após falha. Os testes de bootstrap simulam banco antigo e reinícios.
 
 `scripts/qa_postgres_authorizations.py` só aceita o banco descartável local `muniprot_qa`, usuário `qa`. Verifica solicitações concorrentes, decisões concorrentes, rollback por falha no PDF, unicidade do documento e cadeia de auditoria. O workflow funcional executa essa verificação em PostgreSQL 16.
+
+## Painel e avisos ao responsável
+
+A Visão geral inclui a fila e o indicador **Aguardando autorização**, respeitando a abrangência selecionada. Esses processos não são contabilizados como disponíveis para análise. Decisões geram avisos pessoais aos responsáveis atuais (inclusive nos atendimentos paralelos), sem notificar seguidores ou outros usuários do setor. **Ver decisão e marcar como lida** confirma a leitura apenas daquele destinatário. A ação exige POST e CSRF; não amplia permissões de consulta.
+
+Decisões anteriores à atualização são incluídas na lista de despachos durante o bootstrap, sem alterar os bytes do PDF já registrado nem gerar avisos retroativos. A exportação completa inclui o PDF da decisão uma única vez. Despachos de decisão ficam preservados e não podem ser excluídos.
+
+## Cadastro e restauração de senha
+
+Em **Configurações → Usuários**, o cargo é opcional na criação e edição. Contas criadas pelo administrador recebem a senha inicial **muni1234**, definida no servidor, e devem criar uma senha pessoal antes de acessar qualquer funcionalidade, inclusive no Portal do Servidor. A criação pública do Portal continua solicitando uma senha pessoal.
+
+O botão **Restaurar senha**, disponível à administração do cliente, volta a senha para **muni1234**, exige novamente a troca e invalida sessões e links anteriores. O novo valor não pode ser mantido como senha pessoal. A restauração é auditada e só alcança contas do cliente selecionado. Contas administrativas gerais mantêm o próprio fluxo de criação.

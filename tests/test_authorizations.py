@@ -190,7 +190,7 @@ def test_pdf_real_content_has_both_decision_labels_author_and_local_date():
     from protocol_authorizations import render_authorization_pdf
     for status,label in [('AUTORIZADO','AUTORIZO'),('NAO_AUTORIZADO','NÃO AUTORIZO')]:
         with app.test_request_context():
-            a=AutorizacaoProtocolo(id=8,status=status,resumo=json.dumps(dict(numero='1234/2026',requerente='Pessoa Requerente',tipo='LICENÇA')),
+            a=AutorizacaoProtocolo(id=8,tenant_id=1,protocolo=Protocolo.query.filter_by(tenant_id=1).one(),status=status,resumo=json.dumps(dict(numero='1234/2026',requerente='Pessoa Requerente',tipo='LICENÇA')),
                 decisor_nome='Pessoa Autorizadora',decisor_login='secretario',decisor_setor='Gabinete',decidido_em=datetime(2026,11,2,18,30,tzinfo=timezone.utc))
             pdf=render_authorization_pdf(a,db.session.get(Organizacao,1))
             text=' '.join(p.extract_text() for p in PdfReader(io.BytesIO(pdf)).pages)

@@ -87,6 +87,7 @@ class Usuario(TenantMixin, db.Model, UserMixin):
     pode_autorizar = db.Column(db.Boolean, nullable=False, default=False)
     is_platform_admin = db.Column(db.Boolean, nullable=False, default=False)
     email = db.Column(db.Text)
+    cargo = db.Column(db.String(180))
     telefone = db.Column(db.String(30))
     endereco = db.Column(db.Text)
     deve_trocar_senha = db.Column(db.Boolean, nullable=False, default=False)
@@ -335,6 +336,7 @@ class DespachoProtocolo(TenantMixin, db.Model):
     autor_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)
     autor_nome = db.Column(db.Text, nullable=False)
     autor_setor = db.Column(db.Text)
+    autor_cargo = db.Column(db.String(180))
     criado_em = db.Column(db.TIMESTAMP(timezone=True), nullable=False)
     envio_token = db.Column(db.String(80), nullable=False)
     file_name = db.Column(db.Text, nullable=False)
@@ -604,9 +606,22 @@ class AutorizacaoProtocolo(TenantMixin, db.Model):
     decisor_nome = db.Column(db.String(180))
     decisor_login = db.Column(db.String(180))
     decisor_setor = db.Column(db.Text)
+    decisor_cargo = db.Column(db.String(180))
+    despacho_id = db.Column(db.Integer, db.ForeignKey("despachos_protocolos.id"))
+    despacho = db.relationship("DespachoProtocolo", backref=db.backref("autorizacao", uselist=False))
     resumo = db.Column(db.Text, nullable=False)
     documento_id = db.Column(db.Integer, db.ForeignKey('anexos.id'))
     protocolo = db.relationship('Protocolo', back_populates='autorizacoes')
     solicitado_por = db.relationship('Usuario', foreign_keys=[solicitado_por_id])
     autorizador = db.relationship('Usuario', foreign_keys=[autorizador_id])
     documento = db.relationship('Anexo', foreign_keys=[documento_id])
+
+
+class NotificacaoAutorizacao(TenantMixin, db.Model):
+    __tablename__ = 'notificacoes_autorizacao'
+    __table_args__ = (db.UniqueConstraint('tenant_id', 'autorizacao_id', 'usuario_id', name='uq_notificacao_autorizacao_usuario'),)
+    id = db.Column(db.Integer, primary_key=True)
+    autorizacao_id = db.Column(db.Integer, db.ForeignKey('autorizacoes_protocolos.id'), nullable=False)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False, index=True)
+    lida_em = db.Column(db.TIMESTAMP(timezone=True))
+    autorizacao = db.relationship('AutorizacaoProtocolo')

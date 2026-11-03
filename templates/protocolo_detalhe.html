@@ -153,10 +153,10 @@
 <div class="dispatch-list">
 {% for despacho in despachos_visiveis %}<details class="dispatch-document dispatch-collapsible" id="despacho-{{ despacho.id }}">
 <summary class="dispatch-summary"><strong>Despacho {{ '%03d'|format(despacho.numero) }}</strong><span class="dispatch-summary-subject">{{ despacho.assunto or 'Sem assunto informado' }}</span><span class="dispatch-summary-author">{{ despacho.autor_nome }}</span></summary>
-<div class="dispatch-open-meta">{% if despacho.autor_setor %}{{ despacho.autor_setor }} · {% endif %}{{ despacho.criado_em|brasilia('%d/%m/%Y às %H:%M') }}</div>
+<div class="dispatch-open-meta">{% if despacho.autor_cargo %}{{ despacho.autor_cargo }} · {% endif %}{% if despacho.autor_setor %}{{ despacho.autor_setor }} · {% endif %}{{ despacho.criado_em|brasilia('%d/%m/%Y às %H:%M') }}</div>
 <div class="dispatch-document-body rich-text">{{ dispatch_body(despacho) }}</div>
 <footer class="dispatch-document-footer d-flex flex-wrap gap-2 align-items-start"><a class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" download href="{{ url_for('baixar_despacho', protocolo_id=protocolo.id, despacho_id=despacho.id) }}">Baixar PDF do despacho</a>
-{% if can('delete') %}<details class="dispatch-delete"><summary class="btn btn-sm btn-outline-danger">Excluir despacho</summary>
+{% if can('delete') and not despacho.autorizacao %}<details class="dispatch-delete"><summary class="btn btn-sm btn-outline-danger">Excluir despacho</summary>
 <form class="mt-2" method="post" action="{{ url_for('excluir_despacho', protocolo_id=protocolo.id, despacho_id=despacho.id) }}">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 <label class="form-label" for="motivo-despacho-{{ despacho.id }}">Motivo (opcional)</label><textarea class="form-control mb-2" id="motivo-despacho-{{ despacho.id }}" name="motivo" rows="2" maxlength="2000"></textarea>
@@ -205,7 +205,7 @@
                     </span>
                     <div class="d-flex flex-wrap gap-2 align-items-start">
                         <a href="{{ url_for('baixar_anexo', anexo_id=anexo.id) }}" class="btn btn-sm btn-outline-primary">Download</a>
-                        {% if anexo in documentos_atuais and not aguardando_autorizacao and can('edit') and not protocolo.arquivado_em and (not protocolo.emissao_eletronica or protocolo.retificacao_pendente) %}
+                        {% if anexo in documentos_atuais and not anexo.documento_chave.startswith('autorizacao-decisao-') and not aguardando_autorizacao and can('edit') and not protocolo.arquivado_em and (not protocolo.emissao_eletronica or protocolo.retificacao_pendente) %}
                         <details><summary class="btn btn-sm btn-outline-secondary">Substituir</summary>
                         <form class="mt-2" action="{{ url_for('adicionar_anexo', protocolo_id=protocolo.id) }}" method="post" enctype="multipart/form-data">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="documento_id" value="{{ anexo.id }}">

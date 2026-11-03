@@ -17,7 +17,7 @@ TENANT_TABLES = (
     'usuarios', 'protocolos', 'anexos', 'historico_protocolos', 'lotacoes',
     'servidores', 'tipos_requerimento', 'emails_sistema', 'movimentacoes',
     'chamados_suporte', 'mensagens_suporte', 'solicitacoes_complemento',
-    'despachos_protocolos', 'autorizacoes_protocolos',
+    'despachos_protocolos', 'autorizacoes_protocolos', 'notificacoes_autorizacao',
     'providencias_protocolos', 'acompanhamentos_protocolos',
     'pesquisas_salvas', 'preferencias_alerta', 'modelos_despacho',
 )
@@ -43,6 +43,7 @@ SCHEMA_COLUMNS = {
         'autorizacao_protocolos_enabled': 'BOOLEAN DEFAULT FALSE NOT NULL',
     },
     'usuarios': {
+        'cargo': 'VARCHAR(180)',
         'pode_autorizar': 'BOOLEAN DEFAULT FALSE NOT NULL',
         'lotacao_id': 'BIGINT',
         'is_platform_admin': 'BOOLEAN DEFAULT FALSE NOT NULL',
@@ -100,7 +101,12 @@ SCHEMA_COLUMNS = {
         'versao': 'INTEGER DEFAULT 1 NOT NULL',
         'substitui_emissao_id': 'BIGINT',
     },
+    'autorizacoes_protocolos': {
+        'decisor_cargo': 'VARCHAR(180)',
+        'despacho_id': 'INTEGER REFERENCES despachos_protocolos(id)',
+    },
     'despachos_protocolos': {
+        'autor_cargo': 'VARCHAR(180)',
         'assunto': 'VARCHAR(250)',
         'conteudo_delta': 'TEXT',
         'excluido_em': 'TIMESTAMP WITH TIME ZONE',
@@ -291,6 +297,8 @@ def bootstrap():
                 deve_trocar_senha=True,
             ))
         db.session.commit()
+        from protocol_authorizations import backfill_decision_dispatches
+        backfill_decision_dispatches()
         # Regulariza apenas pedidos externos ainda pendentes em clientes sem PIN.
         # Cada recebimento gera histórico e auditoria, sem recriar PDFs/assinaturas.
         from protocol_receipts import receive_pending_without_signature

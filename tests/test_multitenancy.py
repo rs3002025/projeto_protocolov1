@@ -971,7 +971,7 @@ def test_dashboard_controla_prazos_e_estatisticas_pelo_setor_atual():
         protocolo = Protocolo.query.filter_by(nome='Dado exclusivo A').one()
         juridico = Lotacao.query.filter_by(nome='Jurídico').one()
         protocolo.setor_atual_id = juridico.id
-        protocolo.prazo_em = date.today() - timedelta(days=1)
+        protocolo.prazo_em = __import__('dashboard_workbench').today_brasilia() - timedelta(days=1)
         protocolo.status = 'EM ANÁLISE'
         db.session.commit()
     dados = client.get('/protocolos/dashboard-stats?evolucaoPeriodo=all').get_json()

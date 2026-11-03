@@ -52,10 +52,10 @@ class PasswordMinimumTests(unittest.TestCase):
                                 if kw.arg == "min"]
                         self.assertEqual(mins, [8])
                         seen.add(node.name)
-        self.assertEqual(len(seen), 3)
+        self.assertEqual(seen, {"RegistrationForm", "PlatformAdminCreationForm"})
 
     def test_initial_password_screen_matches_backend(self):
-        html = (ROOT / "templates/trocar_senha_inicial.html").read_text(encoding="utf-8")
+        html = (ROOT / "templates/password_change_form.html").read_text(encoding="utf-8")
         self.assertEqual(html.count('minlength="8"'), 2)
         self.assertIn("pelo menos 8 caracteres", html)
         self.assertNotIn("12 caracteres", html)
