@@ -2183,14 +2183,14 @@ def platform_user_activity(organization_id):
 
 @app.after_request
 def register_recent_user_activity(response):
-    # Arquivos, consultas em segundo plano, falhas e acessos públicos não
+    # Arquivos, consultas GET em segundo plano, falhas e acessos públicos não
     # mantêm um usuário artificialmente ativo. Não registra IP nem conteúdo.
-    successful_login = (request.endpoint in {'login', 'tenant_login', 'tenant_login_host', 'portal_login'}
-                        and request.method == 'POST' and response.status_code == 302)
+    interaction = (request.method in {'POST', 'PUT', 'PATCH', 'DELETE'}
+                   and 200 <= response.status_code < 400)
     navigation = (request.method == 'GET' and response.status_code == 200
                   and response.mimetype == 'text/html'
                   and request.headers.get('X-Requested-With') != 'XMLHttpRequest')
-    if ((navigation or successful_login) and current_user.is_authenticated
+    if ((navigation or interaction) and current_user.is_authenticated
             and not current_user.is_platform_admin and current_user.tenant_id
             and request.endpoint not in {'static', 'organization_logo'}):
         from user_activity import record_activity

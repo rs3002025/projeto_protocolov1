@@ -98,6 +98,10 @@ def test_navigation_recorded_but_assets_json_and_errors_do_not_refresh_activity(
         assert not record.called
         client.get('/home')
         record.assert_called_once_with(1, 1)
+        record.reset_mock()
+        client.post('/admin/item/tipo/novo', data={'nome': 'Atividade QA'},
+                    headers={'X-Requested-With': 'XMLHttpRequest'})
+        record.assert_called_once_with(1, 1)
 
 
 def test_activity_failure_does_not_break_navigation():

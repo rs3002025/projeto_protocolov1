@@ -237,6 +237,10 @@ try:
     portal=app.test_client()
     request(portal,'post','/portal/qa-a/entrar',302,data={'login':'QA-PORTAL','senha':password})
     request(portal,'get','/portal/meus-dados')
+    with app.app_context():
+        check(AtividadeUsuario.query.join(Usuario, Usuario.id==AtividadeUsuario.usuario_id).filter(
+                  Usuario.tenant_id==tenant, Usuario.login=='QA-PORTAL').count()==1,
+              'Atividade do Portal do Servidor registrada para a plataforma')
     request(portal,'post','/portal/novo',302,data={'tipo_requerimento':'QA Pedido','requer_ao':'Secretaria QA',
         'observacoes':'Pedido fictício do portal.','declaracao':'on'})
     portal_protocol=row(Protocolo,tenant_id=tenant,modalidade_abertura='remota_requerente')
