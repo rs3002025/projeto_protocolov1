@@ -51,6 +51,26 @@ test('login correto segue o redirecionamento do servidor',async()=>{
   const f=loginFixture(async()=>({redirected:true,ok:true,url:'https://dev.example/plataforma'}));
   await f.run(); assert.equal(f.destination(),'https://dev.example/plataforma');
 });
+
+test('login JSON navega uma vez sem fazer fetch do painel',async()=>{
+  let requests=0;
+  const f=loginFixture(async(url,options)=>{
+    requests++;
+    assert.equal(options.headers['X-Login-Request'],'1');
+    return new Response(JSON.stringify({redirect_to:'/home'}),{headers:{'content-type':'application/json'}});
+  });
+  await f.run();
+  assert.equal(requests,1); assert.equal(f.destination(),'https://dev.example/home');
+  assert.equal(f.button.disabled,false); assert.equal(f.classes.size,0);
+});
+
+for (const redirect_to of ['https://other.example/home', '', null]) {
+  test(`destino JSON inválido não redireciona: ${redirect_to}`,async()=>{
+    const f=loginFixture(async()=>new Response(JSON.stringify({redirect_to}),{headers:{'content-type':'application/json'}}));
+    await f.run(); assert.equal(f.destination(),undefined);
+    assert.equal(f.feedback.hidden,false); assert.equal(f.button.disabled,false);
+  });
+}
 test('consulta de matrícula não apaga dados por ausência, falha ou resposta atrasada',async()=>{
   const fields={matricula:{value:'QA'},nome:{value:'Digitado manualmente'}};
   let resolveFetch, fills=0;

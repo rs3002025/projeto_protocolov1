@@ -46,7 +46,18 @@ function initializeLoginForm() {
         const timer = setTimeout(() => controller.abort(), 20000);
         try {
             const response = await fetch(form.action, {method:'POST', body:data,
+                headers:{'X-Login-Request':'1', 'Accept':'application/json'},
                 credentials:'same-origin', signal:controller.signal});
+            if ((response.headers?.get('content-type') || '').includes('application/json')) {
+                const result = await readJsonResponse(response);
+                if (typeof result.redirect_to !== 'string' || !result.redirect_to) {
+                    throw new Error('Não foi possível concluir o acesso. Tente novamente.');
+                }
+                const destination = new URL(result.redirect_to, window.location.href);
+                if (destination.origin !== window.location.origin) throw new Error('Não foi possível concluir o acesso.');
+                window.location.assign(destination.href);
+                return;
+            }
             if (response.redirected && response.ok) {
                 const destination = new URL(response.url, window.location.href);
                 if (destination.origin !== window.location.origin) throw new Error('Não foi possível concluir o acesso.');
