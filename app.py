@@ -1564,6 +1564,7 @@ def portal_recuperar(slug, token):
             user = Usuario.query.filter_by(id=record.usuario_id, tenant_id=organizacao.id,
                                            tipo='requerente', status='ativo').first_or_404()
             user.senha = bcrypt.generate_password_hash(password).decode('utf-8')
+            user.deve_trocar_senha = False
             record.utilizado_em = _portal_now()
             PortalSessao.query.filter_by(tenant_id=organizacao.id, usuario_id=user.id,
                                          encerrada_em=None).update({'encerrada_em': _portal_now()})
@@ -1933,7 +1934,7 @@ def isolate_portal_surface():
         return None
     allowed = {'portal_home', 'portal_novo_protocolo', 'portal_detalhe',
                'portal_enviar_complemento', 'portal_logout',
-               'portal_sessoes', 'portal_encerrar_sessao', 'portal_meus_dados',
+               'portal_sessoes', 'portal_encerrar_sessao', 'portal_meus_dados', 'trocar_senha_inicial',
                'baixar_anexo', 'gerar_pdf_protocolo', 'organization_logo', 'static',
                'validar_emissao', 'consulta_publica', 'health'}
     if session.get('auth_surface') != 'portal':
@@ -1947,9 +1948,8 @@ def isolate_portal_surface():
 
 @app.before_request
 def exigir_troca_senha_inicial():
-    if (current_user.is_authenticated and current_user.tipo != 'requerente'
-            and current_user.deve_trocar_senha
-            and request.endpoint not in {'trocar_senha_inicial', 'logout', 'static', 'organization_logo'}):
+    if (current_user.is_authenticated and current_user.deve_trocar_senha
+            and request.endpoint not in {'trocar_senha_inicial', 'logout', 'portal_logout', 'static', 'organization_logo'}):
         return redirect(url_for('trocar_senha_inicial'))
     return None
 
@@ -1981,14 +1981,13 @@ def minha_conta():
 @app.route('/minha-conta/trocar-senha', methods=['GET', 'POST'])
 @login_required
 def trocar_senha_inicial():
-    if current_user.tipo == 'requerente':
-        abort(403)
     if request.method == 'POST':
         troca_inicial = current_user.deve_trocar_senha
         atual = request.form.get('senha_atual') or ''
         nova = request.form.get('senha_nova') or ''
+        valid_password = _portal_password_valid(nova) if current_user.tipo == 'requerente' else _strong_password(nova)
         if (not bcrypt.check_password_hash(current_user.senha, atual)
-                or not _strong_password(nova) or nova != request.form.get('confirmar_senha')
+                or nova == 'muni1234' or not valid_password or nova != request.form.get('confirmar_senha')
                 or bcrypt.check_password_hash(current_user.senha, nova)):
             flash('Confira a senha atual e escolha uma nova senha com pelo menos 8 caracteres.', 'danger')
         else:
@@ -2005,8 +2004,10 @@ def trocar_senha_inicial():
                 flash('Senha alterada. Agora configure seu PIN pessoal de emissão.', 'success')
                 return redirect(url_for('configurar_pin'))
             flash('Senha alterada com sucesso.', 'success')
+            if current_user.tipo == 'requerente':
+                return redirect(url_for('portal_home'))
             return redirect(url_for('home' if troca_inicial else 'minha_conta'))
-    return render_template('trocar_senha_inicial.html')
+    return render_template('portal_trocar_senha.html' if current_user.tipo == 'requerente' else 'trocar_senha_inicial.html', organizacao=active_organization())
 
 
 @app.route('/minha-conta/pin', methods=['GET', 'POST'])
@@ -2492,10 +2493,11 @@ def admin_create_user():
         if servidor_id and tenant_query(Usuario).filter_by(servidor_id=servidor_id).first():
             flash('Este cadastro funcional já está vinculado a outra conta.', 'danger')
             return redirect(url_for('configuracoes'))
-        hashed_password = bcrypt.generate_password_hash(form.senha.data).decode('utf-8')
+        hashed_password = bcrypt.generate_password_hash('muni1234').decode('utf-8')
         user = Usuario(
             tenant_id=current_tenant_id(),
             nome_completo=form.nome_completo.data,
+            cargo=(form.cargo.data or "").strip() or None,
             login=form.login.data,
             email=form.email.data,
             senha=hashed_password,
@@ -2503,7 +2505,7 @@ def admin_create_user():
             tipo=form.tipo.data,
             status='ativo',
             pode_autorizar=wants_authorizer and form.tipo.data != 'requerente',
-            deve_trocar_senha=form.tipo.data != 'requerente',
+            deve_trocar_senha=True,
             lotacao_id=form.lotacao_id.data or None,
             servidor_id=servidor_id,
         )
@@ -2663,6 +2665,10 @@ def admin_update_user(user_id):
     if bool(authorization_before) != bool(wants_authorizer):
         _admin_audit('AUTORIZADOR_CONFIGURADO', f'Conta {user.id}: função de autorizador alterada para {wants_authorizer}.')
     perfil_anterior, setor_anterior, vinculo_anterior = user.tipo, user.lotacao_id, user.servidor_id
+    cargo = (request.form.get('cargo', user.cargo or '') or '').strip()
+    if len(cargo) > 180 or any(ord(c) < 32 for c in cargo):
+        abort(400, description='Informe um cargo com até 180 caracteres.')
+    user.cargo = cargo or None
     user.nome_completo = nome
     user.nome = nome.split()[0]
     user.email = email
@@ -2673,6 +2679,25 @@ def admin_update_user(user_id):
     db.session.commit()
     flash(f'Usuário {user.login} atualizado.', 'success')
     return redirect(url_for('configuracoes'))
+
+@app.post('/admin/usuarios/<int:user_id>/restaurar-senha')
+@login_required
+@admin_required
+def admin_reset_user_password(user_id):
+    user = tenant_query(Usuario).filter_by(id=user_id, is_platform_admin=False).with_for_update().first_or_404()
+    if request.form.get('confirmar') != '1':
+        abort(400, description='Confirme a restauração da senha.')
+    user.senha = bcrypt.generate_password_hash('muni1234').decode('utf-8')
+    user.deve_trocar_senha = True
+    # Invalida também as sessões e links anteriores do Portal do Servidor.
+    PortalSessao.query.filter_by(tenant_id=current_tenant_id(), usuario_id=user.id, encerrada_em=None).update(
+        {'encerrada_em': _portal_now()})
+    PortalRecuperacao.query.filter_by(tenant_id=current_tenant_id(), usuario_id=user.id).delete()
+    _admin_audit('SENHA_RESTAURADA', f'Conta {user.id}: senha inicial restaurada; troca obrigatória no próximo acesso.')
+    db.session.commit()
+    flash('Senha restaurada para muni1234. A troca será obrigatória no próximo acesso.', 'success')
+    return redirect(url_for('configuracoes', _anchor='usuarios'))
+
 
 @app.post('/admin/usuarios/<int:user_id>/status')
 @login_required

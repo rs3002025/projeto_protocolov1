@@ -1,5 +1,4 @@
 """Autorização nominal, sem transferência de custódia do protocolo."""
-import base64
 import io
 import json
 import re
@@ -8,10 +7,11 @@ from datetime import datetime, timezone
 
 from flask import abort, flash, redirect, render_template, request, send_file, url_for
 from flask_login import current_user, login_required
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 from werkzeug.utils import secure_filename
 
-from models import db, AutorizacaoProtocolo, Anexo, HistoricoProtocolo, Lotacao, Organizacao, Protocolo, Usuario
+from models import (db, AutorizacaoProtocolo, Anexo, DespachoProtocolo, HistoricoProtocolo,
+                    Lotacao, Organizacao, Protocolo, Usuario, NotificacaoAutorizacao)
 
 
 def utc_now():
@@ -65,17 +65,67 @@ def record(protocol, action, text):
         acao=action, observacao=text))
 
 
+def decision_text(authorization):
+    snapshot = json.loads(authorization.resumo)
+    verb = 'AUTORIZO' if authorization.status == 'AUTORIZADO' else 'NÃO AUTORIZO'
+    return (f"{verb} o prosseguimento do Protocolo nº {snapshot['numero']}, "
+            f"de interesse de {snapshot['requerente']}.\n\n"
+            'À unidade responsável, para ciência e adoção das providências cabíveis.')
+
+
+def decision_dispatch(authorization):
+    protocol = authorization.protocolo
+    number = (db.session.query(func.max(DespachoProtocolo.numero)).filter_by(
+        tenant_id=authorization.tenant_id, protocolo_id=protocol.id).scalar() or 0) + 1
+    text = decision_text(authorization)
+    verb = 'AUTORIZO' if authorization.status == 'AUTORIZADO' else 'NÃO AUTORIZO'
+    delta = json.dumps({'ops':[{'insert':verb, 'attributes':{'bold':True}}, {'insert':text[len(verb):]+'\n'}]}, ensure_ascii=False)
+    return DespachoProtocolo(tenant_id=authorization.tenant_id, protocolo_id=protocol.id,
+        numero=number, protocolo_numero=protocol.numero, texto=text, conteudo_delta=delta,
+        assunto='Autorização do prosseguimento do protocolo',
+        autor_id=authorization.decidido_por_id, autor_nome=authorization.decisor_nome,
+        autor_setor=authorization.decisor_setor, autor_cargo=authorization.decisor_cargo,
+        criado_em=authorization.decidido_em, envio_token=f'autorizacao-{authorization.id}',
+        file_name=secure_filename(f'despacho-{protocol.numero}-{number}.pdf'))
+
+
 def render_authorization_pdf(authorization, organization):
-    from weasyprint import HTML, URLFetcher
-    from app import normalize_logo_png
-    logo = None
-    if organization.logo_data:
-        data = normalize_logo_png(io.BytesIO(organization.logo_data)).getvalue()
-        logo = 'data:image/png;base64,' + base64.b64encode(data).decode('ascii')
-    html = render_template('autorizacao_pdf.html', autorizacao=authorization,
-        resumo=json.loads(authorization.resumo), organizacao=organization, pdf_logo_url=logo)
-    return HTML(string=html, url_fetcher=URLFetcher(
-        allowed_protocols={'data'}, fail_on_errors=True)).write_pdf()
+    from protocol_dispatches import render_dispatch_pdf
+    dispatch = authorization.despacho or decision_dispatch(authorization)
+    return render_dispatch_pdf(dispatch, organization)
+
+
+def notify_responsibles(authorization):
+    protocol = authorization.protocolo
+    recipients = set()
+    if protocol.providencias:
+        for participation in protocol.providencias:
+            movement = participation.movimento_atual
+            if not participation.concluida_em and movement and movement.recebido_em and movement.recebido_por_id:
+                recipients.add(movement.recebido_por_id)
+    elif protocol.responsavel:
+        recipients.update(u.id for u in Usuario.query.filter_by(
+            tenant_id=protocol.tenant_id, login=protocol.responsavel, status='ativo').all())
+    for uid in recipients:
+        db.session.add(NotificacaoAutorizacao(tenant_id=protocol.tenant_id,
+            autorizacao=authorization, usuario_id=uid))
+
+
+def backfill_decision_dispatches():
+    """Inclui decisões antigas na lista preservando os bytes do PDF já registrado."""
+    rows = AutorizacaoProtocolo.query.filter(AutorizacaoProtocolo.status != 'PENDENTE',
+        AutorizacaoProtocolo.despacho_id.is_(None), AutorizacaoProtocolo.documento_id.is_not(None)).order_by(
+        AutorizacaoProtocolo.decidido_em, AutorizacaoProtocolo.id).all()
+    for row in rows:
+        document = row.documento
+        dispatch = decision_dispatch(row)
+        for field in ('file_name', 'storage_path', 'storage_backend', 'file_hash', 'file_data'):
+            setattr(dispatch, field, getattr(document, field))
+        db.session.add(dispatch)
+        row.despacho = dispatch
+        db.session.flush()
+    if rows:
+        db.session.commit()
 
 
 def register_authorization_routes(app):
@@ -200,6 +250,16 @@ def register_authorization_routes(app):
         flash('Autorização solicitada. O protocolo está aguardando a decisão.', 'success')
         return redirect(url_for('detalhe_protocolo', protocolo_id=protocol.id))
 
+    @app.post('/autorizacoes/notificacoes/<int:notification_id>/ler')
+    @login_required
+    def auth_notification_read(notification_id):
+        notification = tenant_query(NotificacaoAutorizacao).filter_by(
+            id=notification_id, usuario_id=current_user.id).first_or_404()
+        accessible_protocol_or_404(notification.autorizacao.protocolo_id)
+        notification.lida_em = notification.lida_em or utc_now()
+        db.session.commit()
+        return redirect(url_for('auth_detail', request_id=notification.autorizacao_id))
+
     @app.get('/autorizacoes')
     @login_required
     def auth_list():
@@ -251,6 +311,10 @@ def register_authorization_routes(app):
                 row.decisor_nome = current_user.nome_completo or current_user.nome
                 row.decisor_login = current_user.login
                 row.decisor_setor = sector.nome if sector else None
+                row.decisor_cargo = current_user.cargo
+                dispatch = decision_dispatch(row)
+                db.session.add(dispatch)
+                row.despacho = dispatch
                 data = render_authorization_pdf(row, active_organization())
                 filename = secure_filename(f'autorizacao-{row.id}-{protocol.numero}.pdf')
                 key = f'autorizacao-decisao-{row.id}'
@@ -262,6 +326,10 @@ def register_authorization_routes(app):
                     documento_chave=key, versao=1, enviado_por_id=current_user.id)
                 db.session.add(document)
                 row.documento = document
+                for field, value in dict(storage_path=path, storage_backend=backend, file_hash=digest, file_data=stored).items():
+                    setattr(dispatch, field, value)
+                dispatch.file_name = filename
+                notify_responsibles(row)
                 record(protocol, 'AUTORIZACAO_DECIDIDA',
                     ('Protocolo autorizado' if decision == 'AUTORIZADO' else 'Protocolo não autorizado')+
                     ' por '+row.decisor_nome+'. Documento da decisão registrado. Protocolo liberado para o responsável atual.')

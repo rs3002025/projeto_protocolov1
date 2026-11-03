@@ -1,6 +1,6 @@
 {% extends 'layout.html' %}
 {% from 'workbench_icons.html' import icon %}
-{% block page_styles %}<link rel="stylesheet" href="{{ url_for('static',filename='workbench.css',v='20261024-produtividade') }}">{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="{{ url_for('static',filename='workbench.css',v='20261103-autorizacoes') }}">{% endblock %}
 {% block content %}
 {% set wb = workbench %}
 {% set scope_titles = {'equipe':'Fila da equipe','meu':'Sua fila de trabalho','acompanhando':'Processos que você acompanha'} %}
@@ -15,6 +15,12 @@
     <form action="{{ url_for('listar_protocolos') }}" method="get" class="wb-search" role="search">{{ icon('search') }}<label class="visually-hidden" for="wb-number">Buscar protocolo pelo número</label><input id="wb-number" name="numero" placeholder="Buscar pelo número do protocolo" maxlength="50"><button type="submit">Buscar</button></form>
   </div>
   <section class="wb-alert-settings mb-3" aria-label="Alertas de prazo"><div class="d-flex flex-wrap align-items-center gap-2"><strong>Alertas de prazo</strong>{% if wb.alerts.ativo %}<span>{{ wb.counts.alertas }} {{ 'processo' if wb.counts.alertas==1 else 'processos' }} nesta visão · vencidos e com prazo até {{ wb.alerts.dias }} dias</span><a class="ms-auto" href="{{ wb.alert_url }}">Conferir alertas →</a>{% else %}<span>Alertas pausados</span>{% endif %}</div><details class="mt-2"><summary>Configurar meus alertas</summary><form method="post" action="{{ url_for('configurar_alertas') }}" class="d-flex flex-wrap align-items-end gap-3 mt-3"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="escopo" value="{{ wb.scope }}"><label><input type="checkbox" name="ativo" value="1" {% if wb.alerts.ativo %}checked{% endif %}> Exibir alertas neste painel</label><div><label class="d-block" for="alerta-antecedencia">Antecedência</label><select class="form-select form-select-sm" id="alerta-antecedencia" name="antecedencia_dias">{% for days,label in [(0,'Vencidos e vencendo hoje'),(1,'Até amanhã e vencidos'),(3,'Até 3 dias e vencidos'),(7,'Até 7 dias e vencidos')] %}<option value="{{ days }}" {% if wb.alerts.dias==days %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div><button class="btn btn-sm btn-outline-primary" type="submit">Salvar preferências</button></form><p class="form-text mt-2 mb-0">Selecione a antecedência dos alertas exibidos no painel.</p></details></section>
+  {% if wb.authorization_notifications %}
+  <section class="wb-panel mb-3" aria-label="Decisões dos seus protocolos"><div class="wb-section-heading"><h2>Decisões dos seus protocolos</h2></div><div class="px-3 pb-3">
+  {% for notification in wb.authorization_notifications %}{% set decision=notification.autorizacao %}
+  <div class="d-flex flex-wrap align-items-center gap-2 py-2 border-bottom"><span class="flex-grow-1"><strong>Protocolo {{ decision.protocolo.numero }}: {{ 'autorizado' if decision.status == 'AUTORIZADO' else 'não autorizado' }}</strong><small class="d-block text-muted">{{ decision.decisor_nome }} · {{ decision.decidido_em|brasilia('%d/%m/%Y às %H:%M') }}.</small></span><form method="post" action="{{ url_for('auth_notification_read', notification_id=notification.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm btn-outline-primary">Ver decisão e marcar como lida</button></form></div>
+  {% endfor %}</div></section>
+  {% endif %}
   <section class="wb-metrics" aria-label="Resumo da visão selecionada">
     {% for card in wb.cards %}<a class="wb-metric wb-{{ card.tone }}" href="{{ card.url }}"><div class="wb-metric-top"><span>{{ card.label }}</span><span class="wb-metric-icon">{{ icon('clock' if card.key=='atrasados' else 'file' if card.key=='documentos' else 'inbox') }}</span></div><strong>{{ '{:,}'.format(card.count).replace(',','.') }}</strong><div class="wb-metric-bottom"><small>{{ card.hint }}</small>{{ icon('arrow') }}</div></a>{% endfor %}
   </section>

@@ -8,7 +8,8 @@ from sqlalchemy import and_, case, exists, false, func, or_, select, union_all
 from sqlalchemy.orm import selectinload, joinedload
 
 from models import (Protocolo, ProvidenciaProtocolo, Movimentacao,
-                    AcompanhamentoProtocolo, SolicitacaoComplemento, HistoricoProtocolo)
+                    AcompanhamentoProtocolo, SolicitacaoComplemento, HistoricoProtocolo,
+                    AutorizacaoProtocolo, NotificacaoAutorizacao)
 from protocol_status import canonical_status
 
 
@@ -101,11 +102,14 @@ def build_workbench(args):
     alert_due=Protocolo.prazo_em <= today+timedelta(days=alerts['dias'])
     documents = or_(Protocolo.status == 'PENDENTE DE DOCUMENTO', Protocolo.solicitacoes_complemento.any(
         SolicitacaoComplemento.status == 'PENDENTE'))
+    pending_authorization = Protocolo.autorizacoes.any(AutorizacaoProtocolo.status == 'PENDENTE')
+    from protocol_authorizations import enabled
+    authorization_on = enabled()
     queues = {
         'prioridades': ('Todos em aberto', work),
         'receber': ('Para receber', work.filter(receipt)),
         'comigo': ('Sob minha responsabilidade', work.filter(mine)),
-        'analisar': ('Recebidos para análise', work.filter(Protocolo.status == 'RECEBIDO', ~documents)),
+        'analisar': ('Recebidos para análise', work.filter(Protocolo.status == 'RECEBIDO', ~documents, ~pending_authorization)),
         'documentos': ('Aguardando documentos', work.filter(documents)),
         'acompanhar': ('Em acompanhamento', base.filter(watching)),
         'atrasados': ('Prazos vencidos', work.filter(overdue)),
@@ -113,6 +117,8 @@ def build_workbench(args):
         'sem_prazo': ('Sem prazo definido', work.filter(Protocolo.prazo_em.is_(None))),
         'alertas': ('Alertas de prazo', work.filter(alert_due)),
     }
+    if authorization_on:
+        queues['autorizacao'] = ('Aguardando autorização', work.filter(pending_authorization))
     if current_user.tipo == 'admin':
         queues['concluir'] = ('Aguardando conclusão', work.filter(Protocolo.status == 'AGUARDANDO CONCLUSÃO'))
     if queue not in queues or (queue == 'receber' and not can_route):
@@ -122,11 +128,13 @@ def build_workbench(args):
     if can_route and scope != 'acompanhando':
         tab_keys.append('comigo')
     tab_keys.append('documentos')
+    if authorization_on:
+        tab_keys.append('autorizacao')
     if current_user.tipo == 'admin':
         tab_keys.append('concluir')
     queue_url = lambda key, **extra: url_for('home', escopo=scope, fila=key, **extra) + '#fila-de-trabalho'
     short_labels = {'prioridades':'Em aberto','receber':'Para receber','analisar':'Para analisar','comigo':'Comigo',
-                    'documentos':'Documentos','acompanhar':'Acompanhando','concluir':'Conclusão'}
+                    'documentos':'Documentos','autorizacao':'Autorização','acompanhar':'Acompanhando','concluir':'Conclusão'}
     tabs = [{'key': key, 'label': short_labels[key], 'count': counts[key], 'url': queue_url(key)} for key in tab_keys]
     selected = queues[queue][1]
     selected = selected.order_by(
@@ -159,6 +167,8 @@ def build_workbench(args):
         elif can_route:
             action = 'Continuar atendimento'
             anchor = '#tramitacao'
+        if protocol.autorizacao_pendente:
+            action, anchor = 'Consultar autorização', ''
         if protocol.providencias:
             destinations = [p.movimento_atual for p in protocol.providencias if not p.concluida_em and p.movimento_atual]
             location = '; '.join(dict.fromkeys(m.setor_destino.nome + (' (aguardando recebimento)' if not m.recebido_em else '') for m in destinations)) or 'Atendimentos encerrados'
@@ -171,11 +181,14 @@ def build_workbench(args):
                      'urgency': 'late' if days is not None and days < 0 else 'soon' if days is not None and days <= 7 else '',
                      'action': action, 'url': url_for('detalhe_protocolo', protocolo_id=protocol.id) + anchor})
     deadlines = work.filter(soon).order_by(Protocolo.prazo_em, Protocolo.id).limit(4).all()
-    status_rows = work.with_entities(Protocolo.status, func.count(Protocolo.id)).group_by(Protocolo.status).all()
+    status_rows = work.filter(~pending_authorization).with_entities(Protocolo.status, func.count(Protocolo.id)).group_by(Protocolo.status).all()
     grouped = {}
     for status, count in status_rows:
         label = canonical_status(status) or 'PROTOCOLO GERADO'
         grouped[label] = grouped.get(label, 0) + count
+    pending_count = work.filter(pending_authorization).count()
+    if pending_count:
+        grouped['AGUARDANDO AUTORIZAÇÃO'] = pending_count
     distribution = [{'label': label.title(), 'count': count,
                      'percent': round(100 * count / max(1, counts['prioridades']))}
                     for label, count in sorted(grouped.items(), key=lambda item: -item[1])]
@@ -185,6 +198,9 @@ def build_workbench(args):
         {'label': 'Prazos vencidos', 'count': counts['atrasados'], 'key':'atrasados', 'tone':'red', 'hint':'Somente processos ainda abertos'},
         {'label': 'Aguardando documentos', 'count': counts['documentos'], 'key':'documentos', 'tone':'amber', 'hint':'Pendências de informação ou anexo'},
     ]
+    if authorization_on:
+        cards.append({'label':'Aguardando autorização', 'count':counts['autorizacao'],
+            'key':'autorizacao', 'tone':'amber', 'hint':'Processos bloqueados até a decisão'})
     if not can_route:
         cards = [card for card in cards if card['key'] != 'receber']
     for card in cards:
@@ -214,12 +230,17 @@ def build_workbench(args):
         HistoricoProtocolo.protocolo_id.in_(activity_scope.with_entities(Protocolo.id).statement),
         HistoricoProtocolo.acao.in_(['CRIACAO','TRAMITACAO','RECEBIMENTO','DESPACHO_REGISTRADO',
                                   'COMPLEMENTO_SOLICITADO','COMPLEMENTO_ENVIADO','FINALIZACAO',
-                                  'ENVIO_REMOTO','RECEBIMENTO_PORTAL','RECEBIMENTO_AUTOMATICO',
+                                  'AUTORIZACAO_SOLICITADA','AUTORIZACAO_DECIDIDA','ENVIO_REMOTO','RECEBIMENTO_PORTAL','RECEBIMENTO_AUTOMATICO',
                                   'RECEBIMENTO_ASSINADO','ALTERACAO_STATUS','PROVIDENCIA_CONCLUIDA',
                                   'ARQUIVAMENTO','DESARQUIVAMENTO','ANEXO_ADICIONADO','DESPACHO_EXCLUIDO'])
     ).options(joinedload(HistoricoProtocolo.protocolo)).order_by(
         HistoricoProtocolo.data_movimentacao.desc(), HistoricoProtocolo.id.desc()).limit(4).all()
-    return dict(today=today, manager=manager, can_route=can_route, scope=scope, queue=queue,
+    notifications = tenant_query(NotificacaoAutorizacao).join(AutorizacaoProtocolo).filter(
+        NotificacaoAutorizacao.usuario_id == current_user.id, NotificacaoAutorizacao.lida_em.is_(None),
+        AutorizacaoProtocolo.protocolo_id.in_(accessible_protocols_query().with_entities(Protocolo.id).statement)
+    ).options(joinedload(NotificacaoAutorizacao.autorizacao).joinedload(AutorizacaoProtocolo.protocolo)).order_by(
+        AutorizacaoProtocolo.decidido_em.desc(), NotificacaoAutorizacao.id.desc()).limit(8).all() if authorization_on else []
+    return dict(authorization_notifications=notifications, today=today, manager=manager, can_route=can_route, scope=scope, queue=queue,
                 queue_title=queues[queue][0], tabs=tabs, counts=counts, cards=cards, focus=focus,
                 rows=rows, pagination=pagination, deadlines=deadlines, distribution=distribution, activity=activity,
                 alerts=alerts, alert_url=queue_url('alertas'),

@@ -43,11 +43,11 @@ with app.app_context():
         # Reproduz tabelas anteriores à mudança, preservando suas linhas.
         removed = {
             'organizacoes': {'consulta_publica_tramitacao_enabled', 'portal_tramitacao_enabled', 'autorizacao_protocolos_enabled'},
-            'usuarios': {'pode_autorizar'},
+            'usuarios': {'pode_autorizar', 'cargo'},
             'organizacao_capacidade_eventos': {'autorizacao_protocolos_enabled'},
             'protocolos': {'excluido_em', 'finalizado_em', 'resultado_final'},
             'movimentacoes': {'providencia_id', 'envio_token'},
-            'despachos_protocolos': {'excluido_em', 'excluido_por_id', 'motivo_exclusao', 'assunto', 'conteudo_delta'},
+            'despachos_protocolos': {'autor_cargo', 'excluido_em', 'excluido_por_id', 'motivo_exclusao', 'assunto', 'conteudo_delta'},
         }
         with db.engine.begin() as connection:
             for table, columns in removed.items():

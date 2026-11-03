@@ -85,7 +85,7 @@ class AdminUserCreationForm(FlaskForm):
     nome_completo = StringField('Nome Completo', validators=[DataRequired()])
     login = StringField('Login', validators=[DataRequired()])
     email = StringField('Email', validators=[DataRequired()])
-    senha = PasswordField('Senha', validators=[DataRequired(), Length(min=8)])
+    cargo = StringField('Cargo (opcional)', validators=[Optional(), Length(max=180)])
     tipo = SelectField('Perfil', choices=[
         ('requerente', 'Servidor — Portal do Servidor'),
         ('consulta', 'Somente consulta'),
