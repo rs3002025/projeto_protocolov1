@@ -435,6 +435,17 @@ def parse_iso_date(value, field_name):
     except ValueError:
         abort(400, description=f'{field_name} inválida.')
 
+def filter_displayed_protocol_status(query, status):
+    from models import AutorizacaoProtocolo
+    pending = exists().where(
+        AutorizacaoProtocolo.tenant_id == Protocolo.tenant_id,
+        AutorizacaoProtocolo.protocolo_id == Protocolo.id,
+        AutorizacaoProtocolo.status == 'PENDENTE')
+    if status == 'AGUARDANDO AUTORIZAÇÃO':
+        return query.filter(pending)
+    return filter_status(query.filter(~pending), Protocolo.status, status)
+
+
 def apply_protocol_filters(query, args):
     """Mantém listagem, relatório e exportação com o mesmo resultado."""
     numero = (args.get('numero') or '').strip()
@@ -452,7 +463,7 @@ def apply_protocol_filters(query, args):
     if nome:
         query = query.filter(Protocolo.nome.ilike(f'%{nome}%'))
     if status:
-        query = filter_status(query, Protocolo.status, status)
+        query = filter_displayed_protocol_status(query, status)
     if data_inicio:
         query = query.filter(Protocolo.data_solicitacao >= data_inicio)
     if data_fim:
@@ -785,7 +796,8 @@ def permission_context():
     return {
         'can': lambda permission: current_user.is_authenticated and permission in ROLE_PERMISSIONS.get(current_user.tipo, set()),
         'protocol_location': protocol_location,
-        'protocol_statuses': PROTOCOL_STATUSES,
+        'protocol_statuses': PROTOCOL_STATUSES + (('AGUARDANDO AUTORIZAÇÃO',)
+            if organization and organization.autorizacao_protocolos_enabled else ()),
         'canonical_status': canonical_status,
         'can_update_protocol_status': can_update_protocol_status,
         'manual_protocol_statuses': MANUAL_STATUSES,
@@ -1076,11 +1088,20 @@ def register():
     return redirect(url_for('login'))
 
 
+def login_destination_response(destination):
+    # O fetch recebe somente o destino, sem carregar o painel antes da navegação.
+    if request.headers.get('X-Login-Request') == '1':
+        response = jsonify(redirect_to=destination)
+        response.headers['Cache-Control'] = 'no-store'
+        return response
+    return redirect(destination)
+
+
 @app.route('/entrar/<string:slug>', methods=['GET', 'POST'])
 def tenant_login(slug):
     """Entrada do backoffice com a organização resolvida antes da autenticação."""
     if current_user.is_authenticated:
-        return redirect(url_for('home'))
+        return login_destination_response(url_for('home'))
     organizacao = Organizacao.query.filter_by(slug=slug.strip().lower(), ativo=True).first_or_404()
     form = TenantLoginForm()
     if form.validate_on_submit():
@@ -1114,7 +1135,7 @@ def tenant_login(slug):
                 session.pop('active_tenant_id', None)
                 destination = url_for('platform_organizations')
             flash('Login bem-sucedido!', 'success')
-            return redirect(destination or url_for('home'))
+            return login_destination_response(destination or url_for('home'))
         if not tentativa:
             tentativa = LoginTentativa(
                 identificador_hash=fingerprint, tentativas=0, janela_iniciada_em=agora
@@ -1810,7 +1831,7 @@ def login():
     organização já está definida e não é solicitada na tela.
     """
     if current_user.is_authenticated:
-        return redirect(url_for('home'))
+        return login_destination_response(url_for('home'))
     form = LoginForm()
     if form.validate_on_submit():
         agora = datetime.utcnow()
@@ -1840,7 +1861,7 @@ def login():
             if user.is_platform_admin:
                 session.pop('active_tenant_id', None)
                 destination = url_for('platform_organizations')
-            return redirect(destination or url_for('home'))
+            return login_destination_response(destination or url_for('home'))
         else:
             if not tentativa:
                 tentativa = LoginTentativa(identificador_hash=fingerprint, tentativas=0,
@@ -2792,7 +2813,7 @@ def admin_toggle_item_status(item_type, item_id):
 
 # --- Rota de Geração de PDF ---
 
-def render_protocol_pdf(protocolo, emissao=None):
+def render_protocol_pdf(protocolo, emissao=None, *, external_view=False):
     import base64
     import qrcode
     from weasyprint import HTML
@@ -2813,7 +2834,9 @@ def render_protocol_pdf(protocolo, emissao=None):
         'pdf_template.html', protocolo=protocolo, organizacao=organizacao,
         pdf_logo_url=public_url('organization_logo', slug=organizacao.slug,
                                 v=version), qr_code_url=qr_code_url,
-        emissao=emissao, qr_validacao_url=qr_validacao_url)
+        emissao=emissao, qr_validacao_url=qr_validacao_url,
+        pdf_request_attachments=[a for a in request_attachments(protocolo.anexos)
+            if not external_view or portal_attachment_visible(a)])
     return HTML(string=rendered_html, base_url=request.base_url).write_pdf()
 
 @app.route('/protocolo/<int:protocolo_id>/pdf')
@@ -2827,7 +2850,7 @@ def gerar_pdf_protocolo(protocolo_id):
     ).order_by(Anexo.versao.desc(), Anexo.id.desc()).first()
     if documento:
         return _response_pdf_documento(documento)
-    pdf_bytes = render_protocol_pdf(protocolo)
+    pdf_bytes = render_protocol_pdf(protocolo, external_view=current_user.tipo == 'requerente')
 
     # Cria a resposta HTTP com o PDF
     response = make_response(pdf_bytes)
@@ -3807,7 +3830,7 @@ def dashboard_stats():
         # --- Base Query Construction ---
         base_query = accessible_protocols_query()
         if status:
-            base_query = filter_status(base_query, Protocolo.status, status)
+            base_query = filter_displayed_protocol_status(base_query, status)
         if tipo:
             base_query = base_query.filter(Protocolo.tipo_requerimento == tipo)
         if lotacao:
