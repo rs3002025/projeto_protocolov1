@@ -38,3 +38,8 @@ def movement_date_precision():
     administrative_receipt = tuple_(Movimentacao.tenant_id, Movimentacao.protocolo_id,
         Movimentacao.recebido_em).in_(historical_marks(['RECEBIMENTO'], regularization=True))
     return sent_day_only, administrative_receipt
+
+
+def completion_day_only():
+    return tuple_(Protocolo.tenant_id, Protocolo.id, Protocolo.finalizado_em).in_(
+        historical_marks(['CONCLUSAO_LEGADA']))

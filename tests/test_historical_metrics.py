@@ -92,3 +92,20 @@ class HistoricalMetricsTests(TestCase):
             db.session.commit()
         context=self.context('/home','home.html')
         self.assertFalse(any(h.responsavel=='Regularização do acervo' for h in context['workbench']['activity']))
+
+    def test_dated_historical_closure_counts_by_day_without_inventing_hourly_service_time(self):
+        self.login('admin')
+        with app.app_context():
+            p=db.session.get(Protocolo,self.pid);p.data_solicitacao=date(2026,10,1)
+            p.status='CONCLUÍDO';p.finalizado_em=datetime(2026,10,2,3)
+            db.session.add(HistoricoProtocolo(tenant_id=self.tenant,protocolo_id=p.id,
+                acao='CONCLUSAO_LEGADA',data_movimentacao=p.finalizado_em))
+            db.session.add(Movimentacao(tenant_id=self.tenant,protocolo_id=p.id,
+                setor_destino_id=self.sector,enviado_por_id=self.ids['admin'],
+                enviado_em=datetime(2026,10,1,10),recebido_em=datetime(2026,10,1,12),recebido_por_id=self.ids['admin']))
+            db.session.commit()
+        report=self.report('2026-10-01','2026-10-02')
+        self.assertEqual(report['conclusoes'],1);self.assertEqual(report['conclusoes_estimadas'],0)
+        self.assertEqual(report['media_dias'],1)
+        self.assertEqual(report['sectors'][0]['espera_media'],2)
+        self.assertIsNone(report['sectors'][0]['atendimento_medio'])

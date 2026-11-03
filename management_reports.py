@@ -4,7 +4,7 @@ from collections import defaultdict
 from datetime import datetime,time,timedelta,timezone
 from zoneinfo import ZoneInfo
 from flask import abort,render_template,request,send_file
-from sqlalchemy import and_,func,or_,select,type_coerce,DateTime
+from sqlalchemy import and_,case,func,or_,select,type_coerce,DateTime
 
 BR=ZoneInfo('America/Sao_Paulo')
 CLOSED=('FINALIZADO','CONCLUÍDO','ARQUIVADO')
@@ -18,7 +18,7 @@ def management_data(args):
     from app import (accessible_protocols_query,current_tenant_id,db,parse_iso_date,tenant_query)
     from models import Protocolo,Movimentacao,ProvidenciaProtocolo,Lotacao
     from dashboard_workbench import today_brasilia
-    from historical_metrics import completion_dates, movement_date_precision
+    from historical_metrics import completion_dates, movement_date_precision, completion_day_only
     end=parse_iso_date(args.get('data_fim'),'Data final') or today_brasilia()
     start=parse_iso_date(args.get('data_inicio'),'Data inicial') or end-timedelta(days=29)
     if start>end or (end-start).days>3660:
@@ -57,7 +57,7 @@ def management_data(args):
         type_coerce(func.lead(Movimentacao.enviado_em).over(partition_by=[Movimentacao.protocolo_id,Movimentacao.providencia_id],
             order_by=Movimentacao.id),DateTime()).label('next_sent'),
         ProvidenciaProtocolo.concluida_em.label('participation_end'),
-        completed_at.label('closed_at'),Protocolo.arquivado_em.label('archived_at'),
+        case((completion_day_only(),None),else_=completed_at).label('closed_at'),Protocolo.arquivado_em.label('archived_at'),
         Protocolo.status.label('status')).join(Protocolo,Protocolo.id==Movimentacao.protocolo_id).outerjoin(
         ProvidenciaProtocolo,and_(ProvidenciaProtocolo.id==Movimentacao.providencia_id,
                                  ProvidenciaProtocolo.tenant_id==tenant)).where(
