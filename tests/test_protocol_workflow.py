@@ -599,14 +599,16 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(self.post('finalizar').status_code, 302)
 
     def test_completion_aliases_share_filters_display_and_dashboard(self):
-        from datetime import date
+        from datetime import date, datetime, timezone
+        finished = datetime.now(timezone.utc).replace(tzinfo=None)
         self.login('admin')
         with app.app_context():
             legacy = db.session.get(Protocolo, self.pid)
             legacy.status = 'FINALIZADO'
+            legacy.finalizado_em = finished
             legacy.data_solicitacao = date.today()
             canonical = Protocolo(tenant_id=self.tenant, numero='0002/2026',
-                nome='Outro fictício', status='CONCLUÍDO', data_solicitacao=date.today())
+                nome='Outro fictício', status='CONCLUÍDO', data_solicitacao=date.today(), finalizado_em=finished)
             db.session.add(canonical); db.session.commit()
             self.assertEqual(legacy.status_exibicao, 'CONCLUÍDO')
         for value in ('FINALIZADO', 'CONCLUÍDO'):
