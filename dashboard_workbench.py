@@ -227,6 +227,8 @@ def build_workbench(args):
     elif scope == 'acompanhando':
         activity_scope = activity_scope.filter(watching)
     activity = tenant_query(HistoricoProtocolo).filter(
+        or_(HistoricoProtocolo.responsavel.is_(None),
+            HistoricoProtocolo.responsavel != 'Regularização do acervo'),
         HistoricoProtocolo.protocolo_id.in_(activity_scope.with_entities(Protocolo.id).statement),
         HistoricoProtocolo.acao.in_(['CRIACAO','TRAMITACAO','RECEBIMENTO','DESPACHO_REGISTRADO',
                                   'COMPLEMENTO_SOLICITADO','COMPLEMENTO_ENVIADO','FINALIZACAO',
