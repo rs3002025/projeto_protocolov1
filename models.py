@@ -267,6 +267,12 @@ class Protocolo(TenantMixin, db.Model):
         return next((a for a in self.autorizacoes if a.status == 'PENDENTE'), None)
 
     @property
+    def conclusao_estimada(self):
+        return bool(self.finalizado_em and any(
+            h.acao == 'CONCLUSAO_ESTIMADA_ACERVO' and h.data_movimentacao == self.finalizado_em
+            for h in self.historico))
+
+    @property
     def status_exibicao(self):
         from protocol_status import canonical_status
         if self.autorizacao_pendente:

@@ -17,6 +17,7 @@ body{font:10.5pt 'DejaVu Sans',sans-serif;color:#213b38;line-height:1.55}header{
 <h2>Tramitação do protocolo {{ protocolo.numero }}</h2><p class="muted">Histórico de tramitação em ordem cronológica.</p>
 {% for event in timeline %}<article class="event"><div class="event-heading"><h3>{{ event.title }}</h3><div class="tag">{{ event.date }}{% if event.actor %} · {{ event.actor }}{% endif %}{% if event.status %} · {{ canonical_status(event.status) }}{% endif %}</div></div>{% if event.system %}<p class="note">{{ event.system }}</p>{% endif %}{% if event.note %}<div class="note">{{ event.note }}</div>{% endif %}</article>{% else %}<p>Nenhuma movimentação registrada.</p>{% endfor %}
 {% if protocolo.resultado_final %}<h3>Resultado do processo</h3><p class="note">{{ protocolo.resultado_final }}</p>{% endif %}
+{% if protocolo.finalizado_em %}<p><strong>Data de conclusão{% if protocolo.conclusao_estimada %} estimada{% endif %}:</strong> {{ protocolo.finalizado_em|brasilia('%d/%m/%Y') }}</p>{% endif %}
 {% elif section=='original' %}
 <h2>{{ document_title }}</h2><div class="notice"><p>Este arquivo foi preservado no formato original no pacote completo.</p><p>Local: <strong>{{ original_path }}</strong></p><p>Para consultá-lo, use a opção <strong>Pacote completo (ZIP)</strong> e abra o arquivo com o aplicativo correspondente.</p></div><p class="muted">O formato do arquivo, a proteção ou os recursos interativos impedem sua incorporação como página estática neste PDF.</p>
 {% endif %}

@@ -654,6 +654,7 @@ SUPPORT_STATUSES = ('ABERTO', 'EM ATENDIMENTO', 'AGUARDANDO USUÁRIO', 'RESOLVID
 SUPPORT_CATEGORIES = ('ACESSO', 'PROTOCOLOS', 'DOCUMENTOS', 'RELATÓRIOS', 'CONFIGURAÇÃO', 'OUTRO')
 SUPPORT_PRIORITIES = ('BAIXA', 'NORMAL', 'ALTA', 'CRÍTICA')
 HISTORY_ACTION_LABELS = {
+    'CONCLUSAO_ESTIMADA_ACERVO': 'Fechamento estimado',
     'AUTORIZACAO_SOLICITADA': 'Autorização solicitada',
     'AUTORIZACAO_DECIDIDA': 'Decisão da autorização',
     'AUTORIZACAO_DOCUMENTO_ANEXADO': 'Documento anexado pelo autorizador',
@@ -698,6 +699,8 @@ LEGACY_HISTORY_ACTIONS = frozenset({
 
 
 def history_date_label(event):
+    if event.acao == 'CONCLUSAO_ESTIMADA_ACERVO':
+        return format_brasilia(event.data_movimentacao, '%d/%m/%Y') + ' (estimada)'
     # Source ledgers provide a date, never a verified time of day.
     fmt = '%d/%m/%Y' if event.acao in LEGACY_HISTORY_ACTIONS else '%d/%m/%Y às %H:%M'
     return format_brasilia(event.data_movimentacao, fmt)
@@ -717,6 +720,14 @@ def history_is_regularization(event):
 
 
 def history_visible(event):
+    if history_is_regularization(event) and event.acao == 'TRAMITACAO':
+        # Esconde a cópia administrativa somente quando o evento com a data
+        # histórica já foi acrescentado, preservando cargas ainda não revistas.
+        text = re.sub(r'\s*Conforme relatório de expedientes\.\s*$', '', event.observacao or '').rstrip()
+        protocol = getattr(event, 'protocolo', None)
+        if protocol and any(h.acao == 'TRAMITACAO_LEGADA' and h.observacao == text
+                            for h in protocol.historico):
+            return False
     # O estado do processo já aparece no resumo; esta justificativa é da carga.
     if history_is_regularization(event) and event.acao == 'ATUALIZACAO' and re.fullmatch(
             r'Autoria do cadastro atribuída a .+ conforme acervo\.', (event.observacao or '').strip()):
@@ -3877,8 +3888,18 @@ def dashboard_stats():
             Protocolo.prazo_em == None,
             ~Protocolo.status.in_(encerrados)).count()
 
-        # --- Finalizados no Período (Card) ---
-        total_finalizados = period_query.filter(Protocolo.status.in_(['FINALIZADO', 'CONCLUÍDO'])).count()
+        # A conclusão pertence ao período em que aconteceu, independentemente
+        # do ano em que o pedido foi aberto. Regularizações não são conclusões.
+        from historical_metrics import completion_dates
+        from datetime import time as day_time
+        from zoneinfo import ZoneInfo
+        completed_at, estimated_at = completion_dates()
+        period_start = start or today_brasilia() - timedelta(days=6)
+        period_end = end or today_brasilia()
+        begin = datetime.combine(period_start, day_time.min, tzinfo=ZoneInfo('America/Sao_Paulo')).astimezone(timezone.utc).replace(tzinfo=None)
+        finish = datetime.combine(period_end + timedelta(days=1), day_time.min, tzinfo=ZoneInfo('America/Sao_Paulo')).astimezone(timezone.utc).replace(tzinfo=None)
+        total_finalizados = base_query.filter(completed_at >= begin, completed_at < finish).count()
+        total_estimados = base_query.filter(estimated_at >= begin, estimated_at < finish).count()
 
         # --- Top 5 Tipos (Bar Chart) ---
         top_tipos = period_query.with_entities(
@@ -3946,6 +3967,7 @@ def dashboard_stats():
             'vencemProximos7': vencem_proximos_7 or 0,
             'semPrazo': sem_prazo or 0,
             'totalFinalizados': total_finalizados,
+            'totalFinalizadosEstimados': total_estimados,
             'topTipos': [{'tipo_requerimento': r.tipo_requerimento, 'total': r.total} for r in top_tipos],
             'todosTipos': [{'tipo_requerimento': r.tipo_requerimento, 'total': r.total} for r in todos_tipos],
             'statusProtocolos': grouped_status_counts(status_protocolos),

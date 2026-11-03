@@ -18,6 +18,7 @@ def management_data(args):
     from app import (accessible_protocols_query,current_tenant_id,db,parse_iso_date,tenant_query)
     from models import Protocolo,Movimentacao,ProvidenciaProtocolo,Lotacao
     from dashboard_workbench import today_brasilia
+    from historical_metrics import completion_dates, movement_date_precision
     end=parse_iso_date(args.get('data_fim'),'Data final') or today_brasilia()
     start=parse_iso_date(args.get('data_inicio'),'Data inicial') or end-timedelta(days=29)
     if start>end or (end-start).days>3660:
@@ -25,18 +26,23 @@ def management_data(args):
     begin=datetime.combine(start,time.min,tzinfo=BR).astimezone(timezone.utc).replace(tzinfo=None)
     finish=datetime.combine(end+timedelta(days=1),time.min,tzinfo=BR).astimezone(timezone.utc).replace(tzinfo=None)
     tenant=current_tenant_id(); query=accessible_protocols_query()
+    completed_at, estimated_at=completion_dates()
+    sent_day_only, administrative_receipt=movement_date_precision()
     entries=query.filter(Protocolo.data_solicitacao>=start,Protocolo.data_solicitacao<=end).with_entities(
         Protocolo.data_solicitacao,func.count(Protocolo.id)).group_by(Protocolo.data_solicitacao).all()
     # Datas UTC do banco são apresentadas no dia civil de Brasília.
-    closing=query.filter(Protocolo.finalizado_em>=begin,Protocolo.finalizado_em<finish).with_entities(
-        Protocolo.data_solicitacao,Protocolo.finalizado_em).all()
-    daily=defaultdict(lambda:{'entradas':0,'conclusoes':0})
+    closing=query.filter(completed_at>=begin,completed_at<finish).with_entities(
+        Protocolo.data_solicitacao,completed_at).all()
+    estimated=query.filter(estimated_at>=begin,estimated_at<finish).with_entities(estimated_at).all()
+    daily=defaultdict(lambda:{'entradas':0,'conclusoes':0,'estimadas':0})
     for day,count in entries: daily[day]['entradas']=count
     valid_days=[]
     for requested,finished in closing:
         day=utc(finished).astimezone(BR).date(); daily[day]['conclusoes']+=1
         if requested and requested<=day: valid_days.append((day-requested).days)
-    untracked=query.filter(Protocolo.finalizado_em.is_(None),or_(
+    for (finished,) in estimated:
+        daily[utc(finished).astimezone(BR).date()]['estimadas']+=1
+    untracked=query.filter(completed_at.is_(None),estimated_at.is_(None),or_(
         Protocolo.status.in_(['FINALIZADO','CONCLUÍDO']),Protocolo.arquivado_em.isnot(None),Protocolo.status=='ARQUIVADO')).count()
     accessible=query.with_entities(Protocolo.id).statement
     # A janela considera todo o histórico antes de recortar o período. Assim,
@@ -45,10 +51,13 @@ def management_data(args):
         func.max(Movimentacao.id).over(partition_by=Movimentacao.protocolo_id).label('latest_protocol_move'),
         Movimentacao.setor_destino_id.label('setor'),
         Movimentacao.enviado_em.label('sent'),Movimentacao.recebido_em.label('received'),
+        sent_day_only.label('sent_day_only'),administrative_receipt.label('administrative_receipt'),
+        func.lead(sent_day_only).over(partition_by=[Movimentacao.protocolo_id,Movimentacao.providencia_id],
+            order_by=Movimentacao.id).label('next_sent_day_only'),
         type_coerce(func.lead(Movimentacao.enviado_em).over(partition_by=[Movimentacao.protocolo_id,Movimentacao.providencia_id],
             order_by=Movimentacao.id),DateTime()).label('next_sent'),
         ProvidenciaProtocolo.concluida_em.label('participation_end'),
-        Protocolo.finalizado_em.label('closed_at'),Protocolo.arquivado_em.label('archived_at'),
+        completed_at.label('closed_at'),Protocolo.arquivado_em.label('archived_at'),
         Protocolo.status.label('status')).join(Protocolo,Protocolo.id==Movimentacao.protocolo_id).outerjoin(
         ProvidenciaProtocolo,and_(ProvidenciaProtocolo.id==Movimentacao.providencia_id,
                                  ProvidenciaProtocolo.tenant_id==tenant)).where(
@@ -67,9 +76,12 @@ def management_data(args):
                  (movement['participation_id'] is not None or movement['id']==movement['latest_protocol_move']))
         if received:
             row['recebidos']+=1
-            if received>=sent: row['wait'].append((received-sent).total_seconds()/3600)
+            receipt_known=not movement['administrative_receipt']
+            if receipt_known and not movement['sent_day_only'] and received>=sent:
+                row['wait'].append((received-sent).total_seconds()/3600)
             ends=[value for value in endpoints if value>=received]
-            if ends: row['service'].append((min(ends)-received).total_seconds()/3600)
+            if ends and receipt_known and not movement['next_sent_day_only']:
+                row['service'].append((min(ends)-received).total_seconds()/3600)
             elif movement['status'] in CLOSED or not current: row['sem_marco']+=1
         elif any(value>=sent for value in endpoints) or movement['status'] in CLOSED or not current:
             row['redirecionados']+=1
@@ -79,17 +91,17 @@ def management_data(args):
             row[target]=round(sum(row[values])/len(row[values]),1) if row[values] else None
         row['base_espera']=len(row.pop('wait')); row['base_atendimento']=len(row.pop('service'))
     monthly=(end-start).days>92
-    chart_totals=defaultdict(lambda:{'entradas':0,'conclusoes':0})
+    chart_totals=defaultdict(lambda:{'entradas':0,'conclusoes':0,'estimadas':0})
     for day,values in daily.items():
         key=day.replace(day=1) if monthly else day
-        for kind in ('entradas','conclusoes'): chart_totals[key][kind]+=values[kind]
-    chart=dict(labels=[],entradas=[],conclusoes=[],agrupamento='Por mês' if monthly else 'Por dia')
+        for kind in ('entradas','conclusoes','estimadas'): chart_totals[key][kind]+=values[kind]
+    chart=dict(labels=[],entradas=[],conclusoes=[],estimadas=[],agrupamento='Por mês' if monthly else 'Por dia')
     cursor=start.replace(day=1) if monthly else start
     while cursor<=end:
         chart['labels'].append(cursor.strftime('%m/%Y' if monthly else '%d/%m/%Y'))
-        for kind in ('entradas','conclusoes'): chart[kind].append(chart_totals[cursor][kind])
+        for kind in ('entradas','conclusoes','estimadas'): chart[kind].append(chart_totals[cursor][kind])
         cursor=(cursor.replace(day=28)+timedelta(days=4)).replace(day=1) if monthly else cursor+timedelta(days=1)
-    return dict(start=start,end=end,entradas=sum(c for _,c in entries),conclusoes=len(closing),chart=chart,
+    return dict(start=start,end=end,entradas=sum(c for _,c in entries),conclusoes=len(closing),conclusoes_estimadas=len(estimated),chart=chart,
         media_dias=round(sum(valid_days)/len(valid_days),1) if valid_days else None,base_media=len(valid_days),
         sem_data_conclusao=untracked,daily=[dict(data=d,**daily[d]) for d in sorted(daily)],
         sectors=sorted(sectors.values(),key=lambda r:(-r['pendentes'],-r['enviados'],r['nome'])))
@@ -110,8 +122,8 @@ def register_management_routes(app):
         from openpyxl.styles import Font,PatternFill
         report=management_data(request.args); workbook=Workbook(); sheet=workbook.active; sheet.title='Entradas e conclusões'
         sheet.append(['Período',report['start'].isoformat(),report['end'].isoformat()])
-        sheet.append(['Data do registro','Entradas (data do pedido)','Conclusões (data registrada)'])
-        for row in report['daily']: sheet.append([row['data'].isoformat(),row['entradas'],row['conclusoes']])
+        sheet.append(['Data','Entradas (data do pedido)','Conclusões com data conhecida','Conclusões estimadas'])
+        for row in report['daily']: sheet.append([row['data'].isoformat(),row['entradas'],row['conclusoes'],row['estimadas']])
         sheet=workbook.create_sheet('Tempos por setor')
         sheet.append(['Setor','Encaminhamentos','Recebidos','Ainda aguardando','Encerrados sem recebimento',
             'Espera média (h)','Base espera','Atendimento médio encerrado (h)','Base atendimento','Sem marco final'])
@@ -124,7 +136,8 @@ def register_management_routes(app):
                      'Médias setoriais consideram somente intervalos completos, sem durações negativas.',
                      'Cada encaminhamento conta separadamente, inclusive participações paralelas do mesmo processo.',
                      'Encaminhamentos selecionados pela data de envio; pendências são a situação atual desses encaminhamentos.',
-                     'Conclusões por período consideram a data de conclusão registrada.',
+                     'Conclusões estimadas são apresentadas separadamente e não entram nos tempos médios.',
+                     'Médias em horas exigem horários conhecidos; recebimentos regularizados sem data histórica ficam fora dessas médias.',
                      f"Processos encerrados sem data de conclusão: {report['sem_data_conclusao']}.",
                      f"Média até a conclusão: {report['media_dias']} dias corridos; base: {report['base_media']} processos."):
             notes.append([note])
