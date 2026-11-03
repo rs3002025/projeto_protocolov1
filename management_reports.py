@@ -126,7 +126,7 @@ def register_management_routes(app):
         for row in report['daily']: sheet.append([row['data'].isoformat(),row['entradas'],row['conclusoes'],row['estimadas']])
         sheet=workbook.create_sheet('Tempos por setor')
         sheet.append(['Setor','Encaminhamentos','Recebidos','Ainda aguardando','Encerrados sem recebimento',
-            'Espera média (h)','Base espera','Atendimento médio encerrado (h)','Base atendimento','Sem marco final'])
+            'Espera média (h)','Base espera','Atendimento médio encerrado (h)','Base atendimento','Sem intervalo completo'])
         for row in report['sectors']:
             name=row['nome']; name="'"+name if name.startswith(('=','+','-','@')) else name
             sheet.append([name,row['enviados'],row['recebidos'],row['pendentes'],row['redirecionados'],row['espera_media'],
