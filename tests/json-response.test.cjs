@@ -92,3 +92,19 @@ test('data do protocolo usa Brasília durante a virada do dia em UTC',()=>{
   assert.equal(context.todayInBrasilia(new Date('2026-11-03T03:00:00Z')),'2026-11-03');
   assert.equal(context.todayInBrasilia(new Date('2027-01-01T01:00:00Z')),'2026-12-31');
 });
+
+test('seleção do servidor preenche matrícula com zeros e não é sobrescrita por consulta antiga',async()=>{
+  const fields=Object.fromEntries(['matricula','nome','cargo','unidade','cpf','rg','endereco','bairro','municipio','cep','telefone','lotacao'].map(id=>[id,{value:''}]));
+  fields.matricula.value='ANTIGA';fields.lotacao.options=[{value:'RH'}];
+  let resolveFetch;
+  const scope=vm.createContext({console:{error(){},warn(){}},document:{getElementById:id=>fields[id]},
+    fetch:()=>new Promise(resolve=>{resolveFetch=resolve}),readJsonResponse:async r=>r.json()});
+  vm.runInContext(source.slice(source.indexOf('let matriculaRequestSerial'),source.indexOf('async function fetchCep()')),scope);
+  vm.runInContext(source.slice(source.indexOf('function preencherCamposServidor'),source.indexOf('function openServidorSearchModal')),scope);
+  const request=scope.fetchServidorByMatricula();
+  scope.preencherCamposServidor({nome:'Pessoa selecionada',matricula:'001234',lotacao:'RH',cpf:'01234567890'});
+  assert.equal(fields.matricula.value,'001234');assert.equal(fields.cpf.value,'01234567890');
+  resolveFetch({status:200,json:async()=>({nome:'Resposta antiga',matricula:'ANTIGA',lotacao:'RH'})});
+  await request;
+  assert.equal(fields.matricula.value,'001234');assert.equal(fields.nome.value,'Pessoa selecionada');
+});

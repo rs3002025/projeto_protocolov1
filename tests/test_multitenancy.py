@@ -348,13 +348,13 @@ def test_login_nao_redireciona_para_site_externo():
 def test_login_bloqueia_forca_bruta_sem_revelar_usuario():
     client = app.test_client()
     dados = {'organizacao': 'cliente-a', 'login': 'inexistente', 'senha': 'incorreta'}
-    for _ in range(5):
+    for _ in range(4):
         response = client.post('/entrar/cliente-a', data=dados)
         assert response.status_code == 200
         assert 'Não foi possível autenticar' in response.get_data(as_text=True)
     bloqueado = client.post('/entrar/cliente-a', data=dados)
     assert bloqueado.status_code == 429
-    assert 'Aguarde alguns minutos' in bloqueado.get_data(as_text=True)
+    assert 'Acesso temporariamente bloqueado' in bloqueado.get_data(as_text=True)
     with app.app_context():
         tentativa = LoginTentativa.query.one()
         tentativa.janela_iniciada_em = datetime.utcnow() - timedelta(minutes=16)

@@ -1101,6 +1101,28 @@ def register():
     return redirect(url_for('login'))
 
 
+def login_failure_response(template, form, tentativa, agora, **context):
+    from math import ceil
+    blocked = bool(tentativa.bloqueado_ate and tentativa.bloqueado_ate > agora)
+    if blocked:
+        seconds = max(1, ceil((tentativa.bloqueado_ate - agora).total_seconds()))
+        minutes = ceil(seconds / 60)
+        message = ('Acesso temporariamente bloqueado nesta conexão por excesso de tentativas. '
+                   f'Tente novamente em {minutes} ' + ('minuto.' if minutes == 1 else 'minutos.'))
+    else:
+        remaining = max(0, 5 - tentativa.tentativas)
+        verb = 'Resta' if remaining == 1 else 'Restam'
+        message = ('Não foi possível autenticar. Verifique os dados informados. '
+                   f'{verb} {remaining} ' + ('tentativa' if remaining == 1 else 'tentativas') +
+                   ' antes do bloqueio de 30 minutos nesta conexão.')
+    flash(message, 'danger')
+    response = make_response(render_template(template, form=form, **context), 429 if blocked else 200)
+    response.headers['Cache-Control'] = 'no-store'
+    if blocked:
+        response.headers['Retry-After'] = str(seconds)
+    return response
+
+
 def login_destination_response(destination):
     # O fetch recebe somente o destino, sem carregar o painel antes da navegação.
     if request.headers.get('X-Login-Request') == '1':
@@ -1122,12 +1144,11 @@ def tenant_login(slug):
         fingerprint = login_fingerprint(organizacao.slug, form.login.data)
         tentativa = LoginTentativa.query.filter_by(identificador_hash=fingerprint).with_for_update().first()
         if tentativa and tentativa.bloqueado_ate and tentativa.bloqueado_ate > agora:
-            flash('Não foi possível autenticar. Aguarde alguns minutos e tente novamente.', 'danger')
-            return render_template(
-                'login.html', title=f'Login — {organizacao.nome}', form=form,
+            return login_failure_response(
+                'login.html', form, tentativa, agora, title=f'Login — {organizacao.nome}',
                 login_organization=organizacao,
                 branding_logo_url=url_for('organization_logo', slug=organizacao.slug),
-            ), 429
+            )
         if tentativa and tentativa.janela_iniciada_em < agora - timedelta(minutes=15):
             tentativa.tentativas = 0
             tentativa.janela_iniciada_em = agora
@@ -1158,7 +1179,9 @@ def tenant_login(slug):
         if tentativa.tentativas >= 5:
             tentativa.bloqueado_ate = agora + timedelta(minutes=30)
         db.session.commit()
-        flash('Não foi possível autenticar. Verifique os dados informados.', 'danger')
+        return login_failure_response('login.html', form, tentativa, agora,
+            title=f'Login — {organizacao.nome}', login_organization=organizacao,
+            branding_logo_url=url_for('organization_logo', slug=organizacao.slug))
     return render_template(
         'login.html', title=f'Login — {organizacao.nome}', form=form,
         login_organization=organizacao,
@@ -1292,8 +1315,7 @@ def portal_login(slug):
         fingerprint = login_fingerprint(f'portal:{organizacao.slug}', form.login.data)
         tentativa = LoginTentativa.query.filter_by(identificador_hash=fingerprint).with_for_update().first()
         if tentativa and tentativa.bloqueado_ate and tentativa.bloqueado_ate > agora:
-            flash('Não foi possível autenticar. Aguarde alguns minutos e tente novamente.', 'danger')
-            return render_template('portal_login.html', form=form, organizacao=organizacao), 429
+            return login_failure_response('portal_login.html', form, tentativa, agora, organizacao=organizacao)
         if tentativa and tentativa.janela_iniciada_em < agora - timedelta(minutes=15):
             tentativa.tentativas = 0
             tentativa.janela_iniciada_em = agora
@@ -1324,7 +1346,7 @@ def portal_login(slug):
         if tentativa.tentativas >= 5:
             tentativa.bloqueado_ate = agora + timedelta(minutes=30)
         db.session.commit()
-        flash('Não foi possível autenticar. Verifique os dados informados.', 'danger')
+        return login_failure_response('portal_login.html', form, tentativa, agora, organizacao=organizacao)
     return render_template('portal_login.html', form=form, organizacao=organizacao)
 
 
@@ -1851,8 +1873,7 @@ def login():
         fingerprint = login_fingerprint('__plataforma__', form.login.data)
         tentativa = LoginTentativa.query.filter_by(identificador_hash=fingerprint).with_for_update().first()
         if tentativa and tentativa.bloqueado_ate and tentativa.bloqueado_ate > agora:
-            flash('Não foi possível autenticar. Aguarde alguns minutos e tente novamente.', 'danger')
-            return render_template('login.html', title='Login', form=form), 429
+            return login_failure_response('login.html', form, tentativa, agora, title='Login')
         if tentativa and tentativa.janela_iniciada_em < agora - timedelta(minutes=15):
             tentativa.tentativas = 0
             tentativa.janela_iniciada_em = agora
@@ -1884,7 +1905,7 @@ def login():
             if tentativa.tentativas >= 5:
                 tentativa.bloqueado_ate = agora + timedelta(minutes=30)
             db.session.commit()
-            flash('Não foi possível autenticar. Verifique os dados informados.', 'danger')
+            return login_failure_response('login.html', form, tentativa, agora, title='Login')
     return render_template('login.html', title='Login', form=form)
 
 
