@@ -105,6 +105,20 @@ try:
   with patch('app.public_url',side_effect=fixture_asset_url), patch('app.bucket_client',return_value=None):
     admin=client_for('admin');protocolist=client_for('protocolo');viewer=client_for('consulta')
     alice=client_for('alice');bob=client_for('bob');carol=client_for('carol');global_client=client_for('global')
+    from user_activity import record_activity, active_counts
+    from models import AtividadeUsuario
+    def concurrent_activity(_):
+        with app.app_context():
+            record_activity(users['alice']['id'], tenant)
+    with ThreadPoolExecutor(max_workers=3) as activity_pool:
+        list(activity_pool.map(concurrent_activity, range(6)))
+    with app.app_context():
+        check(AtividadeUsuario.query.filter_by(usuario_id=users['alice']['id']).count()==1,
+              'Atividade concorrente mantém uma linha por usuário')
+        check(active_counts().get(tenant)==6, 'Contagem de atividade exclui administrador geral')
+    activity_page=request(global_client,'get',f'/plataforma/clientes/{tenant}/atividade')
+    check('Atividade dos usuários' in activity_page.text, 'Administrador geral consulta atividade por cliente')
+    request(admin,'get',f'/plataforma/clientes/{tenant}/atividade',403)
     for path in ('/home','/protocolos','/meus_protocolos','/relatorios','/relatorios/gestao','/configuracoes',
                  '/modelos-despacho','/admin/recuperar-documento','/admin/auditoria','/admin/servidores/cadastro-portal'):
         request(admin,'get',path)

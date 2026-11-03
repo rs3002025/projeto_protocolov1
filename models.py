@@ -145,6 +145,13 @@ class ModeloDespacho(TenantMixin, db.Model):
     atualizado_em = db.Column(db.TIMESTAMP(timezone=True), nullable=False, server_default=db.func.now())
 
 
+class AtividadeUsuario(TenantMixin, db.Model):
+    __tablename__ = 'atividade_usuarios'
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id', ondelete='CASCADE'), primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey('organizacoes.id'), nullable=False, index=True)
+    ultimo_acesso_em = db.Column(db.TIMESTAMP(timezone=True), nullable=False, index=True)
+
+
 class PortalSessao(TenantMixin, db.Model):
     __tablename__ = 'portal_sessoes'
     id = db.Column(ID_TYPE, primary_key=True)

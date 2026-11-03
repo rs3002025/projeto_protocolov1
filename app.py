@@ -1978,7 +1978,7 @@ def platform_admin_required(f):
 def require_platform_tenant_selection():
     if not current_user.is_authenticated or not current_user.is_platform_admin:
         return None
-    allowed = {'platform_organizations', 'platform_select_organization', 'platform_create_admin',
+    allowed = {'platform_organizations', 'platform_user_activity', 'platform_select_organization', 'platform_create_admin',
                'platform_set_subdomain', 'logout',
                'trocar_senha_inicial', 'configurar_pin', 'solicitar_redefinicao_pin',
                'platform_update_capabilities',
@@ -2142,11 +2142,14 @@ def solicitar_redefinicao_pin():
 @platform_admin_required
 def platform_organizations():
     organizations = Organizacao.query.order_by(Organizacao.nome).all()
+    from user_activity import active_counts
+    activity_counts = active_counts()
     platform_form = PlatformAdminCreationForm()
     summaries = []
     for organization in organizations:
         summaries.append({
             'organization': organization,
+            'active_now': activity_counts.get(organization.id, 0),
             'users': Usuario.query.filter_by(tenant_id=organization.id, status='ativo').count(),
             'protocols': Protocolo.query.filter_by(tenant_id=organization.id).filter(
                 Protocolo.excluido_em.is_(None)).count(),
@@ -2155,6 +2158,49 @@ def platform_organizations():
     platform_admins = Usuario.query.filter_by(is_platform_admin=True).order_by(Usuario.nome_completo).all()
     return render_template('plataforma.html', title='Administração da plataforma', summaries=summaries,
                            platform_form=platform_form, platform_admins=platform_admins)
+
+
+@app.get('/plataforma/clientes/<int:organization_id>/atividade')
+@platform_admin_required
+def platform_user_activity(organization_id):
+    from models import AtividadeUsuario
+    from user_activity import is_recent, utcnow
+    organization = db.get_or_404(Organizacao, organization_id)
+    now = utcnow()
+    pagination = AtividadeUsuario.query.add_entity(Usuario).join(
+        Usuario, Usuario.id == AtividadeUsuario.usuario_id).filter(
+        AtividadeUsuario.tenant_id == organization.id,
+        Usuario.tenant_id == organization.id,
+        Usuario.is_platform_admin.is_(False), Usuario.status == 'ativo',
+    ).order_by(AtividadeUsuario.ultimo_acesso_em.desc(), Usuario.id).paginate(
+        page=request.args.get('page', 1, type=int), per_page=25, error_out=False)
+    response = make_response(render_template('plataforma_atividade.html',
+        title='Atividade dos usuários', organization=organization,
+        pagination=pagination, is_recent=lambda value: is_recent(value, now), now=now))
+    response.headers['Cache-Control'] = 'no-store'
+    return response
+
+
+@app.after_request
+def register_recent_user_activity(response):
+    # Arquivos, consultas em segundo plano, falhas e acessos públicos não
+    # mantêm um usuário artificialmente ativo. Não registra IP nem conteúdo.
+    successful_login = (request.endpoint in {'login', 'tenant_login', 'tenant_login_host', 'portal_login'}
+                        and request.method == 'POST' and response.status_code == 302)
+    navigation = (request.method == 'GET' and response.status_code == 200
+                  and response.mimetype == 'text/html'
+                  and request.headers.get('X-Requested-With') != 'XMLHttpRequest')
+    if ((navigation or successful_login) and current_user.is_authenticated
+            and not current_user.is_platform_admin and current_user.tenant_id
+            and request.endpoint not in {'static', 'organization_logo'}):
+        from user_activity import record_activity
+        try:
+            record_activity(current_user.id, current_user.tenant_id)
+        except SQLAlchemyError:
+            # Telemetria não pode impedir o uso do sistema nem expor detalhes
+            # do banco. A transação independente já foi revertida.
+            app.logger.warning('Não foi possível registrar atividade recente.')
+    return response
 
 @app.post('/plataforma/administradores/novo')
 @platform_admin_required
