@@ -39,6 +39,8 @@ class HistoricalMetricsTests(TestCase):
         current=self.report('2026-10-23','2026-10-23')
         self.assertEqual(current['conclusoes'],0)
         self.assertEqual(current['sem_data_conclusao'],1)
+        stats=self.client.get('/protocolos/dashboard-stats?dataInicio=2026-10-23&dataFim=2026-10-23').json
+        self.assertEqual(stats['totalFinalizados'],0)
         prior=self.report('2021-01-01','2021-12-31')
         self.assertEqual(prior['conclusoes'],0);self.assertEqual(prior['conclusoes_estimadas'],1)
         self.assertIsNone(prior['media_dias']);self.assertEqual(prior['base_media'],0)
