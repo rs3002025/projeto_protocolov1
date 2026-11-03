@@ -975,12 +975,16 @@ async function fetchCep() {
 }
 
 function preencherCamposServidor(servidor) {
+    const matriculaInput = document.getElementById('matricula');
     const nomeInput = document.getElementById('nome');
     const lotacaoSelect = document.getElementById('lotacao');
     const cargoInput = document.getElementById('cargo');
     const unidadeInput = document.getElementById('unidade');
 
     if (servidor && servidor.nome) {
+        // A seleção por nome troca a identidade inteira e invalida consultas antigas.
+        matriculaRequestSerial++;
+        if (matriculaInput && servidor.matricula != null) matriculaInput.value = String(servidor.matricula);
         nomeInput.value = servidor.nome;
         cargoInput.value = servidor.cargo || '';
         unidadeInput.value = servidor.unidade_de_exercicio || '';

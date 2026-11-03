@@ -3,7 +3,8 @@ from unittest import TestCase
 import test_multitenancy as isolated
 import test_protocol_workflow as fixture
 from app import app, db, bcrypt
-from models import Usuario
+from models import Usuario, LoginTentativa, Organizacao
+from datetime import datetime, timedelta
 
 
 class LoginFeedbackTests(TestCase):
@@ -62,9 +63,66 @@ class LoginFeedbackTests(TestCase):
     def test_repeated_wrong_password_is_limited_without_silently_authenticating(self):
         path = self.account(True)
         client = app.test_client()
-        for _ in range(5):
+        for _ in range(4):
             self.assertEqual(client.post(path, data={'login':'qa_login','senha':'Incorreta-Ficticia'}).status_code, 200)
         response = client.post(path, data={'login':'qa_login','senha':'Incorreta-Ficticia'})
         self.assertEqual(response.status_code, 429)
-        self.assertIn('Aguarde alguns minutos', response.get_data(as_text=True))
+        self.assertIn('Acesso temporariamente bloqueado', response.get_data(as_text=True))
+        self.assertIn('30 minutos', response.get_data(as_text=True))
+        self.assertEqual(response.headers['Retry-After'],'1800')
         self.assertEqual(client.get('/protocolos').status_code, 302)
+
+    def test_remaining_attempts_and_block_are_explicit_on_the_fifth_failure(self):
+        for surface in ('tenant','platform','portal'):
+            with self.subTest(surface=surface):
+                path=self.account(surface=='platform') if surface!='portal' else '/portal/a/entrar'
+                if surface=='portal':
+                    with app.app_context():
+                        db.session.get(Organizacao,self.tenant).portal_servidor_remoto_enabled=True
+                        db.session.commit()
+                client=app.test_client()
+                for attempt in range(1,6):
+                    response=client.post(path,data={'login':'qa_login','senha':'incorreta'})
+                    body=response.get_data(as_text=True)
+                    if attempt<5:
+                        self.assertEqual(response.status_code,200)
+                        self.assertIn(f'{"Resta" if attempt==4 else "Restam"} {5-attempt} ',body)
+                        self.assertIn('bloqueio de 30 minutos nesta conexão',body)
+                    else:
+                        self.assertEqual(response.status_code,429)
+                        self.assertIn('Acesso temporariamente bloqueado nesta conexão',body)
+                        self.assertIn('Tente novamente em 30 minutos.',body)
+                        self.assertNotIn('Verifique os dados informados',body)
+                        self.assertEqual(response.headers['Retry-After'],'1800')
+
+    def test_shared_network_block_does_not_extend_and_another_network_can_log_in(self):
+        path=self.account();browser=app.test_client()
+        for _ in range(5):browser.post(path,data={'login':'qa_login','senha':'incorreta'})
+        with app.app_context():
+            attempt=LoginTentativa.query.one();until=attempt.bloqueado_ate
+        same_network=app.test_client()
+        response=same_network.post(path,data={'login':'qa_login','senha':'Ficticio-Teste-2026'})
+        self.assertEqual(response.status_code,429)
+        with app.app_context():
+            self.assertEqual(LoginTentativa.query.one().bloqueado_ate,until)
+            self.assertEqual(LoginTentativa.query.one().tentativas,5)
+        other_network=app.test_client()
+        response=other_network.post(path,data={'login':'qa_login','senha':'Ficticio-Teste-2026'},
+            environ_overrides={'REMOTE_ADDR':'203.0.113.20'})
+        self.assertEqual(response.status_code,302)
+        with app.app_context():
+            attempt=LoginTentativa.query.one();attempt.bloqueado_ate=datetime.utcnow()+timedelta(seconds=90)
+            db.session.commit()
+        response=same_network.post(path,data={'login':'qa_login','senha':'Ficticio-Teste-2026'})
+        self.assertIn('Tente novamente em 2 minutos.',response.get_data(as_text=True))
+        self.assertLessEqual(int(response.headers['Retry-After']),90)
+        with app.app_context():
+            attempt=LoginTentativa.query.one();attempt.bloqueado_ate=datetime.utcnow()-timedelta(seconds=1)
+            db.session.commit()
+        self.assertEqual(same_network.post(path,data={'login':'qa_login','senha':'Ficticio-Teste-2026'}).status_code,302)
+
+    def test_unknown_and_existing_logins_have_same_failure_message(self):
+        path=self.account()
+        for login in ('qa_login','inexistente'):
+            response=app.test_client().post(path,data={'login':login,'senha':'incorreta'})
+            self.assertIn('Restam 4 tentativas antes do bloqueio',response.get_data(as_text=True))
