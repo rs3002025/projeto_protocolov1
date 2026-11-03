@@ -142,6 +142,30 @@ def test_portal_status_only_hides_internal_history_and_blocks_internal_attachmen
     assert 'HISTORICO_INTERNO_SIGILOSO' in body and 'interno.txt' in body
 
 
+def test_on_demand_pdf_applies_portal_attachment_visibility_without_restricting_internal_pdf():
+    import sys
+    from types import SimpleNamespace
+    from unittest.mock import patch
+    with app.app_context():
+        db.session.get(Organizacao,1).portal_tramitacao_enabled=False
+        pid=Protocolo.query.filter_by(tenant_id=1).one().id
+        db.session.commit()
+    class CapturePdf:
+        def __init__(self,*args,**kwargs): self.html=kwargs['string']
+        def write_pdf(self): return self.html.encode('utf-8')
+    with patch.dict(sys.modules,{'weasyprint':SimpleNamespace(HTML=CapturePdf)}):
+        c=portal()
+        response=c.get(f'/protocolo/{pid}/pdf')
+        assert response.status_code==200
+        assert b'proprio.txt' in response.data and b'interno.txt' not in response.data
+        response=internal().get(f'/protocolo/{pid}/pdf')
+        assert response.status_code==200 and b'interno.txt' in response.data
+        with app.app_context():
+            db.session.get(Organizacao,1).portal_tramitacao_enabled=True
+            db.session.commit()
+        assert b'interno.txt' in c.get(f'/protocolo/{pid}/pdf').data
+
+
 def test_csrf_remains_required_for_profile_and_visibility():
     c=internal()
     app.config['WTF_CSRF_ENABLED']=True

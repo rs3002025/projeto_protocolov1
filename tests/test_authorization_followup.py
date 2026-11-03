@@ -13,6 +13,35 @@ setup_function = auth.setup_function
 teardown_function = auth.teardown_function
 
 
+def test_pending_authorization_filter_matches_list_report_export_and_stored_status_is_unchanged():
+    from openpyxl import load_workbook
+    auth.solicit()
+    c=auth.client()
+    with app.app_context():
+        p=Protocolo.query.filter_by(tenant_id=1).one()
+        number=p.numero
+        assert p.status=='RECEBIDO'
+    params={'numero':number,'status':'AGUARDANDO AUTORIZAÇÃO'}
+    for path in ('/protocolos','/relatorios'):
+        response=c.get(path,query_string=params)
+        assert response.status_code==200
+        body=response.get_data(as_text=True)
+        assert number in body and 'Nenhum protocolo encontrado.' not in body
+        assert '<option' in body and 'AGUARDANDO AUTORIZAÇÃO' in body
+    response=c.get('/protocolos/backup/excel',query_string=params)
+    assert response.status_code==200
+    rows=list(load_workbook(io.BytesIO(response.data),read_only=True).active.values)
+    assert len(rows)==2 and number in rows[1]
+    response=c.get('/relatorios',query_string={'numero':number,'status':'RECEBIDO'})
+    assert 'Nenhum protocolo encontrado.' in response.get_data(as_text=True)
+    with app.app_context():
+        assert Protocolo.query.filter_by(tenant_id=1).one().status=='RECEBIDO'
+        db.session.get(Organizacao,1).autorizacao_protocolos_enabled=False
+        db.session.commit()
+    body=c.get('/relatorios').get_data(as_text=True)
+    assert 'value="AGUARDANDO AUTORIZAÇÃO"' not in body
+
+
 def test_default_password_cannot_be_overridden_and_reset_revokes_existing_session():
     admin = auth.client()
     data = dict(nome_completo='Pessoa Nova', cargo='Secretário de Administração', login='novo',
