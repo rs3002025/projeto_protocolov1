@@ -181,7 +181,7 @@
             <details class="mb-3"><summary>Adicionar documento</summary>
             <form action="{{ url_for('adicionar_anexo', protocolo_id=protocolo.id) }}" method="POST" enctype="multipart/form-data">
                 {{ anexo_form.hidden_tag() }}
-                <p class="form-text">Até 5 MB por arquivo.</p>
+                <p class="form-text">Até 20 MB por arquivo.</p>
                 <label for="anexo" class="form-label">Arquivo</label>
                 <div class="input-group">
                     {{ anexo_form.anexo(class="form-control") }}
@@ -212,7 +212,7 @@
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="documento_id" value="{{ anexo.id }}">
                             <label class="form-label" for="substituir-arquivo-{{ anexo.id }}">Novo arquivo para {{ anexo.file_name }}</label>
                             <input class="form-control mb-2" type="file" id="substituir-arquivo-{{ anexo.id }}" name="anexo" required>
-                            <p class="form-text">Até 5 MB. A versão anterior será preservada no histórico.</p>
+                            <p class="form-text">Até 20 MB. A versão anterior será preservada no histórico.</p>
                             <button class="btn btn-sm btn-primary" type="submit">Enviar substituição</button>
                         </form></details>
                         {% endif %}

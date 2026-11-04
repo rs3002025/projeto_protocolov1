@@ -544,9 +544,9 @@ def validated_uploads(files):
         if not uploaded or not uploaded.filename:
             continue
         filename = secure_filename(uploaded.filename)
-        data = uploaded.read(5 * 1024 * 1024 + 1)
-        if not filename or not data or len(data) > 5 * 1024 * 1024:
-            raise ValueError('Cada anexo deve ter nome válido, conteúdo e no máximo 5 MB.')
+        data = uploaded.read(20 * 1024 * 1024 + 1)
+        if not filename or not data or len(data) > 20 * 1024 * 1024:
+            raise ValueError('Cada anexo deve ter nome válido, conteúdo e no máximo 20 MB.')
         total_size += len(data)
         if total_size > 30 * 1024 * 1024:
             raise ValueError('O conjunto de anexos não pode ultrapassar 30 MB por envio.')
@@ -3142,8 +3142,8 @@ def retificar_protocolo(protocolo_id):
 @app.errorhandler(413)
 def arquivo_grande_demais(_error):
     if request.is_json:
-        return jsonify({'erro': 'O envio excede 30 MB no total. Cada anexo pode ter até 5 MB.'}), 413
-    flash('O envio excede 30 MB no total. Cada anexo pode ter até 5 MB.', 'danger')
+        return jsonify({'erro': 'O envio excede 30 MB no total. Cada anexo pode ter até 20 MB.'}), 413
+    flash('O envio excede 30 MB no total. Cada anexo pode ter até 20 MB.', 'danger')
     return redirect(request.referrer or url_for('home'))
 
 def _persist_unsigned_document(protocolo):
@@ -3483,9 +3483,9 @@ def adicionar_anexo(protocolo_id):
     if form.validate_on_submit():
         file = form.anexo.data
         filename = secure_filename(file.filename)
-        file_data = file.read(5 * 1024 * 1024 + 1)
-        if not filename or not file_data or len(file_data) > 5 * 1024 * 1024:
-            flash('Envie um arquivo não vazio, com nome válido e até 5 MB.', 'danger')
+        file_data = file.read(20 * 1024 * 1024 + 1)
+        if not filename or not file_data or len(file_data) > 20 * 1024 * 1024:
+            flash('Envie um arquivo não vazio, com nome válido e até 20 MB.', 'danger')
             return redirect(url_for('detalhe_protocolo', protocolo_id=protocolo.id))
         mime_type = verified_upload_mime(filename, file_data)
         if not mime_type:
