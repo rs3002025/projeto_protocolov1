@@ -133,7 +133,8 @@ class ProductivityTests(TestCase):
         self.login('admin'); self.send('alice')
         statements=[]
         def capture(conn,cursor,statement,parameters,context,executemany):
-            if context.compiled: statements.append(str(context.compiled.statement.compile(dialect=postgresql.dialect())))
+            if context.compiled and context.compiled.statement.is_select:
+                statements.append(str(context.compiled.statement.compile(dialect=postgresql.dialect())))
         with app.app_context(): engine=db.engine; event.listen(engine,'before_cursor_execute',capture)
         try: self.context('/relatorios/gestao','relatorio_gestao.html')
         finally: event.remove(engine,'before_cursor_execute',capture)

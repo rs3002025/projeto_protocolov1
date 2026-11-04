@@ -15,7 +15,12 @@
         <h2 class="h5">{{ item.organization.nome }}</h2>
         <p class="text-muted mb-2">Identificador: {{ item.organization.slug }}</p>
         <p class="mb-2">Endereço: {% if tenant_base_domain %}<a href="{{ tenant_entry_url('tenant_login', item.organization, external=True) }}">{{ item.organization.subdominio or item.organization.slug }}.{{ tenant_base_domain }}</a>{% else %}Aguardando configuração dos subdomínios no Railway{% endif %}</p>
-        <p>{{ item.users }} usuário(s) ativo(s) · {{ item.protocols }} protocolo(s)</p>
+        <p>{{ item.users }} cadastro(s) ativo(s) · {{ item.protocols }} protocolo(s)</p>
+        <div class="mb-3">
+          <span class="badge {{ 'bg-success' if item.active_now else 'bg-secondary' }}">{{ item.active_now }} com atividade recente</span>
+          <a class="ms-2" href="{{ url_for('platform_user_activity', organization_id=item.organization.id) }}">Ver atividade dos usuários</a>
+          <small class="d-block text-muted mt-1">Atividade nos últimos 5 minutos.</small>
+        </div>
         <div class="mb-3">
           <span class="badge {{ 'bg-success' if item.organization.emissao_eletronica_protocolista_enabled else 'bg-secondary' }}">Emissão eletrônica {{ 'ativa' if item.organization.emissao_eletronica_protocolista_enabled else 'inativa' }}</span>
           <span class="badge {{ 'bg-success' if item.organization.portal_servidor_remoto_enabled else 'bg-secondary' }}">Portal remoto {{ 'ativo' if item.organization.portal_servidor_remoto_enabled else 'inativo' }}</span>

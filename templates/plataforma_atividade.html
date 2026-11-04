@@ -1,0 +1,28 @@
+{% extends "layout.html" %}
+{% block content %}
+<a class="btn btn-outline-secondary mb-3" href="{{ url_for('platform_organizations') }}">← Administração de clientes</a>
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+  <div><h1>Atividade dos usuários</h1><h2 class="h5">{{ organization.nome }}</h2></div>
+  <a class="btn btn-outline-primary" href="{{ url_for('platform_user_activity', organization_id=organization.id) }}">Atualizar</a>
+</div>
+<p class="text-muted">Atividade recente indica uso nos últimos 5 minutos. Uma sessão aberta sem navegação não indica uso ativo. Atualizado em {{ now|brasilia }}.</p>
+<div class="card"><div class="table-responsive">
+<table class="table mb-0"><thead><tr><th>Usuário</th><th>Perfil</th><th>Secretaria/setor</th><th>Atividade</th><th>Último acesso</th></tr></thead><tbody>
+{% for activity, user in pagination.items %}
+<tr>
+  <td>{{ user.nome_completo or user.nome }} <small class="d-block text-muted">{{ user.login }}</small></td>
+  <td>{{ {'admin':'Administrador', 'protocolista':'Protocolista', 'tramitador':'Tramitação e respostas', 'consulta':'Somente consulta', 'requerente':'Portal do Servidor'}.get(user.tipo, user.tipo) }}</td>
+  <td>{{ user.lotacao.nome if user.lotacao else 'Não informado' }}</td>
+  <td><span class="badge {{ 'bg-success' if is_recent(activity.ultimo_acesso_em) else 'bg-secondary' }}">{{ 'Atividade recente' if is_recent(activity.ultimo_acesso_em) else 'Sem atividade recente' }}</span></td>
+  <td>{{ activity.ultimo_acesso_em|brasilia }}</td>
+</tr>
+{% else %}<tr><td colspan="5">Nenhuma atividade registrada.</td></tr>{% endfor %}
+</tbody></table></div></div>
+<nav class="d-flex justify-content-between align-items-center mt-3" aria-label="Páginas de atividade">
+  <span>{{ pagination.total }} usuário(s) com atividade registrada</span>
+  <div>
+    {% if pagination.has_prev %}<a class="btn btn-outline-secondary" href="{{ url_for('platform_user_activity', organization_id=organization.id, page=pagination.prev_num) }}">Anterior</a>{% endif %}
+    {% if pagination.has_next %}<a class="btn btn-outline-secondary" href="{{ url_for('platform_user_activity', organization_id=organization.id, page=pagination.next_num) }}">Próxima</a>{% endif %}
+  </div>
+</nav>
+{% endblock %}
