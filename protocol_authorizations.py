@@ -353,10 +353,10 @@ def register_authorization_routes(app):
         if not file:
             abort(400, description='Selecione um documento.')
         filename = secure_filename(file.filename or '')
-        data = file.read(5 * 1024 * 1024 + 1)
-        mime = verified_upload_mime(filename, data) if filename and data and len(data) <= 5 * 1024 * 1024 else None
+        data = file.read(20 * 1024 * 1024 + 1)
+        mime = verified_upload_mime(filename, data) if filename and data and len(data) <= 20 * 1024 * 1024 else None
         if not mime:
-            abort(400, description='Envie um arquivo de tipo permitido, não vazio e de até 5 MB.')
+            abort(400, description='Envie um arquivo de tipo permitido, não vazio e de até 20 MB.')
         key = f'autorizacao-anexo-{row.id}-'+secrets.token_urlsafe(16)
         try:
             path, backend, digest, stored = store_attachment_bytes(data, current_tenant_id(), protocol.id, key, 1, filename, mime)

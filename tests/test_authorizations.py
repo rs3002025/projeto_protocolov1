@@ -136,6 +136,17 @@ def test_only_assigned_authorizer_can_decide_upload_and_dispatch():
         assert verify_audit_chain(1)[0]
 
 
+def test_authorizer_attachment_accepts_20_mb_and_rejects_one_extra_byte():
+    rid=solicit(); pid,_=ids(); c=client('autoriza'); size=20*1024*1024
+    assert c.post(f'/autorizacoes/{rid}/anexo', data={
+        'anexo':(io.BytesIO(b'x'*size),'limite.txt')}).status_code==302
+    assert c.post(f'/autorizacoes/{rid}/anexo', data={
+        'anexo':(io.BytesIO(b'x'*(size+1)),'grande.txt')}).status_code==400
+    with app.app_context():
+        assert Anexo.query.filter_by(protocolo_id=pid,file_name='limite.txt').one().file_size==size
+        assert Anexo.query.filter_by(protocolo_id=pid,file_name='grande.txt').count()==0
+
+
 def test_read_only_role_with_function_can_dispatch_only_on_assigned_analysis():
     with app.app_context():
         u=Usuario.query.filter_by(login='autoriza').one();u.tipo='consulta';u.pode_autorizar=True;db.session.commit()
