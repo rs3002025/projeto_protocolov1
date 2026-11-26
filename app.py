@@ -3197,10 +3197,9 @@ def listar_protocolos():
     page = request.args.get('page', 1, type=int)
     query = apply_protocol_filters(accessible_protocols_query(), request.args)
 
-    # Ordena por ano (descendente) e depois pelo número do protocolo (descendente)
+    from protocol_number_ordering import protocol_number_ordering
     protocolos = query.order_by(
-        func.substr(Protocolo.numero, 6, 4).desc(),
-        func.substr(Protocolo.numero, 1, 4).desc()
+        *protocol_number_ordering(Protocolo, db.engine.dialect.name)
     ).paginate(page=page, per_page=10)
 
     return render_template('protocolos.html', protocolos=protocolos, title="Todos os Protocolos",
